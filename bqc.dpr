@@ -10,8 +10,11 @@ uses
   Bluetooth.Interfaces in 'src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in 'src\Application\Bluetooth.ConnectionStrategies.pas',
   Bluetooth.Service in 'src\Application\Bluetooth.Service.pas',
+  Bluetooth.RadioControl in 'src\Infrastructure\Bluetooth.RadioControl.pas',
+  System.Permissions in 'src\Infrastructure\System.Permissions.pas',
   UI.Theme in 'src\Presentation\UI.Theme.pas',
   UI.DeviceList in 'src\Presentation\UI.DeviceList.pas';
+
 
 {$R *.res}
 

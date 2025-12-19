@@ -41,8 +41,10 @@ type
     FBluetoothService: IBluetoothService;
     FDevices: TBluetoothDeviceInfoArray;
     FDeviceList: TDeviceListBox;
+    FUpdatingToggle: Boolean;
 
     procedure CreateDeviceList;
+    procedure SetToggleState(AState: TToggleSwitchState);
     procedure ApplyTheme;
     procedure LoadDevices;
     procedure UpdateStatus(const AMessage: string);
@@ -67,14 +69,19 @@ implementation
 uses
   Vcl.Themes,
   ShellAPI,
-  Bluetooth.Service;
+  Bluetooth.Service,
+  Bluetooth.RadioControl;
 
 {$R *.dfm}
 
 { TFormMain }
 
 procedure TFormMain.FormCreate(Sender: TObject);
+var
+  RadioEnabled: Boolean;
 begin
+  FUpdatingToggle := False;
+
   // Subscribe to theme changes
   Theme.OnThemeChanged := HandleThemeChanged;
 
@@ -90,16 +97,27 @@ begin
   FBluetoothService.OnDeviceListChanged := HandleDeviceListChanged;
   FBluetoothService.OnError := HandleError;
 
-  // Check adapter and load devices
-  if FBluetoothService.IsAdapterAvailable then
+  // Check Bluetooth radio state using WinRT API
+  if GetBluetoothRadioState(RadioEnabled) then
   begin
-    BluetoothToggle.State := tssOn;
-    UpdateStatus('Loading devices...');
-    LoadDevices;
+    // Adapter exists, set toggle based on current state
+    if RadioEnabled then
+    begin
+      SetToggleState(tssOn);
+      UpdateStatus('Loading devices...');
+      LoadDevices;
+    end
+    else
+    begin
+      SetToggleState(tssOff);
+      UpdateStatus('Bluetooth is off');
+      FDeviceList.Clear;
+    end;
   end
   else
   begin
-    BluetoothToggle.State := tssOff;
+    // No Bluetooth adapter found
+    SetToggleState(tssOff);
     BluetoothToggle.Enabled := False;
     UpdateStatus('No Bluetooth adapter found');
   end;
@@ -130,6 +148,16 @@ begin
   FDeviceList.Align := alClient;
   FDeviceList.OnDeviceClick := HandleDeviceClick;
   FDeviceList.TabOrder := 0;
+end;
+
+procedure TFormMain.SetToggleState(AState: TToggleSwitchState);
+begin
+  FUpdatingToggle := True;
+  try
+    BluetoothToggle.State := AState;
+  finally
+    FUpdatingToggle := False;
+  end;
 end;
 
 procedure TFormMain.ApplyTheme;
@@ -270,13 +298,76 @@ begin
 end;
 
 procedure TFormMain.HandleBluetoothToggle(Sender: TObject);
+var
+  EnableBluetooth: Boolean;
 begin
-  // Note: Actually enabling/disabling Bluetooth radio requires elevated privileges
-  // and is complex. For now, just refresh the device list.
-  if BluetoothToggle.State = tssOn then
-    LoadDevices
+  // Prevent re-entrancy
+  if FUpdatingToggle then
+    Exit;
+
+  EnableBluetooth := (BluetoothToggle.State = tssOn);
+
+  if EnableBluetooth then
+    UpdateStatus('Enabling Bluetooth...')
   else
-    FDeviceList.Clear;
+    UpdateStatus('Disabling Bluetooth...');
+
+  // Perform radio control in background thread
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      LResult: TRadioControlResult;
+      LEnableBT: Boolean;
+    begin
+      LEnableBT := EnableBluetooth;
+      LResult := SetBluetoothRadioState(LEnableBT);
+
+      TThread.Queue(nil,
+        procedure
+        begin
+          case LResult of
+            rcSuccess:
+              begin
+                if LEnableBT then
+                begin
+                  UpdateStatus('Bluetooth enabled');
+                  LoadDevices;
+                end
+                else
+                begin
+                  UpdateStatus('Bluetooth disabled');
+                  FDeviceList.Clear;
+                end;
+              end;
+            rcAccessDenied:
+              begin
+                UpdateStatus('Access denied - check Windows settings');
+                // Revert toggle state
+                if LEnableBT then
+                  SetToggleState(tssOff)
+                else
+                  SetToggleState(tssOn);
+              end;
+            rcDeviceNotFound:
+              begin
+                UpdateStatus('Bluetooth adapter not found');
+                SetToggleState(tssOff);
+                BluetoothToggle.Enabled := False;
+              end;
+          else
+            begin
+              UpdateStatus('Failed to change Bluetooth state');
+              // Revert toggle state
+              if LEnableBT then
+                SetToggleState(tssOff)
+              else
+                SetToggleState(tssOn);
+            end;
+          end;
+        end
+      );
+    end
+  ).Start;
 end;
 
 procedure TFormMain.HandleRefreshClick(Sender: TObject);
