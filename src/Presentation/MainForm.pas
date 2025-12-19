@@ -17,6 +17,7 @@ uses
   Vcl.WinXCtrls,
   Bluetooth.Types,
   Bluetooth.Interfaces,
+  Bluetooth.RadioControl,
   UI.Theme,
   UI.DeviceList;
 
@@ -41,6 +42,7 @@ type
     FBluetoothService: IBluetoothService;
     FDevices: TBluetoothDeviceInfoArray;
     FDeviceList: TDeviceListBox;
+    FRadioWatcher: TBluetoothRadioWatcher;
     FUpdatingToggle: Boolean;
 
     procedure CreateDeviceList;
@@ -56,6 +58,7 @@ type
     procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
     procedure HandleThemeChanged(Sender: TObject);
     procedure HandleRefreshClick(Sender: TObject);
+    procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
 
   public
     { Public declarations }
@@ -69,8 +72,7 @@ implementation
 uses
   Vcl.Themes,
   ShellAPI,
-  Bluetooth.Service,
-  Bluetooth.RadioControl;
+  Bluetooth.Service;
 
 {$R *.dfm}
 
@@ -81,6 +83,7 @@ var
   RadioEnabled: Boolean;
 begin
   FUpdatingToggle := False;
+  FRadioWatcher := nil;
 
   // Subscribe to theme changes
   Theme.OnThemeChanged := HandleThemeChanged;
@@ -113,6 +116,11 @@ begin
       UpdateStatus('Bluetooth is off');
       FDeviceList.Clear;
     end;
+
+    // Start watching for radio state changes (from Windows Settings etc.)
+    FRadioWatcher := TBluetoothRadioWatcher.Create;
+    FRadioWatcher.OnStateChanged := HandleRadioStateChanged;
+    FRadioWatcher.Start;
   end
   else
   begin
@@ -126,6 +134,15 @@ end;
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
   Theme.OnThemeChanged := nil;
+
+  // Stop and free radio watcher
+  if FRadioWatcher <> nil then
+  begin
+    FRadioWatcher.Stop;
+    FRadioWatcher.Free;
+    FRadioWatcher := nil;
+  end;
+
   FBluetoothService := nil;
   FDevices := nil;
 end;
@@ -374,6 +391,23 @@ procedure TFormMain.HandleRefreshClick(Sender: TObject);
 begin
   UpdateStatus('Refreshing...');
   LoadDevices;
+end;
+
+procedure TFormMain.HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
+begin
+  // Update toggle to reflect new state (changed from Windows Settings or elsewhere)
+  if AEnabled then
+  begin
+    SetToggleState(tssOn);
+    UpdateStatus('Bluetooth enabled');
+    LoadDevices;
+  end
+  else
+  begin
+    SetToggleState(tssOff);
+    UpdateStatus('Bluetooth disabled');
+    FDeviceList.Clear;
+  end;
 end;
 
 end.

@@ -15,7 +15,9 @@ unit Bluetooth.RadioControl;
 interface
 
 uses
-  Winapi.Windows;
+  Winapi.Windows,
+  Winapi.Messages,
+  System.Classes;
 
 type
   /// <summary>
@@ -36,27 +38,56 @@ type
     ErrorCode: DWORD;
   end;
 
+  /// <summary>
+  /// Event type for radio state changes.
+  /// </summary>
+  TRadioStateChangedEvent = procedure(Sender: TObject; AEnabled: Boolean) of object;
+
+  /// <summary>
+  /// Watches for Bluetooth radio state changes using polling.
+  /// </summary>
+  TBluetoothRadioWatcher = class
+  private
+    FOnStateChanged: TRadioStateChangedEvent;
+    FHandle: HWND;
+    FTimerID: UINT_PTR;
+    FLastState: Boolean;
+    FLastStateKnown: Boolean;
+    procedure WndProc(var Msg: TMessage);
+    procedure CheckRadioState;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    /// <summary>
+    /// Starts watching for Bluetooth radio state changes.
+    /// </summary>
+    function Start: Boolean;
+
+    /// <summary>
+    /// Stops watching for state changes.
+    /// </summary>
+    procedure Stop;
+
+    /// <summary>
+    /// Event fired when Bluetooth radio state changes.
+    /// </summary>
+    property OnStateChanged: TRadioStateChangedEvent read FOnStateChanged write FOnStateChanged;
+  end;
+
 /// <summary>
 /// Enables or disables the Bluetooth radio adapter using WinRT API.
-/// Does not require administrator privileges.
 /// </summary>
-/// <param name="AEnable">True to enable, False to disable.</param>
-/// <returns>Result indicating success or type of failure.</returns>
 function SetBluetoothRadioState(AEnable: Boolean): TRadioControlResult;
 
 /// <summary>
 /// Enables or disables the Bluetooth radio adapter with extended result.
-/// Uses WinRT API. Does not require administrator privileges.
 /// </summary>
-/// <param name="AEnable">True to enable, False to disable.</param>
-/// <returns>Extended result with error code.</returns>
 function SetBluetoothRadioStateEx(AEnable: Boolean): TRadioControlResultEx;
 
 /// <summary>
 /// Gets the current enabled state of the Bluetooth radio.
 /// </summary>
-/// <param name="AEnabled">Output: True if enabled, False if disabled.</param>
-/// <returns>True if state was retrieved successfully.</returns>
 function GetBluetoothRadioState(out AEnabled: Boolean): Boolean;
 
 implementation
@@ -66,50 +97,29 @@ uses
   Winapi.ActiveX;
 
 const
-  // WinRT initialization types
-  RO_INIT_SINGLETHREADED = 0;
-  RO_INIT_MULTITHREADED  = 1;
+  TIMER_ID_RADIO_POLL = 1;
+  RADIO_POLL_INTERVAL_MS = 500;
+  RO_INIT_MULTITHREADED = 1;
 
-  // RadioState enum values
   RadioState_Unknown  = 0;
   RadioState_On       = 1;
   RadioState_Off      = 2;
   RadioState_Disabled = 3;
 
-  // RadioKind enum values
-  RadioKind_Other           = 0;
-  RadioKind_WiFi            = 1;
-  RadioKind_MobileBroadband = 2;
-  RadioKind_Bluetooth       = 3;
-  RadioKind_FM              = 4;
+  RadioKind_Bluetooth = 3;
 
-  // RadioAccessStatus enum values
-  RadioAccessStatus_Unspecified   = 0;
   RadioAccessStatus_Allowed       = 1;
   RadioAccessStatus_DeniedByUser  = 2;
   RadioAccessStatus_DeniedBySystem = 3;
 
-  // AsyncStatus enum values
   AsyncStatus_Started   = 0;
   AsyncStatus_Completed = 1;
-  AsyncStatus_Canceled  = 2;
-  AsyncStatus_Error     = 3;
 
-  // Runtime class name
   RuntimeClass_Radio: string = 'Windows.Devices.Radios.Radio';
 
 type
-  // WinRT string handle
   HSTRING = type THandle;
-  PHSTRING = ^HSTRING;
 
-  // Forward declarations
-  IInspectable = interface;
-  IRadio = interface;
-  IRadioStatics = interface;
-  IAsyncInfo = interface;
-
-  // IInspectable - base interface for WinRT objects
   IInspectable = interface(IUnknown)
     ['{AF86E2E0-B12D-4C6A-9C5A-D7AA65101E90}']
     function GetIids(out iidCount: Cardinal; out iids: PGUID): HRESULT; stdcall;
@@ -117,7 +127,6 @@ type
     function GetTrustLevel(out trustLevel: Integer): HRESULT; stdcall;
   end;
 
-  // IAsyncInfo - base interface for async operations
   IAsyncInfo = interface(IInspectable)
     ['{00000036-0000-0000-C000-000000000046}']
     function get_Id(out id: Cardinal): HRESULT; stdcall;
@@ -127,11 +136,9 @@ type
     function Close: HRESULT; stdcall;
   end;
 
-  // Generic async operation completed handler (placeholder for vtable)
   IAsyncOperationCompletedHandler = interface(IUnknown)
   end;
 
-  // IAsyncOperation<IVectorView<Radio>>
   IAsyncOperationRadioVector = interface(IInspectable)
     ['{EAC62C40-8DBC-5854-8BA0-B7B9940E7389}']
     function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
@@ -139,7 +146,6 @@ type
     function GetResults(out results: IInspectable): HRESULT; stdcall;
   end;
 
-  // IAsyncOperation<RadioAccessStatus>
   IAsyncOperationRadioAccessStatus = interface(IInspectable)
     ['{21FB30EF-072F-502C-9898-D0C3B2CD9AC5}']
     function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
@@ -147,7 +153,8 @@ type
     function GetResults(out results: Integer): HRESULT; stdcall;
   end;
 
-  // IVectorView<Radio>
+  IRadio = interface;
+
   IVectorViewRadio = interface(IInspectable)
     ['{65066C36-090B-5466-B8E5-E7565DC34175}']
     function GetAt(index: Cardinal; out item: IRadio): HRESULT; stdcall;
@@ -157,7 +164,6 @@ type
       out actual: Cardinal): HRESULT; stdcall;
   end;
 
-  // IRadio interface
   IRadio = interface(IInspectable)
     ['{252118DF-B33E-416A-875F-1CF38AE2D83E}']
     function SetStateAsync(value: Integer; out operation: IAsyncOperationRadioAccessStatus): HRESULT; stdcall;
@@ -168,7 +174,6 @@ type
     function get_Kind(out value: Integer): HRESULT; stdcall;
   end;
 
-  // IRadioStatics - factory interface
   IRadioStatics = interface(IInspectable)
     ['{5FB6A12E-67CB-46AE-AAE9-65919F86EFF4}']
     function GetRadiosAsync(out operation: IAsyncOperationRadioVector): HRESULT; stdcall;
@@ -177,32 +182,24 @@ type
     function RequestAccessAsync(out operation: IAsyncOperationRadioAccessStatus): HRESULT; stdcall;
   end;
 
-// WinRT String functions
 function WindowsCreateString(sourceString: PWideChar; length: Cardinal;
-  out str: HSTRING): HRESULT; stdcall;
-  external 'combase.dll' name 'WindowsCreateString';
+  out str: HSTRING): HRESULT; stdcall; external 'combase.dll';
 
 function WindowsDeleteString(str: HSTRING): HRESULT; stdcall;
-  external 'combase.dll' name 'WindowsDeleteString';
+  external 'combase.dll';
 
 function WindowsGetStringRawBuffer(str: HSTRING; out length: Cardinal): PWideChar; stdcall;
-  external 'combase.dll' name 'WindowsGetStringRawBuffer';
+  external 'combase.dll';
 
-// WinRT initialization
 function RoInitialize(initType: Cardinal): HRESULT; stdcall;
-  external 'combase.dll' name 'RoInitialize';
+  external 'combase.dll';
 
 procedure RoUninitialize; stdcall;
-  external 'combase.dll' name 'RoUninitialize';
+  external 'combase.dll';
 
-// WinRT activation
 function RoGetActivationFactory(activatableClassId: HSTRING; const iid: TGUID;
-  out factory: IInspectable): HRESULT; stdcall;
-  external 'combase.dll' name 'RoGetActivationFactory';
+  out factory: IInspectable): HRESULT; stdcall; external 'combase.dll';
 
-/// <summary>
-/// Creates an HSTRING from a Delphi string.
-/// </summary>
 function CreateHString(const AStr: string): HSTRING;
 begin
   Result := 0;
@@ -210,35 +207,12 @@ begin
     WindowsCreateString(PWideChar(AStr), Length(AStr), Result);
 end;
 
-/// <summary>
-/// Frees an HSTRING.
-/// </summary>
 procedure FreeHString(AStr: HSTRING);
 begin
   if AStr <> 0 then
     WindowsDeleteString(AStr);
 end;
 
-/// <summary>
-/// Converts an HSTRING to a Delphi string.
-/// </summary>
-function HStringToString(AStr: HSTRING): string;
-var
-  Len: Cardinal;
-  P: PWideChar;
-begin
-  if AStr = 0 then
-    Exit('');
-  P := WindowsGetStringRawBuffer(AStr, Len);
-  if (P <> nil) and (Len > 0) then
-    SetString(Result, P, Len)
-  else
-    Result := '';
-end;
-
-/// <summary>
-/// Waits for an async operation to complete.
-/// </summary>
 function WaitForAsyncOperation(const AAsyncInfo: IAsyncInfo; ATimeoutMs: Cardinal = 10000): Boolean;
 var
   Status: Integer;
@@ -263,9 +237,6 @@ begin
   until (GetTickCount - StartTime) > ATimeoutMs;
 end;
 
-/// <summary>
-/// Gets the Bluetooth radio using WinRT API.
-/// </summary>
 function GetBluetoothRadio(out ARadio: IRadio): Boolean;
 var
   HR: HRESULT;
@@ -283,56 +254,46 @@ begin
   Result := False;
   ARadio := nil;
 
-  // Initialize WinRT
   HR := RoInitialize(RO_INIT_MULTITHREADED);
   if Failed(HR) and (HR <> RPC_E_CHANGED_MODE) then
     Exit;
 
   try
-    // Create class name HSTRING
     ClassName := CreateHString(RuntimeClass_Radio);
     if ClassName = 0 then
       Exit;
 
     try
-      // Get activation factory
       HR := RoGetActivationFactory(ClassName, IRadioStatics, Factory);
       if Failed(HR) or (Factory = nil) then
         Exit;
 
-      // Query for IRadioStatics
       HR := Factory.QueryInterface(IRadioStatics, RadioStatics);
       if Failed(HR) or (RadioStatics = nil) then
         Exit;
 
-      // Get radios async
       HR := RadioStatics.GetRadiosAsync(AsyncOp);
       if Failed(HR) or (AsyncOp = nil) then
         Exit;
 
-      // Wait for completion
       if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
         Exit;
 
       if not WaitForAsyncOperation(AsyncInfo) then
         Exit;
 
-      // Get results
       HR := AsyncOp.GetResults(RadioVector);
       if Failed(HR) or (RadioVector = nil) then
         Exit;
 
-      // Query for IVectorView<Radio>
       HR := RadioVector.QueryInterface(IVectorViewRadio, VectorView);
       if Failed(HR) or (VectorView = nil) then
         Exit;
 
-      // Get count
       HR := VectorView.get_Size(Count);
       if Failed(HR) or (Count = 0) then
         Exit;
 
-      // Find Bluetooth radio
       for I := 0 to Count - 1 do
       begin
         HR := VectorView.GetAt(I, Radio);
@@ -352,7 +313,7 @@ begin
       FreeHString(ClassName);
     end;
   finally
-    // Note: Don't uninitialize here as caller may need the radio reference
+    // Don't uninitialize here as caller may need the radio reference
   end;
 end;
 
@@ -368,70 +329,60 @@ begin
   Result.Result := rcDeviceNotFound;
   Result.ErrorCode := ERROR_SUCCESS;
 
-  // Get Bluetooth radio
   if not GetBluetoothRadio(Radio) then
   begin
     Result.Result := rcDeviceNotFound;
     Exit;
   end;
 
-  try
-    // Determine desired state
-    if AEnable then
-      DesiredState := RadioState_On
-    else
-      DesiredState := RadioState_Off;
+  if AEnable then
+    DesiredState := RadioState_On
+  else
+    DesiredState := RadioState_Off;
 
-    // Set state async
-    HR := Radio.SetStateAsync(DesiredState, AsyncOp);
-    if Failed(HR) or (AsyncOp = nil) then
-    begin
-      Result.Result := rcError;
-      Result.ErrorCode := HR;
-      Exit;
-    end;
-
-    // Wait for completion
-    if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
-    begin
-      Result.Result := rcError;
-      Exit;
-    end;
-
-    if not WaitForAsyncOperation(AsyncInfo) then
-    begin
-      Result.Result := rcError;
-      Result.ErrorCode := ERROR_TIMEOUT;
-      Exit;
-    end;
-
-    // Get result
-    HR := AsyncOp.GetResults(AccessStatus);
-    if Failed(HR) then
-    begin
-      Result.Result := rcError;
-      Result.ErrorCode := HR;
-      Exit;
-    end;
-
-    // Interpret access status
-    case AccessStatus of
-      RadioAccessStatus_Allowed:
-        Result.Result := rcSuccess;
-      RadioAccessStatus_DeniedByUser,
-      RadioAccessStatus_DeniedBySystem:
-        begin
-          Result.Result := rcAccessDenied;
-          Result.ErrorCode := AccessStatus;
-        end;
-    else
-      Result.Result := rcError;
-      Result.ErrorCode := AccessStatus;
-    end;
-
-  finally
-    RoUninitialize;
+  HR := Radio.SetStateAsync(DesiredState, AsyncOp);
+  if Failed(HR) or (AsyncOp = nil) then
+  begin
+    Result.Result := rcError;
+    Result.ErrorCode := HR;
+    Exit;
   end;
+
+  if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
+  begin
+    Result.Result := rcError;
+    Exit;
+  end;
+
+  if not WaitForAsyncOperation(AsyncInfo) then
+  begin
+    Result.Result := rcError;
+    Result.ErrorCode := ERROR_TIMEOUT;
+    Exit;
+  end;
+
+  HR := AsyncOp.GetResults(AccessStatus);
+  if Failed(HR) then
+  begin
+    Result.Result := rcError;
+    Result.ErrorCode := HR;
+    Exit;
+  end;
+
+  case AccessStatus of
+    RadioAccessStatus_Allowed:
+      Result.Result := rcSuccess;
+    RadioAccessStatus_DeniedByUser,
+    RadioAccessStatus_DeniedBySystem:
+      begin
+        Result.Result := rcAccessDenied;
+        Result.ErrorCode := AccessStatus;
+      end;
+  else
+    Result.Result := rcError;
+    Result.ErrorCode := AccessStatus;
+  end;
+  // Note: Don't call RoUninitialize - interfaces must be released first
 end;
 
 function SetBluetoothRadioState(AEnable: Boolean): TRadioControlResult;
@@ -448,22 +399,105 @@ begin
   Result := False;
   AEnabled := False;
 
-  // Get Bluetooth radio
   if not GetBluetoothRadio(Radio) then
     Exit;
 
-  try
-    // Get current state
-    HR := Radio.get_State(RadioState);
-    if Failed(HR) then
-      Exit;
+  HR := Radio.get_State(RadioState);
+  if Failed(HR) then
+    Exit;
 
-    // Check if radio is on
-    AEnabled := (RadioState = RadioState_On);
-    Result := True;
-  finally
-    RoUninitialize;
+  AEnabled := (RadioState = RadioState_On);
+  Result := True;
+  // Note: Don't call RoUninitialize here - interfaces must be released first,
+  // and for a GUI app it's safe to leave WinRT initialized for the app lifetime
+end;
+
+{ TBluetoothRadioWatcher }
+
+constructor TBluetoothRadioWatcher.Create;
+begin
+  inherited Create;
+  FHandle := AllocateHWnd(WndProc);
+  FTimerID := 0;
+  FLastState := False;
+  FLastStateKnown := False;
+end;
+
+destructor TBluetoothRadioWatcher.Destroy;
+begin
+  Stop;
+
+  if FHandle <> 0 then
+  begin
+    DeallocateHWnd(FHandle);
+    FHandle := 0;
   end;
+
+  inherited Destroy;
+end;
+
+procedure TBluetoothRadioWatcher.WndProc(var Msg: TMessage);
+begin
+  if (Msg.Msg = WM_TIMER) and (UINT_PTR(Msg.WParam) = TIMER_ID_RADIO_POLL) then
+    CheckRadioState
+  else
+    Msg.Result := DefWindowProc(FHandle, Msg.Msg, Msg.WParam, Msg.LParam);
+end;
+
+procedure TBluetoothRadioWatcher.CheckRadioState;
+var
+  CurrentState: Boolean;
+begin
+  if GetBluetoothRadioState(CurrentState) then
+  begin
+    if FLastStateKnown then
+    begin
+      // Only fire event if state actually changed
+      if CurrentState <> FLastState then
+      begin
+        FLastState := CurrentState;
+        if Assigned(FOnStateChanged) then
+          FOnStateChanged(Self, CurrentState);
+      end;
+    end
+    else
+    begin
+      // First time - just record the state, don't fire event
+      FLastState := CurrentState;
+      FLastStateKnown := True;
+    end;
+  end;
+end;
+
+function TBluetoothRadioWatcher.Start: Boolean;
+begin
+  Result := False;
+
+  if FTimerID <> 0 then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  // Get initial state
+  if GetBluetoothRadioState(FLastState) then
+    FLastStateKnown := True
+  else
+    FLastStateKnown := False;
+
+  // Start polling timer
+  FTimerID := SetTimer(FHandle, TIMER_ID_RADIO_POLL, RADIO_POLL_INTERVAL_MS, nil);
+  Result := (FTimerID <> 0);
+end;
+
+procedure TBluetoothRadioWatcher.Stop;
+begin
+  if FTimerID <> 0 then
+  begin
+    KillTimer(FHandle, TIMER_ID_RADIO_POLL);
+    FTimerID := 0;
+  end;
+  FLastStateKnown := False;
 end;
 
 end.
