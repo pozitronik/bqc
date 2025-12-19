@@ -2,8 +2,8 @@ object FormMain: TFormMain
   Left = 0
   Top = 0
   Caption = 'Bluetooth Quick Connect'
-  ClientHeight = 500
-  ClientWidth = 380
+  ClientHeight = 483
+  ClientWidth = 374
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText

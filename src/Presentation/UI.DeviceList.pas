@@ -67,9 +67,12 @@ type
 
     procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
     procedure WMGetDlgCode(var Message: TWMGetDlgCode); message WM_GETDLGCODE;
+    procedure WMVScroll(var Message: TWMVScroll); message WM_VSCROLL;
     procedure CMMouseLeave(var Message: TMessage); message CM_MOUSELEAVE;
+    procedure UpdateScrollBar;
 
   protected
+    procedure CreateParams(var Params: TCreateParams); override;
     procedure Paint; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
@@ -134,6 +137,12 @@ destructor TDeviceListBox.Destroy;
 begin
   FDevices.Free;
   inherited Destroy;
+end;
+
+procedure TDeviceListBox.CreateParams(var Params: TCreateParams);
+begin
+  inherited CreateParams(Params);
+  Params.Style := Params.Style or WS_VSCROLL;
 end;
 
 procedure TDeviceListBox.Clear;
@@ -256,6 +265,28 @@ begin
   FMaxScroll := Max(0, TotalHeight - VisibleHeight);
   if FScrollPos > FMaxScroll then
     FScrollPos := FMaxScroll;
+  UpdateScrollBar;
+end;
+
+procedure TDeviceListBox.UpdateScrollBar;
+var
+  SI: TScrollInfo;
+  TotalHeight: Integer;
+begin
+  if not HandleAllocated then
+    Exit;
+
+  TotalHeight := FDevices.Count * (ITEM_HEIGHT + ITEM_MARGIN) + ITEM_MARGIN;
+
+  SI.cbSize := SizeOf(TScrollInfo);
+  SI.fMask := SIF_ALL;
+  SI.nMin := 0;
+  SI.nMax := TotalHeight;
+  SI.nPage := ClientHeight;
+  SI.nPos := FScrollPos;
+  SI.nTrackPos := 0;
+
+  SetScrollInfo(Handle, SB_VERT, SI, True);
 end;
 
 procedure TDeviceListBox.ScrollTo(APos: Integer);
@@ -264,6 +295,7 @@ begin
   if FScrollPos <> APos then
   begin
     FScrollPos := APos;
+    UpdateScrollBar;
     Invalidate;
   end;
 end;
@@ -293,6 +325,32 @@ procedure TDeviceListBox.WMGetDlgCode(var Message: TWMGetDlgCode);
 begin
   inherited;
   Message.Result := Message.Result or DLGC_WANTARROWS;
+end;
+
+procedure TDeviceListBox.WMVScroll(var Message: TWMVScroll);
+var
+  NewPos: Integer;
+begin
+  NewPos := FScrollPos;
+
+  case Message.ScrollCode of
+    SB_LINEUP:
+      Dec(NewPos, ITEM_HEIGHT div 2);
+    SB_LINEDOWN:
+      Inc(NewPos, ITEM_HEIGHT div 2);
+    SB_PAGEUP:
+      Dec(NewPos, ClientHeight - ITEM_HEIGHT);
+    SB_PAGEDOWN:
+      Inc(NewPos, ClientHeight - ITEM_HEIGHT);
+    SB_THUMBTRACK, SB_THUMBPOSITION:
+      NewPos := Message.Pos;
+    SB_TOP:
+      NewPos := 0;
+    SB_BOTTOM:
+      NewPos := FMaxScroll;
+  end;
+
+  ScrollTo(NewPos);
 end;
 
 procedure TDeviceListBox.CMMouseLeave(var Message: TMessage);

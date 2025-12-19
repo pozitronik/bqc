@@ -23,6 +23,7 @@ uses
   Vcl.Dialogs,
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
+  Vcl.WinXCtrls,
   Bluetooth.Types,
   Bluetooth.Interfaces,
   UI.Theme,
@@ -43,8 +44,7 @@ type
     // UI Components (created in code)
     FHeaderPanel: TPanel;
     FTitleLabel: TLabel;
-    FBluetoothToggle: TCheckBox;
-    FSectionLabel: TLabel;
+    FBluetoothToggle: TToggleSwitch;
     FDeviceList: TDeviceListBox;
     FStatusPanel: TPanel;
     FStatusLabel: TLabel;
@@ -110,13 +110,13 @@ begin
   // Check adapter and load devices
   if FBluetoothService.IsAdapterAvailable then
   begin
-    FBluetoothToggle.Checked := True;
+    FBluetoothToggle.State := tssOn;
     UpdateStatus('Loading devices...');
     LoadDevices;
   end
   else
   begin
-    FBluetoothToggle.Checked := False;
+    FBluetoothToggle.State := tssOff;
     FBluetoothToggle.Enabled := False;
     UpdateStatus('No Bluetooth adapter found');
   end;
@@ -159,29 +159,20 @@ begin
   FTitleLabel.Font.Size := 16;
   FTitleLabel.Font.Style := [fsBold];
 
-  // Bluetooth Toggle (using checkbox as toggle)
-  FBluetoothToggle := TCheckBox.Create(Self);
+  // Bluetooth Toggle Switch
+  FBluetoothToggle := TToggleSwitch.Create(Self);
   FBluetoothToggle.Parent := FHeaderPanel;
-  FBluetoothToggle.Left := FHeaderPanel.Width - 60;
-  FBluetoothToggle.Top := 20;
+  FBluetoothToggle.Left := FHeaderPanel.Width - 70;
+  FBluetoothToggle.Top := 16;
   FBluetoothToggle.Width := 50;
   FBluetoothToggle.Anchors := [akTop, akRight];
-  FBluetoothToggle.Caption := '';
   FBluetoothToggle.OnClick := HandleBluetoothToggle;
-
-  // Section Label
-  FSectionLabel := TLabel.Create(Self);
-  FSectionLabel.Parent := Self;
-  FSectionLabel.Left := 16;
-  FSectionLabel.Top := FHeaderPanel.Height + 8;
-  FSectionLabel.Caption := 'Your devices';
-  FSectionLabel.Font.Size := 9;
 
   // Device List
   FDeviceList := TDeviceListBox.Create(Self);
   FDeviceList.Parent := Self;
   FDeviceList.Left := 8;
-  FDeviceList.Top := FSectionLabel.Top + FSectionLabel.Height + 12;
+  FDeviceList.Top := FHeaderPanel.Height + 8;
   FDeviceList.Width := ClientWidth - 16;
   FDeviceList.Height := ClientHeight - FDeviceList.Top - 70;
   FDeviceList.Anchors := [akLeft, akTop, akRight, akBottom];
@@ -229,9 +220,6 @@ begin
   // Header
   FHeaderPanel.Color := Colors.Background;
   FTitleLabel.Font.Color := Colors.TextPrimary;
-
-  // Section
-  FSectionLabel.Font.Color := Colors.TextSecondary;
 
   // Status
   FStatusPanel.Color := Colors.Background;
@@ -358,7 +346,7 @@ procedure TFormMain.HandleBluetoothToggle(Sender: TObject);
 begin
   // Note: Actually enabling/disabling Bluetooth radio requires elevated privileges
   // and is complex. For now, just refresh the device list.
-  if FBluetoothToggle.Checked then
+  if FBluetoothToggle.State = tssOn then
     LoadDevices
   else
     FDeviceList.Clear;
