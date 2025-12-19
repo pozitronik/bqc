@@ -44,11 +44,13 @@ type
     FDeviceList: TDeviceListBox;
     FRadioWatcher: TBluetoothRadioWatcher;
     FUpdatingToggle: Boolean;
+    FDelayedLoadTimer: TTimer;
 
     procedure CreateDeviceList;
     procedure SetToggleState(AState: TToggleSwitchState);
     procedure ApplyTheme;
     procedure LoadDevices;
+    procedure LoadDevicesDelayed;
     procedure UpdateStatus(const AMessage: string);
 
     { Event handlers }
@@ -59,6 +61,7 @@ type
     procedure HandleThemeChanged(Sender: TObject);
     procedure HandleRefreshClick(Sender: TObject);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
+    procedure HandleDelayedLoadTimer(Sender: TObject);
 
   public
     { Public declarations }
@@ -84,6 +87,12 @@ var
 begin
   FUpdatingToggle := False;
   FRadioWatcher := nil;
+
+  // Create delayed load timer (for when BT is enabled externally)
+  FDelayedLoadTimer := TTimer.Create(Self);
+  FDelayedLoadTimer.Enabled := False;
+  FDelayedLoadTimer.Interval := 500;
+  FDelayedLoadTimer.OnTimer := HandleDelayedLoadTimer;
 
   // Subscribe to theme changes
   Theme.OnThemeChanged := HandleThemeChanged;
@@ -399,15 +408,30 @@ begin
   if AEnabled then
   begin
     SetToggleState(tssOn);
-    UpdateStatus('Bluetooth enabled');
-    LoadDevices;
+    UpdateStatus('Loading devices...');
+    // Use delayed load to give Bluetooth stack time to initialize
+    LoadDevicesDelayed;
   end
   else
   begin
     SetToggleState(tssOff);
     UpdateStatus('Bluetooth disabled');
+    FDelayedLoadTimer.Enabled := False;
     FDeviceList.Clear;
   end;
+end;
+
+procedure TFormMain.LoadDevicesDelayed;
+begin
+  // Reset and start the delayed load timer
+  FDelayedLoadTimer.Enabled := False;
+  FDelayedLoadTimer.Enabled := True;
+end;
+
+procedure TFormMain.HandleDelayedLoadTimer(Sender: TObject);
+begin
+  FDelayedLoadTimer.Enabled := False;
+  LoadDevices;
 end;
 
 end.
