@@ -1,12 +1,3 @@
-{*******************************************************}
-{                                                       }
-{       Bluetooth Quick Connect                         }
-{       Main Form                                       }
-{                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
-{*******************************************************}
-
 unit MainForm;
 
 interface
@@ -40,6 +31,7 @@ type
     StatusPanel: TPanel;
     StatusLabel: TLabel;
     SettingsLink: TLabel;
+    DevicesPanel: TPanel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -134,14 +126,10 @@ end;
 procedure TFormMain.CreateDeviceList;
 begin
   FDeviceList := TDeviceListBox.Create(Self);
-  FDeviceList.Parent := Self;
-  FDeviceList.Left := 8;
-  FDeviceList.Top := HeaderPanel.Height + 8;
-  FDeviceList.Width := ClientWidth - 16;
-  FDeviceList.Height := SettingsLink.Top - HeaderPanel.Height - 24;
-  FDeviceList.Anchors := [akLeft, akTop, akRight, akBottom];
+  FDeviceList.Parent := DevicesPanel;
+  FDeviceList.Align := alClient;
   FDeviceList.OnDeviceClick := HandleDeviceClick;
-  FDeviceList.TabOrder := 2;
+  FDeviceList.TabOrder := 0;
 end;
 
 procedure TFormMain.ApplyTheme;
@@ -156,6 +144,9 @@ begin
   // Header
   HeaderPanel.Color := Colors.Background;
   TitleLabel.Font.Color := Colors.TextPrimary;
+
+  // Devices
+  DevicesPanel.Color := Colors.Background;
 
   // Status
   StatusPanel.Color := Colors.Background;

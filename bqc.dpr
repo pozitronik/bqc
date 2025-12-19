@@ -2,6 +2,8 @@ program bqc;
 
 uses
   Vcl.Forms,
+  Vcl.Themes,
+  Vcl.Styles,
   MainForm in 'src\Presentation\MainForm.pas' {FormMain},
   Bluetooth.WinAPI in 'src\Infrastructure\Bluetooth.WinAPI.pas',
   Bluetooth.Types in 'src\Domain\Bluetooth.Types.pas',
@@ -17,6 +19,8 @@ begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.Title := 'Bluetooth Quick Connect';
+
+  // Apply VCL Style if available
   Application.CreateForm(TFormMain, FormMain);
   Application.Run;
 end.

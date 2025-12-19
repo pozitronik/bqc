@@ -36,7 +36,7 @@ type
   /// </summary>
   TDeviceListBox = class(TCustomControl)
   private const
-    ITEM_HEIGHT = 64;
+    ITEM_HEIGHT = 70;
     ITEM_PADDING = 12;
     ICON_SIZE = 32;
     CORNER_RADIUS = 8;
@@ -73,6 +73,7 @@ type
 
   protected
     procedure CreateParams(var Params: TCreateParams); override;
+    procedure Resize; override;
     procedure Paint; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
@@ -143,6 +144,12 @@ procedure TDeviceListBox.CreateParams(var Params: TCreateParams);
 begin
   inherited CreateParams(Params);
   Params.Style := Params.Style or WS_VSCROLL;
+end;
+
+procedure TDeviceListBox.Resize;
+begin
+  inherited;
+  UpdateScrollRange;
 end;
 
 procedure TDeviceListBox.Clear;

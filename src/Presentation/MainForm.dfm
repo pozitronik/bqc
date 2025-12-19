@@ -20,16 +20,20 @@ object FormMain: TFormMain
     Left = 0
     Top = 0
     Width = 380
-    Height = 56
+    Height = 33
     Align = alTop
     BevelOuter = bvNone
+    Padding.Left = 10
+    Padding.Right = 10
     ParentBackground = False
     TabOrder = 0
+    ExplicitWidth = 374
     object TitleLabel: TLabel
-      Left = 16
-      Top = 16
-      Width = 94
-      Height = 28
+      Left = 10
+      Top = 0
+      Width = 113
+      Height = 33
+      Align = alLeft
       Caption = 'Bluetooth'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
@@ -37,15 +41,22 @@ object FormMain: TFormMain
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
       ParentFont = False
+      Layout = tlCenter
+      ExplicitLeft = 0
+      ExplicitHeight = 41
     end
     object BluetoothToggle: TToggleSwitch
-      Left = 310
-      Top = 16
-      Width = 50
-      Height = 20
-      Anchors = [akTop, akRight]
+      Left = 297
+      Top = 0
+      Width = 73
+      Height = 33
+      Align = alRight
+      Color = clBtnFace
+      StyleName = 'Windows'
       TabOrder = 0
       OnClick = HandleBluetoothToggle
+      ExplicitLeft = 291
+      ExplicitHeight = 20
     end
   end
   object StatusPanel: TPanel
@@ -55,13 +66,18 @@ object FormMain: TFormMain
     Height = 30
     Align = alBottom
     BevelOuter = bvNone
+    Padding.Left = 10
+    Padding.Right = 10
     ParentBackground = False
     TabOrder = 1
+    ExplicitTop = 453
+    ExplicitWidth = 374
     object StatusLabel: TLabel
-      Left = 16
-      Top = 8
+      Left = 338
+      Top = 0
       Width = 32
-      Height = 15
+      Height = 30
+      Align = alRight
       Caption = 'Ready'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clGray
@@ -69,22 +85,43 @@ object FormMain: TFormMain
       Font.Name = 'Segoe UI'
       Font.Style = []
       ParentFont = False
+      Layout = tlCenter
+      ExplicitLeft = 16
+      ExplicitTop = 8
+      ExplicitHeight = 15
+    end
+    object SettingsLink: TLabel
+      Left = 10
+      Top = 0
+      Width = 127
+      Height = 30
+      Cursor = crHandPoint
+      Align = alLeft
+      Caption = 'More Bluetooth settings'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clHighlight
+      Font.Height = -12
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsUnderline]
+      ParentFont = False
+      Layout = tlCenter
+      OnClick = HandleSettingsClick
+      ExplicitLeft = 16
+      ExplicitTop = 15
+      ExplicitHeight = 15
     end
   end
-  object SettingsLink: TLabel
-    Left = 16
-    Top = 448
-    Width = 129
-    Height = 15
-    Cursor = crHandPoint
-    Anchors = [akLeft, akBottom]
-    Caption = 'More Bluetooth settings'
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clHighlight
-    Font.Height = -12
-    Font.Name = 'Segoe UI'
-    Font.Style = [fsUnderline]
-    ParentFont = False
-    OnClick = HandleSettingsClick
+  object DevicesPanel: TPanel
+    Left = 0
+    Top = 33
+    Width = 380
+    Height = 437
+    Align = alClient
+    BevelOuter = bvNone
+    TabOrder = 2
+    ExplicitLeft = 160
+    ExplicitTop = 144
+    ExplicitWidth = 185
+    ExplicitHeight = 41
   end
 end
