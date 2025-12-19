@@ -167,7 +167,6 @@ begin
     end;
 
     Result := DeviceList.ToArray;
-    DoDeviceListChanged;
 
   finally
     DeviceList.Free;

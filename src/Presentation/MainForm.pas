@@ -1,7 +1,7 @@
 {*******************************************************}
 {                                                       }
 {       Bluetooth Quick Connect                         }
-{       Main Form (Device List View)                    }
+{       Main Form                                       }
 {                                                       }
 {       Copyright (c) 2024                              }
 {                                                       }
@@ -22,44 +22,49 @@ uses
   Vcl.Forms,
   Vcl.Dialogs,
   Vcl.StdCtrls,
-  Vcl.ComCtrls,
   Vcl.ExtCtrls,
   Bluetooth.Types,
-  Bluetooth.Interfaces;
+  Bluetooth.Interfaces,
+  UI.Theme,
+  UI.DeviceList;
 
 type
   /// <summary>
   /// Main application form displaying Bluetooth devices.
   /// </summary>
   TFormMain = class(TForm)
-    lvDevices: TListView;
-    pnlTop: TPanel;
-    lblTitle: TLabel;
-    btnRefresh: TButton;
-    pnlStatus: TPanel;
-    lblStatus: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure btnRefreshClick(Sender: TObject);
-    procedure lvDevicesDblClick(Sender: TObject);
-    procedure lvDevicesSelectItem(Sender: TObject; Item: TListItem;
-      Selected: Boolean);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   private
     FBluetoothService: IBluetoothService;
     FDevices: TBluetoothDeviceInfoArray;
 
+    // UI Components (created in code)
+    FHeaderPanel: TPanel;
+    FTitleLabel: TLabel;
+    FBluetoothToggle: TCheckBox;
+    FSectionLabel: TLabel;
+    FDeviceList: TDeviceListBox;
+    FStatusPanel: TPanel;
+    FStatusLabel: TLabel;
+    FSettingsLink: TLabel;
+
+    procedure CreateUIComponents;
+    procedure ApplyTheme;
     procedure LoadDevices;
-    procedure UpdateDeviceList;
-    procedure UpdateStatusBar(const AMessage: string);
+    procedure UpdateStatus(const AMessage: string);
 
-    { Event handlers for Bluetooth service }
-    procedure HandleDeviceStateChanged(Sender: TObject;
-      const ADevice: TBluetoothDeviceInfo);
+    { Event handlers }
+    procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
+    procedure HandleDeviceStateChanged(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
     procedure HandleDeviceListChanged(Sender: TObject);
-    procedure HandleError(Sender: TObject; const AMessage: string;
-      AErrorCode: Cardinal);
+    procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
+    procedure HandleThemeChanged(Sender: TObject);
+    procedure HandleSettingsClick(Sender: TObject);
+    procedure HandleBluetoothToggle(Sender: TObject);
+    procedure HandleRefreshClick(Sender: TObject);
 
-    function FindDeviceIndex(AAddressInt: UInt64): Integer;
   public
     { Public declarations }
   end;
@@ -70,6 +75,8 @@ var
 implementation
 
 uses
+  Vcl.Themes,
+  ShellAPI,
   Bluetooth.Service;
 
 {$R *.dfm}
@@ -78,61 +85,163 @@ uses
 
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
+  // Set up form properties
+  Caption := 'Bluetooth Quick Connect';
+  Width := 380;
+  Height := 500;
+  Position := poScreenCenter;
+  KeyPreview := True;
+
+  // Subscribe to theme changes
+  Theme.OnThemeChanged := HandleThemeChanged;
+
+  // Create UI components
+  CreateUIComponents;
+
+  // Apply current theme
+  ApplyTheme;
+
   // Create Bluetooth service
   FBluetoothService := CreateBluetoothService;
-
-  // Set up event handlers
   FBluetoothService.OnDeviceStateChanged := HandleDeviceStateChanged;
   FBluetoothService.OnDeviceListChanged := HandleDeviceListChanged;
   FBluetoothService.OnError := HandleError;
 
-  // Configure ListView columns
-  lvDevices.ViewStyle := vsReport;
-  lvDevices.RowSelect := True;
-  lvDevices.ReadOnly := True;
-  lvDevices.HideSelection := False;
-
-  with lvDevices.Columns.Add do
-  begin
-    Caption := 'Device Name';
-    Width := 200;
-  end;
-
-  with lvDevices.Columns.Add do
-  begin
-    Caption := 'Type';
-    Width := 100;
-  end;
-
-  with lvDevices.Columns.Add do
-  begin
-    Caption := 'Status';
-    Width := 100;
-  end;
-
-  with lvDevices.Columns.Add do
-  begin
-    Caption := 'Address';
-    Width := 140;
-  end;
-
   // Check adapter and load devices
   if FBluetoothService.IsAdapterAvailable then
   begin
-    UpdateStatusBar('Bluetooth adapter found. Loading devices...');
+    FBluetoothToggle.Checked := True;
+    UpdateStatus('Loading devices...');
     LoadDevices;
   end
   else
   begin
-    UpdateStatusBar('No Bluetooth adapter found!');
-    btnRefresh.Enabled := False;
+    FBluetoothToggle.Checked := False;
+    FBluetoothToggle.Enabled := False;
+    UpdateStatus('No Bluetooth adapter found');
   end;
 end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
+  Theme.OnThemeChanged := nil;
   FBluetoothService := nil;
   FDevices := nil;
+end;
+
+procedure TFormMain.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  case Key of
+    VK_ESCAPE:
+      Close;
+    VK_F5:
+      HandleRefreshClick(nil);
+  end;
+end;
+
+procedure TFormMain.CreateUIComponents;
+begin
+  // Header Panel
+  FHeaderPanel := TPanel.Create(Self);
+  FHeaderPanel.Parent := Self;
+  FHeaderPanel.Align := alTop;
+  FHeaderPanel.Height := 56;
+  FHeaderPanel.BevelOuter := bvNone;
+  FHeaderPanel.ParentBackground := False;
+
+  // Title Label
+  FTitleLabel := TLabel.Create(Self);
+  FTitleLabel.Parent := FHeaderPanel;
+  FTitleLabel.Left := 16;
+  FTitleLabel.Top := 18;
+  FTitleLabel.Caption := 'Bluetooth';
+  FTitleLabel.Font.Size := 16;
+  FTitleLabel.Font.Style := [fsBold];
+
+  // Bluetooth Toggle (using checkbox as toggle)
+  FBluetoothToggle := TCheckBox.Create(Self);
+  FBluetoothToggle.Parent := FHeaderPanel;
+  FBluetoothToggle.Left := FHeaderPanel.Width - 60;
+  FBluetoothToggle.Top := 20;
+  FBluetoothToggle.Width := 50;
+  FBluetoothToggle.Anchors := [akTop, akRight];
+  FBluetoothToggle.Caption := '';
+  FBluetoothToggle.OnClick := HandleBluetoothToggle;
+
+  // Section Label
+  FSectionLabel := TLabel.Create(Self);
+  FSectionLabel.Parent := Self;
+  FSectionLabel.Left := 16;
+  FSectionLabel.Top := FHeaderPanel.Height + 8;
+  FSectionLabel.Caption := 'Your devices';
+  FSectionLabel.Font.Size := 9;
+
+  // Device List
+  FDeviceList := TDeviceListBox.Create(Self);
+  FDeviceList.Parent := Self;
+  FDeviceList.Left := 8;
+  FDeviceList.Top := FSectionLabel.Top + FSectionLabel.Height + 12;
+  FDeviceList.Width := ClientWidth - 16;
+  FDeviceList.Height := ClientHeight - FDeviceList.Top - 70;
+  FDeviceList.Anchors := [akLeft, akTop, akRight, akBottom];
+  FDeviceList.OnDeviceClick := HandleDeviceClick;
+  FDeviceList.TabOrder := 0;
+
+  // Status Panel
+  FStatusPanel := TPanel.Create(Self);
+  FStatusPanel.Parent := Self;
+  FStatusPanel.Align := alBottom;
+  FStatusPanel.Height := 30;
+  FStatusPanel.BevelOuter := bvNone;
+  FStatusPanel.ParentBackground := False;
+
+  // Status Label
+  FStatusLabel := TLabel.Create(Self);
+  FStatusLabel.Parent := FStatusPanel;
+  FStatusLabel.Left := 16;
+  FStatusLabel.Top := 8;
+  FStatusLabel.Caption := 'Ready';
+  FStatusLabel.Font.Size := 8;
+
+  // Settings Link
+  FSettingsLink := TLabel.Create(Self);
+  FSettingsLink.Parent := Self;
+  FSettingsLink.Left := 16;
+  FSettingsLink.Top := ClientHeight - 36;
+  FSettingsLink.Anchors := [akLeft, akBottom];
+  FSettingsLink.Caption := 'More Bluetooth settings';
+  FSettingsLink.Font.Size := 9;
+  FSettingsLink.Font.Style := [fsUnderline];
+  FSettingsLink.Cursor := crHandPoint;
+  FSettingsLink.OnClick := HandleSettingsClick;
+end;
+
+procedure TFormMain.ApplyTheme;
+var
+  Colors: TThemeColors;
+begin
+  Colors := Theme.Colors;
+
+  // Form
+  Color := Colors.Background;
+
+  // Header
+  FHeaderPanel.Color := Colors.Background;
+  FTitleLabel.Font.Color := Colors.TextPrimary;
+
+  // Section
+  FSectionLabel.Font.Color := Colors.TextSecondary;
+
+  // Status
+  FStatusPanel.Color := Colors.Background;
+  FStatusLabel.Font.Color := Colors.TextSecondary;
+
+  // Settings link
+  FSettingsLink.Font.Color := Colors.Accent;
+
+  // Refresh device list to apply theme
+  FDeviceList.Invalidate;
 end;
 
 procedure TFormMain.LoadDevices;
@@ -140,143 +249,73 @@ begin
   Screen.Cursor := crHourGlass;
   try
     FDevices := FBluetoothService.GetPairedDevices;
-    UpdateDeviceList;
+    FDeviceList.SetDevices(FDevices);
 
     if Length(FDevices) = 0 then
-      UpdateStatusBar('No paired devices found.')
+      UpdateStatus('No paired devices')
     else
-      UpdateStatusBar(Format('%d paired device(s) found.', [Length(FDevices)]));
+      UpdateStatus(Format('%d device(s)', [Length(FDevices)]));
   finally
     Screen.Cursor := crDefault;
   end;
 end;
 
-procedure TFormMain.UpdateDeviceList;
-var
-  Device: TBluetoothDeviceInfo;
-  Item: TListItem;
+procedure TFormMain.UpdateStatus(const AMessage: string);
 begin
-  lvDevices.Items.BeginUpdate;
-  try
-    lvDevices.Items.Clear;
+  FStatusLabel.Caption := AMessage;
+end;
 
-    for Device in FDevices do
-    begin
-      Item := lvDevices.Items.Add;
-      Item.Caption := Device.Name;
-      Item.SubItems.Add(Device.DeviceTypeText);
-      Item.SubItems.Add(Device.ConnectionStateText);
-      Item.SubItems.Add(Device.AddressString);
-      Item.Data := Pointer(Device.AddressInt); // Store address for lookup
-    end;
-  finally
-    lvDevices.Items.EndUpdate;
+procedure TFormMain.HandleDeviceClick(Sender: TObject;
+  const ADevice: TBluetoothDeviceInfo);
+begin
+  if ADevice.ConnectionState in [csConnecting, csDisconnecting] then
+  begin
+    UpdateStatus('Operation in progress...');
+    Exit;
   end;
-end;
 
-procedure TFormMain.btnRefreshClick(Sender: TObject);
-begin
-  UpdateStatusBar('Refreshing device list...');
-  LoadDevices;
-end;
-
-procedure TFormMain.lvDevicesDblClick(Sender: TObject);
-var
-  Device: TBluetoothDeviceInfo;
-  DeviceIndex: Integer;
-begin
-  if lvDevices.Selected = nil then
-    Exit;
-
-  DeviceIndex := FindDeviceIndex(UInt64(lvDevices.Selected.Data));
-  if DeviceIndex < 0 then
-    Exit;
-
-  Device := FDevices[DeviceIndex];
-
-  if Device.IsConnected then
-    UpdateStatusBar(Format('Disconnecting from %s...', [Device.Name]))
+  if ADevice.IsConnected then
+    UpdateStatus(Format('Disconnecting %s...', [ADevice.Name]))
   else
-    UpdateStatusBar(Format('Connecting to %s...', [Device.Name]));
+    UpdateStatus(Format('Connecting %s...', [ADevice.Name]));
 
-  // Perform connection toggle in a thread to not block UI
+  // Toggle connection in background thread
   TThread.CreateAnonymousThread(
     procedure
-    var
-      Success: Boolean;
     begin
-      Success := FBluetoothService.ToggleConnection(Device);
+      FBluetoothService.ToggleConnection(ADevice);
 
-      TThread.Synchronize(nil,
+      TThread.Queue(nil,
         procedure
         begin
-          if Success then
-          begin
-            // Refresh the device to get updated state
-            LoadDevices;
-          end;
+          LoadDevices;
         end
       );
     end
   ).Start;
 end;
 
-procedure TFormMain.lvDevicesSelectItem(Sender: TObject; Item: TListItem;
-  Selected: Boolean);
-var
-  DeviceIndex: Integer;
-  Device: TBluetoothDeviceInfo;
-begin
-  if Selected and (Item <> nil) then
-  begin
-    DeviceIndex := FindDeviceIndex(UInt64(Item.Data));
-    if DeviceIndex >= 0 then
-    begin
-      Device := FDevices[DeviceIndex];
-      if Device.IsConnected then
-        UpdateStatusBar(Format('%s - Double-click to disconnect', [Device.Name]))
-      else
-        UpdateStatusBar(Format('%s - Double-click to connect', [Device.Name]));
-    end;
-  end;
-end;
-
-procedure TFormMain.UpdateStatusBar(const AMessage: string);
-begin
-  lblStatus.Caption := AMessage;
-end;
-
 procedure TFormMain.HandleDeviceStateChanged(Sender: TObject;
   const ADevice: TBluetoothDeviceInfo);
-var
-  I: Integer;
 begin
-  // Update the device in our cache
-  for I := 0 to High(FDevices) do
-  begin
-    if FDevices[I].AddressInt = ADevice.AddressInt then
-    begin
-      FDevices[I] := ADevice;
-      Break;
-    end;
-  end;
-
-  // Update the list view item
   TThread.Queue(nil,
     procedure
     var
-      ItemIndex: Integer;
+      I: Integer;
     begin
-      for ItemIndex := 0 to lvDevices.Items.Count - 1 do
+      // Update local cache
+      for I := 0 to High(FDevices) do
       begin
-        if UInt64(lvDevices.Items[ItemIndex].Data) = ADevice.AddressInt then
+        if FDevices[I].AddressInt = ADevice.AddressInt then
         begin
-          lvDevices.Items[ItemIndex].SubItems[1] := ADevice.ConnectionStateText;
+          FDevices[I] := ADevice;
           Break;
         end;
       end;
 
-      UpdateStatusBar(Format('%s: %s', [ADevice.Name, ADevice.ConnectionStateText]));
+      // Update UI
+      FDeviceList.UpdateDevice(ADevice);
+      UpdateStatus(Format('%s: %s', [ADevice.Name, ADevice.ConnectionStateText]));
     end
   );
 end;
@@ -286,7 +325,7 @@ begin
   TThread.Queue(nil,
     procedure
     begin
-      UpdateDeviceList;
+      LoadDevices;
     end
   );
 end;
@@ -298,21 +337,37 @@ begin
     procedure
     begin
       if AErrorCode <> 0 then
-        UpdateStatusBar(Format('Error: %s (Code: %d)', [AMessage, AErrorCode]))
+        UpdateStatus(Format('Error: %s (%d)', [AMessage, AErrorCode]))
       else
-        UpdateStatusBar(Format('Error: %s', [AMessage]));
+        UpdateStatus(Format('Error: %s', [AMessage]));
     end
   );
 end;
 
-function TFormMain.FindDeviceIndex(AAddressInt: UInt64): Integer;
-var
-  I: Integer;
+procedure TFormMain.HandleThemeChanged(Sender: TObject);
 begin
-  for I := 0 to High(FDevices) do
-    if FDevices[I].AddressInt = AAddressInt then
-      Exit(I);
-  Result := -1;
+  ApplyTheme;
+end;
+
+procedure TFormMain.HandleSettingsClick(Sender: TObject);
+begin
+  ShellExecute(0, 'open', 'ms-settings:bluetooth', nil, nil, SW_SHOWNORMAL);
+end;
+
+procedure TFormMain.HandleBluetoothToggle(Sender: TObject);
+begin
+  // Note: Actually enabling/disabling Bluetooth radio requires elevated privileges
+  // and is complex. For now, just refresh the device list.
+  if FBluetoothToggle.Checked then
+    LoadDevices
+  else
+    FDeviceList.Clear;
+end;
+
+procedure TFormMain.HandleRefreshClick(Sender: TObject);
+begin
+  UpdateStatus('Refreshing...');
+  LoadDevices;
 end;
 
 end.
