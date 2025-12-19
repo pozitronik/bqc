@@ -34,23 +34,23 @@ type
   /// Main application form displaying Bluetooth devices.
   /// </summary>
   TFormMain = class(TForm)
+    HeaderPanel: TPanel;
+    TitleLabel: TLabel;
+    BluetoothToggle: TToggleSwitch;
+    StatusPanel: TPanel;
+    StatusLabel: TLabel;
+    SettingsLink: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure HandleBluetoothToggle(Sender: TObject);
+    procedure HandleSettingsClick(Sender: TObject);
   private
     FBluetoothService: IBluetoothService;
     FDevices: TBluetoothDeviceInfoArray;
-
-    // UI Components (created in code)
-    FHeaderPanel: TPanel;
-    FTitleLabel: TLabel;
-    FBluetoothToggle: TToggleSwitch;
     FDeviceList: TDeviceListBox;
-    FStatusPanel: TPanel;
-    FStatusLabel: TLabel;
-    FSettingsLink: TLabel;
 
-    procedure CreateUIComponents;
+    procedure CreateDeviceList;
     procedure ApplyTheme;
     procedure LoadDevices;
     procedure UpdateStatus(const AMessage: string);
@@ -61,8 +61,6 @@ type
     procedure HandleDeviceListChanged(Sender: TObject);
     procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
     procedure HandleThemeChanged(Sender: TObject);
-    procedure HandleSettingsClick(Sender: TObject);
-    procedure HandleBluetoothToggle(Sender: TObject);
     procedure HandleRefreshClick(Sender: TObject);
 
   public
@@ -85,18 +83,11 @@ uses
 
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
-  // Set up form properties
-  Caption := 'Bluetooth Quick Connect';
-  Width := 380;
-  Height := 500;
-  Position := poScreenCenter;
-  KeyPreview := True;
-
   // Subscribe to theme changes
   Theme.OnThemeChanged := HandleThemeChanged;
 
-  // Create UI components
-  CreateUIComponents;
+  // Create custom device list control
+  CreateDeviceList;
 
   // Apply current theme
   ApplyTheme;
@@ -110,14 +101,14 @@ begin
   // Check adapter and load devices
   if FBluetoothService.IsAdapterAvailable then
   begin
-    FBluetoothToggle.State := tssOn;
+    BluetoothToggle.State := tssOn;
     UpdateStatus('Loading devices...');
     LoadDevices;
   end
   else
   begin
-    FBluetoothToggle.State := tssOff;
-    FBluetoothToggle.Enabled := False;
+    BluetoothToggle.State := tssOff;
+    BluetoothToggle.Enabled := False;
     UpdateStatus('No Bluetooth adapter found');
   end;
 end;
@@ -140,72 +131,17 @@ begin
   end;
 end;
 
-procedure TFormMain.CreateUIComponents;
+procedure TFormMain.CreateDeviceList;
 begin
-  // Header Panel
-  FHeaderPanel := TPanel.Create(Self);
-  FHeaderPanel.Parent := Self;
-  FHeaderPanel.Align := alTop;
-  FHeaderPanel.Height := 56;
-  FHeaderPanel.BevelOuter := bvNone;
-  FHeaderPanel.ParentBackground := False;
-
-  // Title Label
-  FTitleLabel := TLabel.Create(Self);
-  FTitleLabel.Parent := FHeaderPanel;
-  FTitleLabel.Left := 16;
-  FTitleLabel.Top := 18;
-  FTitleLabel.Caption := 'Bluetooth';
-  FTitleLabel.Font.Size := 16;
-  FTitleLabel.Font.Style := [fsBold];
-
-  // Bluetooth Toggle Switch
-  FBluetoothToggle := TToggleSwitch.Create(Self);
-  FBluetoothToggle.Parent := FHeaderPanel;
-  FBluetoothToggle.Left := FHeaderPanel.Width - 70;
-  FBluetoothToggle.Top := 16;
-  FBluetoothToggle.Width := 50;
-  FBluetoothToggle.Anchors := [akTop, akRight];
-  FBluetoothToggle.OnClick := HandleBluetoothToggle;
-
-  // Device List
   FDeviceList := TDeviceListBox.Create(Self);
   FDeviceList.Parent := Self;
   FDeviceList.Left := 8;
-  FDeviceList.Top := FHeaderPanel.Height + 8;
+  FDeviceList.Top := HeaderPanel.Height + 8;
   FDeviceList.Width := ClientWidth - 16;
-  FDeviceList.Height := ClientHeight - FDeviceList.Top - 70;
+  FDeviceList.Height := SettingsLink.Top - HeaderPanel.Height - 24;
   FDeviceList.Anchors := [akLeft, akTop, akRight, akBottom];
   FDeviceList.OnDeviceClick := HandleDeviceClick;
-  FDeviceList.TabOrder := 0;
-
-  // Status Panel
-  FStatusPanel := TPanel.Create(Self);
-  FStatusPanel.Parent := Self;
-  FStatusPanel.Align := alBottom;
-  FStatusPanel.Height := 30;
-  FStatusPanel.BevelOuter := bvNone;
-  FStatusPanel.ParentBackground := False;
-
-  // Status Label
-  FStatusLabel := TLabel.Create(Self);
-  FStatusLabel.Parent := FStatusPanel;
-  FStatusLabel.Left := 16;
-  FStatusLabel.Top := 8;
-  FStatusLabel.Caption := 'Ready';
-  FStatusLabel.Font.Size := 8;
-
-  // Settings Link
-  FSettingsLink := TLabel.Create(Self);
-  FSettingsLink.Parent := Self;
-  FSettingsLink.Left := 16;
-  FSettingsLink.Top := ClientHeight - 36;
-  FSettingsLink.Anchors := [akLeft, akBottom];
-  FSettingsLink.Caption := 'More Bluetooth settings';
-  FSettingsLink.Font.Size := 9;
-  FSettingsLink.Font.Style := [fsUnderline];
-  FSettingsLink.Cursor := crHandPoint;
-  FSettingsLink.OnClick := HandleSettingsClick;
+  FDeviceList.TabOrder := 2;
 end;
 
 procedure TFormMain.ApplyTheme;
@@ -218,15 +154,15 @@ begin
   Color := Colors.Background;
 
   // Header
-  FHeaderPanel.Color := Colors.Background;
-  FTitleLabel.Font.Color := Colors.TextPrimary;
+  HeaderPanel.Color := Colors.Background;
+  TitleLabel.Font.Color := Colors.TextPrimary;
 
   // Status
-  FStatusPanel.Color := Colors.Background;
-  FStatusLabel.Font.Color := Colors.TextSecondary;
+  StatusPanel.Color := Colors.Background;
+  StatusLabel.Font.Color := Colors.TextSecondary;
 
   // Settings link
-  FSettingsLink.Font.Color := Colors.Accent;
+  SettingsLink.Font.Color := Colors.Accent;
 
   // Refresh device list to apply theme
   FDeviceList.Invalidate;
@@ -250,7 +186,7 @@ end;
 
 procedure TFormMain.UpdateStatus(const AMessage: string);
 begin
-  FStatusLabel.Caption := AMessage;
+  StatusLabel.Caption := AMessage;
 end;
 
 procedure TFormMain.HandleDeviceClick(Sender: TObject;
@@ -346,7 +282,7 @@ procedure TFormMain.HandleBluetoothToggle(Sender: TObject);
 begin
   // Note: Actually enabling/disabling Bluetooth radio requires elevated privileges
   // and is complex. For now, just refresh the device list.
-  if FBluetoothToggle.State = tssOn then
+  if BluetoothToggle.State = tssOn then
     LoadDevices
   else
     FDeviceList.Clear;
