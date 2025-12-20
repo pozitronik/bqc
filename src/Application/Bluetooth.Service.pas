@@ -43,9 +43,7 @@ type
     FDeviceWatcher: TBluetoothDeviceWatcher;
     FDeviceWatcherStarted: Boolean;
 
-    { Polling fallback - used when device watcher fails }
-    // TODO: Add configuration option to enable/disable polling fallback
-    // TODO: Add configuration option for polling interval
+    { Polling fallback - used when device watcher fails or as primary method }
     FPollingEnabled: Boolean;
     FPollingHandle: HWND;
     FPollingTimerID: UINT_PTR;
@@ -113,12 +111,11 @@ implementation
 
 uses
   System.DateUtils,
-  Vcl.Forms;
+  Vcl.Forms,
+  App.Config;
 
 const
   POLLING_TIMER_ID = 1;
-  // TODO: Make polling interval configurable
-  POLLING_INTERVAL_MS = 2000;  // Check device states every 2 seconds
 
 function CreateBluetoothService: IBluetoothService;
 begin
@@ -138,8 +135,19 @@ begin
   FPollingHandle := 0;
   FPollingTimerID := 0;
 
-  // Start device watcher for real-time connection monitoring
-  StartDeviceWatcher;
+  // Choose monitoring method based on configuration
+  if Config.PollingAsPrimary then
+  begin
+    // Use polling as primary method
+    Log('[Service] Create: Using polling as primary (interval=%d ms)', [Config.PollingInterval]);
+    StartPollingFallback;
+  end
+  else
+  begin
+    // Use device watcher as primary (default)
+    Log('[Service] Create: Using device watcher as primary');
+    StartDeviceWatcher;
+  end;
 end;
 
 destructor TBluetoothService.Destroy;
@@ -456,13 +464,23 @@ begin
   FDeviceWatcher.OnError := HandleWatcherError;
 
   if FDeviceWatcher.Start then
-    FDeviceWatcherStarted := True
+  begin
+    FDeviceWatcherStarted := True;
+    Log('[Service] StartDeviceWatcher: Device watcher started successfully');
+  end
   else
   begin
     // Watcher failed to start - error was already reported via OnError
-    // TODO: Add configuration option to fall back to polling here
+    Log('[Service] StartDeviceWatcher: Device watcher failed to start');
     FDeviceWatcher.Free;
     FDeviceWatcher := nil;
+
+    // Fall back to polling if enabled in configuration
+    if Config.PollingEnabled then
+    begin
+      Log('[Service] StartDeviceWatcher: Falling back to polling (interval=%d ms)', [Config.PollingInterval]);
+      StartPollingFallback;
+    end;
   end;
 end;
 
@@ -644,9 +662,18 @@ end;
 { Polling Fallback Methods }
 
 procedure TBluetoothService.StartPollingFallback;
+var
+  Interval: Cardinal;
 begin
   if FPollingEnabled then
     Exit;
+
+  // Get polling interval from configuration (with reasonable bounds)
+  Interval := Config.PollingInterval;
+  if Interval < 500 then
+    Interval := 500;  // Minimum 500ms
+  if Interval > 30000 then
+    Interval := 30000;  // Maximum 30 seconds
 
   // Create message-only window for timer
   FPollingHandle := AllocateHWnd(PollingWndProc);
@@ -656,8 +683,8 @@ begin
     Exit;
   end;
 
-  // Start polling timer
-  FPollingTimerID := SetTimer(FPollingHandle, POLLING_TIMER_ID, POLLING_INTERVAL_MS, nil);
+  // Start polling timer with configured interval
+  FPollingTimerID := SetTimer(FPollingHandle, POLLING_TIMER_ID, Interval, nil);
   if FPollingTimerID = 0 then
   begin
     DeallocateHWnd(FPollingHandle);
@@ -667,6 +694,7 @@ begin
   end;
 
   FPollingEnabled := True;
+  Log('[Service] StartPollingFallback: Polling started with interval %d ms', [Interval]);
 end;
 
 procedure TBluetoothService.StopPollingFallback;
