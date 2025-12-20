@@ -77,7 +77,8 @@ uses
   Vcl.Themes,
   ShellAPI,
   Bluetooth.Service,
-  App.Logger;
+  App.Logger,
+  App.Config;
 
 {$R *.dfm}
 
@@ -87,6 +88,9 @@ procedure TFormMain.FormCreate(Sender: TObject);
 var
   RadioEnabled: Boolean;
 begin
+  // Load configuration early (this also applies LoggingEnabled setting)
+  Config;
+
   Log('[MainForm] FormCreate: Starting');
 
   FUpdatingToggle := False;

@@ -1,0 +1,754 @@
+{*******************************************************}
+{                                                       }
+{       Bluetooth Quick Connect                         }
+{       Application Configuration                       }
+{                                                       }
+{       Copyright (c) 2024                              }
+{                                                       }
+{*******************************************************}
+
+unit App.Config;
+
+interface
+
+uses
+  System.SysUtils,
+  System.Classes,
+  System.IniFiles,
+  System.Generics.Collections;
+
+type
+  /// <summary>
+  /// Window display mode.
+  /// </summary>
+  TWindowMode = (
+    wmWindow,  // Normal window with title bar
+    wmMenu     // Popup menu style, hides on focus loss
+  );
+
+  /// <summary>
+  /// Autostart mode for the application.
+  /// </summary>
+  TAutostartMode = (
+    amNone,           // No autostart
+    amRegistry,       // Start via Registry Run key
+    amTaskScheduler,  // Start via Task Scheduler
+    amService         // Run as Windows Service
+  );
+
+  /// <summary>
+  /// Per-device configuration.
+  /// </summary>
+  TDeviceConfig = record
+    Address: UInt64;
+    Alias: string;
+    Pinned: Boolean;
+    Hidden: Boolean;
+    AutoConnect: Boolean;
+    ConnectSound: string;
+    DisconnectSound: string;
+
+    class function Default(AAddress: UInt64): TDeviceConfig; static;
+  end;
+
+  /// <summary>
+  /// Application configuration manager.
+  /// Singleton class that handles loading/saving settings from INI file.
+  /// </summary>
+  TAppConfig = class
+  private
+    FConfigPath: string;
+    FModified: Boolean;
+    FDevices: TDictionary<UInt64, TDeviceConfig>;
+
+    // General
+    FLoggingEnabled: Boolean;
+    FWindowMode: TWindowMode;
+    FStayOnTop: Boolean;
+
+    // Hotkey
+    FHotkey: string;
+
+    // Polling
+    FPollingEnabled: Boolean;
+    FPollingInterval: Integer;
+    FPollingAsPrimary: Boolean;
+
+    // Appearance
+    FShowUnpaired: Boolean;
+    FShowAddresses: Boolean;
+    FTheme: string;
+
+    // Window
+    FWindowX: Integer;
+    FWindowY: Integer;
+    FWindowWidth: Integer;
+    FWindowHeight: Integer;
+
+    // Connection
+    FConnectionTimeout: Integer;
+    FConnectionRetryCount: Integer;
+
+    // Tray
+    FShowTrayIcon: Boolean;
+    FMinimizeToTray: Boolean;
+    FCloseToTray: Boolean;
+    FShowBalloonNotifications: Boolean;
+
+    // Autostart
+    FAutostartMode: TAutostartMode;
+
+    procedure SetDefaults;
+    procedure LoadDevices(AIni: TMemIniFile);
+    procedure SaveDevices(AIni: TMemIniFile);
+
+    // Property setters with modification tracking
+    procedure SetLoggingEnabled(AValue: Boolean);
+    procedure SetWindowMode(AValue: TWindowMode);
+    procedure SetStayOnTop(AValue: Boolean);
+    procedure SetHotkey(const AValue: string);
+    procedure SetPollingEnabled(AValue: Boolean);
+    procedure SetPollingInterval(AValue: Integer);
+    procedure SetPollingAsPrimary(AValue: Boolean);
+    procedure SetShowUnpaired(AValue: Boolean);
+    procedure SetShowAddresses(AValue: Boolean);
+    procedure SetTheme(const AValue: string);
+    procedure SetWindowX(AValue: Integer);
+    procedure SetWindowY(AValue: Integer);
+    procedure SetWindowWidth(AValue: Integer);
+    procedure SetWindowHeight(AValue: Integer);
+    procedure SetConnectionTimeout(AValue: Integer);
+    procedure SetConnectionRetryCount(AValue: Integer);
+    procedure SetShowTrayIcon(AValue: Boolean);
+    procedure SetMinimizeToTray(AValue: Boolean);
+    procedure SetCloseToTray(AValue: Boolean);
+    procedure SetShowBalloonNotifications(AValue: Boolean);
+    procedure SetAutostartMode(AValue: TAutostartMode);
+
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    /// <summary>
+    /// Loads configuration from INI file. Creates file with defaults if not exists.
+    /// </summary>
+    procedure Load;
+
+    /// <summary>
+    /// Saves configuration to INI file.
+    /// </summary>
+    procedure Save;
+
+    /// <summary>
+    /// Saves configuration only if modified.
+    /// </summary>
+    procedure SaveIfModified;
+
+    /// <summary>
+    /// Gets device-specific configuration.
+    /// Returns default config if device not configured.
+    /// </summary>
+    function GetDeviceConfig(AAddress: UInt64): TDeviceConfig;
+
+    /// <summary>
+    /// Sets device-specific configuration.
+    /// </summary>
+    procedure SetDeviceConfig(const AConfig: TDeviceConfig);
+
+    /// <summary>
+    /// Removes device-specific configuration (resets to defaults).
+    /// </summary>
+    procedure RemoveDeviceConfig(AAddress: UInt64);
+
+    /// <summary>
+    /// Returns all configured device addresses.
+    /// </summary>
+    function GetConfiguredDeviceAddresses: TArray<UInt64>;
+
+    /// <summary>
+    /// Path to the configuration file.
+    /// </summary>
+    property ConfigPath: string read FConfigPath;
+
+    /// <summary>
+    /// True if configuration was modified since last save.
+    /// </summary>
+    property Modified: Boolean read FModified;
+
+    // General settings
+    property LoggingEnabled: Boolean read FLoggingEnabled write SetLoggingEnabled;
+    property WindowMode: TWindowMode read FWindowMode write SetWindowMode;
+    property StayOnTop: Boolean read FStayOnTop write SetStayOnTop;
+
+    // Hotkey
+    property Hotkey: string read FHotkey write SetHotkey;
+
+    // Polling
+    property PollingEnabled: Boolean read FPollingEnabled write SetPollingEnabled;
+    property PollingInterval: Integer read FPollingInterval write SetPollingInterval;
+    property PollingAsPrimary: Boolean read FPollingAsPrimary write SetPollingAsPrimary;
+
+    // Appearance
+    property ShowUnpaired: Boolean read FShowUnpaired write SetShowUnpaired;
+    property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
+    property Theme: string read FTheme write SetTheme;
+
+    // Window
+    property WindowX: Integer read FWindowX write SetWindowX;
+    property WindowY: Integer read FWindowY write SetWindowY;
+    property WindowWidth: Integer read FWindowWidth write SetWindowWidth;
+    property WindowHeight: Integer read FWindowHeight write SetWindowHeight;
+
+    // Connection
+    property ConnectionTimeout: Integer read FConnectionTimeout write SetConnectionTimeout;
+    property ConnectionRetryCount: Integer read FConnectionRetryCount write SetConnectionRetryCount;
+
+    // Tray
+    property ShowTrayIcon: Boolean read FShowTrayIcon write SetShowTrayIcon;
+    property MinimizeToTray: Boolean read FMinimizeToTray write SetMinimizeToTray;
+    property CloseToTray: Boolean read FCloseToTray write SetCloseToTray;
+    property ShowBalloonNotifications: Boolean read FShowBalloonNotifications write SetShowBalloonNotifications;
+
+    // Autostart
+    property AutostartMode: TAutostartMode read FAutostartMode write SetAutostartMode;
+  end;
+
+/// <summary>
+/// Returns the singleton configuration instance.
+/// </summary>
+function Config: TAppConfig;
+
+implementation
+
+uses
+  App.Logger;
+
+const
+  // Section names
+  SEC_GENERAL = 'General';
+  SEC_HOTKEY = 'Hotkey';
+  SEC_POLLING = 'Polling';
+  SEC_APPEARANCE = 'Appearance';
+  SEC_WINDOW = 'Window';
+  SEC_CONNECTION = 'Connection';
+  SEC_TRAY = 'Tray';
+  SEC_AUTOSTART = 'Autostart';
+  SEC_DEVICE_PREFIX = 'Device.';
+
+  // Default values
+  DEF_LOGGING_ENABLED = False;
+  DEF_WINDOW_MODE = wmWindow;
+  DEF_STAY_ON_TOP = False;
+  DEF_HOTKEY = '';
+  DEF_POLLING_ENABLED = True;
+  DEF_POLLING_INTERVAL = 2000;
+  DEF_POLLING_AS_PRIMARY = False;
+  DEF_SHOW_UNPAIRED = False;
+  DEF_SHOW_ADDRESSES = False;
+  DEF_THEME = 'System';
+  DEF_WINDOW_X = -1;  // -1 means use default/center
+  DEF_WINDOW_Y = -1;
+  DEF_WINDOW_WIDTH = 320;
+  DEF_WINDOW_HEIGHT = 400;
+  DEF_CONNECTION_TIMEOUT = 10000;  // 10 seconds
+  DEF_CONNECTION_RETRY_COUNT = 2;
+  DEF_SHOW_TRAY_ICON = True;
+  DEF_MINIMIZE_TO_TRAY = True;
+  DEF_CLOSE_TO_TRAY = False;
+  DEF_SHOW_BALLOON_NOTIFICATIONS = True;
+  DEF_AUTOSTART_MODE = amNone;
+
+var
+  GConfig: TAppConfig = nil;
+
+function Config: TAppConfig;
+begin
+  if GConfig = nil then
+  begin
+    GConfig := TAppConfig.Create;
+    GConfig.Load;
+  end;
+  Result := GConfig;
+end;
+
+{ TDeviceConfig }
+
+class function TDeviceConfig.Default(AAddress: UInt64): TDeviceConfig;
+begin
+  Result.Address := AAddress;
+  Result.Alias := '';
+  Result.Pinned := False;
+  Result.Hidden := False;
+  Result.AutoConnect := False;
+  Result.ConnectSound := '';
+  Result.DisconnectSound := '';
+end;
+
+{ TAppConfig }
+
+constructor TAppConfig.Create;
+var
+  ExePath: string;
+begin
+  inherited Create;
+  FDevices := TDictionary<UInt64, TDeviceConfig>.Create;
+
+  // Config file next to executable
+  ExePath := ExtractFilePath(ParamStr(0));
+  FConfigPath := ExePath + 'bqc.ini';
+
+  SetDefaults;
+end;
+
+destructor TAppConfig.Destroy;
+begin
+  SaveIfModified;
+  FDevices.Free;
+  inherited Destroy;
+end;
+
+procedure TAppConfig.SetDefaults;
+begin
+  FLoggingEnabled := DEF_LOGGING_ENABLED;
+  FWindowMode := DEF_WINDOW_MODE;
+  FStayOnTop := DEF_STAY_ON_TOP;
+  FHotkey := DEF_HOTKEY;
+  FPollingEnabled := DEF_POLLING_ENABLED;
+  FPollingInterval := DEF_POLLING_INTERVAL;
+  FPollingAsPrimary := DEF_POLLING_AS_PRIMARY;
+  FShowUnpaired := DEF_SHOW_UNPAIRED;
+  FShowAddresses := DEF_SHOW_ADDRESSES;
+  FTheme := DEF_THEME;
+  FWindowX := DEF_WINDOW_X;
+  FWindowY := DEF_WINDOW_Y;
+  FWindowWidth := DEF_WINDOW_WIDTH;
+  FWindowHeight := DEF_WINDOW_HEIGHT;
+  FConnectionTimeout := DEF_CONNECTION_TIMEOUT;
+  FConnectionRetryCount := DEF_CONNECTION_RETRY_COUNT;
+  FShowTrayIcon := DEF_SHOW_TRAY_ICON;
+  FMinimizeToTray := DEF_MINIMIZE_TO_TRAY;
+  FCloseToTray := DEF_CLOSE_TO_TRAY;
+  FShowBalloonNotifications := DEF_SHOW_BALLOON_NOTIFICATIONS;
+  FAutostartMode := DEF_AUTOSTART_MODE;
+  FDevices.Clear;
+  FModified := False;
+end;
+
+procedure TAppConfig.Load;
+var
+  Ini: TMemIniFile;
+begin
+  if not FileExists(FConfigPath) then
+  begin
+    // Create default config file
+    SetDefaults;
+    Save;
+    FModified := False;
+    // Apply logging setting directly (not via property setter)
+    App.Logger.SetLoggingEnabled(FLoggingEnabled);
+    Exit;
+  end;
+
+  Ini := TMemIniFile.Create(FConfigPath);
+  try
+    // General
+    FLoggingEnabled := Ini.ReadBool(SEC_GENERAL, 'LoggingEnabled', DEF_LOGGING_ENABLED);
+    FWindowMode := TWindowMode(Ini.ReadInteger(SEC_GENERAL, 'WindowMode', Ord(DEF_WINDOW_MODE)));
+    FStayOnTop := Ini.ReadBool(SEC_GENERAL, 'StayOnTop', DEF_STAY_ON_TOP);
+
+    // Hotkey
+    FHotkey := Ini.ReadString(SEC_HOTKEY, 'GlobalHotkey', DEF_HOTKEY);
+
+    // Polling
+    FPollingEnabled := Ini.ReadBool(SEC_POLLING, 'Enabled', DEF_POLLING_ENABLED);
+    FPollingInterval := Ini.ReadInteger(SEC_POLLING, 'Interval', DEF_POLLING_INTERVAL);
+    FPollingAsPrimary := Ini.ReadBool(SEC_POLLING, 'UsePrimary', DEF_POLLING_AS_PRIMARY);
+
+    // Appearance
+    FShowUnpaired := Ini.ReadBool(SEC_APPEARANCE, 'ShowUnpaired', DEF_SHOW_UNPAIRED);
+    FShowAddresses := Ini.ReadBool(SEC_APPEARANCE, 'ShowAddresses', DEF_SHOW_ADDRESSES);
+    FTheme := Ini.ReadString(SEC_APPEARANCE, 'Theme', DEF_THEME);
+
+    // Window
+    FWindowX := Ini.ReadInteger(SEC_WINDOW, 'X', DEF_WINDOW_X);
+    FWindowY := Ini.ReadInteger(SEC_WINDOW, 'Y', DEF_WINDOW_Y);
+    FWindowWidth := Ini.ReadInteger(SEC_WINDOW, 'Width', DEF_WINDOW_WIDTH);
+    FWindowHeight := Ini.ReadInteger(SEC_WINDOW, 'Height', DEF_WINDOW_HEIGHT);
+
+    // Connection
+    FConnectionTimeout := Ini.ReadInteger(SEC_CONNECTION, 'Timeout', DEF_CONNECTION_TIMEOUT);
+    FConnectionRetryCount := Ini.ReadInteger(SEC_CONNECTION, 'RetryCount', DEF_CONNECTION_RETRY_COUNT);
+
+    // Tray
+    FShowTrayIcon := Ini.ReadBool(SEC_TRAY, 'ShowIcon', DEF_SHOW_TRAY_ICON);
+    FMinimizeToTray := Ini.ReadBool(SEC_TRAY, 'MinimizeToTray', DEF_MINIMIZE_TO_TRAY);
+    FCloseToTray := Ini.ReadBool(SEC_TRAY, 'CloseToTray', DEF_CLOSE_TO_TRAY);
+    FShowBalloonNotifications := Ini.ReadBool(SEC_TRAY, 'ShowNotifications', DEF_SHOW_BALLOON_NOTIFICATIONS);
+
+    // Autostart
+    FAutostartMode := TAutostartMode(Ini.ReadInteger(SEC_AUTOSTART, 'Mode', Ord(DEF_AUTOSTART_MODE)));
+
+    // Device-specific settings
+    LoadDevices(Ini);
+
+    FModified := False;
+  finally
+    Ini.Free;
+  end;
+
+  // Apply logging setting directly (not via property setter)
+  App.Logger.SetLoggingEnabled(FLoggingEnabled);
+end;
+
+procedure TAppConfig.Save;
+var
+  Ini: TMemIniFile;
+begin
+  Ini := TMemIniFile.Create(FConfigPath);
+  try
+    // General
+    Ini.WriteBool(SEC_GENERAL, 'LoggingEnabled', FLoggingEnabled);
+    Ini.WriteInteger(SEC_GENERAL, 'WindowMode', Ord(FWindowMode));
+    Ini.WriteBool(SEC_GENERAL, 'StayOnTop', FStayOnTop);
+
+    // Hotkey
+    Ini.WriteString(SEC_HOTKEY, 'GlobalHotkey', FHotkey);
+
+    // Polling
+    Ini.WriteBool(SEC_POLLING, 'Enabled', FPollingEnabled);
+    Ini.WriteInteger(SEC_POLLING, 'Interval', FPollingInterval);
+    Ini.WriteBool(SEC_POLLING, 'UsePrimary', FPollingAsPrimary);
+
+    // Appearance
+    Ini.WriteBool(SEC_APPEARANCE, 'ShowUnpaired', FShowUnpaired);
+    Ini.WriteBool(SEC_APPEARANCE, 'ShowAddresses', FShowAddresses);
+    Ini.WriteString(SEC_APPEARANCE, 'Theme', FTheme);
+
+    // Window
+    Ini.WriteInteger(SEC_WINDOW, 'X', FWindowX);
+    Ini.WriteInteger(SEC_WINDOW, 'Y', FWindowY);
+    Ini.WriteInteger(SEC_WINDOW, 'Width', FWindowWidth);
+    Ini.WriteInteger(SEC_WINDOW, 'Height', FWindowHeight);
+
+    // Connection
+    Ini.WriteInteger(SEC_CONNECTION, 'Timeout', FConnectionTimeout);
+    Ini.WriteInteger(SEC_CONNECTION, 'RetryCount', FConnectionRetryCount);
+
+    // Tray
+    Ini.WriteBool(SEC_TRAY, 'ShowIcon', FShowTrayIcon);
+    Ini.WriteBool(SEC_TRAY, 'MinimizeToTray', FMinimizeToTray);
+    Ini.WriteBool(SEC_TRAY, 'CloseToTray', FCloseToTray);
+    Ini.WriteBool(SEC_TRAY, 'ShowNotifications', FShowBalloonNotifications);
+
+    // Autostart
+    Ini.WriteInteger(SEC_AUTOSTART, 'Mode', Ord(FAutostartMode));
+
+    // Device-specific settings
+    SaveDevices(Ini);
+
+    Ini.UpdateFile;
+    FModified := False;
+  finally
+    Ini.Free;
+  end;
+end;
+
+procedure TAppConfig.SaveIfModified;
+begin
+  if FModified then
+    Save;
+end;
+
+procedure TAppConfig.LoadDevices(AIni: TMemIniFile);
+var
+  Sections: TStringList;
+  Section: string;
+  AddressStr: string;
+  Address: UInt64;
+  DeviceConfig: TDeviceConfig;
+begin
+  FDevices.Clear;
+  Sections := TStringList.Create;
+  try
+    AIni.ReadSections(Sections);
+    for Section in Sections do
+    begin
+      if Section.StartsWith(SEC_DEVICE_PREFIX) then
+      begin
+        AddressStr := Section.Substring(Length(SEC_DEVICE_PREFIX));
+        if TryStrToUInt64('$' + AddressStr, Address) then
+        begin
+          DeviceConfig := TDeviceConfig.Default(Address);
+          DeviceConfig.Alias := AIni.ReadString(Section, 'Alias', '');
+          DeviceConfig.Pinned := AIni.ReadBool(Section, 'Pinned', False);
+          DeviceConfig.Hidden := AIni.ReadBool(Section, 'Hidden', False);
+          DeviceConfig.AutoConnect := AIni.ReadBool(Section, 'AutoConnect', False);
+          DeviceConfig.ConnectSound := AIni.ReadString(Section, 'ConnectSound', '');
+          DeviceConfig.DisconnectSound := AIni.ReadString(Section, 'DisconnectSound', '');
+          FDevices.Add(Address, DeviceConfig);
+        end;
+      end;
+    end;
+  finally
+    Sections.Free;
+  end;
+end;
+
+procedure TAppConfig.SaveDevices(AIni: TMemIniFile);
+var
+  Sections: TStringList;
+  Section: string;
+  Pair: TPair<UInt64, TDeviceConfig>;
+  SectionName: string;
+begin
+  // First, remove all existing device sections
+  Sections := TStringList.Create;
+  try
+    AIni.ReadSections(Sections);
+    for Section in Sections do
+    begin
+      if Section.StartsWith(SEC_DEVICE_PREFIX) then
+        AIni.EraseSection(Section);
+    end;
+  finally
+    Sections.Free;
+  end;
+
+  // Write current device configurations
+  for Pair in FDevices do
+  begin
+    SectionName := SEC_DEVICE_PREFIX + IntToHex(Pair.Key, 12);
+    AIni.WriteString(SectionName, 'Alias', Pair.Value.Alias);
+    AIni.WriteBool(SectionName, 'Pinned', Pair.Value.Pinned);
+    AIni.WriteBool(SectionName, 'Hidden', Pair.Value.Hidden);
+    AIni.WriteBool(SectionName, 'AutoConnect', Pair.Value.AutoConnect);
+    AIni.WriteString(SectionName, 'ConnectSound', Pair.Value.ConnectSound);
+    AIni.WriteString(SectionName, 'DisconnectSound', Pair.Value.DisconnectSound);
+  end;
+end;
+
+function TAppConfig.GetDeviceConfig(AAddress: UInt64): TDeviceConfig;
+begin
+  if not FDevices.TryGetValue(AAddress, Result) then
+    Result := TDeviceConfig.Default(AAddress);
+end;
+
+procedure TAppConfig.SetDeviceConfig(const AConfig: TDeviceConfig);
+begin
+  FDevices.AddOrSetValue(AConfig.Address, AConfig);
+  FModified := True;
+end;
+
+procedure TAppConfig.RemoveDeviceConfig(AAddress: UInt64);
+begin
+  if FDevices.ContainsKey(AAddress) then
+  begin
+    FDevices.Remove(AAddress);
+    FModified := True;
+  end;
+end;
+
+function TAppConfig.GetConfiguredDeviceAddresses: TArray<UInt64>;
+begin
+  Result := FDevices.Keys.ToArray;
+end;
+
+// Property setters with modification tracking
+
+procedure TAppConfig.SetLoggingEnabled(AValue: Boolean);
+begin
+  if FLoggingEnabled <> AValue then
+  begin
+    FLoggingEnabled := AValue;
+    FModified := True;
+    // Apply to logger immediately
+    App.Logger.SetLoggingEnabled(AValue);
+  end;
+end;
+
+procedure TAppConfig.SetWindowMode(AValue: TWindowMode);
+begin
+  if FWindowMode <> AValue then
+  begin
+    FWindowMode := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetStayOnTop(AValue: Boolean);
+begin
+  if FStayOnTop <> AValue then
+  begin
+    FStayOnTop := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetHotkey(const AValue: string);
+begin
+  if FHotkey <> AValue then
+  begin
+    FHotkey := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetPollingEnabled(AValue: Boolean);
+begin
+  if FPollingEnabled <> AValue then
+  begin
+    FPollingEnabled := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetPollingInterval(AValue: Integer);
+begin
+  if FPollingInterval <> AValue then
+  begin
+    FPollingInterval := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetPollingAsPrimary(AValue: Boolean);
+begin
+  if FPollingAsPrimary <> AValue then
+  begin
+    FPollingAsPrimary := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetShowUnpaired(AValue: Boolean);
+begin
+  if FShowUnpaired <> AValue then
+  begin
+    FShowUnpaired := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetShowAddresses(AValue: Boolean);
+begin
+  if FShowAddresses <> AValue then
+  begin
+    FShowAddresses := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetTheme(const AValue: string);
+begin
+  if FTheme <> AValue then
+  begin
+    FTheme := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetWindowX(AValue: Integer);
+begin
+  if FWindowX <> AValue then
+  begin
+    FWindowX := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetWindowY(AValue: Integer);
+begin
+  if FWindowY <> AValue then
+  begin
+    FWindowY := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetWindowWidth(AValue: Integer);
+begin
+  if FWindowWidth <> AValue then
+  begin
+    FWindowWidth := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetWindowHeight(AValue: Integer);
+begin
+  if FWindowHeight <> AValue then
+  begin
+    FWindowHeight := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetConnectionTimeout(AValue: Integer);
+begin
+  if FConnectionTimeout <> AValue then
+  begin
+    FConnectionTimeout := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetConnectionRetryCount(AValue: Integer);
+begin
+  if FConnectionRetryCount <> AValue then
+  begin
+    FConnectionRetryCount := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetShowTrayIcon(AValue: Boolean);
+begin
+  if FShowTrayIcon <> AValue then
+  begin
+    FShowTrayIcon := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetMinimizeToTray(AValue: Boolean);
+begin
+  if FMinimizeToTray <> AValue then
+  begin
+    FMinimizeToTray := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetCloseToTray(AValue: Boolean);
+begin
+  if FCloseToTray <> AValue then
+  begin
+    FCloseToTray := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetShowBalloonNotifications(AValue: Boolean);
+begin
+  if FShowBalloonNotifications <> AValue then
+  begin
+    FShowBalloonNotifications := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetAutostartMode(AValue: TAutostartMode);
+begin
+  if FAutostartMode <> AValue then
+  begin
+    FAutostartMode := AValue;
+    FModified := True;
+  end;
+end;
+
+initialization
+
+finalization
+  FreeAndNil(GConfig);
+
+end.

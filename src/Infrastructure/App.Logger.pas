@@ -26,6 +26,17 @@ procedure Log(const AMessage: string); overload;
 /// </summary>
 procedure Log(const AFormat: string; const AArgs: array of const); overload;
 
+/// <summary>
+/// Enables or disables logging globally.
+/// When disabled, Log calls are no-ops.
+/// </summary>
+procedure SetLoggingEnabled(AEnabled: Boolean);
+
+/// <summary>
+/// Returns true if logging is currently enabled.
+/// </summary>
+function IsLoggingEnabled: Boolean;
+
 implementation
 
 uses
@@ -35,6 +46,7 @@ var
   GLogFile: string;
   GLock: TCriticalSection;
   GInitialized: Boolean = False;
+  GLoggingEnabled: Boolean = True;  // Enabled by default for startup diagnostics
 
 procedure InitLogger;
 var
@@ -49,12 +61,25 @@ begin
   GInitialized := True;
 end;
 
+procedure SetLoggingEnabled(AEnabled: Boolean);
+begin
+  GLoggingEnabled := AEnabled;
+end;
+
+function IsLoggingEnabled: Boolean;
+begin
+  Result := GLoggingEnabled;
+end;
+
 procedure Log(const AMessage: string);
 var
   LogLine: string;
   FileHandle: TextFile;
   ThreadId: Cardinal;
 begin
+  if not GLoggingEnabled then
+    Exit;
+
   if not GInitialized then
     InitLogger;
 
@@ -91,13 +116,9 @@ end;
 
 initialization
   InitLogger;
-  Log('=== BQC Logger Started ===');
 
 finalization
   if GInitialized then
-  begin
-    Log('=== BQC Logger Stopped ===');
     GLock.Free;
-  end;
 
 end.
