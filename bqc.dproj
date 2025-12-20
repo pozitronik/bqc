@@ -5,7 +5,7 @@
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
-        <Platform Condition="'$(Platform)'==''">Win64</Platform>
+        <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <ProjectName Condition="'$(ProjectName)'==''">bqc</ProjectName>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -137,6 +137,8 @@
         <DCCReference Include="src\Application\Bluetooth.Service.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.RadioControl.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceWatcher.pas"/>
+        <DCCReference Include="src\Infrastructure\App.Logger.pas"/>
+        <DCCReference Include="src\Infrastructure\App.Config.pas"/>
         <DCCReference Include="src\Infrastructure\System.Permissions.pas"/>
         <DCCReference Include="src\Presentation\UI.Theme.pas"/>
         <DCCReference Include="src\Presentation\UI.DeviceList.pas">

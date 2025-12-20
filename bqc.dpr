@@ -1,6 +1,7 @@
 program bqc;
 
 uses
+  Winapi.Windows,
   Vcl.Forms,
   Vcl.Themes,
   Vcl.Styles,
@@ -21,12 +22,30 @@ uses
 
 {$R *.res}
 
-begin
-  Application.Initialize;
-  Application.MainFormOnTaskbar := True;
-  Application.Title := 'Bluetooth Quick Connect';
+const
+  MUTEX_NAME = 'BluetoothQuickConnect_SingleInstance_Mutex';
 
-  // Apply VCL Style if available
-  Application.CreateForm(TFormMain, FormMain);
-  Application.Run;
+var
+  Mutex: THandle;
+
+begin
+  // Single instance check using named mutex
+  Mutex := CreateMutex(nil, True, MUTEX_NAME);
+  if GetLastError = ERROR_ALREADY_EXISTS then
+  begin
+    // Another instance is already running, exit silently
+    CloseHandle(Mutex);
+    Exit;
+  end;
+
+  try
+    Application.Initialize;
+    Application.MainFormOnTaskbar := True;
+    Application.Title := 'Bluetooth Quick Connect';
+
+    Application.CreateForm(TFormMain, FormMain);
+    Application.Run;
+  finally
+    CloseHandle(Mutex);
+  end;
 end.

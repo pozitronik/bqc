@@ -12,6 +12,7 @@ object FormMain: TFormMain
   Font.Style = []
   KeyPreview = True
   Position = poScreenCenter
+  OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown
@@ -31,7 +32,7 @@ object FormMain: TFormMain
       Left = 10
       Top = 0
       Width = 98
-      Height = 33
+      Height = 30
       Align = alLeft
       Caption = 'Bluetooth'
       Font.Charset = DEFAULT_CHARSET
@@ -42,7 +43,6 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       OnClick = TitleLabelClick
-      ExplicitTop = -6
     end
     object BluetoothToggle: TToggleSwitch
       Left = 297
@@ -72,7 +72,7 @@ object FormMain: TFormMain
       Left = 338
       Top = 0
       Width = 32
-      Height = 30
+      Height = 15
       Align = alRight
       Caption = 'Ready'
       Font.Charset = DEFAULT_CHARSET
@@ -82,13 +82,12 @@ object FormMain: TFormMain
       Font.Style = []
       ParentFont = False
       Layout = tlCenter
-      ExplicitHeight = 15
     end
     object SettingsLink: TLabel
       Left = 10
       Top = 0
       Width = 127
-      Height = 30
+      Height = 15
       Cursor = crHandPoint
       Align = alLeft
       Caption = 'More Bluetooth settings'
@@ -100,7 +99,6 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       OnClick = HandleSettingsClick
-      ExplicitHeight = 15
     end
   end
   object DevicesPanel: TPanel

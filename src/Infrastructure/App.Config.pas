@@ -93,7 +93,6 @@ type
     FConnectionRetryCount: Integer;
 
     // Tray
-    FShowTrayIcon: Boolean;
     FMinimizeToTray: Boolean;
     FCloseToTray: Boolean;
     FShowBalloonNotifications: Boolean;
@@ -121,7 +120,6 @@ type
     procedure SetWindowHeight(AValue: Integer);
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
-    procedure SetShowTrayIcon(AValue: Boolean);
     procedure SetMinimizeToTray(AValue: Boolean);
     procedure SetCloseToTray(AValue: Boolean);
     procedure SetShowBalloonNotifications(AValue: Boolean);
@@ -205,7 +203,6 @@ type
     property ConnectionRetryCount: Integer read FConnectionRetryCount write SetConnectionRetryCount;
 
     // Tray
-    property ShowTrayIcon: Boolean read FShowTrayIcon write SetShowTrayIcon;
     property MinimizeToTray: Boolean read FMinimizeToTray write SetMinimizeToTray;
     property CloseToTray: Boolean read FCloseToTray write SetCloseToTray;
     property ShowBalloonNotifications: Boolean read FShowBalloonNotifications write SetShowBalloonNotifications;
@@ -252,9 +249,8 @@ const
   DEF_WINDOW_HEIGHT = 400;
   DEF_CONNECTION_TIMEOUT = 10000;  // 10 seconds
   DEF_CONNECTION_RETRY_COUNT = 2;
-  DEF_SHOW_TRAY_ICON = True;
   DEF_MINIMIZE_TO_TRAY = True;
-  DEF_CLOSE_TO_TRAY = False;
+  DEF_CLOSE_TO_TRAY = True;  // Default: close hides to tray
   DEF_SHOW_BALLOON_NOTIFICATIONS = True;
   DEF_AUTOSTART_MODE = amNone;
 
@@ -326,7 +322,6 @@ begin
   FWindowHeight := DEF_WINDOW_HEIGHT;
   FConnectionTimeout := DEF_CONNECTION_TIMEOUT;
   FConnectionRetryCount := DEF_CONNECTION_RETRY_COUNT;
-  FShowTrayIcon := DEF_SHOW_TRAY_ICON;
   FMinimizeToTray := DEF_MINIMIZE_TO_TRAY;
   FCloseToTray := DEF_CLOSE_TO_TRAY;
   FShowBalloonNotifications := DEF_SHOW_BALLOON_NOTIFICATIONS;
@@ -380,7 +375,6 @@ begin
     FConnectionRetryCount := Ini.ReadInteger(SEC_CONNECTION, 'RetryCount', DEF_CONNECTION_RETRY_COUNT);
 
     // Tray
-    FShowTrayIcon := Ini.ReadBool(SEC_TRAY, 'ShowIcon', DEF_SHOW_TRAY_ICON);
     FMinimizeToTray := Ini.ReadBool(SEC_TRAY, 'MinimizeToTray', DEF_MINIMIZE_TO_TRAY);
     FCloseToTray := Ini.ReadBool(SEC_TRAY, 'CloseToTray', DEF_CLOSE_TO_TRAY);
     FShowBalloonNotifications := Ini.ReadBool(SEC_TRAY, 'ShowNotifications', DEF_SHOW_BALLOON_NOTIFICATIONS);
@@ -434,7 +428,6 @@ begin
     Ini.WriteInteger(SEC_CONNECTION, 'RetryCount', FConnectionRetryCount);
 
     // Tray
-    Ini.WriteBool(SEC_TRAY, 'ShowIcon', FShowTrayIcon);
     Ini.WriteBool(SEC_TRAY, 'MinimizeToTray', FMinimizeToTray);
     Ini.WriteBool(SEC_TRAY, 'CloseToTray', FCloseToTray);
     Ini.WriteBool(SEC_TRAY, 'ShowNotifications', FShowBalloonNotifications);
@@ -696,15 +689,6 @@ begin
   if FConnectionRetryCount <> AValue then
   begin
     FConnectionRetryCount := AValue;
-    FModified := True;
-  end;
-end;
-
-procedure TAppConfig.SetShowTrayIcon(AValue: Boolean);
-begin
-  if FShowTrayIcon <> AValue then
-  begin
-    FShowTrayIcon := AValue;
     FModified := True;
   end;
 end;

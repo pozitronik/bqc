@@ -15,6 +15,7 @@ uses
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
   Vcl.WinXCtrls,
+  Vcl.Menus,
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
@@ -35,6 +36,7 @@ type
     DevicesPanel: TPanel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure HandleBluetoothToggle(Sender: TObject);
     procedure HandleSettingsClick(Sender: TObject);
@@ -47,14 +49,20 @@ type
     FRadioWatcher: TBluetoothRadioWatcher;
     FUpdatingToggle: Boolean;
     FDelayedLoadTimer: TTimer;
+    FTrayIcon: TTrayIcon;
+    FTrayMenu: TPopupMenu;
+    FForceClose: Boolean;
 
     procedure CreateDeviceList;
+    procedure CreateTrayIcon;
     procedure SetToggleState(AState: TToggleSwitchState);
     procedure ApplyTheme;
     procedure LoadDevices;
     procedure LoadDevicesDelayed;
     procedure AutoConnectDevices;
     procedure UpdateStatus(const AMessage: string);
+    procedure ShowFromTray;
+    procedure HideToTray;
 
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
@@ -64,6 +72,12 @@ type
     procedure HandleThemeChanged(Sender: TObject);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
     procedure HandleDelayedLoadTimer(Sender: TObject);
+    procedure HandleTrayIconClick(Sender: TObject);
+    procedure HandleTrayMenuShowClick(Sender: TObject);
+    procedure HandleTrayMenuExitClick(Sender: TObject);
+
+  protected
+    procedure WMSysCommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
 
   public
     { Public declarations }
@@ -93,6 +107,8 @@ begin
   Config;
 
   Log('[MainForm] FormCreate: Starting');
+
+  FForceClose := False;
 
   // Restore window position from configuration
   if (Config.WindowX >= 0) and (Config.WindowY >= 0) then
@@ -132,6 +148,9 @@ begin
 
   // Create custom device list control
   CreateDeviceList;
+
+  // Create tray icon
+  CreateTrayIcon;
 
   // Apply configuration settings to device list
   FDeviceList.ShowAddresses := Config.ShowAddresses;
@@ -228,6 +247,46 @@ begin
   FDeviceList.Align := alClient;
   FDeviceList.OnDeviceClick := HandleDeviceClick;
   FDeviceList.TabOrder := 0;
+end;
+
+procedure TFormMain.CreateTrayIcon;
+var
+  MenuItem: TMenuItem;
+begin
+  // Create popup menu for tray icon
+  FTrayMenu := TPopupMenu.Create(Self);
+
+  // Show/Hide menu item
+  MenuItem := TMenuItem.Create(FTrayMenu);
+  MenuItem.Caption := 'Show';
+  MenuItem.OnClick := HandleTrayMenuShowClick;
+  MenuItem.Default := True;
+  FTrayMenu.Items.Add(MenuItem);
+
+  // Separator
+  MenuItem := TMenuItem.Create(FTrayMenu);
+  MenuItem.Caption := '-';
+  FTrayMenu.Items.Add(MenuItem);
+
+  // Exit menu item
+  MenuItem := TMenuItem.Create(FTrayMenu);
+  MenuItem.Caption := 'Exit';
+  MenuItem.OnClick := HandleTrayMenuExitClick;
+  FTrayMenu.Items.Add(MenuItem);
+
+  // Create tray icon
+  FTrayIcon := TTrayIcon.Create(Self);
+  FTrayIcon.Hint := 'Bluetooth Quick Connect';
+  FTrayIcon.PopupMenu := FTrayMenu;
+  FTrayIcon.OnClick := HandleTrayIconClick;
+
+  // Use application icon
+  FTrayIcon.Icon.Assign(Application.Icon);
+
+  // Tray icon is always visible
+  FTrayIcon.Visible := True;
+
+  Log('[MainForm] CreateTrayIcon: Tray icon created');
 end;
 
 procedure TFormMain.SetToggleState(AState: TToggleSwitchState);
@@ -608,6 +667,88 @@ procedure TFormMain.HandleDelayedLoadTimer(Sender: TObject);
 begin
   FDelayedLoadTimer.Enabled := False;
   LoadDevices;
+end;
+
+{ Tray icon support }
+
+procedure TFormMain.ShowFromTray;
+begin
+  Log('[MainForm] ShowFromTray');
+  Show;
+  WindowState := wsNormal;
+  Application.BringToFront;
+  SetForegroundWindow(Handle);
+
+  // Update tray menu item caption
+  if FTrayMenu.Items.Count > 0 then
+    FTrayMenu.Items[0].Caption := 'Hide';
+end;
+
+procedure TFormMain.HideToTray;
+begin
+  Log('[MainForm] HideToTray');
+  Hide;
+
+  // Update tray menu item caption
+  if FTrayMenu.Items.Count > 0 then
+    FTrayMenu.Items[0].Caption := 'Show';
+end;
+
+procedure TFormMain.HandleTrayIconClick(Sender: TObject);
+begin
+  if Visible then
+    HideToTray
+  else
+    ShowFromTray;
+end;
+
+procedure TFormMain.HandleTrayMenuShowClick(Sender: TObject);
+begin
+  if Visible then
+    HideToTray
+  else
+    ShowFromTray;
+end;
+
+procedure TFormMain.HandleTrayMenuExitClick(Sender: TObject);
+begin
+  Log('[MainForm] HandleTrayMenuExitClick: Forcing close');
+  FForceClose := True;
+  Close;
+end;
+
+procedure TFormMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  // If CloseToTray is enabled and not forcing close, hide to tray instead
+  if Config.CloseToTray and (not FForceClose) then
+  begin
+    Log('[MainForm] FormCloseQuery: CloseToTray enabled, hiding to tray');
+    CanClose := False;
+    HideToTray;
+  end
+  else
+  begin
+    Log('[MainForm] FormCloseQuery: Allowing close (ForceClose=%s, CloseToTray=%s)',
+      [BoolToStr(FForceClose, True), BoolToStr(Config.CloseToTray, True)]);
+    CanClose := True;
+  end;
+end;
+
+procedure TFormMain.WMSysCommand(var Msg: TWMSysCommand);
+begin
+  // Intercept minimize command
+  if (Msg.CmdType and $FFF0) = SC_MINIMIZE then
+  begin
+    if Config.MinimizeToTray then
+    begin
+      Log('[MainForm] WMSysCommand: MinimizeToTray enabled, hiding to tray');
+      HideToTray;
+      Msg.Result := 0;
+      Exit;
+    end;
+  end;
+
+  inherited;
 end;
 
 end.
