@@ -19,6 +19,15 @@ uses
 
 type
   /// <summary>
+  /// Notification mode for events.
+  /// </summary>
+  TNotificationMode = (
+    nmNone,      // No notification
+    nmBalloon    // Balloon tip notification
+    // Future: nmToast for Windows 10+ toast notifications
+  );
+
+  /// <summary>
   /// Window display mode.
   /// </summary>
   TWindowMode = (
@@ -47,6 +56,19 @@ type
   );
 
   /// <summary>
+  /// Per-device notification settings.
+  /// Value of -1 means use global default.
+  /// </summary>
+  TDeviceNotificationConfig = record
+    OnConnect: Integer;        // -1=Global, 0=None, 1=Balloon
+    OnDisconnect: Integer;     // -1=Global, 0=None, 1=Balloon
+    OnConnectFailed: Integer;  // -1=Global, 0=None, 1=Balloon
+    OnAutoConnect: Integer;    // -1=Global, 0=None, 1=Balloon
+
+    class function Default: TDeviceNotificationConfig; static;
+  end;
+
+  /// <summary>
   /// Per-device configuration.
   /// </summary>
   TDeviceConfig = record
@@ -55,12 +77,12 @@ type
     Pinned: Boolean;
     Hidden: Boolean;
     AutoConnect: Boolean;
-    ConnectSound: string;
-    DisconnectSound: string;
     /// <summary>Connection timeout in ms. -1 means use global default.</summary>
     ConnectionTimeout: Integer;
     /// <summary>Connection retry count. -1 means use global default.</summary>
     ConnectionRetryCount: Integer;
+    /// <summary>Per-device notification settings.</summary>
+    Notifications: TDeviceNotificationConfig;
 
     class function Default(AAddress: UInt64): TDeviceConfig; static;
   end;
@@ -107,7 +129,15 @@ type
     // Tray
     FMinimizeToTray: Boolean;
     FCloseToTray: Boolean;
-    FShowBalloonNotifications: Boolean;
+
+    // Notifications (global defaults)
+    FNotifyOnConnect: TNotificationMode;
+    FNotifyOnDisconnect: TNotificationMode;
+    FNotifyOnConnectFailed: TNotificationMode;
+    FNotifyOnAutoConnect: TNotificationMode;
+
+    // Menu behavior
+    FMenuHideOnFocusLoss: Boolean;
 
     // Autostart
     FAutostartMode: TAutostartMode;
@@ -136,7 +166,11 @@ type
     procedure SetConnectionRetryCount(AValue: Integer);
     procedure SetMinimizeToTray(AValue: Boolean);
     procedure SetCloseToTray(AValue: Boolean);
-    procedure SetShowBalloonNotifications(AValue: Boolean);
+    procedure SetNotifyOnConnect(AValue: TNotificationMode);
+    procedure SetNotifyOnDisconnect(AValue: TNotificationMode);
+    procedure SetNotifyOnConnectFailed(AValue: TNotificationMode);
+    procedure SetNotifyOnAutoConnect(AValue: TNotificationMode);
+    procedure SetMenuHideOnFocusLoss(AValue: Boolean);
     procedure SetAutostartMode(AValue: TAutostartMode);
 
   public
@@ -225,10 +259,28 @@ type
     // Tray
     property MinimizeToTray: Boolean read FMinimizeToTray write SetMinimizeToTray;
     property CloseToTray: Boolean read FCloseToTray write SetCloseToTray;
-    property ShowBalloonNotifications: Boolean read FShowBalloonNotifications write SetShowBalloonNotifications;
+
+    // Notifications (global defaults)
+    property NotifyOnConnect: TNotificationMode read FNotifyOnConnect write SetNotifyOnConnect;
+    property NotifyOnDisconnect: TNotificationMode read FNotifyOnDisconnect write SetNotifyOnDisconnect;
+    property NotifyOnConnectFailed: TNotificationMode read FNotifyOnConnectFailed write SetNotifyOnConnectFailed;
+    property NotifyOnAutoConnect: TNotificationMode read FNotifyOnAutoConnect write SetNotifyOnAutoConnect;
+
+    // Menu behavior
+    /// <summary>
+    /// When true, menu popup hides when application loses focus.
+    /// Only applies when WindowMode = wmMenu.
+    /// </summary>
+    property MenuHideOnFocusLoss: Boolean read FMenuHideOnFocusLoss write SetMenuHideOnFocusLoss;
 
     // Autostart
     property AutostartMode: TAutostartMode read FAutostartMode write SetAutostartMode;
+
+    /// <summary>
+    /// Gets effective notification mode for a device and event.
+    /// Resolves per-device override or returns global default.
+    /// </summary>
+    function GetEffectiveNotification(AAddress: UInt64; AEvent: string): TNotificationMode;
   end;
 
 /// <summary>
@@ -250,6 +302,7 @@ const
   SEC_WINDOW = 'Window';
   SEC_CONNECTION = 'Connection';
   SEC_TRAY = 'Tray';
+  SEC_NOTIFICATIONS = 'Notifications';
   SEC_AUTOSTART = 'Autostart';
   SEC_DEVICE_PREFIX = 'Device.';
 
@@ -273,7 +326,11 @@ const
   DEF_CONNECTION_RETRY_COUNT = 2;
   DEF_MINIMIZE_TO_TRAY = True;
   DEF_CLOSE_TO_TRAY = True;  // Default: close hides to tray
-  DEF_SHOW_BALLOON_NOTIFICATIONS = True;
+  DEF_NOTIFY_ON_CONNECT = nmBalloon;
+  DEF_NOTIFY_ON_DISCONNECT = nmBalloon;
+  DEF_NOTIFY_ON_CONNECT_FAILED = nmBalloon;
+  DEF_NOTIFY_ON_AUTO_CONNECT = nmBalloon;
+  DEF_MENU_HIDE_ON_FOCUS_LOSS = True;  // Menu hides when app loses focus (default)
   DEF_AUTOSTART_MODE = amNone;
 
 var
@@ -289,6 +346,16 @@ begin
   Result := GConfig;
 end;
 
+{ TDeviceNotificationConfig }
+
+class function TDeviceNotificationConfig.Default: TDeviceNotificationConfig;
+begin
+  Result.OnConnect := -1;        // Use global default
+  Result.OnDisconnect := -1;     // Use global default
+  Result.OnConnectFailed := -1;  // Use global default
+  Result.OnAutoConnect := -1;    // Use global default
+end;
+
 { TDeviceConfig }
 
 class function TDeviceConfig.Default(AAddress: UInt64): TDeviceConfig;
@@ -298,10 +365,9 @@ begin
   Result.Pinned := False;
   Result.Hidden := False;
   Result.AutoConnect := False;
-  Result.ConnectSound := '';
-  Result.DisconnectSound := '';
   Result.ConnectionTimeout := -1;     // Use global default
   Result.ConnectionRetryCount := -1;  // Use global default
+  Result.Notifications := TDeviceNotificationConfig.Default;
 end;
 
 { TAppConfig }
@@ -348,7 +414,11 @@ begin
   FConnectionRetryCount := DEF_CONNECTION_RETRY_COUNT;
   FMinimizeToTray := DEF_MINIMIZE_TO_TRAY;
   FCloseToTray := DEF_CLOSE_TO_TRAY;
-  FShowBalloonNotifications := DEF_SHOW_BALLOON_NOTIFICATIONS;
+  FNotifyOnConnect := DEF_NOTIFY_ON_CONNECT;
+  FNotifyOnDisconnect := DEF_NOTIFY_ON_DISCONNECT;
+  FNotifyOnConnectFailed := DEF_NOTIFY_ON_CONNECT_FAILED;
+  FNotifyOnAutoConnect := DEF_NOTIFY_ON_AUTO_CONNECT;
+  FMenuHideOnFocusLoss := DEF_MENU_HIDE_ON_FOCUS_LOSS;
   FAutostartMode := DEF_AUTOSTART_MODE;
   FDevices.Clear;
   FModified := False;
@@ -403,7 +473,15 @@ begin
     // Tray
     FMinimizeToTray := Ini.ReadBool(SEC_TRAY, 'MinimizeToTray', DEF_MINIMIZE_TO_TRAY);
     FCloseToTray := Ini.ReadBool(SEC_TRAY, 'CloseToTray', DEF_CLOSE_TO_TRAY);
-    FShowBalloonNotifications := Ini.ReadBool(SEC_TRAY, 'ShowNotifications', DEF_SHOW_BALLOON_NOTIFICATIONS);
+
+    // Notifications
+    FNotifyOnConnect := TNotificationMode(Ini.ReadInteger(SEC_NOTIFICATIONS, 'OnConnect', Ord(DEF_NOTIFY_ON_CONNECT)));
+    FNotifyOnDisconnect := TNotificationMode(Ini.ReadInteger(SEC_NOTIFICATIONS, 'OnDisconnect', Ord(DEF_NOTIFY_ON_DISCONNECT)));
+    FNotifyOnConnectFailed := TNotificationMode(Ini.ReadInteger(SEC_NOTIFICATIONS, 'OnConnectFailed', Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
+    FNotifyOnAutoConnect := TNotificationMode(Ini.ReadInteger(SEC_NOTIFICATIONS, 'OnAutoConnect', Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
+
+    // Menu behavior
+    FMenuHideOnFocusLoss := Ini.ReadBool(SEC_GENERAL, 'MenuHideOnFocusLoss', DEF_MENU_HIDE_ON_FOCUS_LOSS);
 
     // Autostart
     FAutostartMode := TAutostartMode(Ini.ReadInteger(SEC_AUTOSTART, 'Mode', Ord(DEF_AUTOSTART_MODE)));
@@ -458,7 +536,15 @@ begin
     // Tray
     Ini.WriteBool(SEC_TRAY, 'MinimizeToTray', FMinimizeToTray);
     Ini.WriteBool(SEC_TRAY, 'CloseToTray', FCloseToTray);
-    Ini.WriteBool(SEC_TRAY, 'ShowNotifications', FShowBalloonNotifications);
+
+    // Notifications
+    Ini.WriteInteger(SEC_NOTIFICATIONS, 'OnConnect', Ord(FNotifyOnConnect));
+    Ini.WriteInteger(SEC_NOTIFICATIONS, 'OnDisconnect', Ord(FNotifyOnDisconnect));
+    Ini.WriteInteger(SEC_NOTIFICATIONS, 'OnConnectFailed', Ord(FNotifyOnConnectFailed));
+    Ini.WriteInteger(SEC_NOTIFICATIONS, 'OnAutoConnect', Ord(FNotifyOnAutoConnect));
+
+    // Menu behavior
+    Ini.WriteBool(SEC_GENERAL, 'MenuHideOnFocusLoss', FMenuHideOnFocusLoss);
 
     // Autostart
     Ini.WriteInteger(SEC_AUTOSTART, 'Mode', Ord(FAutostartMode));
@@ -505,10 +591,13 @@ begin
           DeviceConfig.Pinned := AIni.ReadBool(Section, 'Pinned', False);
           DeviceConfig.Hidden := AIni.ReadBool(Section, 'Hidden', False);
           DeviceConfig.AutoConnect := AIni.ReadBool(Section, 'AutoConnect', False);
-          DeviceConfig.ConnectSound := AIni.ReadString(Section, 'ConnectSound', '');
-          DeviceConfig.DisconnectSound := AIni.ReadString(Section, 'DisconnectSound', '');
           DeviceConfig.ConnectionTimeout := AIni.ReadInteger(Section, 'ConnectionTimeout', -1);
           DeviceConfig.ConnectionRetryCount := AIni.ReadInteger(Section, 'ConnectionRetryCount', -1);
+          // Per-device notification overrides (-1 = use global)
+          DeviceConfig.Notifications.OnConnect := AIni.ReadInteger(Section, 'NotifyOnConnect', -1);
+          DeviceConfig.Notifications.OnDisconnect := AIni.ReadInteger(Section, 'NotifyOnDisconnect', -1);
+          DeviceConfig.Notifications.OnConnectFailed := AIni.ReadInteger(Section, 'NotifyOnConnectFailed', -1);
+          DeviceConfig.Notifications.OnAutoConnect := AIni.ReadInteger(Section, 'NotifyOnAutoConnect', -1);
           FDevices.Add(Address, DeviceConfig);
         end;
       end;
@@ -546,13 +635,20 @@ begin
     AIni.WriteBool(SectionName, 'Pinned', Pair.Value.Pinned);
     AIni.WriteBool(SectionName, 'Hidden', Pair.Value.Hidden);
     AIni.WriteBool(SectionName, 'AutoConnect', Pair.Value.AutoConnect);
-    AIni.WriteString(SectionName, 'ConnectSound', Pair.Value.ConnectSound);
-    AIni.WriteString(SectionName, 'DisconnectSound', Pair.Value.DisconnectSound);
     // Only save connection settings if they override defaults
     if Pair.Value.ConnectionTimeout >= 0 then
       AIni.WriteInteger(SectionName, 'ConnectionTimeout', Pair.Value.ConnectionTimeout);
     if Pair.Value.ConnectionRetryCount >= 0 then
       AIni.WriteInteger(SectionName, 'ConnectionRetryCount', Pair.Value.ConnectionRetryCount);
+    // Only save notification settings if they override globals
+    if Pair.Value.Notifications.OnConnect >= 0 then
+      AIni.WriteInteger(SectionName, 'NotifyOnConnect', Pair.Value.Notifications.OnConnect);
+    if Pair.Value.Notifications.OnDisconnect >= 0 then
+      AIni.WriteInteger(SectionName, 'NotifyOnDisconnect', Pair.Value.Notifications.OnDisconnect);
+    if Pair.Value.Notifications.OnConnectFailed >= 0 then
+      AIni.WriteInteger(SectionName, 'NotifyOnConnectFailed', Pair.Value.Notifications.OnConnectFailed);
+    if Pair.Value.Notifications.OnAutoConnect >= 0 then
+      AIni.WriteInteger(SectionName, 'NotifyOnAutoConnect', Pair.Value.Notifications.OnAutoConnect);
   end;
 end;
 
@@ -757,12 +853,86 @@ begin
   end;
 end;
 
-procedure TAppConfig.SetShowBalloonNotifications(AValue: Boolean);
+procedure TAppConfig.SetNotifyOnConnect(AValue: TNotificationMode);
 begin
-  if FShowBalloonNotifications <> AValue then
+  if FNotifyOnConnect <> AValue then
   begin
-    FShowBalloonNotifications := AValue;
+    FNotifyOnConnect := AValue;
     FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetNotifyOnDisconnect(AValue: TNotificationMode);
+begin
+  if FNotifyOnDisconnect <> AValue then
+  begin
+    FNotifyOnDisconnect := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetNotifyOnConnectFailed(AValue: TNotificationMode);
+begin
+  if FNotifyOnConnectFailed <> AValue then
+  begin
+    FNotifyOnConnectFailed := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetNotifyOnAutoConnect(AValue: TNotificationMode);
+begin
+  if FNotifyOnAutoConnect <> AValue then
+  begin
+    FNotifyOnAutoConnect := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetMenuHideOnFocusLoss(AValue: Boolean);
+begin
+  if FMenuHideOnFocusLoss <> AValue then
+  begin
+    FMenuHideOnFocusLoss := AValue;
+    FModified := True;
+  end;
+end;
+
+function TAppConfig.GetEffectiveNotification(AAddress: UInt64; AEvent: string): TNotificationMode;
+var
+  DeviceConfig: TDeviceConfig;
+  DeviceValue: Integer;
+begin
+  // Get per-device config if exists
+  DeviceConfig := GetDeviceConfig(AAddress);
+
+  // Get the per-device override value for this event
+  DeviceValue := -1;
+  if AEvent = 'Connect' then
+    DeviceValue := DeviceConfig.Notifications.OnConnect
+  else if AEvent = 'Disconnect' then
+    DeviceValue := DeviceConfig.Notifications.OnDisconnect
+  else if AEvent = 'ConnectFailed' then
+    DeviceValue := DeviceConfig.Notifications.OnConnectFailed
+  else if AEvent = 'AutoConnect' then
+    DeviceValue := DeviceConfig.Notifications.OnAutoConnect;
+
+  // If per-device value is set (>= 0), use it; otherwise use global
+  if DeviceValue >= 0 then
+    Result := TNotificationMode(DeviceValue)
+  else
+  begin
+    // Return global default
+    if AEvent = 'Connect' then
+      Result := FNotifyOnConnect
+    else if AEvent = 'Disconnect' then
+      Result := FNotifyOnDisconnect
+    else if AEvent = 'ConnectFailed' then
+      Result := FNotifyOnConnectFailed
+    else if AEvent = 'AutoConnect' then
+      Result := FNotifyOnAutoConnect
+    else
+      Result := nmNone;
   end;
 end;
 

@@ -24,6 +24,7 @@ uses
 
 const
   WM_HOTKEY_DETECTED = WM_USER + 100;
+  WM_DPICHANGED = $02E0;
 
 type
   /// <summary>
@@ -76,6 +77,7 @@ type
     procedure PositionMenuPopup;
     procedure ApplyWindowMode;
     procedure ApplyMenuModeTaskbarHide;
+    procedure ShowBalloonNotification(const ATitle, AMessage: string; AFlags: TBalloonFlags);
 
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
@@ -88,11 +90,13 @@ type
     procedure HandleTrayIconClick(Sender: TObject);
     procedure HandleTrayMenuShowClick(Sender: TObject);
     procedure HandleTrayMenuExitClick(Sender: TObject);
+    procedure HandleApplicationDeactivate(Sender: TObject);
 
   protected
     procedure WMSysCommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
     procedure WMHotkey(var Msg: TMessage); message WM_HOTKEY;
     procedure WMHotkeyDetected(var Msg: TMessage); message WM_HOTKEY_DETECTED;
+    procedure WMDpiChanged(var Msg: TMessage); message WM_DPICHANGED;
 
   public
     { Public declarations }
@@ -263,6 +267,9 @@ begin
   // Subscribe to theme changes
   Theme.OnThemeChanged := HandleThemeChanged;
 
+  // Subscribe to application deactivation for menu hide-on-focus-loss
+  Application.OnDeactivate := HandleApplicationDeactivate;
+
   // Create custom device list control
   CreateDeviceList;
 
@@ -354,6 +361,7 @@ begin
     GlobalDeleteAtom(FHotkeyId);
 
   Theme.OnThemeChanged := nil;
+  Application.OnDeactivate := nil;
 
   // Stop and free radio watcher
   if FRadioWatcher <> nil then
@@ -651,6 +659,70 @@ begin
     ShowFromTray;
 end;
 
+procedure TFormMain.WMDpiChanged(var Msg: TMessage);
+var
+  NewDPI: Word;
+begin
+  NewDPI := LoWord(Msg.WParam);
+  Log('[MainForm] WMDpiChanged: New DPI=%d, current size W=%d, H=%d', [NewDPI, Width, Height]);
+
+  // Let VCL handle the DPI change (resize form, scale controls)
+  inherited;
+
+  Log('[MainForm] WMDpiChanged: After inherited, size W=%d, H=%d', [Width, Height]);
+
+  // After DPI change and form resize, reposition if in Menu mode
+  if (Config.WindowMode = wmMenu) and Visible then
+  begin
+    Log('[MainForm] WMDpiChanged: Repositioning popup after DPI change');
+    PositionMenuPopup;
+  end;
+end;
+
+{ TODO: Multi-monitor DPI scaling issue
+  ============================================================================
+  KNOWN ISSUE:
+  When monitors have different DPI scales (e.g., 150% and 200%), the menu popup
+  may be positioned incorrectly on its FIRST appearance after the taskbar moves
+  to a different monitor. Subsequent appearances work correctly.
+
+  ROOT CAUSE:
+  The form dimensions are calculated at the DPI of the monitor where the form
+  was last shown. When positioning for a different DPI monitor, we use stale
+  dimensions. WM_DPICHANGED fires AFTER Show, so the initial position is wrong.
+
+  ATTEMPTED SOLUTIONS:
+  1. HandleNeeded before positioning - doesn't trigger DPI update
+  2. SetBounds with config dimensions - wrong dimensions for Menu mode
+  3. WM_DPICHANGED handler with reposition - fires too late, flicker still occurs
+
+  POTENTIAL SOLUTIONS TO TRY:
+  1. Use PostMessage in WMDpiChanged to defer repositioning until after all
+     DPI processing is complete
+
+  2. Pre-calculate scaled dimensions before positioning:
+     - Use GetDpiForMonitor() to get target monitor DPI
+     - Use GetDpiForWindow() to get current form DPI
+     - Scale Width/Height by (TargetDPI / CurrentDPI) ratio
+
+  3. Use SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+     around positioning code to ensure correct DPI context
+
+  4. Show form off-screen first, wait for DPI change, then position and show:
+     - Set position to (-10000, -10000)
+     - Call Show
+     - In WM_DPICHANGED or via PostMessage, position correctly
+     - Bring to foreground
+
+  5. Query Windows for the "would-be" size at target DPI without showing
+
+  WORKAROUND FOR USERS:
+  The issue only occurs on first show after taskbar moves between monitors
+  with different DPI. Triggering the hotkey twice (hide then show) will
+  display the menu at the correct position.
+  ============================================================================
+}
+
 procedure TFormMain.SetToggleState(AState: TToggleSwitchState);
 begin
   FUpdatingToggle := True;
@@ -853,6 +925,8 @@ begin
     var
       I: Integer;
       Found: Boolean;
+      NotifyMode: TNotificationMode;
+      DeviceName: string;
     begin
       Log('[MainForm] HandleDeviceStateChanged (queued): Processing Name="%s", ConnectionState=%d', [
         LDevice.Name, Ord(LDevice.ConnectionState)
@@ -889,6 +963,33 @@ begin
 
       // Show status
       UpdateStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
+
+      // Get device display name (alias if set, otherwise device name)
+      DeviceName := Config.GetDeviceConfig(LDevice.AddressInt).Alias;
+      if DeviceName = '' then
+        DeviceName := LDevice.Name;
+
+      // Show balloon notification based on connection state
+      case LDevice.ConnectionState of
+        csConnected:
+          begin
+            NotifyMode := Config.GetEffectiveNotification(LDevice.AddressInt, 'Connect');
+            if NotifyMode = nmBalloon then
+              ShowBalloonNotification(DeviceName, 'Connected', bfInfo);
+          end;
+        csDisconnected:
+          begin
+            NotifyMode := Config.GetEffectiveNotification(LDevice.AddressInt, 'Disconnect');
+            if NotifyMode = nmBalloon then
+              ShowBalloonNotification(DeviceName, 'Disconnected', bfInfo);
+          end;
+        csError:
+          begin
+            NotifyMode := Config.GetEffectiveNotification(LDevice.AddressInt, 'ConnectFailed');
+            if NotifyMode = nmBalloon then
+              ShowBalloonNotification(DeviceName, 'Connection failed', bfError);
+          end;
+      end;
     end
   );
 end;
@@ -1050,8 +1151,14 @@ begin
 
   Show;
   WindowState := wsNormal;
+
+  // Ensure form gets focus - especially important in Menu mode
   Application.BringToFront;
   SetForegroundWindow(Handle);
+  // Explicitly activate and focus the form
+  BringToFront;
+  if CanFocus then
+    SetFocus;
 
   // Update tray menu item caption
   if FTrayMenu.Items.Count > 0 then
@@ -1066,6 +1173,19 @@ begin
   // Update tray menu item caption
   if FTrayMenu.Items.Count > 0 then
     FTrayMenu.Items[0].Caption := 'Show';
+end;
+
+procedure TFormMain.ShowBalloonNotification(const ATitle, AMessage: string; AFlags: TBalloonFlags);
+begin
+  if FTrayIcon = nil then
+    Exit;
+
+  Log('[MainForm] ShowBalloonNotification: Title="%s", Message="%s"', [ATitle, AMessage]);
+
+  FTrayIcon.BalloonTitle := ATitle;
+  FTrayIcon.BalloonHint := AMessage;
+  FTrayIcon.BalloonFlags := AFlags;
+  FTrayIcon.ShowBalloonHint;
 end;
 
 procedure TFormMain.ApplyWindowMode;
@@ -1249,10 +1369,22 @@ end;
 
 procedure TFormMain.FormDeactivate(Sender: TObject);
 begin
-  // In Menu mode, hide when focus is lost (clicking outside)
-  if Config.WindowMode = wmMenu then
+  // Form deactivation is less reliable for fsStayOnTop forms.
+  // Application.OnDeactivate (HandleApplicationDeactivate) is the primary mechanism.
+  // This handler is kept as a backup for some edge cases.
+  if (Config.WindowMode = wmMenu) and Config.MenuHideOnFocusLoss then
   begin
-    Log('[MainForm] FormDeactivate: Menu mode, hiding to tray');
+    Log('[MainForm] FormDeactivate: Menu mode with MenuHideOnFocusLoss, hiding to tray');
+    HideToTray;
+  end;
+end;
+
+procedure TFormMain.HandleApplicationDeactivate(Sender: TObject);
+begin
+  // Application lost focus - more reliable than Form.OnDeactivate for fsStayOnTop
+  if (Config.WindowMode = wmMenu) and Config.MenuHideOnFocusLoss and Visible then
+  begin
+    Log('[MainForm] HandleApplicationDeactivate: Menu mode with MenuHideOnFocusLoss, hiding to tray');
     HideToTray;
   end;
 end;
