@@ -38,6 +38,8 @@ type
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure HandleBluetoothToggle(Sender: TObject);
     procedure HandleSettingsClick(Sender: TObject);
+    procedure HandleRefreshClick(Sender: TObject);
+    procedure TitleLabelClick(Sender: TObject);
   private
     FBluetoothService: IBluetoothService;
     FDevices: TBluetoothDeviceInfoArray;
@@ -59,7 +61,6 @@ type
     procedure HandleDeviceListChanged(Sender: TObject);
     procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
     procedure HandleThemeChanged(Sender: TObject);
-    procedure HandleRefreshClick(Sender: TObject);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
     procedure HandleDelayedLoadTimer(Sender: TObject);
 
@@ -186,6 +187,12 @@ begin
   end;
 end;
 
+procedure TFormMain.TitleLabelClick(Sender: TObject);
+begin
+  UpdateStatus('Refreshing...');
+  LoadDevices;
+end;
+
 procedure TFormMain.ApplyTheme;
 var
   Colors: TThemeColors;
@@ -198,6 +205,7 @@ begin
   // Header
   HeaderPanel.Color := Colors.Background;
   TitleLabel.Font.Color := Colors.TextPrimary;
+
 
   // Devices
   DevicesPanel.Color := Colors.Background;
@@ -236,6 +244,8 @@ end;
 
 procedure TFormMain.HandleDeviceClick(Sender: TObject;
   const ADevice: TBluetoothDeviceInfo);
+var
+  LDevice: TBluetoothDeviceInfo;
 begin
   if ADevice.ConnectionState in [csConnecting, csDisconnecting] then
   begin
@@ -248,11 +258,14 @@ begin
   else
     UpdateStatus(Format('Connecting %s...', [ADevice.Name]));
 
+  // Make a local copy for the anonymous procedure to capture
+  LDevice := ADevice;
+
   // Toggle connection in background thread
   TThread.CreateAnonymousThread(
     procedure
     begin
-      FBluetoothService.ToggleConnection(ADevice);
+      FBluetoothService.ToggleConnection(LDevice);
 
       TThread.Queue(nil,
         procedure
@@ -266,25 +279,54 @@ end;
 
 procedure TFormMain.HandleDeviceStateChanged(Sender: TObject;
   const ADevice: TBluetoothDeviceInfo);
+var
+  LDevice: TBluetoothDeviceInfo;
 begin
+  // Skip devices with empty names (invalid events)
+  if Trim(ADevice.Name) = '' then
+    Exit;
+
+  // Make a local copy for the anonymous procedure to capture
+  // (const parameters are passed by reference and may be destroyed before queue executes)
+  LDevice := ADevice;
+
   TThread.Queue(nil,
     procedure
     var
       I: Integer;
+      Found: Boolean;
     begin
+      Found := False;
+
       // Update local cache
       for I := 0 to High(FDevices) do
       begin
-        if FDevices[I].AddressInt = ADevice.AddressInt then
+        if FDevices[I].AddressInt = LDevice.AddressInt then
         begin
-          FDevices[I] := ADevice;
+          FDevices[I] := LDevice;
+          Found := True;
           Break;
         end;
       end;
 
-      // Update UI
-      FDeviceList.UpdateDevice(ADevice);
-      UpdateStatus(Format('%s: %s', [ADevice.Name, ADevice.ConnectionStateText]));
+      // If device not in cache, add it (for discovered devices or newly connected)
+      if not Found then
+      begin
+        SetLength(FDevices, Length(FDevices) + 1);
+        FDevices[High(FDevices)] := LDevice;
+        FDeviceList.AddDevice(LDevice);
+      end
+      else
+      begin
+        // Update UI for existing device
+        FDeviceList.UpdateDevice(LDevice);
+      end;
+
+      // Show status
+      if LDevice.IsDiscovered then
+        UpdateStatus(Format('Discovered: %s', [LDevice.Name]))
+      else
+        UpdateStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
     end
   );
 end;

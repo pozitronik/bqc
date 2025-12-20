@@ -65,6 +65,18 @@ type
   TBluetoothAddress = array[0..5] of Byte;
 
   /// <summary>
+  /// Represents the discovery status of a Bluetooth device.
+  /// </summary>
+  TBluetoothDiscoveryStatus = (
+    /// <summary>Device is paired (remembered by the system).</summary>
+    dsPaired,
+    /// <summary>Device was discovered during scan but not paired.</summary>
+    dsDiscovered,
+    /// <summary>Device went out of range or is no longer available.</summary>
+    dsOutOfRange
+  );
+
+  /// <summary>
   /// Record representing a Bluetooth device with all relevant information.
   /// Immutable value type for thread safety.
   /// </summary>
@@ -75,6 +87,7 @@ type
     FName: string;
     FDeviceType: TBluetoothDeviceType;
     FConnectionState: TBluetoothConnectionState;
+    FDiscoveryStatus: TBluetoothDiscoveryStatus;
     FIsPaired: Boolean;
     FIsAuthenticated: Boolean;
     FClassOfDevice: Cardinal;
@@ -94,13 +107,24 @@ type
       AIsAuthenticated: Boolean;
       AClassOfDevice: Cardinal;
       ALastSeen: TDateTime;
-      ALastUsed: TDateTime
+      ALastUsed: TDateTime;
+      ADiscoveryStatus: TBluetoothDiscoveryStatus = dsPaired
     ): TBluetoothDeviceInfo; static;
 
     /// <summary>
     /// Returns a copy with updated connection state.
     /// </summary>
     function WithConnectionState(AState: TBluetoothConnectionState): TBluetoothDeviceInfo;
+
+    /// <summary>
+    /// Returns a copy with updated discovery status.
+    /// </summary>
+    function WithDiscoveryStatus(AStatus: TBluetoothDiscoveryStatus): TBluetoothDeviceInfo;
+
+    /// <summary>
+    /// Returns a copy with updated name.
+    /// </summary>
+    function WithName(const AName: string): TBluetoothDeviceInfo;
 
     /// <summary>
     /// Bluetooth MAC address as byte array.
@@ -136,6 +160,16 @@ type
     /// Whether the device is currently connected.
     /// </summary>
     function IsConnected: Boolean;
+
+    /// <summary>
+    /// Whether the device was discovered but not paired.
+    /// </summary>
+    function IsDiscovered: Boolean;
+
+    /// <summary>
+    /// Discovery status of the device.
+    /// </summary>
+    property DiscoveryStatus: TBluetoothDiscoveryStatus read FDiscoveryStatus;
 
     /// <summary>
     /// Whether the device is paired (remembered).
@@ -228,7 +262,8 @@ class function TBluetoothDeviceInfo.Create(
   AIsAuthenticated: Boolean;
   AClassOfDevice: Cardinal;
   ALastSeen: TDateTime;
-  ALastUsed: TDateTime
+  ALastUsed: TDateTime;
+  ADiscoveryStatus: TBluetoothDiscoveryStatus
 ): TBluetoothDeviceInfo;
 begin
   Result.FAddress := AAddress;
@@ -236,6 +271,7 @@ begin
   Result.FName := AName;
   Result.FDeviceType := ADeviceType;
   Result.FConnectionState := AConnectionState;
+  Result.FDiscoveryStatus := ADiscoveryStatus;
   Result.FIsPaired := AIsPaired;
   Result.FIsAuthenticated := AIsAuthenticated;
   Result.FClassOfDevice := AClassOfDevice;
@@ -250,6 +286,19 @@ begin
   Result.FConnectionState := AState;
 end;
 
+function TBluetoothDeviceInfo.WithDiscoveryStatus(
+  AStatus: TBluetoothDiscoveryStatus): TBluetoothDeviceInfo;
+begin
+  Result := Self;
+  Result.FDiscoveryStatus := AStatus;
+end;
+
+function TBluetoothDeviceInfo.WithName(const AName: string): TBluetoothDeviceInfo;
+begin
+  Result := Self;
+  Result.FName := AName;
+end;
+
 function TBluetoothDeviceInfo.AddressString: string;
 begin
   Result := Format('%.2X:%.2X:%.2X:%.2X:%.2X:%.2X', [
@@ -261,6 +310,11 @@ end;
 function TBluetoothDeviceInfo.IsConnected: Boolean;
 begin
   Result := FConnectionState = csConnected;
+end;
+
+function TBluetoothDeviceInfo.IsDiscovered: Boolean;
+begin
+  Result := FDiscoveryStatus = dsDiscovered;
 end;
 
 function TBluetoothDeviceInfo.IsAudioDevice: Boolean;

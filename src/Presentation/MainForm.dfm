@@ -27,11 +27,10 @@ object FormMain: TFormMain
     Padding.Right = 10
     ParentBackground = False
     TabOrder = 0
-    ExplicitWidth = 374
     object TitleLabel: TLabel
       Left = 10
       Top = 0
-      Width = 113
+      Width = 98
       Height = 33
       Align = alLeft
       Caption = 'Bluetooth'
@@ -42,8 +41,8 @@ object FormMain: TFormMain
       Font.Style = [fsBold]
       ParentFont = False
       Layout = tlCenter
-      ExplicitLeft = 0
-      ExplicitHeight = 41
+      OnClick = TitleLabelClick
+      ExplicitTop = -6
     end
     object BluetoothToggle: TToggleSwitch
       Left = 297
@@ -55,7 +54,6 @@ object FormMain: TFormMain
       StyleName = 'Windows'
       TabOrder = 0
       OnClick = HandleBluetoothToggle
-      ExplicitLeft = 291
       ExplicitHeight = 20
     end
   end
@@ -70,8 +68,6 @@ object FormMain: TFormMain
     Padding.Right = 10
     ParentBackground = False
     TabOrder = 1
-    ExplicitTop = 453
-    ExplicitWidth = 374
     object StatusLabel: TLabel
       Left = 338
       Top = 0
@@ -86,8 +82,6 @@ object FormMain: TFormMain
       Font.Style = []
       ParentFont = False
       Layout = tlCenter
-      ExplicitLeft = 16
-      ExplicitTop = 8
       ExplicitHeight = 15
     end
     object SettingsLink: TLabel
@@ -106,8 +100,6 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       OnClick = HandleSettingsClick
-      ExplicitLeft = 16
-      ExplicitTop = 15
       ExplicitHeight = 15
     end
   end
@@ -119,9 +111,5 @@ object FormMain: TFormMain
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 2
-    ExplicitLeft = 160
-    ExplicitTop = 144
-    ExplicitWidth = 185
-    ExplicitHeight = 41
   end
 end

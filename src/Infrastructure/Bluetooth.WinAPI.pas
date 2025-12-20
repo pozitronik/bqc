@@ -36,6 +36,53 @@ const
   BLUETOOTH_SERVICE_DISABLE = $0000;
 
   // -------------------------------------------------------------------------
+  // WM_DEVICECHANGE Constants
+  // -------------------------------------------------------------------------
+
+  /// <summary>
+  /// Custom device event notification.
+  /// </summary>
+  DBT_CUSTOMEVENT = $8006;
+
+  /// <summary>
+  /// Device type: Handle-based notification.
+  /// </summary>
+  DBT_DEVTYP_HANDLE = $0006;
+
+  /// <summary>
+  /// Device notification flag: Receive notifications for all interface classes.
+  /// </summary>
+  DEVICE_NOTIFY_WINDOW_HANDLE = $00000000;
+
+  // -------------------------------------------------------------------------
+  // Bluetooth Notification GUIDs
+  // -------------------------------------------------------------------------
+
+  /// <summary>
+  /// Sent when a remote Bluetooth device connects or disconnects at the ACL level.
+  /// Buffer contains BTH_HCI_EVENT_INFO.
+  /// </summary>
+  GUID_BLUETOOTH_HCI_EVENT: TGUID = '{FC240062-1541-49BE-B463-84C4DCD7BF7F}';
+
+  /// <summary>
+  /// Sent when an L2CAP channel is established or terminated.
+  /// Buffer contains BTH_L2CAP_EVENT_INFO.
+  /// </summary>
+  GUID_BLUETOOTH_L2CAP_EVENT: TGUID = '{7EAE4030-B709-4AA8-AC55-E953829C9DAA}';
+
+  /// <summary>
+  /// Sent when device attributes change (discovered, class, name, connected, remembered).
+  /// Buffer contains BTH_RADIO_IN_RANGE.
+  /// </summary>
+  GUID_BLUETOOTH_RADIO_IN_RANGE: TGUID = '{EA3B5B82-26EE-450E-B0D8-D26FE30A3869}';
+
+  /// <summary>
+  /// Sent when a previously discovered device is not found after inquiry.
+  /// Buffer contains BLUETOOTH_ADDRESS.
+  /// </summary>
+  GUID_BLUETOOTH_RADIO_OUT_OF_RANGE: TGUID = '{E28867C9-C2AA-4CED-B969-4570866037C4}';
+
+  // -------------------------------------------------------------------------
   // Bluetooth Service GUIDs (Common Profiles)
   // -------------------------------------------------------------------------
 
@@ -112,6 +159,11 @@ type
   HBLUETOOTH_DEVICE_FIND = THandle;
 
   /// <summary>
+  /// Handle to a device notification registration.
+  /// </summary>
+  HDEVNOTIFY = THandle;
+
+  /// <summary>
   /// Bluetooth address (6 bytes / 48 bits).
   /// </summary>
   BLUETOOTH_ADDRESS = record
@@ -120,6 +172,50 @@ type
       1: (ullLong: UInt64);
   end;
   PBLUETOOTH_ADDRESS = ^BLUETOOTH_ADDRESS;
+
+  /// <summary>
+  /// HCI event information for ACL-level connect/disconnect.
+  /// Must be packed to match Windows structure layout.
+  /// </summary>
+  BTH_HCI_EVENT_INFO = packed record
+    /// <summary>
+    /// Bluetooth address of the remote device (BTH_ADDR = ULONGLONG).
+    /// </summary>
+    bthAddress: UInt64;
+    /// <summary>
+    /// Connection type (0 = ACL, 1 = SCO).
+    /// </summary>
+    connectionType: Byte;
+    /// <summary>
+    /// Connection state (1 = connected, 0 = disconnected).
+    /// </summary>
+    connected: Byte;
+  end;
+  PBTH_HCI_EVENT_INFO = ^BTH_HCI_EVENT_INFO;
+
+  /// <summary>
+  /// L2CAP event information for channel establishment/termination.
+  /// Must be packed to match Windows structure layout.
+  /// </summary>
+  BTH_L2CAP_EVENT_INFO = packed record
+    /// <summary>
+    /// Bluetooth address of the remote device (BTH_ADDR = ULONGLONG).
+    /// </summary>
+    bthAddress: UInt64;
+    /// <summary>
+    /// PSM (Protocol/Service Multiplexer) of the channel.
+    /// </summary>
+    psm: Word;
+    /// <summary>
+    /// Connection state (1 = connected, 0 = disconnected).
+    /// </summary>
+    connected: Byte;
+    /// <summary>
+    /// Whether this is an incoming connection.
+    /// </summary>
+    initiated: Byte;
+  end;
+  PBTH_L2CAP_EVENT_INFO = ^BTH_L2CAP_EVENT_INFO;
 
   /// <summary>
   /// Parameters for finding Bluetooth radios.
@@ -269,6 +365,79 @@ type
   end;
   PBLUETOOTH_DEVICE_SEARCH_PARAMS = ^BLUETOOTH_DEVICE_SEARCH_PARAMS;
 
+  /// <summary>
+  /// Radio-in-range event information (device attribute changes).
+  /// </summary>
+  BTH_RADIO_IN_RANGE = record
+    /// <summary>
+    /// Current device information.
+    /// </summary>
+    deviceInfo: BLUETOOTH_DEVICE_INFO;
+    /// <summary>
+    /// Previous device flags (for comparison).
+    /// </summary>
+    previousDeviceFlags: ULONG;
+  end;
+  PBTH_RADIO_IN_RANGE = ^BTH_RADIO_IN_RANGE;
+
+  /// <summary>
+  /// Device broadcast header structure.
+  /// </summary>
+  DEV_BROADCAST_HDR = record
+    /// <summary>
+    /// Size of this structure in bytes.
+    /// </summary>
+    dbch_size: DWORD;
+    /// <summary>
+    /// Device type (DBT_DEVTYP_*).
+    /// </summary>
+    dbch_devicetype: DWORD;
+    /// <summary>
+    /// Reserved.
+    /// </summary>
+    dbch_reserved: DWORD;
+  end;
+  PDEV_BROADCAST_HDR = ^DEV_BROADCAST_HDR;
+
+  /// <summary>
+  /// Device broadcast handle structure for handle-based notifications.
+  /// </summary>
+  DEV_BROADCAST_HANDLE = record
+    /// <summary>
+    /// Size of this structure in bytes.
+    /// </summary>
+    dbch_size: DWORD;
+    /// <summary>
+    /// Device type (DBT_DEVTYP_HANDLE).
+    /// </summary>
+    dbch_devicetype: DWORD;
+    /// <summary>
+    /// Reserved.
+    /// </summary>
+    dbch_reserved: DWORD;
+    /// <summary>
+    /// Handle used in RegisterDeviceNotification.
+    /// </summary>
+    dbch_handle: THandle;
+    /// <summary>
+    /// Handle returned by RegisterDeviceNotification.
+    /// </summary>
+    dbch_hdevnotify: HDEVNOTIFY;
+    /// <summary>
+    /// Event GUID (valid only for DBT_CUSTOMEVENT).
+    /// </summary>
+    dbch_eventguid: TGUID;
+    /// <summary>
+    /// Offset to event name (valid only for DBT_CUSTOMEVENT).
+    /// </summary>
+    dbch_nameoffset: LONG;
+    /// <summary>
+    /// Variable-length event-specific data follows.
+    /// </summary>
+    dbch_data: array[0..0] of Byte;
+  end;
+  PDEV_BROADCAST_HANDLE = ^DEV_BROADCAST_HANDLE;
+
 // =============================================================================
 // Bluetooth Radio Functions
 // =============================================================================
@@ -394,6 +563,32 @@ function BluetoothEnumerateInstalledServices(
   var pcServiceInout: DWORD;
   pGuidServices: PGUID
 ): DWORD; stdcall; external BLUETOOTH_API_LIB;
+
+// =============================================================================
+// Device Notification Functions (user32.dll)
+// =============================================================================
+
+/// <summary>
+/// Registers the device or type of device for which a window will receive notifications.
+/// </summary>
+/// <param name="hRecipient">Handle to the window that will receive notifications.</param>
+/// <param name="NotificationFilter">Pointer to notification filter (DEV_BROADCAST_HANDLE, etc.).</param>
+/// <param name="Flags">Device notification flags.</param>
+/// <returns>Handle to the device notification, or nil on failure.</returns>
+function RegisterDeviceNotificationW(
+  hRecipient: THandle;
+  NotificationFilter: Pointer;
+  Flags: DWORD
+): HDEVNOTIFY; stdcall; external 'user32.dll';
+
+/// <summary>
+/// Closes the specified device notification handle.
+/// </summary>
+/// <param name="Handle">Handle returned by RegisterDeviceNotification.</param>
+/// <returns>True on success.</returns>
+function UnregisterDeviceNotification(
+  Handle: HDEVNOTIFY
+): BOOL; stdcall; external 'user32.dll';
 
 // =============================================================================
 // Helper Functions
