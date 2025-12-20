@@ -22,8 +22,18 @@ type
   /// Window display mode.
   /// </summary>
   TWindowMode = (
-    wmWindow,  // Normal window with title bar
-    wmMenu     // Popup menu style, hides on focus loss
+    wmMenu,    // Popup menu style, hides on focus loss (0)
+    wmWindow   // Normal window with title bar (1)
+  );
+
+  /// <summary>
+  /// Popup menu position when showing in Menu mode.
+  /// </summary>
+  TMenuPosition = (
+    mpNearTray,    // Near system tray icon (default)
+    mpNearCursor,  // Near mouse cursor
+    mpCenterScreen,// Center of screen
+    mpSameAsWindow // Use saved window position
   );
 
   /// <summary>
@@ -68,6 +78,7 @@ type
     // General
     FLoggingEnabled: Boolean;
     FWindowMode: TWindowMode;
+    FMenuPosition: TMenuPosition;
     FStayOnTop: Boolean;
 
     // Hotkey
@@ -108,6 +119,7 @@ type
     // Property setters with modification tracking
     procedure SetLoggingEnabled(AValue: Boolean);
     procedure SetWindowMode(AValue: TWindowMode);
+    procedure SetMenuPosition(AValue: TMenuPosition);
     procedure SetStayOnTop(AValue: Boolean);
     procedure SetHotkey(const AValue: string);
     procedure SetUseLowLevelHook(AValue: Boolean);
@@ -180,6 +192,7 @@ type
     // General settings
     property LoggingEnabled: Boolean read FLoggingEnabled write SetLoggingEnabled;
     property WindowMode: TWindowMode read FWindowMode write SetWindowMode;
+    property MenuPosition: TMenuPosition read FMenuPosition write SetMenuPosition;
     property StayOnTop: Boolean read FStayOnTop write SetStayOnTop;
 
     // Hotkey
@@ -242,7 +255,8 @@ const
 
   // Default values
   DEF_LOGGING_ENABLED = False;
-  DEF_WINDOW_MODE = wmWindow;
+  DEF_WINDOW_MODE = wmWindow;  // 1 = normal window (default)
+  DEF_MENU_POSITION = mpNearCursor;  // Near cursor is more reliable for multi-monitor
   DEF_STAY_ON_TOP = False;
   DEF_HOTKEY = '';
   DEF_USE_LOW_LEVEL_HOOK = True;  // Use low-level hook by default to allow overriding system hotkeys
@@ -317,6 +331,7 @@ procedure TAppConfig.SetDefaults;
 begin
   FLoggingEnabled := DEF_LOGGING_ENABLED;
   FWindowMode := DEF_WINDOW_MODE;
+  FMenuPosition := DEF_MENU_POSITION;
   FStayOnTop := DEF_STAY_ON_TOP;
   FHotkey := DEF_HOTKEY;
   FUseLowLevelHook := DEF_USE_LOW_LEVEL_HOOK;
@@ -359,6 +374,7 @@ begin
     // General
     FLoggingEnabled := Ini.ReadBool(SEC_GENERAL, 'LoggingEnabled', DEF_LOGGING_ENABLED);
     FWindowMode := TWindowMode(Ini.ReadInteger(SEC_GENERAL, 'WindowMode', Ord(DEF_WINDOW_MODE)));
+    FMenuPosition := TMenuPosition(Ini.ReadInteger(SEC_GENERAL, 'MenuPosition', Ord(DEF_MENU_POSITION)));
     FStayOnTop := Ini.ReadBool(SEC_GENERAL, 'StayOnTop', DEF_STAY_ON_TOP);
 
     // Hotkey
@@ -413,6 +429,7 @@ begin
     // General
     Ini.WriteBool(SEC_GENERAL, 'LoggingEnabled', FLoggingEnabled);
     Ini.WriteInteger(SEC_GENERAL, 'WindowMode', Ord(FWindowMode));
+    Ini.WriteInteger(SEC_GENERAL, 'MenuPosition', Ord(FMenuPosition));
     Ini.WriteBool(SEC_GENERAL, 'StayOnTop', FStayOnTop);
 
     // Hotkey
@@ -583,6 +600,15 @@ begin
   if FWindowMode <> AValue then
   begin
     FWindowMode := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetMenuPosition(AValue: TMenuPosition);
+begin
+  if FMenuPosition <> AValue then
+  begin
+    FMenuPosition := AValue;
     FModified := True;
   end;
 end;

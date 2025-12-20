@@ -40,6 +40,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure FormDeactivate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure HandleBluetoothToggle(Sender: TObject);
     procedure HandleSettingsClick(Sender: TObject);
@@ -72,6 +73,9 @@ type
     procedure UpdateStatus(const AMessage: string);
     procedure ShowFromTray;
     procedure HideToTray;
+    procedure PositionMenuPopup;
+    procedure ApplyWindowMode;
+    procedure ApplyMenuModeTaskbarHide;
 
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
@@ -203,25 +207,45 @@ begin
   FHotkeyId := GlobalAddAtom('BQC_GlobalHotkey');
   FUsingLowLevelHook := False;
 
-  // Restore window position from configuration
-  if (Config.WindowX >= 0) and (Config.WindowY >= 0) then
+  // Apply window mode (must be done early before window handle is created)
+  ApplyWindowMode;
+
+  // Restore window position/size from configuration
+  // In Menu mode, position is handled by PositionMenuPopup when showing
+  if Config.WindowMode = wmMenu then
   begin
+    // Menu mode: always use poDesigned to prevent VCL from centering the form
+    // Actual position will be set by PositionMenuPopup when showing
+    Position := poDesigned;
+    // Set initial position off-screen to avoid flicker if somehow shown before positioned
+    Left := -10000;
+    Top := -10000;
+    Log('[MainForm] FormCreate: Menu mode, position will be set on show');
+  end
+  else if (Config.WindowX >= 0) and (Config.WindowY >= 0) then
+  begin
+    // Window mode with saved position
     Position := poDesigned;
     Left := Config.WindowX;
     Top := Config.WindowY;
     Log('[MainForm] FormCreate: Restored position X=%d, Y=%d', [Left, Top]);
   end;
 
-  // Restore window size from configuration
-  if (Config.WindowWidth > 0) and (Config.WindowHeight > 0) then
+  // Restore window size from configuration (only in Window mode)
+  // In Menu mode, use design-time dimensions to ensure consistent sizing
+  if (Config.WindowMode = wmWindow) and (Config.WindowWidth > 0) and (Config.WindowHeight > 0) then
   begin
     Width := Config.WindowWidth;
     Height := Config.WindowHeight;
     Log('[MainForm] FormCreate: Restored size W=%d, H=%d', [Width, Height]);
+  end
+  else
+  begin
+    Log('[MainForm] FormCreate: Using design size W=%d, H=%d', [Width, Height]);
   end;
 
-  // Apply StayOnTop setting
-  if Config.StayOnTop then
+  // Apply StayOnTop setting (Menu mode is always on top)
+  if Config.StayOnTop or (Config.WindowMode = wmMenu) then
   begin
     FormStyle := fsStayOnTop;
     Log('[MainForm] FormCreate: StayOnTop enabled');
@@ -296,13 +320,26 @@ begin
   // Register global hotkey if configured
   RegisterGlobalHotkey;
 
+  // Hide from taskbar in Menu mode (must be after handle is created)
+  ApplyMenuModeTaskbarHide;
+
+  // In Menu mode, start hidden - user will show via hotkey or tray click
+  if Config.WindowMode = wmMenu then
+  begin
+    Log('[MainForm] FormCreate: Menu mode, starting hidden');
+    // Don't call HideToTray here as it would interfere with form creation
+    // Just make sure we don't show the form
+    Application.ShowMainForm := False;
+    Visible := False;
+  end;
+
   Log('[MainForm] FormCreate: Complete');
 end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
-  // Save window position and size to configuration
-  if WindowState = wsNormal then
+  // Save window position and size to configuration (only in Window mode)
+  if (Config.WindowMode = wmWindow) and (WindowState = wsNormal) then
   begin
     Config.WindowX := Left;
     Config.WindowY := Top;
@@ -769,6 +806,13 @@ begin
   // Make a local copy for the anonymous procedure to capture
   LDevice := ADevice;
 
+  // In Menu mode, hide immediately after device click
+  if Config.WindowMode = wmMenu then
+  begin
+    Log('[MainForm] HandleDeviceClick: Menu mode, hiding to tray');
+    HideToTray;
+  end;
+
   // Toggle connection in background thread
   // Note: We don't call LoadDevices after toggle because:
   // 1. ConnectWithStrategy already fires DoDeviceStateChanged with the correct state
@@ -999,6 +1043,11 @@ end;
 procedure TFormMain.ShowFromTray;
 begin
   Log('[MainForm] ShowFromTray');
+
+  // Position popup in Menu mode
+  if Config.WindowMode = wmMenu then
+    PositionMenuPopup;
+
   Show;
   WindowState := wsNormal;
   Application.BringToFront;
@@ -1017,6 +1066,195 @@ begin
   // Update tray menu item caption
   if FTrayMenu.Items.Count > 0 then
     FTrayMenu.Items[0].Caption := 'Show';
+end;
+
+procedure TFormMain.ApplyWindowMode;
+begin
+  if Config.WindowMode = wmMenu then
+  begin
+    // Borderless popup style
+    BorderStyle := bsNone;
+    BorderIcons := [];
+
+    // Hide from taskbar - must be done after handle is created
+    // We'll apply WS_EX_TOOLWINDOW in FormCreate after handle exists
+    Log('[MainForm] ApplyWindowMode: Menu mode (borderless popup)');
+  end
+  else
+  begin
+    // Normal window style
+    BorderStyle := bsSizeable;
+    BorderIcons := [biSystemMenu, biMinimize];
+    Log('[MainForm] ApplyWindowMode: Window mode (normal window)');
+  end;
+end;
+
+procedure TFormMain.ApplyMenuModeTaskbarHide;
+var
+  ExStyle: LONG_PTR;
+begin
+  // Hide from taskbar by adding WS_EX_TOOLWINDOW style
+  if Config.WindowMode = wmMenu then
+  begin
+    ExStyle := GetWindowLongPtr(Handle, GWL_EXSTYLE);
+    ExStyle := ExStyle or WS_EX_TOOLWINDOW;
+    ExStyle := ExStyle and (not WS_EX_APPWINDOW);
+    SetWindowLongPtr(Handle, GWL_EXSTYLE, ExStyle);
+    Log('[MainForm] ApplyMenuModeTaskbarHide: Hidden from taskbar');
+  end;
+end;
+
+procedure TFormMain.PositionMenuPopup;
+var
+  CursorPos: TPoint;
+  Mon: TMonitor;
+  WorkArea: TRect;
+  NewLeft, NewTop: Integer;
+  TrayWnd: HWND;
+  TrayRect: TRect;
+  TaskbarWidth, TaskbarHeight: Integer;
+  IsHorizontal: Boolean;
+  FormWidth, FormHeight: Integer;
+begin
+  // Ensure window handle exists so dimensions are accurate
+  if not HandleAllocated then
+    HandleNeeded;
+
+  // Use actual form dimensions
+  FormWidth := Width;
+  FormHeight := Height;
+
+  Log('[MainForm] PositionMenuPopup: Using FormWidth=%d, FormHeight=%d', [FormWidth, FormHeight]);
+
+  // Get cursor position and find which monitor it's on
+  GetCursorPos(CursorPos);
+  Mon := Screen.MonitorFromPoint(CursorPos);
+  if Mon <> nil then
+    WorkArea := Mon.WorkareaRect
+  else
+    WorkArea := Screen.WorkAreaRect;
+
+  case Config.MenuPosition of
+    mpNearCursor:
+      begin
+        // Position popup above the cursor, centered horizontally
+        NewLeft := CursorPos.X - (FormWidth div 2);
+        NewTop := CursorPos.Y - FormHeight - 10;
+        Log('[MainForm] PositionMenuPopup: Near cursor (%d, %d)', [CursorPos.X, CursorPos.Y]);
+      end;
+
+    mpNearTray:
+      begin
+        // Find the actual taskbar/tray position
+        TrayWnd := FindWindow('Shell_TrayWnd', nil);
+        if (TrayWnd <> 0) and GetWindowRect(TrayWnd, TrayRect) then
+        begin
+          TaskbarWidth := TrayRect.Right - TrayRect.Left;
+          TaskbarHeight := TrayRect.Bottom - TrayRect.Top;
+          IsHorizontal := TaskbarWidth > TaskbarHeight;
+
+          Log('[MainForm] PositionMenuPopup: Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
+            [TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom, BoolToStr(IsHorizontal, True)]);
+
+          // Get work area of monitor containing the taskbar
+          Mon := Screen.MonitorFromRect(TrayRect);
+          if Mon <> nil then
+            WorkArea := Mon.WorkareaRect;
+
+          if IsHorizontal then
+          begin
+            // Horizontal taskbar (top or bottom)
+            if TrayRect.Top < WorkArea.Top then
+            begin
+              // Taskbar at top - position popup below taskbar, near right edge
+              NewLeft := TrayRect.Right - FormWidth - 10;
+              NewTop := TrayRect.Bottom + 10;
+              Log('[MainForm] PositionMenuPopup: Taskbar at TOP');
+            end
+            else
+            begin
+              // Taskbar at bottom - position popup above taskbar, near right edge
+              NewLeft := TrayRect.Right - FormWidth - 10;
+              NewTop := TrayRect.Top - FormHeight - 10;
+              Log('[MainForm] PositionMenuPopup: Taskbar at BOTTOM');
+            end;
+          end
+          else
+          begin
+            // Vertical taskbar (left or right)
+            if TrayRect.Left < WorkArea.Left then
+            begin
+              // Taskbar at left - position popup to the right of taskbar, near bottom
+              NewLeft := TrayRect.Right + 10;
+              NewTop := TrayRect.Bottom - FormHeight - 10;
+              Log('[MainForm] PositionMenuPopup: Taskbar at LEFT');
+            end
+            else
+            begin
+              // Taskbar at right - position popup to the left of taskbar, near bottom
+              NewLeft := TrayRect.Left - FormWidth - 10;
+              NewTop := TrayRect.Bottom - FormHeight - 10;
+              Log('[MainForm] PositionMenuPopup: Taskbar at RIGHT');
+            end;
+          end;
+        end
+        else
+        begin
+          // Fallback: position at bottom-right of cursor's monitor work area
+          NewLeft := WorkArea.Right - FormWidth - 10;
+          NewTop := WorkArea.Bottom - FormHeight - 10;
+          Log('[MainForm] PositionMenuPopup: Near tray (fallback to bottom-right)');
+        end;
+      end;
+
+    mpCenterScreen:
+      begin
+        // Center on the monitor where cursor is
+        NewLeft := WorkArea.Left + (WorkArea.Width - FormWidth) div 2;
+        NewTop := WorkArea.Top + (WorkArea.Height - FormHeight) div 2;
+        Log('[MainForm] PositionMenuPopup: Center screen');
+      end;
+
+    mpSameAsWindow:
+      begin
+        // Use saved position (already applied in FormCreate)
+        NewLeft := Left;
+        NewTop := Top;
+        Log('[MainForm] PositionMenuPopup: Same as window');
+      end;
+  else
+    NewLeft := Left;
+    NewTop := Top;
+  end;
+
+  Log('[MainForm] PositionMenuPopup: Before bounds check: NewLeft=%d, NewTop=%d, WorkArea=(%d,%d,%d,%d)',
+    [NewLeft, NewTop, WorkArea.Left, WorkArea.Top, WorkArea.Right, WorkArea.Bottom]);
+
+  // Ensure popup stays within work area
+  if NewLeft < WorkArea.Left then
+    NewLeft := WorkArea.Left;
+  if NewLeft + FormWidth > WorkArea.Right then
+    NewLeft := WorkArea.Right - FormWidth;
+  if NewTop < WorkArea.Top then
+    NewTop := WorkArea.Top;
+  if NewTop + FormHeight > WorkArea.Bottom then
+    NewTop := WorkArea.Bottom - FormHeight;
+
+  Log('[MainForm] PositionMenuPopup: Final position: Left=%d, Top=%d (Bottom=%d)',
+    [NewLeft, NewTop, NewTop + FormHeight]);
+
+  Left := NewLeft;
+  Top := NewTop;
+end;
+
+procedure TFormMain.FormDeactivate(Sender: TObject);
+begin
+  // In Menu mode, hide when focus is lost (clicking outside)
+  if Config.WindowMode = wmMenu then
+  begin
+    Log('[MainForm] FormDeactivate: Menu mode, hiding to tray');
+    HideToTray;
+  end;
 end;
 
 procedure TFormMain.HandleTrayIconClick(Sender: TObject);
