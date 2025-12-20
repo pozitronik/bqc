@@ -115,6 +115,7 @@ type
     // Appearance
     FShowAddresses: Boolean;
     FTheme: string;
+    FVsfDir: string;
 
     // Window
     FWindowX: Integer;
@@ -158,6 +159,7 @@ type
     procedure SetPollingAsPrimary(AValue: Boolean);
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
+    procedure SetVsfDir(const AValue: string);
     procedure SetWindowX(AValue: Integer);
     procedure SetWindowY(AValue: Integer);
     procedure SetWindowWidth(AValue: Integer);
@@ -245,6 +247,10 @@ type
     // Appearance
     property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
     property Theme: string read FTheme write SetTheme;
+    /// <summary>
+    /// Directory containing .vsf style files. Relative paths are resolved from exe directory.
+    /// </summary>
+    property VsfDir: string read FVsfDir write SetVsfDir;
 
     // Window
     property WindowX: Integer read FWindowX write SetWindowX;
@@ -318,6 +324,7 @@ const
   DEF_POLLING_AS_PRIMARY = False;
   DEF_SHOW_ADDRESSES = False;
   DEF_THEME = 'System';
+  DEF_VSF_DIR = 'themes';  // Directory for .vsf style files, relative to exe
   DEF_WINDOW_X = -1;  // -1 means use default/center
   DEF_WINDOW_Y = -1;
   DEF_WINDOW_WIDTH = 320;
@@ -473,6 +480,7 @@ begin
   FPollingAsPrimary := DEF_POLLING_AS_PRIMARY;
   FShowAddresses := DEF_SHOW_ADDRESSES;
   FTheme := DEF_THEME;
+  FVsfDir := DEF_VSF_DIR;
   FWindowX := DEF_WINDOW_X;
   FWindowY := DEF_WINDOW_Y;
   FWindowWidth := DEF_WINDOW_WIDTH;
@@ -526,6 +534,7 @@ begin
     // Appearance
     FShowAddresses := Ini.ReadBool(SEC_APPEARANCE, 'ShowAddresses', DEF_SHOW_ADDRESSES);
     FTheme := Ini.ReadString(SEC_APPEARANCE, 'Theme', DEF_THEME);
+    FVsfDir := Ini.ReadString(SEC_APPEARANCE, 'VsfDir', DEF_VSF_DIR);
 
     // Window
     FWindowX := Ini.ReadInteger(SEC_WINDOW, 'X', DEF_WINDOW_X);
@@ -593,6 +602,7 @@ begin
     // Appearance
     Ini.WriteBool(SEC_APPEARANCE, 'ShowAddresses', FShowAddresses);
     Ini.WriteString(SEC_APPEARANCE, 'Theme', FTheme);
+    Ini.WriteString(SEC_APPEARANCE, 'VsfDir', FVsfDir);
 
     // Window
     Ini.WriteInteger(SEC_WINDOW, 'X', FWindowX);
@@ -848,6 +858,15 @@ begin
   if FTheme <> AValue then
   begin
     FTheme := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetVsfDir(const AValue: string);
+begin
+  if FVsfDir <> AValue then
+  begin
+    FVsfDir := AValue;
     FModified := True;
   end;
 end;

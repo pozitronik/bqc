@@ -68,6 +68,7 @@ type
     function ParseHotkeyString(const AHotkey: string; out AModifiers: Cardinal; out AVirtualKey: Cardinal): Boolean;
     procedure SetToggleState(AState: TToggleSwitchState);
     procedure ApplyTheme;
+    procedure ApplyConfiguredTheme;
     procedure LoadDevices;
     procedure LoadDevicesDelayed;
     procedure AutoConnectDevices;
@@ -264,6 +265,12 @@ begin
   FDelayedLoadTimer.Interval := 500;
   FDelayedLoadTimer.OnTimer := HandleDelayedLoadTimer;
 
+  // Load external VCL styles from VsfDir
+  Theme.LoadStylesFromDirectory(Config.VsfDir);
+
+  // Apply configured theme
+  ApplyConfiguredTheme;
+
   // Subscribe to theme changes
   Theme.OnThemeChanged := HandleThemeChanged;
 
@@ -279,7 +286,7 @@ begin
   // Apply configuration settings to device list
   FDeviceList.ShowAddresses := Config.ShowAddresses;
 
-  // Apply current theme
+  // Apply theme colors to custom controls
   ApplyTheme;
 
   // Create Bluetooth service
@@ -765,6 +772,27 @@ begin
 
   // Refresh device list to apply theme
   FDeviceList.Invalidate;
+end;
+
+procedure TFormMain.ApplyConfiguredTheme;
+var
+  ThemeSetting: string;
+begin
+  ThemeSetting := Config.Theme;
+  Log('[MainForm] ApplyConfiguredTheme: Theme setting="%s"', [ThemeSetting]);
+
+  // Handle special theme modes
+  if SameText(ThemeSetting, 'System') then
+    Theme.SetThemeMode(tmSystem)
+  else if SameText(ThemeSetting, 'Light') then
+    Theme.SetThemeMode(tmLight)
+  else if SameText(ThemeSetting, 'Dark') then
+    Theme.SetThemeMode(tmDark)
+  else
+  begin
+    // Treat as specific style name
+    Theme.SetStyle(ThemeSetting);
+  end;
 end;
 
 procedure TFormMain.LoadDevices;
