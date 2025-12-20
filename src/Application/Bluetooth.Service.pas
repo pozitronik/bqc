@@ -320,16 +320,29 @@ var
   UpdatedDevice: TBluetoothDeviceInfo;
   AnySuccess: Boolean;
   RetryCount, Attempt: Integer;
+  DeviceConfig: TDeviceConfig;
 begin
   Result := False;
   AnySuccess := False;
 
-  // Get retry count from configuration
-  RetryCount := Config.ConnectionRetryCount;
+  // Get device-specific configuration
+  DeviceConfig := Config.GetDeviceConfig(ADevice.AddressInt);
+
+  // Get retry count: device-specific if set, otherwise global
+  if DeviceConfig.ConnectionRetryCount >= 0 then
+    RetryCount := DeviceConfig.ConnectionRetryCount
+  else
+    RetryCount := Config.ConnectionRetryCount;
+
+  // Bounds checking
   if RetryCount < 0 then
     RetryCount := 0;
   if RetryCount > 10 then
     RetryCount := 10;  // Cap at 10 retries
+
+  Log('[Service] ConnectWithStrategy: Device=%s, RetryCount=%d (device-specific=%s)', [
+    ADevice.Name, RetryCount, BoolToStr(DeviceConfig.ConnectionRetryCount >= 0, True)
+  ]);
 
   // Get appropriate strategy for this device type
   Strategy := TConnectionStrategyFactory.GetStrategy(ADevice.DeviceType);

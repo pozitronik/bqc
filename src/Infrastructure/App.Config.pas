@@ -47,6 +47,10 @@ type
     AutoConnect: Boolean;
     ConnectSound: string;
     DisconnectSound: string;
+    /// <summary>Connection timeout in ms. -1 means use global default.</summary>
+    ConnectionTimeout: Integer;
+    /// <summary>Connection retry count. -1 means use global default.</summary>
+    ConnectionRetryCount: Integer;
 
     class function Default(AAddress: UInt64): TDeviceConfig; static;
   end;
@@ -278,6 +282,8 @@ begin
   Result.AutoConnect := False;
   Result.ConnectSound := '';
   Result.DisconnectSound := '';
+  Result.ConnectionTimeout := -1;     // Use global default
+  Result.ConnectionRetryCount := -1;  // Use global default
 end;
 
 { TAppConfig }
@@ -480,6 +486,8 @@ begin
           DeviceConfig.AutoConnect := AIni.ReadBool(Section, 'AutoConnect', False);
           DeviceConfig.ConnectSound := AIni.ReadString(Section, 'ConnectSound', '');
           DeviceConfig.DisconnectSound := AIni.ReadString(Section, 'DisconnectSound', '');
+          DeviceConfig.ConnectionTimeout := AIni.ReadInteger(Section, 'ConnectionTimeout', -1);
+          DeviceConfig.ConnectionRetryCount := AIni.ReadInteger(Section, 'ConnectionRetryCount', -1);
           FDevices.Add(Address, DeviceConfig);
         end;
       end;
@@ -519,6 +527,11 @@ begin
     AIni.WriteBool(SectionName, 'AutoConnect', Pair.Value.AutoConnect);
     AIni.WriteString(SectionName, 'ConnectSound', Pair.Value.ConnectSound);
     AIni.WriteString(SectionName, 'DisconnectSound', Pair.Value.DisconnectSound);
+    // Only save connection settings if they override defaults
+    if Pair.Value.ConnectionTimeout >= 0 then
+      AIni.WriteInteger(SectionName, 'ConnectionTimeout', Pair.Value.ConnectionTimeout);
+    if Pair.Value.ConnectionRetryCount >= 0 then
+      AIni.WriteInteger(SectionName, 'ConnectionRetryCount', Pair.Value.ConnectionRetryCount);
   end;
 end;
 
