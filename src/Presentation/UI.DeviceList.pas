@@ -47,8 +47,11 @@ type
     FSelectedIndex: Integer;
     FScrollPos: Integer;
     FMaxScroll: Integer;
+    FShowAddresses: Boolean;
     FOnDeviceClick: TDeviceClickEvent;
     FOnSelectionChanged: TNotifyEvent;
+
+    procedure SetShowAddresses(AValue: Boolean);
 
     procedure SetSelectedIndex(AValue: Integer);
     function GetDevice(AIndex: Integer): TBluetoothDeviceInfo;
@@ -97,6 +100,7 @@ type
     property Devices[AIndex: Integer]: TBluetoothDeviceInfo read GetDevice;
     property DeviceCount: Integer read GetDeviceCount;
     property SelectedIndex: Integer read FSelectedIndex write SetSelectedIndex;
+    property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
     property OnDeviceClick: TDeviceClickEvent read FOnDeviceClick write FOnDeviceClick;
     property OnSelectionChanged: TNotifyEvent read FOnSelectionChanged write FOnSelectionChanged;
 
@@ -126,12 +130,22 @@ begin
   FSelectedIndex := -1;
   FScrollPos := 0;
   FMaxScroll := 0;
+  FShowAddresses := False;
 
   ControlStyle := ControlStyle + [csOpaque];
   TabStop := True;
   DoubleBuffered := True;
   Width := 300;
   Height := 400;
+end;
+
+procedure TDeviceListBox.SetShowAddresses(AValue: Boolean);
+begin
+  if FShowAddresses <> AValue then
+  begin
+    FShowAddresses := AValue;
+    Invalidate;
+  end;
 end;
 
 destructor TDeviceListBox.Destroy;
@@ -486,6 +500,18 @@ begin
 
   TextTop := ARect.Top + ITEM_PADDING;
   ACanvas.TextOut(TextRect.Left, TextTop, ADevice.Name);
+
+  // Show address after device name if enabled
+  if FShowAddresses then
+  begin
+    // Calculate position while still using name font size
+    var AddrLeft := TextRect.Left + ACanvas.TextWidth(ADevice.Name) + 8;
+    ACanvas.Font.Size := 8;
+    ACanvas.Font.Color := Theme.Colors.TextSecondary;
+    ACanvas.TextOut(AddrLeft, TextTop + 3, '[' + ADevice.AddressString + ']');
+    // Restore font for subsequent drawing
+    ACanvas.Font.Size := 11;
+  end;
 
   // Draw "Not paired" badge for discovered devices
   if IsDiscovered then

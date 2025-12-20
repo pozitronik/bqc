@@ -108,6 +108,9 @@ begin
   // Create custom device list control
   CreateDeviceList;
 
+  // Apply configuration settings to device list
+  FDeviceList.ShowAddresses := Config.ShowAddresses;
+
   // Apply current theme
   ApplyTheme;
 
