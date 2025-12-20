@@ -53,6 +53,7 @@ type
     procedure ApplyTheme;
     procedure LoadDevices;
     procedure LoadDevicesDelayed;
+    procedure AutoConnectDevices;
     procedure UpdateStatus(const AMessage: string);
 
     { Event handlers }
@@ -93,6 +94,30 @@ begin
 
   Log('[MainForm] FormCreate: Starting');
 
+  // Restore window position from configuration
+  if (Config.WindowX >= 0) and (Config.WindowY >= 0) then
+  begin
+    Position := poDesigned;
+    Left := Config.WindowX;
+    Top := Config.WindowY;
+    Log('[MainForm] FormCreate: Restored position X=%d, Y=%d', [Left, Top]);
+  end;
+
+  // Restore window size from configuration
+  if (Config.WindowWidth > 0) and (Config.WindowHeight > 0) then
+  begin
+    Width := Config.WindowWidth;
+    Height := Config.WindowHeight;
+    Log('[MainForm] FormCreate: Restored size W=%d, H=%d', [Width, Height]);
+  end;
+
+  // Apply StayOnTop setting
+  if Config.StayOnTop then
+  begin
+    FormStyle := fsStayOnTop;
+    Log('[MainForm] FormCreate: StayOnTop enabled');
+  end;
+
   FUpdatingToggle := False;
   FRadioWatcher := nil;
 
@@ -132,6 +157,7 @@ begin
       SetToggleState(tssOn);
       UpdateStatus('Loading devices...');
       LoadDevices;
+      AutoConnectDevices;
     end
     else
     begin
@@ -160,6 +186,16 @@ end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
+  // Save window position and size to configuration
+  if WindowState = wsNormal then
+  begin
+    Config.WindowX := Left;
+    Config.WindowY := Top;
+    Config.WindowWidth := Width;
+    Config.WindowHeight := Height;
+    Log('[MainForm] FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d', [Left, Top, Width, Height]);
+  end;
+
   Theme.OnThemeChanged := nil;
 
   // Stop and free radio watcher
@@ -263,6 +299,55 @@ begin
     Screen.Cursor := crDefault;
   end;
   Log('[MainForm] LoadDevices: Complete');
+end;
+
+procedure TFormMain.AutoConnectDevices;
+
+  procedure ConnectDeviceAsync(const ADevice: TBluetoothDeviceInfo; AService: IBluetoothService);
+  var
+    LDevice: TBluetoothDeviceInfo;
+  begin
+    // Copy device info to local variable before creating thread
+    LDevice := ADevice;
+    TThread.CreateAnonymousThread(
+      procedure
+      begin
+        AService.Connect(LDevice);
+      end
+    ).Start;
+  end;
+
+var
+  I: Integer;
+  DeviceConfig: TDeviceConfig;
+  Device: TBluetoothDeviceInfo;
+begin
+  Log('[MainForm] AutoConnectDevices: Starting');
+
+  for I := 0 to High(FDevices) do
+  begin
+    Device := FDevices[I];
+    DeviceConfig := Config.GetDeviceConfig(Device.AddressInt);
+
+    // Skip if AutoConnect not enabled for this device
+    if not DeviceConfig.AutoConnect then
+      Continue;
+
+    // Skip if already connected
+    if Device.IsConnected then
+    begin
+      Log('[MainForm] AutoConnectDevices: %s already connected, skipping', [Device.Name]);
+      Continue;
+    end;
+
+    Log('[MainForm] AutoConnectDevices: Auto-connecting %s (Address=$%.12X)', [Device.Name, Device.AddressInt]);
+    UpdateStatus(Format('Auto-connecting %s...', [Device.Name]));
+
+    // Use helper procedure to properly capture device value
+    ConnectDeviceAsync(Device, FBluetoothService);
+  end;
+
+  Log('[MainForm] AutoConnectDevices: Complete');
 end;
 
 procedure TFormMain.UpdateStatus(const AMessage: string);

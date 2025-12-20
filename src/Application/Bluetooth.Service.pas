@@ -319,9 +319,17 @@ var
   ErrorCode: DWORD;
   UpdatedDevice: TBluetoothDeviceInfo;
   AnySuccess: Boolean;
+  RetryCount, Attempt: Integer;
 begin
   Result := False;
   AnySuccess := False;
+
+  // Get retry count from configuration
+  RetryCount := Config.ConnectionRetryCount;
+  if RetryCount < 0 then
+    RetryCount := 0;
+  if RetryCount > 10 then
+    RetryCount := 10;  // Cap at 10 retries
 
   // Get appropriate strategy for this device type
   Strategy := TConnectionStrategyFactory.GetStrategy(ADevice.DeviceType);
@@ -357,19 +365,34 @@ begin
   else
     ServiceFlag := BLUETOOTH_SERVICE_DISABLE;
 
-  // Try each service GUID
-  ErrorCode := ERROR_SUCCESS;
-  for ServiceGuid in ServiceGuids do
+  // Try connection with retries
+  for Attempt := 0 to RetryCount do
   begin
-    ErrorCode := BluetoothSetServiceState(
-      0,  // Use first available radio
-      @WinDeviceInfo,
-      @ServiceGuid,
-      ServiceFlag
-    );
+    if Attempt > 0 then
+    begin
+      Log('[Service] ConnectWithStrategy: Retry attempt %d of %d', [Attempt, RetryCount]);
+      Sleep(500);  // Brief pause between retries
+    end;
 
-    if ErrorCode = ERROR_SUCCESS then
-      AnySuccess := True;
+    AnySuccess := False;
+    ErrorCode := ERROR_SUCCESS;
+
+    // Try each service GUID
+    for ServiceGuid in ServiceGuids do
+    begin
+      ErrorCode := BluetoothSetServiceState(
+        0,  // Use first available radio
+        @WinDeviceInfo,
+        @ServiceGuid,
+        ServiceFlag
+      );
+
+      if ErrorCode = ERROR_SUCCESS then
+        AnySuccess := True;
+    end;
+
+    if AnySuccess then
+      Break;  // Success, no need for more retries
   end;
 
   Result := AnySuccess;

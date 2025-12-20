@@ -21,12 +21,14 @@ uses
   System.Classes,
   System.Types,
   System.Generics.Collections,
+  System.Generics.Defaults,
   Vcl.Controls,
   Vcl.Graphics,
   Vcl.Forms,
   Vcl.StdCtrls,
   Bluetooth.Types,
-  UI.Theme;
+  UI.Theme,
+  App.Config;
 
 type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
@@ -209,14 +211,46 @@ end;
 procedure TDeviceListBox.SetDevices(const ADevices: TBluetoothDeviceInfoArray);
 var
   Device: TBluetoothDeviceInfo;
+  DeviceConfig: TDeviceConfig;
 begin
   FDevices.Clear;
   for Device in ADevices do
   begin
     // Skip devices with empty names
-    if Trim(Device.Name) <> '' then
-      FDevices.Add(Device);
+    if Trim(Device.Name) = '' then
+      Continue;
+
+    // Skip hidden devices
+    DeviceConfig := Config.GetDeviceConfig(Device.AddressInt);
+    if DeviceConfig.Hidden then
+      Continue;
+
+    FDevices.Add(Device);
   end;
+
+  // Sort devices: pinned first, then by name
+  FDevices.Sort(TComparer<TBluetoothDeviceInfo>.Construct(
+    function(const Left, Right: TBluetoothDeviceInfo): Integer
+    var
+      LeftConfig, RightConfig: TDeviceConfig;
+      LeftPinned, RightPinned: Boolean;
+    begin
+      LeftConfig := Config.GetDeviceConfig(Left.AddressInt);
+      RightConfig := Config.GetDeviceConfig(Right.AddressInt);
+      LeftPinned := LeftConfig.Pinned;
+      RightPinned := RightConfig.Pinned;
+
+      // Pinned devices come first
+      if LeftPinned and not RightPinned then
+        Result := -1
+      else if not LeftPinned and RightPinned then
+        Result := 1
+      else
+        // Then sort by name
+        Result := CompareText(Left.Name, Right.Name);
+    end
+  ));
+
   FHoverIndex := -1;
   if FSelectedIndex >= FDevices.Count then
     FSelectedIndex := -1;
@@ -441,9 +475,18 @@ procedure TDeviceListBox.DrawDevice(ACanvas: TCanvas; const ARect: TRect;
 var
   BgColor: TColor;
   IconRect, TextRect: TRect;
-  StatusText: string;
+  StatusText, DisplayName: string;
   TextTop: Integer;
+  DeviceConfig: TDeviceConfig;
 begin
+  // Get device-specific configuration
+  DeviceConfig := Config.GetDeviceConfig(ADevice.AddressInt);
+
+  // Use alias if set, otherwise use device name
+  if DeviceConfig.Alias <> '' then
+    DisplayName := DeviceConfig.Alias
+  else
+    DisplayName := ADevice.Name;
   // Determine background color
   if AIsSelected then
     BgColor := Theme.Colors.ItemBackgroundSelected
@@ -472,7 +515,7 @@ begin
   TextRect.Top := ARect.Top;
   TextRect.Bottom := ARect.Bottom;
 
-  // Device name
+  // Device name (or alias if configured)
   ACanvas.Font.Name := 'Segoe UI';
   ACanvas.Font.Size := 11;
   ACanvas.Font.Style := [];
@@ -480,13 +523,26 @@ begin
   ACanvas.Brush.Style := bsClear;
 
   TextTop := ARect.Top + ITEM_PADDING;
-  ACanvas.TextOut(TextRect.Left, TextTop, ADevice.Name);
+
+  // Draw pin indicator in top-right corner for pinned devices
+  if DeviceConfig.Pinned then
+  begin
+    ACanvas.Font.Name := 'Segoe MDL2 Assets';
+    ACanvas.Font.Size := 10;
+    ACanvas.Font.Color := Theme.Colors.TextSecondary;
+    ACanvas.TextOut(ARect.Right - ITEM_PADDING - 12, ARect.Top + 6, #$E718);  // Pin icon
+    ACanvas.Font.Name := 'Segoe UI';
+    ACanvas.Font.Size := 11;
+    ACanvas.Font.Color := Theme.Colors.TextPrimary;
+  end;
+
+  ACanvas.TextOut(TextRect.Left, TextTop, DisplayName);
 
   // Show address after device name if enabled
   if FShowAddresses then
   begin
     // Calculate position while still using name font size
-    var AddrLeft := TextRect.Left + ACanvas.TextWidth(ADevice.Name) + 8;
+    var AddrLeft := TextRect.Left + ACanvas.TextWidth(DisplayName) + 8;
     ACanvas.Font.Size := 8;
     ACanvas.Font.Color := Theme.Colors.TextSecondary;
     ACanvas.TextOut(AddrLeft, TextTop + 3, '[' + ADevice.AddressString + ']');

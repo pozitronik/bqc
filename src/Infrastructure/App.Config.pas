@@ -469,6 +469,8 @@ begin
       if Section.StartsWith(SEC_DEVICE_PREFIX) then
       begin
         AddressStr := Section.Substring(Length(SEC_DEVICE_PREFIX));
+        // Support both formats: 581862015DAE and 58:18:62:01:5D:AE
+        AddressStr := StringReplace(AddressStr, ':', '', [rfReplaceAll]);
         if TryStrToUInt64('$' + AddressStr, Address) then
         begin
           DeviceConfig := TDeviceConfig.Default(Address);
