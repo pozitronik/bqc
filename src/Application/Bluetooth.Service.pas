@@ -25,7 +25,8 @@ uses
   Bluetooth.Interfaces,
   Bluetooth.WinAPI,
   Bluetooth.ConnectionStrategies,
-  Bluetooth.DeviceWatcher;
+  Bluetooth.DeviceWatcher,
+  App.Logger;
 
 type
   /// <summary>
@@ -394,6 +395,12 @@ end;
 procedure TBluetoothService.DoDeviceStateChanged(
   const ADevice: TBluetoothDeviceInfo);
 begin
+  Log('[Service] DoDeviceStateChanged: Address=$%.12X, Name="%s", ConnectionState=%d, Handler assigned=%s', [
+    ADevice.AddressInt,
+    ADevice.Name,
+    Ord(ADevice.ConnectionState),
+    BoolToStr(Assigned(FOnDeviceStateChanged), True)
+  ]);
   if Assigned(FOnDeviceStateChanged) then
     FOnDeviceStateChanged(Self, ADevice);
 end;
@@ -506,20 +513,27 @@ var
   Device: TBluetoothDeviceInfo;
   UpdatedDevice: TBluetoothDeviceInfo;
 begin
+  Log('[Service] HandleWatcherDeviceConnected: Address=$%.12X', [ADeviceAddress]);
+
   // Refresh device info from Windows to get current state
   Device := RefreshDeviceByAddress(ADeviceAddress);
+  Log('[Service] HandleWatcherDeviceConnected: RefreshDeviceByAddress returned AddressInt=$%.12X, Name="%s"', [
+    Device.AddressInt, Device.Name
+  ]);
 
   if Device.AddressInt <> 0 then
   begin
     // Update cache
     if FDeviceCache.ContainsKey(ADeviceAddress) then
     begin
+      Log('[Service] HandleWatcherDeviceConnected: Found in FDeviceCache, updating to csConnected');
       UpdatedDevice := FDeviceCache[ADeviceAddress].WithConnectionState(csConnected);
       FDeviceCache[ADeviceAddress] := UpdatedDevice;
       DoDeviceStateChanged(UpdatedDevice);
     end
     else if FDiscoveredDevices.ContainsKey(ADeviceAddress) then
     begin
+      Log('[Service] HandleWatcherDeviceConnected: Found in FDiscoveredDevices, updating to csConnected');
       UpdatedDevice := FDiscoveredDevices[ADeviceAddress].WithConnectionState(csConnected);
       FDiscoveredDevices[ADeviceAddress] := UpdatedDevice;
       DoDeviceStateChanged(UpdatedDevice);
@@ -527,6 +541,7 @@ begin
     else
     begin
       // New device we haven't seen before
+      Log('[Service] HandleWatcherDeviceConnected: New device, adding to cache');
       if Device.IsPaired then
         FDeviceCache.AddOrSetValue(ADeviceAddress, Device)
       else
@@ -534,26 +549,52 @@ begin
           Device.WithDiscoveryStatus(dsDiscovered));
       DoDeviceStateChanged(Device);
     end;
-  end;
+  end
+  else
+    Log('[Service] HandleWatcherDeviceConnected: RefreshDeviceByAddress returned invalid device');
 end;
 
 procedure TBluetoothService.HandleWatcherDeviceDisconnected(Sender: TObject;
   const ADeviceAddress: UInt64; AConnected: Boolean);
 var
   UpdatedDevice: TBluetoothDeviceInfo;
+  Device: TBluetoothDeviceInfo;
 begin
+  Log('[Service] HandleWatcherDeviceDisconnected: Address=$%.12X', [ADeviceAddress]);
+
   // Update cache with disconnected state
   if FDeviceCache.ContainsKey(ADeviceAddress) then
   begin
+    Log('[Service] HandleWatcherDeviceDisconnected: Found in FDeviceCache, updating to csDisconnected');
     UpdatedDevice := FDeviceCache[ADeviceAddress].WithConnectionState(csDisconnected);
     FDeviceCache[ADeviceAddress] := UpdatedDevice;
     DoDeviceStateChanged(UpdatedDevice);
   end
   else if FDiscoveredDevices.ContainsKey(ADeviceAddress) then
   begin
+    Log('[Service] HandleWatcherDeviceDisconnected: Found in FDiscoveredDevices, updating to csDisconnected');
     UpdatedDevice := FDiscoveredDevices[ADeviceAddress].WithConnectionState(csDisconnected);
     FDiscoveredDevices[ADeviceAddress] := UpdatedDevice;
     DoDeviceStateChanged(UpdatedDevice);
+  end
+  else
+  begin
+    Log('[Service] HandleWatcherDeviceDisconnected: Not in cache, trying RefreshDeviceByAddress');
+    // Device not in cache - try to refresh from Windows
+    Device := RefreshDeviceByAddress(ADeviceAddress);
+    if (Device.AddressInt <> 0) and (Device.Name <> '') then
+    begin
+      Log('[Service] HandleWatcherDeviceDisconnected: Got device from Windows, Name="%s"', [Device.Name]);
+      UpdatedDevice := Device.WithConnectionState(csDisconnected);
+      if Device.IsPaired then
+        FDeviceCache.AddOrSetValue(ADeviceAddress, UpdatedDevice)
+      else
+        FDiscoveredDevices.AddOrSetValue(ADeviceAddress,
+          UpdatedDevice.WithDiscoveryStatus(dsDiscovered));
+      DoDeviceStateChanged(UpdatedDevice);
+    end
+    else
+      Log('[Service] HandleWatcherDeviceDisconnected: Device not found or has no name');
   end;
 end;
 
@@ -567,9 +608,19 @@ var
 begin
   Address := ADeviceInfo.Address.ullLong;
 
+  Log('[Service] HandleWatcherDeviceAttributeChanged: Address=$%.12X, Name="%s", Connected=%d, Remembered=%d', [
+    Address,
+    string(ADeviceInfo.szName),
+    Ord(ADeviceInfo.fConnected),
+    Ord(ADeviceInfo.fRemembered)
+  ]);
+
   // Skip events with zero address (invalid)
   if Address = 0 then
+  begin
+    Log('[Service] HandleWatcherDeviceAttributeChanged: Zero address, skipping');
     Exit;
+  end;
 
   // Get name from event (may be empty)
   EventName := Trim(string(ADeviceInfo.szName));
@@ -577,25 +628,43 @@ begin
   // Convert event data to our device info
   Device := ConvertToDeviceInfo(ADeviceInfo);
 
-  // If event has empty name, try to preserve cached name
+  // If event has empty name, the structure data is likely corrupted due to alignment issues.
+  // In this case, preserve both the cached name AND connection state.
   if EventName = '' then
   begin
+    Log('[Service] HandleWatcherDeviceAttributeChanged: Event has empty name (structure likely misaligned), checking cache');
     if FDeviceCache.TryGetValue(Address, CachedDevice) then
     begin
-      // Use cached name if available
+      // Use cached device entirely since event data is unreliable
       if CachedDevice.Name <> '' then
-        Device := Device.WithName(CachedDevice.Name);
+      begin
+        Log('[Service] HandleWatcherDeviceAttributeChanged: Using cached device Name="%s", ConnectionState=%d', [
+          CachedDevice.Name, Ord(CachedDevice.ConnectionState)
+        ]);
+        // Keep the cached device as-is, don't update from unreliable event data
+        Exit;
+      end;
     end
     else if FDiscoveredDevices.TryGetValue(Address, CachedDevice) then
     begin
       if CachedDevice.Name <> '' then
-        Device := Device.WithName(CachedDevice.Name);
+      begin
+        Log('[Service] HandleWatcherDeviceAttributeChanged: Using discovered cache device Name="%s"', [CachedDevice.Name]);
+        Exit;
+      end;
     end;
   end;
 
   // Skip if we still have no valid name (likely spurious event)
   if Device.Name = '' then
+  begin
+    Log('[Service] HandleWatcherDeviceAttributeChanged: No valid name after cache check, skipping');
     Exit;
+  end;
+
+  Log('[Service] HandleWatcherDeviceAttributeChanged: Final device Name="%s", ConnectionState=%d', [
+    Device.Name, Ord(Device.ConnectionState)
+  ]);
 
   // Update appropriate cache based on paired status
   if ADeviceInfo.fRemembered then

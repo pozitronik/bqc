@@ -12,6 +12,7 @@ uses
   Bluetooth.Service in 'src\Application\Bluetooth.Service.pas',
   Bluetooth.RadioControl in 'src\Infrastructure\Bluetooth.RadioControl.pas',
   Bluetooth.DeviceWatcher in 'src\Infrastructure\Bluetooth.DeviceWatcher.pas',
+  App.Logger in 'src\Infrastructure\App.Logger.pas',
   System.Permissions in 'src\Infrastructure\System.Permissions.pas',
   UI.Theme in 'src\Presentation\UI.Theme.pas',
   UI.DeviceList in 'src\Presentation\UI.DeviceList.pas';

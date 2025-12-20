@@ -76,7 +76,8 @@ implementation
 uses
   Vcl.Themes,
   ShellAPI,
-  Bluetooth.Service;
+  Bluetooth.Service,
+  App.Logger;
 
 {$R *.dfm}
 
@@ -86,6 +87,8 @@ procedure TFormMain.FormCreate(Sender: TObject);
 var
   RadioEnabled: Boolean;
 begin
+  Log('[MainForm] FormCreate: Starting');
+
   FUpdatingToggle := False;
   FRadioWatcher := nil;
 
@@ -105,14 +108,17 @@ begin
   ApplyTheme;
 
   // Create Bluetooth service
+  Log('[MainForm] FormCreate: Creating Bluetooth service');
   FBluetoothService := CreateBluetoothService;
   FBluetoothService.OnDeviceStateChanged := HandleDeviceStateChanged;
   FBluetoothService.OnDeviceListChanged := HandleDeviceListChanged;
   FBluetoothService.OnError := HandleError;
+  Log('[MainForm] FormCreate: Bluetooth service created, event handlers assigned');
 
   // Check Bluetooth radio state using WinRT API
   if GetBluetoothRadioState(RadioEnabled) then
   begin
+    Log('[MainForm] FormCreate: Radio state: Enabled=%s', [BoolToStr(RadioEnabled, True)]);
     // Adapter exists, set toggle based on current state
     if RadioEnabled then
     begin
@@ -131,14 +137,18 @@ begin
     FRadioWatcher := TBluetoothRadioWatcher.Create;
     FRadioWatcher.OnStateChanged := HandleRadioStateChanged;
     FRadioWatcher.Start;
+    Log('[MainForm] FormCreate: Radio watcher started');
   end
   else
   begin
+    Log('[MainForm] FormCreate: No Bluetooth adapter found');
     // No Bluetooth adapter found
     SetToggleState(tssOff);
     BluetoothToggle.Enabled := False;
     UpdateStatus('No Bluetooth adapter found');
   end;
+
+  Log('[MainForm] FormCreate: Complete');
 end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
@@ -222,10 +232,20 @@ begin
 end;
 
 procedure TFormMain.LoadDevices;
+var
+  I: Integer;
 begin
+  Log('[MainForm] LoadDevices: Starting');
   Screen.Cursor := crHourGlass;
   try
     FDevices := FBluetoothService.GetPairedDevices;
+    Log('[MainForm] LoadDevices: Got %d devices', [Length(FDevices)]);
+
+    for I := 0 to High(FDevices) do
+      Log('[MainForm] LoadDevices: Device[%d] Address=$%.12X, Name="%s", Connected=%s', [
+        I, FDevices[I].AddressInt, FDevices[I].Name, BoolToStr(FDevices[I].IsConnected, True)
+      ]);
+
     FDeviceList.SetDevices(FDevices);
 
     if Length(FDevices) = 0 then
@@ -235,6 +255,7 @@ begin
   finally
     Screen.Cursor := crDefault;
   end;
+  Log('[MainForm] LoadDevices: Complete');
 end;
 
 procedure TFormMain.UpdateStatus(const AMessage: string);
@@ -247,32 +268,42 @@ procedure TFormMain.HandleDeviceClick(Sender: TObject;
 var
   LDevice: TBluetoothDeviceInfo;
 begin
+  Log('[MainForm] HandleDeviceClick: Address=$%.12X, Name="%s", ConnectionState=%d', [
+    ADevice.AddressInt, ADevice.Name, Ord(ADevice.ConnectionState)
+  ]);
+
   if ADevice.ConnectionState in [csConnecting, csDisconnecting] then
   begin
+    Log('[MainForm] HandleDeviceClick: Operation in progress, ignoring');
     UpdateStatus('Operation in progress...');
     Exit;
   end;
 
   if ADevice.IsConnected then
-    UpdateStatus(Format('Disconnecting %s...', [ADevice.Name]))
+  begin
+    Log('[MainForm] HandleDeviceClick: Device is connected, will disconnect');
+    UpdateStatus(Format('Disconnecting %s...', [ADevice.Name]));
+  end
   else
+  begin
+    Log('[MainForm] HandleDeviceClick: Device is disconnected, will connect');
     UpdateStatus(Format('Connecting %s...', [ADevice.Name]));
+  end;
 
   // Make a local copy for the anonymous procedure to capture
   LDevice := ADevice;
 
   // Toggle connection in background thread
+  // Note: We don't call LoadDevices after toggle because:
+  // 1. ConnectWithStrategy already fires DoDeviceStateChanged with the correct state
+  // 2. Calling LoadDevices immediately may get stale data from Windows (race condition)
+  // 3. The device watcher will catch any external state changes
   TThread.CreateAnonymousThread(
     procedure
     begin
+      Log('[MainForm] HandleDeviceClick (thread): Calling ToggleConnection');
       FBluetoothService.ToggleConnection(LDevice);
-
-      TThread.Queue(nil,
-        procedure
-        begin
-          LoadDevices;
-        end
-      );
+      Log('[MainForm] HandleDeviceClick (thread): ToggleConnection completed');
     end
   ).Start;
 end;
@@ -282,9 +313,16 @@ procedure TFormMain.HandleDeviceStateChanged(Sender: TObject;
 var
   LDevice: TBluetoothDeviceInfo;
 begin
+  Log('[MainForm] HandleDeviceStateChanged: Address=$%.12X, Name="%s", ConnectionState=%d', [
+    ADevice.AddressInt, ADevice.Name, Ord(ADevice.ConnectionState)
+  ]);
+
   // Skip devices with empty names (invalid events)
   if Trim(ADevice.Name) = '' then
+  begin
+    Log('[MainForm] HandleDeviceStateChanged: Empty name, skipping');
     Exit;
+  end;
 
   // Make a local copy for the anonymous procedure to capture
   // (const parameters are passed by reference and may be destroyed before queue executes)
@@ -296,6 +334,10 @@ begin
       I: Integer;
       Found: Boolean;
     begin
+      Log('[MainForm] HandleDeviceStateChanged (queued): Processing Name="%s", ConnectionState=%d', [
+        LDevice.Name, Ord(LDevice.ConnectionState)
+      ]);
+
       Found := False;
 
       // Update local cache
@@ -303,6 +345,7 @@ begin
       begin
         if FDevices[I].AddressInt = LDevice.AddressInt then
         begin
+          Log('[MainForm] HandleDeviceStateChanged (queued): Found at index %d, updating', [I]);
           FDevices[I] := LDevice;
           Found := True;
           Break;
@@ -312,6 +355,7 @@ begin
       // If device not in cache, add it (for discovered devices or newly connected)
       if not Found then
       begin
+        Log('[MainForm] HandleDeviceStateChanged (queued): Not found, adding new device');
         SetLength(FDevices, Length(FDevices) + 1);
         FDevices[High(FDevices)] := LDevice;
         FDeviceList.AddDevice(LDevice);
@@ -319,6 +363,7 @@ begin
       else
       begin
         // Update UI for existing device
+        Log('[MainForm] HandleDeviceStateChanged (queued): Calling FDeviceList.UpdateDevice');
         FDeviceList.UpdateDevice(LDevice);
       end;
 
