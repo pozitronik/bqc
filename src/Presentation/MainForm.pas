@@ -22,6 +22,9 @@ uses
   UI.Theme,
   UI.DeviceList;
 
+const
+  WM_HOTKEY_DETECTED = WM_USER + 100;
+
 type
   /// <summary>
   /// Main application form displaying Bluetooth devices.
@@ -52,9 +55,15 @@ type
     FTrayIcon: TTrayIcon;
     FTrayMenu: TPopupMenu;
     FForceClose: Boolean;
+    FHotkeyRegistered: Boolean;
+    FHotkeyId: Integer;
+    FUsingLowLevelHook: Boolean;
 
     procedure CreateDeviceList;
     procedure CreateTrayIcon;
+    procedure RegisterGlobalHotkey;
+    procedure UnregisterGlobalHotkey;
+    function ParseHotkeyString(const AHotkey: string; out AModifiers: Cardinal; out AVirtualKey: Cardinal): Boolean;
     procedure SetToggleState(AState: TToggleSwitchState);
     procedure ApplyTheme;
     procedure LoadDevices;
@@ -78,6 +87,8 @@ type
 
   protected
     procedure WMSysCommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
+    procedure WMHotkey(var Msg: TMessage); message WM_HOTKEY;
+    procedure WMHotkeyDetected(var Msg: TMessage); message WM_HOTKEY_DETECTED;
 
   public
     { Public declarations }
@@ -97,6 +108,85 @@ uses
 
 {$R *.dfm}
 
+const
+  // Low-level keyboard hook constants
+  WH_KEYBOARD_LL = 13;
+  LLKHF_UP = $80;
+
+type
+  PKBDLLHOOKSTRUCT = ^TKBDLLHOOKSTRUCT;
+  TKBDLLHOOKSTRUCT = record
+    vkCode: DWORD;
+    scanCode: DWORD;
+    flags: DWORD;
+    time: DWORD;
+    dwExtraInfo: ULONG_PTR;
+  end;
+
+var
+  // Global state for low-level keyboard hook
+  GKeyboardHook: HHOOK = 0;
+  GHotkeyModifiers: Cardinal = 0;
+  GHotkeyVirtualKey: Cardinal = 0;
+  GHotkeyFormHandle: HWND = 0;
+  GCurrentModifiers: Cardinal = 0;
+
+function LowLevelKeyboardProc(nCode: Integer; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
+var
+  KbdStruct: PKBDLLHOOKSTRUCT;
+  VK: Cardinal;
+  IsKeyDown: Boolean;
+begin
+  if nCode < 0 then
+  begin
+    Result := CallNextHookEx(GKeyboardHook, nCode, wParam, lParam);
+    Exit;
+  end;
+
+  KbdStruct := PKBDLLHOOKSTRUCT(lParam);
+  VK := KbdStruct^.vkCode;
+  IsKeyDown := (KbdStruct^.flags and LLKHF_UP) = 0;
+
+  // Track modifier key states
+  case VK of
+    VK_LWIN, VK_RWIN:
+      if IsKeyDown then
+        GCurrentModifiers := GCurrentModifiers or MOD_WIN
+      else
+        GCurrentModifiers := GCurrentModifiers and (not MOD_WIN);
+    VK_LCONTROL, VK_RCONTROL:
+      if IsKeyDown then
+        GCurrentModifiers := GCurrentModifiers or MOD_CONTROL
+      else
+        GCurrentModifiers := GCurrentModifiers and (not MOD_CONTROL);
+    VK_LMENU, VK_RMENU:
+      if IsKeyDown then
+        GCurrentModifiers := GCurrentModifiers or MOD_ALT
+      else
+        GCurrentModifiers := GCurrentModifiers and (not MOD_ALT);
+    VK_LSHIFT, VK_RSHIFT:
+      if IsKeyDown then
+        GCurrentModifiers := GCurrentModifiers or MOD_SHIFT
+      else
+        GCurrentModifiers := GCurrentModifiers and (not MOD_SHIFT);
+  end;
+
+  // Check if our hotkey is triggered (on key down, not modifiers themselves)
+  if IsKeyDown and (GHotkeyVirtualKey <> 0) then
+  begin
+    // Check if this is the main key (not a modifier) and modifiers match
+    if (VK = GHotkeyVirtualKey) and (GCurrentModifiers = GHotkeyModifiers) then
+    begin
+      // Post message to form and consume the key
+      PostMessage(GHotkeyFormHandle, WM_HOTKEY_DETECTED, 0, 0);
+      Result := 1;  // Consume the key, don't pass to system
+      Exit;
+    end;
+  end;
+
+  Result := CallNextHookEx(GKeyboardHook, nCode, wParam, lParam);
+end;
+
 { TFormMain }
 
 procedure TFormMain.FormCreate(Sender: TObject);
@@ -109,6 +199,9 @@ begin
   Log('[MainForm] FormCreate: Starting');
 
   FForceClose := False;
+  FHotkeyRegistered := False;
+  FHotkeyId := GlobalAddAtom('BQC_GlobalHotkey');
+  FUsingLowLevelHook := False;
 
   // Restore window position from configuration
   if (Config.WindowX >= 0) and (Config.WindowY >= 0) then
@@ -200,6 +293,9 @@ begin
     UpdateStatus('No Bluetooth adapter found');
   end;
 
+  // Register global hotkey if configured
+  RegisterGlobalHotkey;
+
   Log('[MainForm] FormCreate: Complete');
 end;
 
@@ -214,6 +310,11 @@ begin
     Config.WindowHeight := Height;
     Log('[MainForm] FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d', [Left, Top, Width, Height]);
   end;
+
+  // Unregister global hotkey
+  UnregisterGlobalHotkey;
+  if FHotkeyId <> 0 then
+    GlobalDeleteAtom(FHotkeyId);
 
   Theme.OnThemeChanged := nil;
 
@@ -287,6 +388,230 @@ begin
   FTrayIcon.Visible := True;
 
   Log('[MainForm] CreateTrayIcon: Tray icon created');
+end;
+
+function TFormMain.ParseHotkeyString(const AHotkey: string;
+  out AModifiers: Cardinal; out AVirtualKey: Cardinal): Boolean;
+var
+  Parts: TArray<string>;
+  Part: string;
+  KeyPart: string;
+  I: Integer;
+begin
+  Result := False;
+  AModifiers := 0;
+  AVirtualKey := 0;
+
+  if Trim(AHotkey) = '' then
+    Exit;
+
+  // Split by '+' and process each part
+  Parts := AHotkey.Split(['+']);
+  if Length(Parts) = 0 then
+    Exit;
+
+  // Last part is the key, rest are modifiers
+  KeyPart := Trim(Parts[High(Parts)]).ToUpper;
+
+  // Process modifiers
+  for I := 0 to High(Parts) - 1 do
+  begin
+    Part := Trim(Parts[I]).ToUpper;
+    if (Part = 'CTRL') or (Part = 'CONTROL') then
+      AModifiers := AModifiers or MOD_CONTROL
+    else if Part = 'ALT' then
+      AModifiers := AModifiers or MOD_ALT
+    else if Part = 'SHIFT' then
+      AModifiers := AModifiers or MOD_SHIFT
+    else if (Part = 'WIN') or (Part = 'WINDOWS') then
+      AModifiers := AModifiers or MOD_WIN
+    else
+    begin
+      Log('[MainForm] ParseHotkeyString: Unknown modifier "%s"', [Part]);
+      Exit;
+    end;
+  end;
+
+  // Parse the key
+  if Length(KeyPart) = 1 then
+  begin
+    // Single character: A-Z or 0-9
+    if (KeyPart[1] >= 'A') and (KeyPart[1] <= 'Z') then
+      AVirtualKey := Ord(KeyPart[1])
+    else if (KeyPart[1] >= '0') and (KeyPart[1] <= '9') then
+      AVirtualKey := Ord(KeyPart[1])
+    else
+    begin
+      Log('[MainForm] ParseHotkeyString: Unknown key "%s"', [KeyPart]);
+      Exit;
+    end;
+  end
+  else if KeyPart.StartsWith('F') and (Length(KeyPart) <= 3) then
+  begin
+    // Function keys F1-F12
+    I := StrToIntDef(KeyPart.Substring(1), 0);
+    if (I >= 1) and (I <= 12) then
+      AVirtualKey := VK_F1 + I - 1
+    else
+    begin
+      Log('[MainForm] ParseHotkeyString: Unknown function key "%s"', [KeyPart]);
+      Exit;
+    end;
+  end
+  else if KeyPart = 'SPACE' then
+    AVirtualKey := VK_SPACE
+  else if KeyPart = 'ENTER' then
+    AVirtualKey := VK_RETURN
+  else if KeyPart = 'TAB' then
+    AVirtualKey := VK_TAB
+  else if KeyPart = 'ESCAPE' then
+    AVirtualKey := VK_ESCAPE
+  else if KeyPart = 'BACKSPACE' then
+    AVirtualKey := VK_BACK
+  else if KeyPart = 'DELETE' then
+    AVirtualKey := VK_DELETE
+  else if KeyPart = 'INSERT' then
+    AVirtualKey := VK_INSERT
+  else if KeyPart = 'HOME' then
+    AVirtualKey := VK_HOME
+  else if KeyPart = 'END' then
+    AVirtualKey := VK_END
+  else if KeyPart = 'PAGEUP' then
+    AVirtualKey := VK_PRIOR
+  else if KeyPart = 'PAGEDOWN' then
+    AVirtualKey := VK_NEXT
+  else if KeyPart = 'UP' then
+    AVirtualKey := VK_UP
+  else if KeyPart = 'DOWN' then
+    AVirtualKey := VK_DOWN
+  else if KeyPart = 'LEFT' then
+    AVirtualKey := VK_LEFT
+  else if KeyPart = 'RIGHT' then
+    AVirtualKey := VK_RIGHT
+  else
+  begin
+    Log('[MainForm] ParseHotkeyString: Unknown key "%s"', [KeyPart]);
+    Exit;
+  end;
+
+  // Need at least one modifier for global hotkeys
+  if AModifiers = 0 then
+  begin
+    Log('[MainForm] ParseHotkeyString: No modifiers specified');
+    Exit;
+  end;
+
+  Result := True;
+  Log('[MainForm] ParseHotkeyString: Parsed "%s" -> Modifiers=$%X, VK=$%X', [AHotkey, AModifiers, AVirtualKey]);
+end;
+
+procedure TFormMain.RegisterGlobalHotkey;
+var
+  Modifiers, VirtualKey: Cardinal;
+begin
+  if FHotkeyRegistered then
+    UnregisterGlobalHotkey;
+
+  if Trim(Config.Hotkey) = '' then
+  begin
+    Log('[MainForm] RegisterGlobalHotkey: No hotkey configured');
+    Exit;
+  end;
+
+  if not ParseHotkeyString(Config.Hotkey, Modifiers, VirtualKey) then
+  begin
+    Log('[MainForm] RegisterGlobalHotkey: Failed to parse hotkey "%s"', [Config.Hotkey]);
+    Exit;
+  end;
+
+  if Config.UseLowLevelHook then
+  begin
+    // Use low-level keyboard hook (can override system hotkeys)
+    GHotkeyModifiers := Modifiers;
+    GHotkeyVirtualKey := VirtualKey;
+    GHotkeyFormHandle := Handle;
+    GCurrentModifiers := 0;
+
+    GKeyboardHook := SetWindowsHookEx(WH_KEYBOARD_LL, @LowLevelKeyboardProc, HInstance, 0);
+    if GKeyboardHook <> 0 then
+    begin
+      FHotkeyRegistered := True;
+      FUsingLowLevelHook := True;
+      Log('[MainForm] RegisterGlobalHotkey: Installed low-level hook for "%s"', [Config.Hotkey]);
+    end
+    else
+    begin
+      Log('[MainForm] RegisterGlobalHotkey: Failed to install low-level hook (Error=%d)', [GetLastError]);
+    end;
+  end
+  else
+  begin
+    // Use standard RegisterHotKey (fallback, cannot override system hotkeys)
+    // Add MOD_NOREPEAT to prevent repeated triggers when holding key
+    if RegisterHotKey(Handle, FHotkeyId, Modifiers or MOD_NOREPEAT, VirtualKey) then
+    begin
+      FHotkeyRegistered := True;
+      FUsingLowLevelHook := False;
+      Log('[MainForm] RegisterGlobalHotkey: Registered hotkey "%s" (RegisterHotKey)', [Config.Hotkey]);
+    end
+    else
+    begin
+      Log('[MainForm] RegisterGlobalHotkey: Failed to register hotkey "%s" (Error=%d)', [Config.Hotkey, GetLastError]);
+    end;
+  end;
+end;
+
+procedure TFormMain.UnregisterGlobalHotkey;
+begin
+  if FHotkeyRegistered then
+  begin
+    if FUsingLowLevelHook then
+    begin
+      // Uninstall low-level hook
+      if GKeyboardHook <> 0 then
+      begin
+        UnhookWindowsHookEx(GKeyboardHook);
+        GKeyboardHook := 0;
+        GHotkeyModifiers := 0;
+        GHotkeyVirtualKey := 0;
+        GHotkeyFormHandle := 0;
+        Log('[MainForm] UnregisterGlobalHotkey: Uninstalled low-level hook');
+      end;
+    end
+    else
+    begin
+      // Unregister standard hotkey
+      UnregisterHotKey(Handle, FHotkeyId);
+      Log('[MainForm] UnregisterGlobalHotkey: Unregistered hotkey (RegisterHotKey)');
+    end;
+    FHotkeyRegistered := False;
+    FUsingLowLevelHook := False;
+  end;
+end;
+
+procedure TFormMain.WMHotkey(var Msg: TMessage);
+begin
+  // Handler for RegisterHotKey method
+  if Msg.WParam = Cardinal(FHotkeyId) then
+  begin
+    Log('[MainForm] WMHotkey: Global hotkey triggered (RegisterHotKey)');
+    // Toggle visibility (same as tray icon click)
+    if Visible and (WindowState <> wsMinimized) then
+      HideToTray
+    else
+      ShowFromTray;
+  end;
+end;
+
+procedure TFormMain.WMHotkeyDetected(var Msg: TMessage);
+begin
+  // Handler for low-level keyboard hook method
+  Log('[MainForm] WMHotkeyDetected: Global hotkey triggered (low-level hook)');
+  // Toggle visibility (same as tray icon click)
+  if Visible and (WindowState <> wsMinimized) then
+    HideToTray
+  else
+    ShowFromTray;
 end;
 
 procedure TFormMain.SetToggleState(AState: TToggleSwitchState);

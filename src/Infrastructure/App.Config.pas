@@ -72,6 +72,7 @@ type
 
     // Hotkey
     FHotkey: string;
+    FUseLowLevelHook: Boolean;
 
     // Polling
     FPollingEnabled: Boolean;
@@ -109,6 +110,7 @@ type
     procedure SetWindowMode(AValue: TWindowMode);
     procedure SetStayOnTop(AValue: Boolean);
     procedure SetHotkey(const AValue: string);
+    procedure SetUseLowLevelHook(AValue: Boolean);
     procedure SetPollingEnabled(AValue: Boolean);
     procedure SetPollingInterval(AValue: Integer);
     procedure SetPollingAsPrimary(AValue: Boolean);
@@ -182,6 +184,11 @@ type
 
     // Hotkey
     property Hotkey: string read FHotkey write SetHotkey;
+    /// <summary>
+    /// Use low-level keyboard hook instead of RegisterHotKey.
+    /// Allows overriding system hotkeys like Win+K.
+    /// </summary>
+    property UseLowLevelHook: Boolean read FUseLowLevelHook write SetUseLowLevelHook;
 
     // Polling
     property PollingEnabled: Boolean read FPollingEnabled write SetPollingEnabled;
@@ -238,6 +245,7 @@ const
   DEF_WINDOW_MODE = wmWindow;
   DEF_STAY_ON_TOP = False;
   DEF_HOTKEY = '';
+  DEF_USE_LOW_LEVEL_HOOK = True;  // Use low-level hook by default to allow overriding system hotkeys
   DEF_POLLING_ENABLED = True;
   DEF_POLLING_INTERVAL = 2000;
   DEF_POLLING_AS_PRIMARY = False;
@@ -311,6 +319,7 @@ begin
   FWindowMode := DEF_WINDOW_MODE;
   FStayOnTop := DEF_STAY_ON_TOP;
   FHotkey := DEF_HOTKEY;
+  FUseLowLevelHook := DEF_USE_LOW_LEVEL_HOOK;
   FPollingEnabled := DEF_POLLING_ENABLED;
   FPollingInterval := DEF_POLLING_INTERVAL;
   FPollingAsPrimary := DEF_POLLING_AS_PRIMARY;
@@ -354,6 +363,7 @@ begin
 
     // Hotkey
     FHotkey := Ini.ReadString(SEC_HOTKEY, 'GlobalHotkey', DEF_HOTKEY);
+    FUseLowLevelHook := Ini.ReadBool(SEC_HOTKEY, 'UseLowLevelHook', DEF_USE_LOW_LEVEL_HOOK);
 
     // Polling
     FPollingEnabled := Ini.ReadBool(SEC_POLLING, 'Enabled', DEF_POLLING_ENABLED);
@@ -407,6 +417,7 @@ begin
 
     // Hotkey
     Ini.WriteString(SEC_HOTKEY, 'GlobalHotkey', FHotkey);
+    Ini.WriteBool(SEC_HOTKEY, 'UseLowLevelHook', FUseLowLevelHook);
 
     // Polling
     Ini.WriteBool(SEC_POLLING, 'Enabled', FPollingEnabled);
@@ -590,6 +601,15 @@ begin
   if FHotkey <> AValue then
   begin
     FHotkey := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetUseLowLevelHook(AValue: Boolean);
+begin
+  if FUseLowLevelHook <> AValue then
+  begin
+    FUseLowLevelHook := AValue;
     FModified := True;
   end;
 end;
