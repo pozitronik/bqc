@@ -75,7 +75,6 @@ type
     FPollingAsPrimary: Boolean;
 
     // Appearance
-    FShowUnpaired: Boolean;
     FShowAddresses: Boolean;
     FTheme: string;
 
@@ -110,7 +109,6 @@ type
     procedure SetPollingEnabled(AValue: Boolean);
     procedure SetPollingInterval(AValue: Integer);
     procedure SetPollingAsPrimary(AValue: Boolean);
-    procedure SetShowUnpaired(AValue: Boolean);
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
     procedure SetWindowX(AValue: Integer);
@@ -189,7 +187,6 @@ type
     property PollingAsPrimary: Boolean read FPollingAsPrimary write SetPollingAsPrimary;
 
     // Appearance
-    property ShowUnpaired: Boolean read FShowUnpaired write SetShowUnpaired;
     property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
     property Theme: string read FTheme write SetTheme;
 
@@ -243,7 +240,6 @@ const
   DEF_POLLING_ENABLED = True;
   DEF_POLLING_INTERVAL = 2000;
   DEF_POLLING_AS_PRIMARY = False;
-  DEF_SHOW_UNPAIRED = False;
   DEF_SHOW_ADDRESSES = False;
   DEF_THEME = 'System';
   DEF_WINDOW_X = -1;  // -1 means use default/center
@@ -316,7 +312,6 @@ begin
   FPollingEnabled := DEF_POLLING_ENABLED;
   FPollingInterval := DEF_POLLING_INTERVAL;
   FPollingAsPrimary := DEF_POLLING_AS_PRIMARY;
-  FShowUnpaired := DEF_SHOW_UNPAIRED;
   FShowAddresses := DEF_SHOW_ADDRESSES;
   FTheme := DEF_THEME;
   FWindowX := DEF_WINDOW_X;
@@ -365,7 +360,6 @@ begin
     FPollingAsPrimary := Ini.ReadBool(SEC_POLLING, 'UsePrimary', DEF_POLLING_AS_PRIMARY);
 
     // Appearance
-    FShowUnpaired := Ini.ReadBool(SEC_APPEARANCE, 'ShowUnpaired', DEF_SHOW_UNPAIRED);
     FShowAddresses := Ini.ReadBool(SEC_APPEARANCE, 'ShowAddresses', DEF_SHOW_ADDRESSES);
     FTheme := Ini.ReadString(SEC_APPEARANCE, 'Theme', DEF_THEME);
 
@@ -420,7 +414,6 @@ begin
     Ini.WriteBool(SEC_POLLING, 'UsePrimary', FPollingAsPrimary);
 
     // Appearance
-    Ini.WriteBool(SEC_APPEARANCE, 'ShowUnpaired', FShowUnpaired);
     Ini.WriteBool(SEC_APPEARANCE, 'ShowAddresses', FShowAddresses);
     Ini.WriteString(SEC_APPEARANCE, 'Theme', FTheme);
 
@@ -616,15 +609,6 @@ begin
   if FPollingAsPrimary <> AValue then
   begin
     FPollingAsPrimary := AValue;
-    FModified := True;
-  end;
-end;
-
-procedure TAppConfig.SetShowUnpaired(AValue: Boolean);
-begin
-  if FShowUnpaired <> AValue then
-  begin
-    FShowUnpaired := AValue;
     FModified := True;
   end;
 end;

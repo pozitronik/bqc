@@ -439,14 +439,11 @@ end;
 procedure TDeviceListBox.DrawDevice(ACanvas: TCanvas; const ARect: TRect;
   const ADevice: TBluetoothDeviceInfo; AIsHover, AIsSelected: Boolean);
 var
-  BgColor, BorderColor: TColor;
-  IconRect, TextRect, BadgeRect: TRect;
-  StatusText, BadgeText: string;
+  BgColor: TColor;
+  IconRect, TextRect: TRect;
+  StatusText: string;
   TextTop: Integer;
-  IsDiscovered: Boolean;
 begin
-  IsDiscovered := ADevice.IsDiscovered;
-
   // Determine background color
   if AIsSelected then
     BgColor := Theme.Colors.ItemBackgroundSelected
@@ -460,19 +457,6 @@ begin
   ACanvas.Brush.Color := BgColor;
   ACanvas.RoundRect(ARect.Left, ARect.Top, ARect.Right, ARect.Bottom,
     CORNER_RADIUS, CORNER_RADIUS);
-
-  // Draw dashed border for discovered (non-paired) devices
-  if IsDiscovered then
-  begin
-    BorderColor := Theme.Colors.TextSecondary;
-    ACanvas.Pen.Color := BorderColor;
-    ACanvas.Pen.Style := psDash;
-    ACanvas.Brush.Style := bsClear;
-    ACanvas.RoundRect(ARect.Left + 1, ARect.Top + 1,
-      ARect.Right - 1, ARect.Bottom - 1, CORNER_RADIUS, CORNER_RADIUS);
-    ACanvas.Pen.Style := psSolid;
-    ACanvas.Brush.Style := bsSolid;
-  end;
 
   // Icon area
   IconRect.Left := ARect.Left + ITEM_PADDING;
@@ -488,14 +472,11 @@ begin
   TextRect.Top := ARect.Top;
   TextRect.Bottom := ARect.Bottom;
 
-  // Device name (slightly dimmed for discovered devices)
+  // Device name
   ACanvas.Font.Name := 'Segoe UI';
   ACanvas.Font.Size := 11;
   ACanvas.Font.Style := [];
-  if IsDiscovered then
-    ACanvas.Font.Color := Theme.Colors.TextSecondary
-  else
-    ACanvas.Font.Color := Theme.Colors.TextPrimary;
+  ACanvas.Font.Color := Theme.Colors.TextPrimary;
   ACanvas.Brush.Style := bsClear;
 
   TextTop := ARect.Top + ITEM_PADDING;
@@ -513,38 +494,11 @@ begin
     ACanvas.Font.Size := 11;
   end;
 
-  // Draw "Not paired" badge for discovered devices
-  if IsDiscovered then
-  begin
-    BadgeText := 'Not paired';
-    ACanvas.Font.Size := 8;
-    ACanvas.Font.Color := Theme.Colors.TextSecondary;
-
-    BadgeRect.Left := ARect.Right - ITEM_PADDING - ACanvas.TextWidth(BadgeText) - 8;
-    BadgeRect.Top := ARect.Top + ITEM_PADDING;
-    BadgeRect.Right := ARect.Right - ITEM_PADDING;
-    BadgeRect.Bottom := BadgeRect.Top + ACanvas.TextHeight(BadgeText) + 4;
-
-    // Badge background
-    ACanvas.Brush.Color := Theme.Colors.ItemBackgroundHover;
-    ACanvas.Pen.Color := Theme.Colors.TextSecondary;
-    ACanvas.RoundRect(BadgeRect.Left, BadgeRect.Top,
-      BadgeRect.Right, BadgeRect.Bottom, 4, 4);
-    ACanvas.Brush.Style := bsClear;
-
-    ACanvas.TextOut(BadgeRect.Left + 4, BadgeRect.Top + 2, BadgeText);
-  end;
-
   // Status text
   if ADevice.IsConnected then
   begin
     StatusText := ADevice.ConnectionStateText;
     ACanvas.Font.Color := Theme.Colors.ConnectedColor;
-  end
-  else if ADevice.DiscoveryStatus = dsOutOfRange then
-  begin
-    StatusText := 'Out of range';
-    ACanvas.Font.Color := Theme.Colors.TextSecondary;
   end
   else
   begin

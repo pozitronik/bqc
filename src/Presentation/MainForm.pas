@@ -359,7 +359,7 @@ begin
         end;
       end;
 
-      // If device not in cache, add it (for discovered devices or newly connected)
+      // If device not in cache, add it (for newly connected devices)
       if not Found then
       begin
         Log('[MainForm] HandleDeviceStateChanged (queued): Not found, adding new device');
@@ -375,10 +375,7 @@ begin
       end;
 
       // Show status
-      if LDevice.IsDiscovered then
-        UpdateStatus(Format('Discovered: %s', [LDevice.Name]))
-      else
-        UpdateStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
+      UpdateStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
     end
   );
 end;

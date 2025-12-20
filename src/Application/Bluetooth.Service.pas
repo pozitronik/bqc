@@ -40,7 +40,6 @@ type
     FOnError: TBluetoothErrorEvent;
     FRadioHandle: THandle;
     FDeviceCache: TDictionary<UInt64, TBluetoothDeviceInfo>;
-    FDiscoveredDevices: TDictionary<UInt64, TBluetoothDeviceInfo>;
     FDeviceWatcher: TBluetoothDeviceWatcher;
     FDeviceWatcherStarted: Boolean;
 
@@ -70,10 +69,6 @@ type
       const ADeviceAddress: UInt64; AConnected: Boolean);
     procedure HandleWatcherDeviceAttributeChanged(Sender: TObject;
       const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
-    procedure HandleWatcherDeviceDiscovered(Sender: TObject;
-      const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
-    procedure HandleWatcherDeviceOutOfRange(Sender: TObject;
-      const ADeviceAddress: UInt64);
     procedure HandleWatcherError(Sender: TObject;
       const AMessage: string; AErrorCode: DWORD);
 
@@ -137,7 +132,6 @@ begin
   inherited Create;
   FRadioHandle := 0;
   FDeviceCache := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
-  FDiscoveredDevices := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
   FDeviceWatcher := nil;
   FDeviceWatcherStarted := False;
   FPollingEnabled := False;
@@ -153,7 +147,6 @@ begin
   StopPollingFallback;
   StopDeviceWatcher;
   CloseRadio;
-  FDiscoveredDevices.Free;
   FDeviceCache.Free;
   inherited Destroy;
 end;
@@ -460,8 +453,6 @@ begin
   FDeviceWatcher.OnDeviceConnected := HandleWatcherDeviceConnected;
   FDeviceWatcher.OnDeviceDisconnected := HandleWatcherDeviceDisconnected;
   FDeviceWatcher.OnDeviceAttributeChanged := HandleWatcherDeviceAttributeChanged;
-  FDeviceWatcher.OnDeviceDiscovered := HandleWatcherDeviceDiscovered;
-  FDeviceWatcher.OnDeviceOutOfRange := HandleWatcherDeviceOutOfRange;
   FDeviceWatcher.OnError := HandleWatcherError;
 
   if FDeviceWatcher.Start then
@@ -531,22 +522,11 @@ begin
       FDeviceCache[ADeviceAddress] := UpdatedDevice;
       DoDeviceStateChanged(UpdatedDevice);
     end
-    else if FDiscoveredDevices.ContainsKey(ADeviceAddress) then
+    else if Device.IsPaired then
     begin
-      Log('[Service] HandleWatcherDeviceConnected: Found in FDiscoveredDevices, updating to csConnected');
-      UpdatedDevice := FDiscoveredDevices[ADeviceAddress].WithConnectionState(csConnected);
-      FDiscoveredDevices[ADeviceAddress] := UpdatedDevice;
-      DoDeviceStateChanged(UpdatedDevice);
-    end
-    else
-    begin
-      // New device we haven't seen before
-      Log('[Service] HandleWatcherDeviceConnected: New device, adding to cache');
-      if Device.IsPaired then
-        FDeviceCache.AddOrSetValue(ADeviceAddress, Device)
-      else
-        FDiscoveredDevices.AddOrSetValue(ADeviceAddress,
-          Device.WithDiscoveryStatus(dsDiscovered));
+      // New paired device we haven't seen before
+      Log('[Service] HandleWatcherDeviceConnected: New paired device, adding to cache');
+      FDeviceCache.AddOrSetValue(ADeviceAddress, Device);
       DoDeviceStateChanged(Device);
     end;
   end
@@ -570,31 +550,20 @@ begin
     FDeviceCache[ADeviceAddress] := UpdatedDevice;
     DoDeviceStateChanged(UpdatedDevice);
   end
-  else if FDiscoveredDevices.ContainsKey(ADeviceAddress) then
-  begin
-    Log('[Service] HandleWatcherDeviceDisconnected: Found in FDiscoveredDevices, updating to csDisconnected');
-    UpdatedDevice := FDiscoveredDevices[ADeviceAddress].WithConnectionState(csDisconnected);
-    FDiscoveredDevices[ADeviceAddress] := UpdatedDevice;
-    DoDeviceStateChanged(UpdatedDevice);
-  end
   else
   begin
     Log('[Service] HandleWatcherDeviceDisconnected: Not in cache, trying RefreshDeviceByAddress');
     // Device not in cache - try to refresh from Windows
     Device := RefreshDeviceByAddress(ADeviceAddress);
-    if (Device.AddressInt <> 0) and (Device.Name <> '') then
+    if (Device.AddressInt <> 0) and (Device.Name <> '') and Device.IsPaired then
     begin
-      Log('[Service] HandleWatcherDeviceDisconnected: Got device from Windows, Name="%s"', [Device.Name]);
+      Log('[Service] HandleWatcherDeviceDisconnected: Got paired device from Windows, Name="%s"', [Device.Name]);
       UpdatedDevice := Device.WithConnectionState(csDisconnected);
-      if Device.IsPaired then
-        FDeviceCache.AddOrSetValue(ADeviceAddress, UpdatedDevice)
-      else
-        FDiscoveredDevices.AddOrSetValue(ADeviceAddress,
-          UpdatedDevice.WithDiscoveryStatus(dsDiscovered));
+      FDeviceCache.AddOrSetValue(ADeviceAddress, UpdatedDevice);
       DoDeviceStateChanged(UpdatedDevice);
     end
     else
-      Log('[Service] HandleWatcherDeviceDisconnected: Device not found or has no name');
+      Log('[Service] HandleWatcherDeviceDisconnected: Device not found, has no name, or not paired');
   end;
 end;
 
@@ -644,14 +613,6 @@ begin
         // Keep the cached device as-is, don't update from unreliable event data
         Exit;
       end;
-    end
-    else if FDiscoveredDevices.TryGetValue(Address, CachedDevice) then
-    begin
-      if CachedDevice.Name <> '' then
-      begin
-        Log('[Service] HandleWatcherDeviceAttributeChanged: Using discovered cache device Name="%s"', [CachedDevice.Name]);
-        Exit;
-      end;
     end;
   end;
 
@@ -666,59 +627,11 @@ begin
     Device.Name, Ord(Device.ConnectionState)
   ]);
 
-  // Update appropriate cache based on paired status
+  // Update cache only for paired devices
   if ADeviceInfo.fRemembered then
   begin
     FDeviceCache.AddOrSetValue(Address, Device);
-    // Remove from discovered if it was there (device was just paired)
-    FDiscoveredDevices.Remove(Address);
-  end
-  else
-  begin
-    FDiscoveredDevices.AddOrSetValue(Address, Device.WithDiscoveryStatus(dsDiscovered));
-  end;
-
-  DoDeviceStateChanged(Device);
-end;
-
-procedure TBluetoothService.HandleWatcherDeviceDiscovered(Sender: TObject;
-  const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
-var
-  Device: TBluetoothDeviceInfo;
-  Address: UInt64;
-  DeviceName: string;
-begin
-  Address := ADeviceInfo.Address.ullLong;
-
-  // Skip invalid events
-  if Address = 0 then
-    Exit;
-
-  // Skip devices without names (likely incomplete discovery)
-  DeviceName := Trim(string(ADeviceInfo.szName));
-  if DeviceName = '' then
-    Exit;
-
-  // Only add if not already in paired devices cache
-  if not FDeviceCache.ContainsKey(Address) then
-  begin
-    Device := ConvertToDeviceInfo(ADeviceInfo).WithDiscoveryStatus(dsDiscovered);
-    FDiscoveredDevices.AddOrSetValue(Address, Device);
-    DoDeviceListChanged;
-  end;
-end;
-
-procedure TBluetoothService.HandleWatcherDeviceOutOfRange(Sender: TObject;
-  const ADeviceAddress: UInt64);
-var
-  UpdatedDevice: TBluetoothDeviceInfo;
-begin
-  // Mark discovered device as out of range or remove it
-  if FDiscoveredDevices.ContainsKey(ADeviceAddress) then
-  begin
-    UpdatedDevice := FDiscoveredDevices[ADeviceAddress].WithDiscoveryStatus(dsOutOfRange);
-    FDiscoveredDevices[ADeviceAddress] := UpdatedDevice;
-    DoDeviceStateChanged(UpdatedDevice);
+    DoDeviceStateChanged(Device);
   end;
 end;
 
