@@ -12,9 +12,11 @@ unit App.Config;
 interface
 
 uses
+  Winapi.Windows,
   System.SysUtils,
   System.Classes,
   System.IniFiles,
+  System.Win.Registry,
   System.Generics.Collections;
 
 type
@@ -49,10 +51,8 @@ type
   /// Autostart mode for the application.
   /// </summary>
   TAutostartMode = (
-    amNone,           // No autostart
-    amRegistry,       // Start via Registry Run key
-    amTaskScheduler,  // Start via Task Scheduler
-    amService         // Run as Windows Service
+    amNone,           // No autostart (0)
+    amRegistry        // Start via Registry Run key (1)
   );
 
   /// <summary>
@@ -333,8 +333,75 @@ const
   DEF_MENU_HIDE_ON_FOCUS_LOSS = True;  // Menu hides when app loses focus (default)
   DEF_AUTOSTART_MODE = amNone;
 
+  // Registry autostart constants
+  REG_RUN_KEY = 'Software\Microsoft\Windows\CurrentVersion\Run';
+  REG_APP_NAME = 'BluetoothQuickConnect';
+
 var
   GConfig: TAppConfig = nil;
+
+/// <summary>
+/// Sets or removes the autostart registry entry.
+/// </summary>
+procedure ApplyAutostartRegistry(AEnable: Boolean);
+var
+  Reg: TRegistry;
+  ExePath: string;
+begin
+  Reg := TRegistry.Create(KEY_WRITE);
+  try
+    Reg.RootKey := HKEY_CURRENT_USER;
+    if Reg.OpenKey(REG_RUN_KEY, True) then
+    begin
+      try
+        if AEnable then
+        begin
+          ExePath := ParamStr(0);
+          Reg.WriteString(REG_APP_NAME, '"' + ExePath + '"');
+          Log('[Config] ApplyAutostartRegistry: Enabled autostart, path="%s"', [ExePath]);
+        end
+        else
+        begin
+          if Reg.ValueExists(REG_APP_NAME) then
+          begin
+            Reg.DeleteValue(REG_APP_NAME);
+            Log('[Config] ApplyAutostartRegistry: Disabled autostart');
+          end;
+        end;
+      finally
+        Reg.CloseKey;
+      end;
+    end
+    else
+      Log('[Config] ApplyAutostartRegistry: Failed to open registry key');
+  finally
+    Reg.Free;
+  end;
+end;
+
+/// <summary>
+/// Checks if autostart is currently enabled in the registry.
+/// </summary>
+function IsAutostartEnabled: Boolean;
+var
+  Reg: TRegistry;
+begin
+  Result := False;
+  Reg := TRegistry.Create(KEY_READ);
+  try
+    Reg.RootKey := HKEY_CURRENT_USER;
+    if Reg.OpenKeyReadOnly(REG_RUN_KEY) then
+    begin
+      try
+        Result := Reg.ValueExists(REG_APP_NAME);
+      finally
+        Reg.CloseKey;
+      end;
+    end;
+  finally
+    Reg.Free;
+  end;
+end;
 
 function Config: TAppConfig;
 begin
@@ -483,7 +550,7 @@ begin
     // Menu behavior
     FMenuHideOnFocusLoss := Ini.ReadBool(SEC_GENERAL, 'MenuHideOnFocusLoss', DEF_MENU_HIDE_ON_FOCUS_LOSS);
 
-    // Autostart
+    // Autostart - read from INI and sync with registry
     FAutostartMode := TAutostartMode(Ini.ReadInteger(SEC_AUTOSTART, 'Mode', Ord(DEF_AUTOSTART_MODE)));
 
     // Device-specific settings
@@ -496,6 +563,10 @@ begin
 
   // Apply logging setting directly (not via property setter)
   App.Logger.SetLoggingEnabled(FLoggingEnabled);
+
+  // Ensure registry matches config setting
+  // This handles cases where registry was modified externally
+  ApplyAutostartRegistry(FAutostartMode = amRegistry);
 end;
 
 procedure TAppConfig.Save;
@@ -942,6 +1013,8 @@ begin
   begin
     FAutostartMode := AValue;
     FModified := True;
+    // Apply to registry immediately
+    ApplyAutostartRegistry(AValue = amRegistry);
   end;
 end;
 
