@@ -5,6 +5,8 @@ object FormMain: TFormMain
   ClientHeight = 361
   ClientWidth = 284
   Color = clBtnFace
+  Constraints.MaxHeight = 600
+  Constraints.MaxWidth = 500
   Constraints.MinHeight = 400
   Constraints.MinWidth = 300
   Font.Charset = DEFAULT_CHARSET
@@ -183,17 +185,37 @@ object FormMain: TFormMain
       OnClick = TitleLabelClick
       ExplicitHeight = 30
     end
-    object BluetoothToggle: TToggleSwitch
-      Left = 201
+    object BluetoothTogglePanel: TPanel
+      Left = 222
       Top = 0
-      Width = 73
+      Width = 52
       Height = 33
       Align = alRight
-      Color = clBtnFace
-      StyleName = 'Windows'
+      BevelEdges = []
+      BevelOuter = bvNone
+      Padding.Top = 6
+      Padding.Bottom = 6
       TabOrder = 0
-      OnClick = HandleBluetoothToggle
-      ExplicitTop = -6
+      ExplicitLeft = 89
+      object BluetoothToggle: TToggleSwitch
+        Left = 2
+        Top = 6
+        Width = 50
+        Height = 21
+        Align = alRight
+        Color = clSteelblue
+        FrameColor = clRoyalblue
+        ShowStateCaption = False
+        StyleElements = [seFont, seClient]
+        StyleName = 'Windows'
+        TabOrder = 0
+        TabStop = False
+        ThumbColor = clBtnText
+        OnClick = HandleBluetoothToggle
+        ExplicitLeft = 1
+        ExplicitTop = 1
+        ExplicitHeight = 31
+      end
     end
   end
   object StatusPanel: TPanel
@@ -213,24 +235,6 @@ object FormMain: TFormMain
     ParentBackground = False
     ParentFont = False
     TabOrder = 1
-    object StatusLabel: TLabel
-      Left = 224
-      Top = 0
-      Width = 32
-      Height = 30
-      Cursor = crHandPoint
-      Align = alRight
-      Caption = 'Ready'
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clGray
-      Font.Height = -12
-      Font.Name = 'Segoe UI'
-      Font.Style = []
-      ParentFont = False
-      Layout = tlCenter
-      OnClick = HandleSettingsClick
-      ExplicitHeight = 15
-    end
     object WindowsSettingsLink: TLabel
       Left = 10
       Top = 0
@@ -249,10 +253,30 @@ object FormMain: TFormMain
       OnClick = HandleWindowsSettingsClick
       ExplicitHeight = 15
     end
-    object SettingsLabel: TLabel
-      Left = 256
+    object StatusLabel: TLabel
+      Left = 174
       Top = 0
-      Width = 18
+      Width = 80
+      Height = 30
+      Cursor = crHandPoint
+      Align = alRight
+      Alignment = taRightJustify
+      AutoSize = False
+      Caption = 'Ready'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clGray
+      Font.Height = -12
+      Font.Name = 'Segoe UI'
+      Font.Style = []
+      ParentFont = False
+      Layout = tlCenter
+      OnClick = HandleSettingsClick
+      ExplicitLeft = 168
+    end
+    object SettingsLabel: TLabel
+      Left = 254
+      Top = 0
+      Width = 20
       Height = 30
       Cursor = crHandPoint
       Hint = 'Settings'
@@ -272,8 +296,7 @@ object FormMain: TFormMain
       Transparent = True
       Layout = tlCenter
       OnClick = HandleSettingsClick
-      ExplicitLeft = 262
-      ExplicitTop = -1
+      ExplicitLeft = 256
     end
   end
   object DevicesPanel: TPanel
@@ -290,5 +313,7 @@ object FormMain: TFormMain
     Font.Style = []
     ParentFont = False
     TabOrder = 2
+    ExplicitLeft = -56
+    ExplicitTop = 39
   end
 end

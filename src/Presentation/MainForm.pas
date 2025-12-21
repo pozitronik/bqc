@@ -34,12 +34,13 @@ type
   TFormMain = class(TForm, IMainView)
     HeaderPanel: TPanel;
     TitleLabel: TLabel;
-    BluetoothToggle: TToggleSwitch;
     StatusPanel: TPanel;
+    SettingsLabel: TLabel;
     StatusLabel: TLabel;
     WindowsSettingsLink: TLabel;
     DevicesPanel: TPanel;
-    SettingsLabel: TLabel;
+    BluetoothTogglePanel: TPanel;
+    BluetoothToggle: TToggleSwitch;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -613,7 +614,11 @@ begin
   Application.BringToFront;
   SetForegroundWindow(Handle);
   BringToFront;
-  if CanFocus then
+
+  // Set focus to device list for immediate keyboard navigation
+  if (FDeviceList <> nil) and FDeviceList.CanFocus then
+    FDeviceList.SetFocus
+  else if CanFocus then
     SetFocus;
 
   FTrayManager.UpdateMenuCaption(True);
