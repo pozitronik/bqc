@@ -71,6 +71,7 @@ type
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
     procedure HandleHotkeyTriggered(Sender: TObject);
     procedure HandleTrayToggleVisibility(Sender: TObject);
+    procedure HandleTraySettingsRequest(Sender: TObject);
     procedure HandleTrayExitRequest(Sender: TObject);
     procedure HandleApplicationDeactivate(Sender: TObject);
     procedure HandleSettingsApplied(Sender: TObject);
@@ -173,6 +174,7 @@ begin
   // Create tray manager
   FTrayManager := TTrayManager.Create(Self);
   FTrayManager.OnToggleVisibility := HandleTrayToggleVisibility;
+  FTrayManager.OnSettingsRequest := HandleTraySettingsRequest;
   FTrayManager.OnExitRequest := HandleTrayExitRequest;
 
   // Apply configuration to device list
@@ -476,6 +478,11 @@ end;
 procedure TFormMain.HandleTrayToggleVisibility(Sender: TObject);
 begin
   FPresenter.OnVisibilityToggleRequested;
+end;
+
+procedure TFormMain.HandleTraySettingsRequest(Sender: TObject);
+begin
+  HandleSettingsClick(Sender);
 end;
 
 procedure TFormMain.HandleTrayExitRequest(Sender: TObject);

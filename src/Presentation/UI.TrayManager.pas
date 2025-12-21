@@ -28,10 +28,12 @@ type
     FTrayIcon: TTrayIcon;
     FTrayMenu: TPopupMenu;
     FOnToggleVisibility: TNotifyEvent;
+    FOnSettingsRequest: TNotifyEvent;
     FOnExitRequest: TNotifyEvent;
 
     procedure HandleTrayClick(Sender: TObject);
     procedure HandleMenuShowClick(Sender: TObject);
+    procedure HandleMenuSettingsClick(Sender: TObject);
     procedure HandleMenuExitClick(Sender: TObject);
     function GetVisible: Boolean;
     procedure SetVisible(AValue: Boolean);
@@ -80,6 +82,12 @@ type
     property OnToggleVisibility: TNotifyEvent read FOnToggleVisibility write FOnToggleVisibility;
 
     /// <summary>
+    /// Fired when user clicks Settings menu item.
+    /// Owner should open settings dialog.
+    /// </summary>
+    property OnSettingsRequest: TNotifyEvent read FOnSettingsRequest write FOnSettingsRequest;
+
+    /// <summary>
     /// Fired when user clicks Exit menu item.
     /// Owner should close the application.
     /// </summary>
@@ -106,6 +114,17 @@ begin
   MenuItem.Caption := 'Show';
   MenuItem.OnClick := HandleMenuShowClick;
   MenuItem.Default := True;
+  FTrayMenu.Items.Add(MenuItem);
+
+  // Separator
+  MenuItem := TMenuItem.Create(FTrayMenu);
+  MenuItem.Caption := '-';
+  FTrayMenu.Items.Add(MenuItem);
+
+  // Settings menu item
+  MenuItem := TMenuItem.Create(FTrayMenu);
+  MenuItem.Caption := 'Settings...';
+  MenuItem.OnClick := HandleMenuSettingsClick;
   FTrayMenu.Items.Add(MenuItem);
 
   // Separator
@@ -144,6 +163,13 @@ procedure TTrayManager.HandleMenuShowClick(Sender: TObject);
 begin
   if Assigned(FOnToggleVisibility) then
     FOnToggleVisibility(Self);
+end;
+
+procedure TTrayManager.HandleMenuSettingsClick(Sender: TObject);
+begin
+  Log('[TrayManager] Settings requested');
+  if Assigned(FOnSettingsRequest) then
+    FOnSettingsRequest(Self);
 end;
 
 procedure TTrayManager.HandleMenuExitClick(Sender: TObject);

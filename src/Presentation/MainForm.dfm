@@ -212,7 +212,7 @@ object FormMain: TFormMain
         ThumbColor = clBtnText
         ThumbWidth = 20
         OnClick = HandleBluetoothToggle
-        ExplicitHeight = 20
+        ExplicitTop = 7
       end
     end
   end
@@ -252,7 +252,7 @@ object FormMain: TFormMain
       ExplicitHeight = 15
     end
     object StatusLabel: TLabel
-      Left = 174
+      Left = 170
       Top = 0
       Width = 80
       Height = 30
@@ -272,9 +272,9 @@ object FormMain: TFormMain
       ExplicitLeft = 168
     end
     object SettingsLabel: TLabel
-      Left = 254
+      Left = 250
       Top = 0
-      Width = 20
+      Width = 24
       Height = 30
       Cursor = crHandPoint
       Hint = 'Settings'
@@ -294,7 +294,7 @@ object FormMain: TFormMain
       Transparent = True
       Layout = tlCenter
       OnClick = HandleSettingsClick
-      ExplicitLeft = 256
+      ExplicitLeft = 254
     end
   end
   object DevicesPanel: TPanel
