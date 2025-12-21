@@ -324,6 +324,7 @@ var
 begin
   Result := False;
   AnySuccess := False;
+  ErrorCode := ERROR_SUCCESS;
 
   // Get device-specific configuration
   DeviceConfig := Config.GetDeviceConfig(ADevice.AddressInt);
