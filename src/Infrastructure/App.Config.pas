@@ -57,6 +57,14 @@ type
   );
 
   /// <summary>
+  /// Last seen timestamp display format.
+  /// </summary>
+  TLastSeenFormat = (
+    lsfRelative,  // "2 hours ago", "Yesterday" (0)
+    lsfAbsolute   // "2024-12-21 15:30" (1)
+  );
+
+  /// <summary>
   /// Per-device notification settings.
   /// Value of -1 means use global default.
   /// </summary>
@@ -141,6 +149,21 @@ type
     FShowAddresses: Boolean;
     FTheme: string;
     FVsfDir: string;
+    FShowLastSeen: Boolean;
+    FLastSeenFormat: TLastSeenFormat;
+    FShowDeviceIcons: Boolean;
+    FConnectedColor: Integer;
+
+    // [Layout]
+    FItemHeight: Integer;
+    FItemPadding: Integer;
+    FItemMargin: Integer;
+    FIconSize: Integer;
+    FCornerRadius: Integer;
+    FDeviceNameFontSize: Integer;
+    FStatusFontSize: Integer;
+    FAddressFontSize: Integer;
+    FIconFontSize: Integer;
 
     // [Device] - global defaults
     FConnectionTimeout: Integer;
@@ -176,6 +199,19 @@ type
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
     procedure SetVsfDir(const AValue: string);
+    procedure SetShowLastSeen(AValue: Boolean);
+    procedure SetLastSeenFormat(AValue: TLastSeenFormat);
+    procedure SetShowDeviceIcons(AValue: Boolean);
+    procedure SetConnectedColor(AValue: Integer);
+    procedure SetItemHeight(AValue: Integer);
+    procedure SetItemPadding(AValue: Integer);
+    procedure SetItemMargin(AValue: Integer);
+    procedure SetIconSize(AValue: Integer);
+    procedure SetCornerRadius(AValue: Integer);
+    procedure SetDeviceNameFontSize(AValue: Integer);
+    procedure SetStatusFontSize(AValue: Integer);
+    procedure SetAddressFontSize(AValue: Integer);
+    procedure SetIconFontSize(AValue: Integer);
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
     procedure SetNotifyOnConnect(AValue: TNotificationMode);
@@ -278,6 +314,21 @@ type
     property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
     property Theme: string read FTheme write SetTheme;
     property VsfDir: string read FVsfDir write SetVsfDir;
+    property ShowLastSeen: Boolean read FShowLastSeen write SetShowLastSeen;
+    property LastSeenFormat: TLastSeenFormat read FLastSeenFormat write SetLastSeenFormat;
+    property ShowDeviceIcons: Boolean read FShowDeviceIcons write SetShowDeviceIcons;
+    property ConnectedColor: Integer read FConnectedColor write SetConnectedColor;
+
+    // [Layout]
+    property ItemHeight: Integer read FItemHeight write SetItemHeight;
+    property ItemPadding: Integer read FItemPadding write SetItemPadding;
+    property ItemMargin: Integer read FItemMargin write SetItemMargin;
+    property IconSize: Integer read FIconSize write SetIconSize;
+    property CornerRadius: Integer read FCornerRadius write SetCornerRadius;
+    property DeviceNameFontSize: Integer read FDeviceNameFontSize write SetDeviceNameFontSize;
+    property StatusFontSize: Integer read FStatusFontSize write SetStatusFontSize;
+    property AddressFontSize: Integer read FAddressFontSize write SetAddressFontSize;
+    property IconFontSize: Integer read FIconFontSize write SetIconFontSize;
 
     // [Device] - global defaults
     property ConnectionTimeout: Integer read FConnectionTimeout write SetConnectionTimeout;
@@ -331,6 +382,7 @@ const
   SEC_POLLING = 'Polling';
   SEC_LOG = 'Log';
   SEC_APPEARANCE = 'Appearance';
+  SEC_LAYOUT = 'Layout';
   SEC_DEVICE = 'Device';
   SEC_DEVICE_PREFIX = 'Device.';
 
@@ -362,6 +414,23 @@ const
   DEF_NOTIFY_ON_DISCONNECT = nmBalloon;
   DEF_NOTIFY_ON_CONNECT_FAILED = nmBalloon;
   DEF_NOTIFY_ON_AUTO_CONNECT = nmBalloon;
+
+  // [Appearance] additional defaults
+  DEF_SHOW_LAST_SEEN = False;
+  DEF_LAST_SEEN_FORMAT = lsfRelative;
+  DEF_SHOW_DEVICE_ICONS = True;
+  DEF_CONNECTED_COLOR = $00008000;  // Dark green (BGR format)
+
+  // [Layout] defaults
+  DEF_ITEM_HEIGHT = 70;
+  DEF_ITEM_PADDING = 12;
+  DEF_ITEM_MARGIN = 4;
+  DEF_ICON_SIZE = 32;
+  DEF_CORNER_RADIUS = 8;
+  DEF_DEVICE_NAME_FONT_SIZE = 11;
+  DEF_STATUS_FONT_SIZE = 9;
+  DEF_ADDRESS_FONT_SIZE = 8;
+  DEF_ICON_FONT_SIZE = 16;
 
 var
   GConfig: TAppConfig = nil;
@@ -464,6 +533,21 @@ begin
   FShowAddresses := DEF_SHOW_ADDRESSES;
   FTheme := DEF_THEME;
   FVsfDir := DEF_VSF_DIR;
+  FShowLastSeen := DEF_SHOW_LAST_SEEN;
+  FLastSeenFormat := DEF_LAST_SEEN_FORMAT;
+  FShowDeviceIcons := DEF_SHOW_DEVICE_ICONS;
+  FConnectedColor := DEF_CONNECTED_COLOR;
+
+  // [Layout]
+  FItemHeight := DEF_ITEM_HEIGHT;
+  FItemPadding := DEF_ITEM_PADDING;
+  FItemMargin := DEF_ITEM_MARGIN;
+  FIconSize := DEF_ICON_SIZE;
+  FCornerRadius := DEF_CORNER_RADIUS;
+  FDeviceNameFontSize := DEF_DEVICE_NAME_FONT_SIZE;
+  FStatusFontSize := DEF_STATUS_FONT_SIZE;
+  FAddressFontSize := DEF_ADDRESS_FONT_SIZE;
+  FIconFontSize := DEF_ICON_FONT_SIZE;
 
   // [Device]
   FConnectionTimeout := DEF_CONNECTION_TIMEOUT;
@@ -530,6 +614,21 @@ begin
     FShowAddresses := Ini.ReadBool(SEC_APPEARANCE, 'ShowAddresses', DEF_SHOW_ADDRESSES);
     FTheme := Ini.ReadString(SEC_APPEARANCE, 'Theme', DEF_THEME);
     FVsfDir := Ini.ReadString(SEC_APPEARANCE, 'VsfDir', DEF_VSF_DIR);
+    FShowLastSeen := Ini.ReadBool(SEC_APPEARANCE, 'ShowLastSeen', DEF_SHOW_LAST_SEEN);
+    FLastSeenFormat := TLastSeenFormat(Ini.ReadInteger(SEC_APPEARANCE, 'LastSeenFormat', Ord(DEF_LAST_SEEN_FORMAT)));
+    FShowDeviceIcons := Ini.ReadBool(SEC_APPEARANCE, 'ShowDeviceIcons', DEF_SHOW_DEVICE_ICONS);
+    FConnectedColor := Ini.ReadInteger(SEC_APPEARANCE, 'ConnectedColor', DEF_CONNECTED_COLOR);
+
+    // [Layout]
+    FItemHeight := Ini.ReadInteger(SEC_LAYOUT, 'ItemHeight', DEF_ITEM_HEIGHT);
+    FItemPadding := Ini.ReadInteger(SEC_LAYOUT, 'ItemPadding', DEF_ITEM_PADDING);
+    FItemMargin := Ini.ReadInteger(SEC_LAYOUT, 'ItemMargin', DEF_ITEM_MARGIN);
+    FIconSize := Ini.ReadInteger(SEC_LAYOUT, 'IconSize', DEF_ICON_SIZE);
+    FCornerRadius := Ini.ReadInteger(SEC_LAYOUT, 'CornerRadius', DEF_CORNER_RADIUS);
+    FDeviceNameFontSize := Ini.ReadInteger(SEC_LAYOUT, 'DeviceNameFontSize', DEF_DEVICE_NAME_FONT_SIZE);
+    FStatusFontSize := Ini.ReadInteger(SEC_LAYOUT, 'StatusFontSize', DEF_STATUS_FONT_SIZE);
+    FAddressFontSize := Ini.ReadInteger(SEC_LAYOUT, 'AddressFontSize', DEF_ADDRESS_FONT_SIZE);
+    FIconFontSize := Ini.ReadInteger(SEC_LAYOUT, 'IconFontSize', DEF_ICON_FONT_SIZE);
 
     // [Device] - global defaults
     FConnectionTimeout := Ini.ReadInteger(SEC_DEVICE, 'ConnectionTimeout', DEF_CONNECTION_TIMEOUT);
@@ -596,6 +695,21 @@ begin
     Ini.WriteBool(SEC_APPEARANCE, 'ShowAddresses', FShowAddresses);
     Ini.WriteString(SEC_APPEARANCE, 'Theme', FTheme);
     Ini.WriteString(SEC_APPEARANCE, 'VsfDir', FVsfDir);
+    Ini.WriteBool(SEC_APPEARANCE, 'ShowLastSeen', FShowLastSeen);
+    Ini.WriteInteger(SEC_APPEARANCE, 'LastSeenFormat', Ord(FLastSeenFormat));
+    Ini.WriteBool(SEC_APPEARANCE, 'ShowDeviceIcons', FShowDeviceIcons);
+    Ini.WriteInteger(SEC_APPEARANCE, 'ConnectedColor', FConnectedColor);
+
+    // [Layout]
+    Ini.WriteInteger(SEC_LAYOUT, 'ItemHeight', FItemHeight);
+    Ini.WriteInteger(SEC_LAYOUT, 'ItemPadding', FItemPadding);
+    Ini.WriteInteger(SEC_LAYOUT, 'ItemMargin', FItemMargin);
+    Ini.WriteInteger(SEC_LAYOUT, 'IconSize', FIconSize);
+    Ini.WriteInteger(SEC_LAYOUT, 'CornerRadius', FCornerRadius);
+    Ini.WriteInteger(SEC_LAYOUT, 'DeviceNameFontSize', FDeviceNameFontSize);
+    Ini.WriteInteger(SEC_LAYOUT, 'StatusFontSize', FStatusFontSize);
+    Ini.WriteInteger(SEC_LAYOUT, 'AddressFontSize', FAddressFontSize);
+    Ini.WriteInteger(SEC_LAYOUT, 'IconFontSize', FIconFontSize);
 
     // [Device] - global defaults
     Ini.WriteInteger(SEC_DEVICE, 'ConnectionTimeout', FConnectionTimeout);
@@ -977,6 +1091,123 @@ begin
   if FVsfDir <> AValue then
   begin
     FVsfDir := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetShowLastSeen(AValue: Boolean);
+begin
+  if FShowLastSeen <> AValue then
+  begin
+    FShowLastSeen := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetLastSeenFormat(AValue: TLastSeenFormat);
+begin
+  if FLastSeenFormat <> AValue then
+  begin
+    FLastSeenFormat := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetShowDeviceIcons(AValue: Boolean);
+begin
+  if FShowDeviceIcons <> AValue then
+  begin
+    FShowDeviceIcons := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetConnectedColor(AValue: Integer);
+begin
+  if FConnectedColor <> AValue then
+  begin
+    FConnectedColor := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetItemHeight(AValue: Integer);
+begin
+  if FItemHeight <> AValue then
+  begin
+    FItemHeight := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetItemPadding(AValue: Integer);
+begin
+  if FItemPadding <> AValue then
+  begin
+    FItemPadding := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetItemMargin(AValue: Integer);
+begin
+  if FItemMargin <> AValue then
+  begin
+    FItemMargin := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetIconSize(AValue: Integer);
+begin
+  if FIconSize <> AValue then
+  begin
+    FIconSize := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetCornerRadius(AValue: Integer);
+begin
+  if FCornerRadius <> AValue then
+  begin
+    FCornerRadius := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetDeviceNameFontSize(AValue: Integer);
+begin
+  if FDeviceNameFontSize <> AValue then
+  begin
+    FDeviceNameFontSize := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetStatusFontSize(AValue: Integer);
+begin
+  if FStatusFontSize <> AValue then
+  begin
+    FStatusFontSize := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetAddressFontSize(AValue: Integer);
+begin
+  if FAddressFontSize <> AValue then
+  begin
+    FAddressFontSize := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetIconFontSize(AValue: Integer);
+begin
+  if FIconFontSize <> AValue then
+  begin
+    FIconFontSize := AValue;
     FModified := True;
   end;
 end;

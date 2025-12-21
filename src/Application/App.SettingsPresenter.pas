@@ -14,9 +14,12 @@ interface
 uses
   System.SysUtils,
   System.Classes,
+  System.UITypes,
   System.Generics.Collections,
   Vcl.StdCtrls,
   Vcl.ComCtrls,
+  Vcl.ExtCtrls,
+  Vcl.Graphics,
   App.Config;
 
 type
@@ -94,6 +97,22 @@ type
     FEditLogFilename: TEdit;
     FCheckLogAppend: TCheckBox;
 
+    // Tab: Appearance (new)
+    FCheckShowDeviceIcons: TCheckBox;
+    FCheckShowLastSeen: TCheckBox;
+    FRadioLastSeenRelative: TRadioButton;
+    FRadioLastSeenAbsolute: TRadioButton;
+    FShapeConnectedColor: TShape;
+    FEditItemHeight: TEdit;
+    FEditItemPadding: TEdit;
+    FEditItemMargin: TEdit;
+    FEditIconSize: TEdit;
+    FEditCornerRadius: TEdit;
+    FEditDeviceNameSize: TEdit;
+    FEditStatusSize: TEdit;
+    FEditAddressSize: TEdit;
+    FEditIconFontSize: TEdit;
+
     procedure InitControlReferences;
     procedure LoadThemeList;
     procedure LoadDeviceList;
@@ -119,6 +138,7 @@ type
     procedure OnForgetDeviceClicked(AIndex: Integer);
     procedure OnRefreshDevicesClicked;
     procedure OnResetDefaultsClicked;
+    procedure OnResetLayoutClicked;
 
     procedure MarkModified;
     property IsModified: Boolean read FModified;
@@ -218,6 +238,22 @@ begin
   FCheckLogEnabled := Form.FindComponent('CheckLogEnabled') as TCheckBox;
   FEditLogFilename := Form.FindComponent('EditLogFilename') as TEdit;
   FCheckLogAppend := Form.FindComponent('CheckLogAppend') as TCheckBox;
+
+  // Tab: Appearance (new)
+  FCheckShowDeviceIcons := Form.FindComponent('CheckShowDeviceIcons') as TCheckBox;
+  FCheckShowLastSeen := Form.FindComponent('CheckShowLastSeen') as TCheckBox;
+  FRadioLastSeenRelative := Form.FindComponent('RadioLastSeenRelative') as TRadioButton;
+  FRadioLastSeenAbsolute := Form.FindComponent('RadioLastSeenAbsolute') as TRadioButton;
+  FShapeConnectedColor := Form.FindComponent('ShapeConnectedColor') as TShape;
+  FEditItemHeight := Form.FindComponent('EditItemHeight') as TEdit;
+  FEditItemPadding := Form.FindComponent('EditItemPadding') as TEdit;
+  FEditItemMargin := Form.FindComponent('EditItemMargin') as TEdit;
+  FEditIconSize := Form.FindComponent('EditIconSize') as TEdit;
+  FEditCornerRadius := Form.FindComponent('EditCornerRadius') as TEdit;
+  FEditDeviceNameSize := Form.FindComponent('EditDeviceNameSize') as TEdit;
+  FEditStatusSize := Form.FindComponent('EditStatusSize') as TEdit;
+  FEditAddressSize := Form.FindComponent('EditAddressSize') as TEdit;
+  FEditIconFontSize := Form.FindComponent('EditIconFontSize') as TEdit;
 
   // Connect change handlers for dynamically found controls
   // (controls that may be added to form later)
@@ -478,6 +514,36 @@ begin
   if FCheckLogAppend <> nil then
     FCheckLogAppend.Checked := Config.LogAppend;
 
+  // Tab: Appearance (new)
+  if FCheckShowDeviceIcons <> nil then
+    FCheckShowDeviceIcons.Checked := Config.ShowDeviceIcons;
+  if FCheckShowLastSeen <> nil then
+    FCheckShowLastSeen.Checked := Config.ShowLastSeen;
+  if FRadioLastSeenRelative <> nil then
+    FRadioLastSeenRelative.Checked := Config.LastSeenFormat = lsfRelative;
+  if FRadioLastSeenAbsolute <> nil then
+    FRadioLastSeenAbsolute.Checked := Config.LastSeenFormat = lsfAbsolute;
+  if FShapeConnectedColor <> nil then
+    FShapeConnectedColor.Brush.Color := TColor(Config.ConnectedColor);
+  if FEditItemHeight <> nil then
+    FEditItemHeight.Text := IntToStr(Config.ItemHeight);
+  if FEditItemPadding <> nil then
+    FEditItemPadding.Text := IntToStr(Config.ItemPadding);
+  if FEditItemMargin <> nil then
+    FEditItemMargin.Text := IntToStr(Config.ItemMargin);
+  if FEditIconSize <> nil then
+    FEditIconSize.Text := IntToStr(Config.IconSize);
+  if FEditCornerRadius <> nil then
+    FEditCornerRadius.Text := IntToStr(Config.CornerRadius);
+  if FEditDeviceNameSize <> nil then
+    FEditDeviceNameSize.Text := IntToStr(Config.DeviceNameFontSize);
+  if FEditStatusSize <> nil then
+    FEditStatusSize.Text := IntToStr(Config.StatusFontSize);
+  if FEditAddressSize <> nil then
+    FEditAddressSize.Text := IntToStr(Config.AddressFontSize);
+  if FEditIconFontSize <> nil then
+    FEditIconFontSize.Text := IntToStr(Config.IconFontSize);
+
   FModified := False;
   Log('[SettingsPresenter] LoadSettings: Complete');
 end;
@@ -572,6 +638,39 @@ begin
       Config.LogFilename := FEditLogFilename.Text;
     if FCheckLogAppend <> nil then
       Config.LogAppend := FCheckLogAppend.Checked;
+
+    // Tab: Appearance (new)
+    if FCheckShowDeviceIcons <> nil then
+      Config.ShowDeviceIcons := FCheckShowDeviceIcons.Checked;
+    if FCheckShowLastSeen <> nil then
+      Config.ShowLastSeen := FCheckShowLastSeen.Checked;
+    if FRadioLastSeenRelative <> nil then
+    begin
+      if FRadioLastSeenRelative.Checked then
+        Config.LastSeenFormat := lsfRelative
+      else
+        Config.LastSeenFormat := lsfAbsolute;
+    end;
+    if FShapeConnectedColor <> nil then
+      Config.ConnectedColor := Integer(FShapeConnectedColor.Brush.Color);
+    if FEditItemHeight <> nil then
+      Config.ItemHeight := StrToIntDef(FEditItemHeight.Text, 70);
+    if FEditItemPadding <> nil then
+      Config.ItemPadding := StrToIntDef(FEditItemPadding.Text, 12);
+    if FEditItemMargin <> nil then
+      Config.ItemMargin := StrToIntDef(FEditItemMargin.Text, 4);
+    if FEditIconSize <> nil then
+      Config.IconSize := StrToIntDef(FEditIconSize.Text, 32);
+    if FEditCornerRadius <> nil then
+      Config.CornerRadius := StrToIntDef(FEditCornerRadius.Text, 8);
+    if FEditDeviceNameSize <> nil then
+      Config.DeviceNameFontSize := StrToIntDef(FEditDeviceNameSize.Text, 11);
+    if FEditStatusSize <> nil then
+      Config.StatusFontSize := StrToIntDef(FEditStatusSize.Text, 9);
+    if FEditAddressSize <> nil then
+      Config.AddressFontSize := StrToIntDef(FEditAddressSize.Text, 8);
+    if FEditIconFontSize <> nil then
+      Config.IconFontSize := StrToIntDef(FEditIconFontSize.Text, 16);
 
     // Save configuration to file
     Config.Save;
@@ -670,6 +769,33 @@ begin
     on E: Exception do
       FView.ShowError('Failed to reset settings: ' + E.Message);
   end;
+end;
+
+procedure TSettingsPresenter.OnResetLayoutClicked;
+begin
+  Log('[SettingsPresenter] OnResetLayoutClicked');
+  // Reset layout settings to defaults
+  if FEditItemHeight <> nil then
+    FEditItemHeight.Text := '70';
+  if FEditItemPadding <> nil then
+    FEditItemPadding.Text := '12';
+  if FEditItemMargin <> nil then
+    FEditItemMargin.Text := '4';
+  if FEditIconSize <> nil then
+    FEditIconSize.Text := '32';
+  if FEditCornerRadius <> nil then
+    FEditCornerRadius.Text := '8';
+  if FEditDeviceNameSize <> nil then
+    FEditDeviceNameSize.Text := '11';
+  if FEditStatusSize <> nil then
+    FEditStatusSize.Text := '9';
+  if FEditAddressSize <> nil then
+    FEditAddressSize.Text := '8';
+  if FEditIconFontSize <> nil then
+    FEditIconFontSize.Text := '16';
+  if FShapeConnectedColor <> nil then
+    FShapeConnectedColor.Brush.Color := TColor($00008000);  // Default green
+  MarkModified;
 end;
 
 procedure TSettingsPresenter.MarkModified;

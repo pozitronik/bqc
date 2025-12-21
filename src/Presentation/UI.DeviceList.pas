@@ -37,12 +37,6 @@ type
   /// Custom device list control with owner-draw rendering.
   /// </summary>
   TDeviceListBox = class(TCustomControl)
-  private const
-    ITEM_HEIGHT = 70;
-    ITEM_PADDING = 12;
-    ICON_SIZE = 32;
-    CORNER_RADIUS = 8;
-    ITEM_MARGIN = 4;
   private
     FDevices: TList<TBluetoothDeviceInfo>;
     FHoverIndex: Integer;
@@ -119,7 +113,8 @@ type
 implementation
 
 uses
-  System.Math;
+  System.Math,
+  System.DateUtils;
 
 { TDeviceListBox }
 
@@ -227,26 +222,71 @@ begin
     FDevices.Add(Device);
   end;
 
-  // Sort devices: pinned first, then by name
+  // Sort devices: Pinned -> Connected -> Disconnected
+  // Within each group: LastSeen (most recent first) -> Name -> MAC
   FDevices.Sort(TComparer<TBluetoothDeviceInfo>.Construct(
     function(const Left, Right: TBluetoothDeviceInfo): Integer
     var
       LeftConfig, RightConfig: TDeviceConfig;
       LeftPinned, RightPinned: Boolean;
+      LeftConnected, RightConnected: Boolean;
+      LeftGroup, RightGroup: Integer;
+      LeftName, RightName: string;
     begin
       LeftConfig := Config.GetDeviceConfig(Left.AddressInt);
       RightConfig := Config.GetDeviceConfig(Right.AddressInt);
       LeftPinned := LeftConfig.Pinned;
       RightPinned := RightConfig.Pinned;
+      LeftConnected := Left.IsConnected;
+      RightConnected := Right.IsConnected;
 
-      // Pinned devices come first
-      if LeftPinned and not RightPinned then
+      // Determine group: 0=Pinned, 1=Connected (not pinned), 2=Disconnected (not pinned)
+      if LeftPinned then
+        LeftGroup := 0
+      else if LeftConnected then
+        LeftGroup := 1
+      else
+        LeftGroup := 2;
+
+      if RightPinned then
+        RightGroup := 0
+      else if RightConnected then
+        RightGroup := 1
+      else
+        RightGroup := 2;
+
+      // Compare groups first
+      Result := LeftGroup - RightGroup;
+      if Result <> 0 then
+        Exit;
+
+      // Within same group, sort by LastSeen (most recent first)
+      if LeftConfig.LastSeen > RightConfig.LastSeen then
         Result := -1
-      else if not LeftPinned and RightPinned then
+      else if LeftConfig.LastSeen < RightConfig.LastSeen then
         Result := 1
       else
-        // Then sort by name
-        Result := CompareText(Left.Name, Right.Name);
+      begin
+        // Same LastSeen, sort by display name (alias if set, otherwise original name)
+        if LeftConfig.Alias <> '' then
+          LeftName := LeftConfig.Alias
+        else
+          LeftName := Left.Name;
+        if RightConfig.Alias <> '' then
+          RightName := RightConfig.Alias
+        else
+          RightName := Right.Name;
+        Result := CompareText(LeftName, RightName);
+
+        // If names are also equal, sort by MAC address
+        if Result = 0 then
+        begin
+          if Left.AddressInt < Right.AddressInt then
+            Result := -1
+          else if Left.AddressInt > Right.AddressInt then
+            Result := 1;
+        end;
+      end;
     end
   ));
 
@@ -296,11 +336,15 @@ begin
 end;
 
 function TDeviceListBox.GetItemRect(AIndex: Integer): TRect;
+var
+  ItemHeight, ItemMargin: Integer;
 begin
-  Result.Left := ITEM_MARGIN;
-  Result.Right := ClientWidth - ITEM_MARGIN;
-  Result.Top := ITEM_MARGIN + AIndex * (ITEM_HEIGHT + ITEM_MARGIN) - FScrollPos;
-  Result.Bottom := Result.Top + ITEM_HEIGHT;
+  ItemHeight := Config.ItemHeight;
+  ItemMargin := Config.ItemMargin;
+  Result.Left := ItemMargin;
+  Result.Right := ClientWidth - ItemMargin;
+  Result.Top := ItemMargin + AIndex * (ItemHeight + ItemMargin) - FScrollPos;
+  Result.Bottom := Result.Top + ItemHeight;
 end;
 
 function TDeviceListBox.ItemAtPos(X, Y: Integer): Integer;
@@ -320,8 +364,11 @@ end;
 procedure TDeviceListBox.UpdateScrollRange;
 var
   TotalHeight, VisibleHeight: Integer;
+  ItemHeight, ItemMargin: Integer;
 begin
-  TotalHeight := FDevices.Count * (ITEM_HEIGHT + ITEM_MARGIN) + ITEM_MARGIN;
+  ItemHeight := Config.ItemHeight;
+  ItemMargin := Config.ItemMargin;
+  TotalHeight := FDevices.Count * (ItemHeight + ItemMargin) + ItemMargin;
   VisibleHeight := ClientHeight;
   FMaxScroll := Max(0, TotalHeight - VisibleHeight);
   if FScrollPos > FMaxScroll then
@@ -333,11 +380,14 @@ procedure TDeviceListBox.UpdateScrollBar;
 var
   SI: TScrollInfo;
   TotalHeight: Integer;
+  ItemHeight, ItemMargin: Integer;
 begin
   if not HandleAllocated then
     Exit;
 
-  TotalHeight := FDevices.Count * (ITEM_HEIGHT + ITEM_MARGIN) + ITEM_MARGIN;
+  ItemHeight := Config.ItemHeight;
+  ItemMargin := Config.ItemMargin;
+  TotalHeight := FDevices.Count * (ItemHeight + ItemMargin) + ItemMargin;
 
   SI.cbSize := SizeOf(TScrollInfo);
   SI.fMask := SIF_ALL;
@@ -364,17 +414,20 @@ end;
 procedure TDeviceListBox.EnsureVisible(AIndex: Integer);
 var
   ItemTop, ItemBottom: Integer;
+  ItemHeight, ItemMargin: Integer;
 begin
   if (AIndex < 0) or (AIndex >= FDevices.Count) then
     Exit;
 
-  ItemTop := ITEM_MARGIN + AIndex * (ITEM_HEIGHT + ITEM_MARGIN);
-  ItemBottom := ItemTop + ITEM_HEIGHT;
+  ItemHeight := Config.ItemHeight;
+  ItemMargin := Config.ItemMargin;
+  ItemTop := ItemMargin + AIndex * (ItemHeight + ItemMargin);
+  ItemBottom := ItemTop + ItemHeight;
 
   if ItemTop < FScrollPos then
-    ScrollTo(ItemTop - ITEM_MARGIN)
+    ScrollTo(ItemTop - ItemMargin)
   else if ItemBottom > FScrollPos + ClientHeight then
-    ScrollTo(ItemBottom - ClientHeight + ITEM_MARGIN);
+    ScrollTo(ItemBottom - ClientHeight + ItemMargin);
 end;
 
 procedure TDeviceListBox.WMEraseBkgnd(var Message: TWMEraseBkgnd);
@@ -391,18 +444,20 @@ end;
 procedure TDeviceListBox.WMVScroll(var Message: TWMVScroll);
 var
   NewPos: Integer;
+  ItemHeight: Integer;
 begin
   NewPos := FScrollPos;
+  ItemHeight := Config.ItemHeight;
 
   case Message.ScrollCode of
     SB_LINEUP:
-      Dec(NewPos, ITEM_HEIGHT div 2);
+      Dec(NewPos, ItemHeight div 2);
     SB_LINEDOWN:
-      Inc(NewPos, ITEM_HEIGHT div 2);
+      Inc(NewPos, ItemHeight div 2);
     SB_PAGEUP:
-      Dec(NewPos, ClientHeight - ITEM_HEIGHT);
+      Dec(NewPos, ClientHeight - ItemHeight);
     SB_PAGEDOWN:
-      Inc(NewPos, ClientHeight - ITEM_HEIGHT);
+      Inc(NewPos, ClientHeight - ItemHeight);
     SB_THUMBTRACK, SB_THUMBPOSITION:
       NewPos := Message.Pos;
     SB_TOP:
@@ -467,18 +522,71 @@ begin
   end;
 end;
 
+function FormatLastSeenRelative(ALastSeen: TDateTime): string;
+var
+  Diff: TDateTime;
+  Days, Hours, Minutes: Integer;
+begin
+  if ALastSeen <= 0 then
+    Exit('Never');
+
+  Diff := Now - ALastSeen;
+  Days := Trunc(Diff);
+  Hours := HoursBetween(Now, ALastSeen);
+  Minutes := MinutesBetween(Now, ALastSeen);
+
+  if Minutes < 1 then
+    Result := 'Just now'
+  else if Minutes < 60 then
+    Result := Format('%d min ago', [Minutes])
+  else if Hours < 24 then
+    Result := Format('%d hr ago', [Hours])
+  else if Days = 1 then
+    Result := 'Yesterday'
+  else if Days < 7 then
+    Result := Format('%d days ago', [Days])
+  else if Days < 30 then
+    Result := Format('%d weeks ago', [Days div 7])
+  else if Days < 365 then
+    Result := Format('%d months ago', [Days div 30])
+  else
+    Result := Format('%d years ago', [Days div 365]);
+end;
+
+function FormatLastSeenAbsolute(ALastSeen: TDateTime): string;
+begin
+  if ALastSeen <= 0 then
+    Result := 'Never'
+  else
+    Result := FormatDateTime('yyyy-mm-dd hh:nn', ALastSeen);
+end;
+
 procedure TDeviceListBox.DrawDevice(ACanvas: TCanvas; const ARect: TRect;
   const ADevice: TBluetoothDeviceInfo; AIsHover, AIsSelected: Boolean);
 var
   BgColor: TColor;
   IconRect, TextRect: TRect;
-  StatusText, DisplayName: string;
+  StatusText, DisplayName, LastSeenText: string;
   TextTop: Integer;
   DeviceConfig: TDeviceConfig;
   Style: TCustomStyleServices;
   EffectiveDeviceType: TBluetoothDeviceType;
+  ItemPadding, ItemHeight, IconSize, CornerRadius: Integer;
+  DeviceNameFontSize, StatusFontSize, AddressFontSize: Integer;
+  ShowDeviceIcons, ShowLastSeen: Boolean;
 begin
   Style := TStyleManager.ActiveStyle;
+
+  // Get layout settings from config
+  ItemPadding := Config.ItemPadding;
+  ItemHeight := Config.ItemHeight;
+  IconSize := Config.IconSize;
+  CornerRadius := Config.CornerRadius;
+  DeviceNameFontSize := Config.DeviceNameFontSize;
+  StatusFontSize := Config.StatusFontSize;
+  AddressFontSize := Config.AddressFontSize;
+  ShowDeviceIcons := Config.ShowDeviceIcons;
+  ShowLastSeen := Config.ShowLastSeen;
 
   // Get device-specific configuration
   DeviceConfig := Config.GetDeviceConfig(ADevice.AddressInt);
@@ -507,25 +615,34 @@ begin
   ACanvas.Pen.Color := BgColor;
   ACanvas.Brush.Color := BgColor;
   ACanvas.RoundRect(ARect.Left, ARect.Top, ARect.Right, ARect.Bottom,
-    CORNER_RADIUS, CORNER_RADIUS);
+    CornerRadius, CornerRadius);
 
-  // Icon area
-  IconRect.Left := ARect.Left + ITEM_PADDING;
-  IconRect.Top := ARect.Top + (ITEM_HEIGHT - ICON_SIZE) div 2;
-  IconRect.Right := IconRect.Left + ICON_SIZE;
-  IconRect.Bottom := IconRect.Top + ICON_SIZE;
+  // Icon area (only if ShowDeviceIcons is enabled)
+  if ShowDeviceIcons then
+  begin
+    IconRect.Left := ARect.Left + ItemPadding;
+    IconRect.Top := ARect.Top + (ItemHeight - IconSize) div 2;
+    IconRect.Right := IconRect.Left + IconSize;
+    IconRect.Bottom := IconRect.Top + IconSize;
 
-  DrawDeviceIcon(ACanvas, IconRect, EffectiveDeviceType);
+    DrawDeviceIcon(ACanvas, IconRect, EffectiveDeviceType);
 
-  // Text area
-  TextRect.Left := IconRect.Right + ITEM_PADDING;
-  TextRect.Right := ARect.Right - ITEM_PADDING;
+    // Text area starts after icon
+    TextRect.Left := IconRect.Right + ItemPadding;
+  end
+  else
+  begin
+    // No icon - text starts at padding
+    TextRect.Left := ARect.Left + ItemPadding;
+  end;
+
+  TextRect.Right := ARect.Right - ItemPadding;
   TextRect.Top := ARect.Top;
   TextRect.Bottom := ARect.Bottom;
 
   // Device name (or alias if configured)
   ACanvas.Font.Name := 'Segoe UI';
-  ACanvas.Font.Size := 11;
+  ACanvas.Font.Size := DeviceNameFontSize;
   ACanvas.Font.Style := [];
   if AIsSelected then
     ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
@@ -533,7 +650,7 @@ begin
     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
 
-  TextTop := ARect.Top + ITEM_PADDING;
+  TextTop := ARect.Top + ItemPadding;
 
   // Draw pin indicator in top-right corner for pinned devices
   if DeviceConfig.Pinned then
@@ -541,9 +658,9 @@ begin
     ACanvas.Font.Name := 'Segoe MDL2 Assets';
     ACanvas.Font.Size := 10;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    ACanvas.TextOut(ARect.Right - ITEM_PADDING - 12, ARect.Top + 6, #$E718);  // Pin icon
+    ACanvas.TextOut(ARect.Right - ItemPadding - 12, ARect.Top + 6, #$E718);  // Pin icon
     ACanvas.Font.Name := 'Segoe UI';
-    ACanvas.Font.Size := 11;
+    ACanvas.Font.Size := DeviceNameFontSize;
     if AIsSelected then
       ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
     else
@@ -557,19 +674,19 @@ begin
   begin
     // Calculate position while still using name font size
     var AddrLeft := TextRect.Left + ACanvas.TextWidth(DisplayName) + 8;
-    ACanvas.Font.Size := 8;
+    ACanvas.Font.Size := AddressFontSize;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
     ACanvas.TextOut(AddrLeft, TextTop + 3, '[' + ADevice.AddressString + ']');
     // Restore font for subsequent drawing
-    ACanvas.Font.Size := 11;
+    ACanvas.Font.Size := DeviceNameFontSize;
   end;
 
   // Status text
   if ADevice.IsConnected then
   begin
     StatusText := ADevice.ConnectionStateText;
-    // Green for connected - use hardcoded color as there's no "success" system color
-    ACanvas.Font.Color := $00008000;  // Green
+    // Use configurable connected color
+    ACanvas.Font.Color := TColor(Config.ConnectedColor);
   end
   else
   begin
@@ -577,9 +694,24 @@ begin
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
   end;
 
-  ACanvas.Font.Size := 9;
+  ACanvas.Font.Size := StatusFontSize;
   TextTop := TextTop + ACanvas.TextHeight('Ay') + 4;
   ACanvas.TextOut(TextRect.Left, TextTop, StatusText);
+
+  // Show LastSeen if enabled
+  if ShowLastSeen then
+  begin
+    // Format LastSeen based on config
+    if Config.LastSeenFormat = lsfRelative then
+      LastSeenText := FormatLastSeenRelative(DeviceConfig.LastSeen)
+    else
+      LastSeenText := FormatLastSeenAbsolute(DeviceConfig.LastSeen);
+
+    // Draw LastSeen after status text
+    var LastSeenLeft := TextRect.Left + ACanvas.TextWidth(StatusText) + 12;
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+    ACanvas.TextOut(LastSeenLeft, TextTop, LastSeenText);
+  end;
 
   ACanvas.Brush.Style := bsSolid;
 end;
@@ -595,7 +727,7 @@ begin
 
   // Use Segoe MDL2 Assets font for icons
   ACanvas.Font.Name := 'Segoe MDL2 Assets';
-  ACanvas.Font.Size := 16;
+  ACanvas.Font.Size := Config.IconFontSize;
   ACanvas.Font.Style := [];
   ACanvas.Font.Color := TStyleManager.ActiveStyle.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;

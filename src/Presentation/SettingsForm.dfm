@@ -62,10 +62,8 @@ object FormSettings: TFormSettings
     ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
-    ExplicitLeft = 8
-    ExplicitTop = 2
     object TabGeneral: TTabSheet
-      Caption = 'General'
+      Caption = 'Window'
       object GroupWindowMode: TGroupBox
         Left = 0
         Top = 0
@@ -206,9 +204,362 @@ object FormSettings: TFormSettings
         TabOrder = 3
       end
     end
-    object TabHotkeyVisuals: TTabSheet
-      Caption = 'Hotkey && Visuals'
+    object TabAppearance: TTabSheet
+      Caption = 'Device List'
       ImageIndex = 1
+      object GroupDisplayOptions: TGroupBox
+        Left = 0
+        Top = 0
+        Width = 534
+        Height = 95
+        Align = alTop
+        Caption = 'Display Options'
+        TabOrder = 0
+        object LabelConnectedColor: TLabel
+          Left = 270
+          Top = 24
+          Width = 91
+          Height = 15
+          Caption = 'Connected color:'
+        end
+        object ShapeConnectedColor: TShape
+          Left = 358
+          Top = 22
+          Width = 50
+          Height = 21
+          Cursor = crHandPoint
+          OnMouseDown = ShapeConnectedColorMouseDown
+        end
+        object CheckShowDeviceIcons: TCheckBox
+          Left = 12
+          Top = 24
+          Width = 150
+          Height = 17
+          Caption = 'Show device icons'
+          TabOrder = 0
+        end
+        object CheckShowLastSeen: TCheckBox
+          Left = 12
+          Top = 47
+          Width = 150
+          Height = 17
+          Caption = 'Show last seen time'
+          TabOrder = 1
+        end
+        object RadioLastSeenRelative: TRadioButton
+          Left = 32
+          Top = 70
+          Width = 110
+          Height = 17
+          Caption = 'Relative format'
+          TabOrder = 2
+        end
+        object RadioLastSeenAbsolute: TRadioButton
+          Left = 150
+          Top = 70
+          Width = 110
+          Height = 17
+          Caption = 'Absolute format'
+          TabOrder = 3
+        end
+      end
+      object GroupLayout: TGroupBox
+        Left = 0
+        Top = 95
+        Width = 534
+        Height = 120
+        Align = alTop
+        Caption = 'Layout'
+        TabOrder = 1
+        object LabelItemHeight: TLabel
+          Left = 12
+          Top = 24
+          Width = 64
+          Height = 15
+          Caption = 'Item height:'
+        end
+        object LabelItemPadding: TLabel
+          Left = 12
+          Top = 53
+          Width = 74
+          Height = 15
+          Caption = 'Item padding:'
+        end
+        object LabelItemMargin: TLabel
+          Left = 12
+          Top = 82
+          Width = 68
+          Height = 15
+          Caption = 'Item margin:'
+        end
+        object LabelIconSize: TLabel
+          Left = 190
+          Top = 24
+          Width = 48
+          Height = 15
+          Caption = 'Icon size:'
+        end
+        object LabelCornerRadius: TLabel
+          Left = 190
+          Top = 53
+          Width = 74
+          Height = 15
+          Caption = 'Corner radius:'
+        end
+        object LabelPx1: TLabel
+          Left = 163
+          Top = 24
+          Width = 12
+          Height = 15
+          Caption = 'px'
+        end
+        object LabelPx2: TLabel
+          Left = 163
+          Top = 53
+          Width = 12
+          Height = 15
+          Caption = 'px'
+        end
+        object LabelPx3: TLabel
+          Left = 163
+          Top = 82
+          Width = 12
+          Height = 15
+          Caption = 'px'
+        end
+        object LabelPx4: TLabel
+          Left = 341
+          Top = 24
+          Width = 12
+          Height = 15
+          Caption = 'px'
+        end
+        object LabelPx5: TLabel
+          Left = 341
+          Top = 53
+          Width = 12
+          Height = 15
+          Caption = 'px'
+        end
+        object EditItemHeight: TEdit
+          Left = 100
+          Top = 21
+          Width = 45
+          Height = 23
+          TabOrder = 0
+          Text = '70'
+        end
+        object UpDownItemHeight: TUpDown
+          Left = 145
+          Top = 21
+          Width = 16
+          Height = 23
+          Associate = EditItemHeight
+          Min = 30
+          Max = 200
+          Position = 70
+          TabOrder = 1
+        end
+        object EditItemPadding: TEdit
+          Left = 100
+          Top = 50
+          Width = 45
+          Height = 23
+          TabOrder = 2
+          Text = '12'
+        end
+        object UpDownItemPadding: TUpDown
+          Left = 145
+          Top = 50
+          Width = 16
+          Height = 23
+          Associate = EditItemPadding
+          Max = 50
+          Position = 12
+          TabOrder = 3
+        end
+        object EditItemMargin: TEdit
+          Left = 100
+          Top = 79
+          Width = 45
+          Height = 23
+          TabOrder = 4
+          Text = '4'
+        end
+        object UpDownItemMargin: TUpDown
+          Left = 145
+          Top = 79
+          Width = 16
+          Height = 23
+          Associate = EditItemMargin
+          Max = 30
+          Position = 4
+          TabOrder = 5
+        end
+        object EditIconSize: TEdit
+          Left = 278
+          Top = 21
+          Width = 45
+          Height = 23
+          TabOrder = 6
+          Text = '32'
+        end
+        object UpDownIconSize: TUpDown
+          Left = 323
+          Top = 21
+          Width = 16
+          Height = 23
+          Associate = EditIconSize
+          Min = 16
+          Max = 64
+          Position = 32
+          TabOrder = 7
+        end
+        object EditCornerRadius: TEdit
+          Left = 278
+          Top = 50
+          Width = 45
+          Height = 23
+          TabOrder = 8
+          Text = '8'
+        end
+        object UpDownCornerRadius: TUpDown
+          Left = 323
+          Top = 50
+          Width = 16
+          Height = 23
+          Associate = EditCornerRadius
+          Max = 30
+          Position = 8
+          TabOrder = 9
+        end
+        object ButtonResetLayout: TButton
+          Left = 368
+          Top = 82
+          Width = 150
+          Height = 25
+          Caption = 'Reset layout to defaults'
+          TabOrder = 10
+          OnClick = ButtonResetLayoutClick
+        end
+      end
+      object GroupFontSizes: TGroupBox
+        Left = 0
+        Top = 215
+        Width = 534
+        Height = 95
+        Align = alTop
+        Caption = 'Font Sizes (pt)'
+        TabOrder = 2
+        object LabelDeviceNameSize: TLabel
+          Left = 12
+          Top = 24
+          Width = 71
+          Height = 15
+          Caption = 'Device name:'
+        end
+        object LabelStatusSize: TLabel
+          Left = 12
+          Top = 53
+          Width = 57
+          Height = 15
+          Caption = 'Status text:'
+        end
+        object LabelAddressSize: TLabel
+          Left = 190
+          Top = 24
+          Width = 67
+          Height = 15
+          Caption = 'Address text:'
+        end
+        object LabelIconFontSize: TLabel
+          Left = 190
+          Top = 53
+          Width = 51
+          Height = 15
+          Caption = 'Icon font:'
+        end
+        object EditDeviceNameSize: TEdit
+          Left = 100
+          Top = 21
+          Width = 45
+          Height = 23
+          TabOrder = 0
+          Text = '11'
+        end
+        object UpDownDeviceNameSize: TUpDown
+          Left = 145
+          Top = 21
+          Width = 16
+          Height = 23
+          Associate = EditDeviceNameSize
+          Min = 6
+          Max = 24
+          Position = 11
+          TabOrder = 1
+        end
+        object EditStatusSize: TEdit
+          Left = 100
+          Top = 50
+          Width = 45
+          Height = 23
+          TabOrder = 2
+          Text = '9'
+        end
+        object UpDownStatusSize: TUpDown
+          Left = 145
+          Top = 50
+          Width = 16
+          Height = 23
+          Associate = EditStatusSize
+          Min = 6
+          Max = 24
+          Position = 9
+          TabOrder = 3
+        end
+        object EditAddressSize: TEdit
+          Left = 278
+          Top = 21
+          Width = 45
+          Height = 23
+          TabOrder = 4
+          Text = '8'
+        end
+        object UpDownAddressSize: TUpDown
+          Left = 323
+          Top = 21
+          Width = 16
+          Height = 23
+          Associate = EditAddressSize
+          Min = 6
+          Max = 24
+          Position = 8
+          TabOrder = 5
+        end
+        object EditIconFontSize: TEdit
+          Left = 278
+          Top = 50
+          Width = 45
+          Height = 23
+          TabOrder = 6
+          Text = '16'
+        end
+        object UpDownIconFontSize: TUpDown
+          Left = 323
+          Top = 50
+          Width = 16
+          Height = 23
+          Associate = EditIconFontSize
+          Min = 8
+          Max = 32
+          Position = 16
+          TabOrder = 7
+        end
+      end
+    end
+    object TabKeys: TTabSheet
+      Caption = 'Keys'
+      ImageIndex = 2
       object GroupHotkey: TGroupBox
         Left = 0
         Top = 0
@@ -259,14 +610,18 @@ object FormSettings: TFormSettings
           TabOrder = 3
         end
       end
+    end
+    object TabThemes: TTabSheet
+      Caption = 'Themes'
+      ImageIndex = 3
       object GroupTheme: TGroupBox
         Left = 0
-        Top = 95
+        Top = 0
         Width = 534
         Height = 95
         Align = alTop
         Caption = 'Theme'
-        TabOrder = 1
+        TabOrder = 0
         object LabelTheme: TLabel
           Left = 12
           Top = 24
@@ -306,51 +661,10 @@ object FormSettings: TFormSettings
           OnClick = ButtonBrowseVsfDirClick
         end
       end
-      object GroupNotifications: TGroupBox
-        Left = 0
-        Top = 190
-        Width = 534
-        Height = 123
-        Align = alTop
-        Caption = 'Notifications'
-        TabOrder = 2
-        object CheckNotifyOnConnect: TCheckBox
-          Left = 12
-          Top = 24
-          Width = 200
-          Height = 17
-          Caption = 'On connect'
-          TabOrder = 0
-        end
-        object CheckNotifyOnDisconnect: TCheckBox
-          Left = 12
-          Top = 49
-          Width = 200
-          Height = 17
-          Caption = 'On disconnect'
-          TabOrder = 1
-        end
-        object CheckNotifyOnConnectFailed: TCheckBox
-          Left = 12
-          Top = 72
-          Width = 200
-          Height = 17
-          Caption = 'On connection failed'
-          TabOrder = 2
-        end
-        object CheckNotifyOnAutoConnect: TCheckBox
-          Left = 12
-          Top = 96
-          Width = 200
-          Height = 17
-          Caption = 'On auto-connect'
-          TabOrder = 3
-        end
-      end
     end
     object TabConnection: TTabSheet
       Caption = 'Connection'
-      ImageIndex = 3
+      ImageIndex = 4
       object GroupConnectionDefaults: TGroupBox
         Left = 0
         Top = 0
@@ -477,6 +791,47 @@ object FormSettings: TFormSettings
           Max = 10000
           Increment = 500
           TabOrder = 2
+        end
+      end
+      object GroupNotifications: TGroupBox
+        Left = 0
+        Top = 190
+        Width = 534
+        Height = 123
+        Align = alTop
+        Caption = 'Notifications'
+        TabOrder = 2
+        object CheckNotifyOnConnect: TCheckBox
+          Left = 12
+          Top = 24
+          Width = 200
+          Height = 17
+          Caption = 'On connect'
+          TabOrder = 0
+        end
+        object CheckNotifyOnDisconnect: TCheckBox
+          Left = 12
+          Top = 49
+          Width = 200
+          Height = 17
+          Caption = 'On disconnect'
+          TabOrder = 1
+        end
+        object CheckNotifyOnConnectFailed: TCheckBox
+          Left = 12
+          Top = 72
+          Width = 200
+          Height = 17
+          Caption = 'On connection failed'
+          TabOrder = 2
+        end
+        object CheckNotifyOnAutoConnect: TCheckBox
+          Left = 12
+          Top = 96
+          Width = 200
+          Height = 17
+          Caption = 'On auto-connect'
+          TabOrder = 3
         end
       end
     end
@@ -754,8 +1109,8 @@ object FormSettings: TFormSettings
       end
     end
     object TabAdvanced: TTabSheet
-      Caption = 'Advanced'
-      ImageIndex = 5
+      Caption = 'Diagnostics'
+      ImageIndex = 6
       object GroupLogging: TGroupBox
         Left = 0
         Top = 0
@@ -846,6 +1201,11 @@ object FormSettings: TFormSettings
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
     Title = 'Select Log File'
     Left = 229
+    Top = 338
+  end
+  object ColorDialogConnected: TColorDialog
+    Options = [cdFullOpen, cdAnyColor]
+    Left = 309
     Top = 338
   end
 end

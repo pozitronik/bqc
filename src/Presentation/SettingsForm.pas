@@ -31,36 +31,20 @@ type
     PageControl: TPageControl;
     SaveDialogLog: TSaveDialog;
 
-    { Tab: General }
+    { Tab: Window }
     TabGeneral: TTabSheet;
     GroupWindowMode: TGroupBox;
     LabelWindowMode: TLabel;
     ComboWindowMode: TComboBox;
-    TabHotkeyVisuals: TTabSheet;
+
+    { Tab: Keys }
+    TabKeys: TTabSheet;
     GroupHotkey: TGroupBox;
     LabelHotkey: TLabel;
     EditHotkey: TEdit;
     ButtonRecordHotkey: TButton;
     ButtonClearHotkey: TButton;
     CheckUseLowLevelHook: TCheckBox;
-
-    { Tab: Connection }
-    TabConnection: TTabSheet;
-    GroupConnectionDefaults: TGroupBox;
-    LabelTimeout: TLabel;
-    LabelTimeoutMs: TLabel;
-    LabelRetryCount: TLabel;
-    EditTimeout: TEdit;
-    UpDownTimeout: TUpDown;
-    EditRetryCount: TEdit;
-    UpDownRetryCount: TUpDown;
-    GroupPolling: TGroupBox;
-    LabelPollingMode: TLabel;
-    LabelPollingInterval: TLabel;
-    LabelPollingIntervalMs: TLabel;
-    ComboPollingMode: TComboBox;
-    EditPollingInterval: TEdit;
-    UpDownPollingInterval: TUpDown;
 
     { Tab: Devices }
     TabDevices: TTabSheet;
@@ -95,17 +79,40 @@ type
     GroupMenuOptions: TGroupBox;
     CheckHideOnFocusLoss: TCheckBox;
     CheckOnTop: TCheckBox;
+
+    { Tab: Themes }
+    TabThemes: TTabSheet;
     GroupTheme: TGroupBox;
     LabelTheme: TLabel;
     LabelVsfDir: TLabel;
     ComboTheme: TComboBox;
     EditVsfDir: TEdit;
     ButtonBrowseVsfDir: TButton;
+
+    { Tab: Connection }
+    TabConnection: TTabSheet;
+    GroupConnectionDefaults: TGroupBox;
+    LabelTimeout: TLabel;
+    LabelTimeoutMs: TLabel;
+    LabelRetryCount: TLabel;
+    EditTimeout: TEdit;
+    UpDownTimeout: TUpDown;
+    EditRetryCount: TEdit;
+    UpDownRetryCount: TUpDown;
+    GroupPolling: TGroupBox;
+    LabelPollingMode: TLabel;
+    LabelPollingInterval: TLabel;
+    LabelPollingIntervalMs: TLabel;
+    ComboPollingMode: TComboBox;
+    EditPollingInterval: TEdit;
+    UpDownPollingInterval: TUpDown;
     GroupNotifications: TGroupBox;
     CheckNotifyOnConnect: TCheckBox;
     CheckNotifyOnDisconnect: TCheckBox;
     CheckNotifyOnConnectFailed: TCheckBox;
     CheckNotifyOnAutoConnect: TCheckBox;
+
+    { Tab: Devices }
     CheckDevicePinned: TCheckBox;
     CheckDeviceHidden: TCheckBox;
     CheckDeviceAutoConnect: TCheckBox;
@@ -132,6 +139,52 @@ type
     CheckShowAddresses: TCheckBox;
     LabelDeviceType: TLabel;
     ComboDeviceType: TComboBox;
+    ColorDialogConnected: TColorDialog;
+
+    { Tab: Appearance }
+    TabAppearance: TTabSheet;
+    GroupDisplayOptions: TGroupBox;
+    LabelConnectedColor: TLabel;
+    ShapeConnectedColor: TShape;
+    CheckShowDeviceIcons: TCheckBox;
+    CheckShowLastSeen: TCheckBox;
+    RadioLastSeenRelative: TRadioButton;
+    RadioLastSeenAbsolute: TRadioButton;
+    GroupLayout: TGroupBox;
+    LabelItemHeight: TLabel;
+    LabelItemPadding: TLabel;
+    LabelItemMargin: TLabel;
+    LabelIconSize: TLabel;
+    LabelCornerRadius: TLabel;
+    LabelPx1: TLabel;
+    LabelPx2: TLabel;
+    LabelPx3: TLabel;
+    LabelPx4: TLabel;
+    LabelPx5: TLabel;
+    EditItemHeight: TEdit;
+    UpDownItemHeight: TUpDown;
+    EditItemPadding: TEdit;
+    UpDownItemPadding: TUpDown;
+    EditItemMargin: TEdit;
+    UpDownItemMargin: TUpDown;
+    EditIconSize: TEdit;
+    UpDownIconSize: TUpDown;
+    EditCornerRadius: TEdit;
+    UpDownCornerRadius: TUpDown;
+    ButtonResetLayout: TButton;
+    GroupFontSizes: TGroupBox;
+    LabelDeviceNameSize: TLabel;
+    LabelStatusSize: TLabel;
+    LabelAddressSize: TLabel;
+    LabelIconFontSize: TLabel;
+    EditDeviceNameSize: TEdit;
+    UpDownDeviceNameSize: TUpDown;
+    EditStatusSize: TEdit;
+    UpDownStatusSize: TUpDown;
+    EditAddressSize: TEdit;
+    UpDownAddressSize: TUpDown;
+    EditIconFontSize: TEdit;
+    UpDownIconFontSize: TUpDown;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
@@ -165,6 +218,11 @@ type
     procedure ButtonOpenConfigClick(Sender: TObject);
     procedure ButtonOpenLogFileClick(Sender: TObject);
     procedure ButtonResetDefaultsClick(Sender: TObject);
+
+    { Appearance tab events }
+    procedure ShapeConnectedColorMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure ButtonResetLayoutClick(Sender: TObject);
 
   private
     FPresenter: TSettingsPresenter;
@@ -364,6 +422,21 @@ begin
   CheckLogEnabled.OnClick := HandleSettingChanged;
   EditLogFilename.OnChange := HandleSettingChanged;
   CheckLogAppend.OnClick := HandleSettingChanged;
+
+  // Tab: Appearance
+  CheckShowDeviceIcons.OnClick := HandleSettingChanged;
+  CheckShowLastSeen.OnClick := HandleSettingChanged;
+  RadioLastSeenRelative.OnClick := HandleSettingChanged;
+  RadioLastSeenAbsolute.OnClick := HandleSettingChanged;
+  EditItemHeight.OnChange := HandleSettingChanged;
+  EditItemPadding.OnChange := HandleSettingChanged;
+  EditItemMargin.OnChange := HandleSettingChanged;
+  EditIconSize.OnChange := HandleSettingChanged;
+  EditCornerRadius.OnChange := HandleSettingChanged;
+  EditDeviceNameSize.OnChange := HandleSettingChanged;
+  EditStatusSize.OnChange := HandleSettingChanged;
+  EditAddressSize.OnChange := HandleSettingChanged;
+  EditIconFontSize.OnChange := HandleSettingChanged;
 end;
 
 { Hotkey tab events }
@@ -571,6 +644,24 @@ begin
   begin
     FPresenter.OnResetDefaultsClicked;
   end;
+end;
+
+{ Appearance tab events }
+
+procedure TFormSettings.ShapeConnectedColorMouseDown(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  ColorDialogConnected.Color := ShapeConnectedColor.Brush.Color;
+  if ColorDialogConnected.Execute then
+  begin
+    ShapeConnectedColor.Brush.Color := ColorDialogConnected.Color;
+    FPresenter.MarkModified;
+  end;
+end;
+
+procedure TFormSettings.ButtonResetLayoutClick(Sender: TObject);
+begin
+  FPresenter.OnResetLayoutClicked;
 end;
 
 end.
