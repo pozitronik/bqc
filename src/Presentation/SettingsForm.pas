@@ -33,38 +33,15 @@ type
     { Tab: General }
     TabGeneral: TTabSheet;
     GroupWindowMode: TGroupBox;
-    RadioWindowMode: TRadioButton;
-    RadioMenuMode: TRadioButton;
-    CheckOnTop: TCheckBox;
-    GroupWindowOptions: TGroupBox;
-    CheckMinimizeToTray: TCheckBox;
-    CheckCloseToTray: TCheckBox;
-    GroupMenuOptions: TGroupBox;
-    CheckHideOnFocusLoss: TCheckBox;
-    GroupStartup: TGroupBox;
-    CheckAutostart: TCheckBox;
-
-    { Tab: Hotkey & Position }
-    TabHotkey: TTabSheet;
+    LabelWindowMode: TLabel;
+    ComboWindowMode: TComboBox;
+    TabHotkeyVisuals: TTabSheet;
     GroupHotkey: TGroupBox;
     LabelHotkey: TLabel;
-    LabelHotkeyHint: TLabel;
     EditHotkey: TEdit;
     ButtonRecordHotkey: TButton;
     ButtonClearHotkey: TButton;
     CheckUseLowLevelHook: TCheckBox;
-    GroupPosition: TGroupBox;
-    LabelPositionMode: TLabel;
-    ComboPositionMode: TComboBox;
-    ButtonResetSize: TButton;
-    ButtonResetPosition: TButton;
-
-    { Tab: Appearance }
-    TabAppearance: TTabSheet;
-    GroupTheme: TGroupBox;
-    LabelTheme: TLabel;
-    ComboTheme: TComboBox;
-    CheckShowAddresses: TCheckBox;
 
     { Tab: Connection }
     TabConnection: TTabSheet;
@@ -76,11 +53,6 @@ type
     UpDownTimeout: TUpDown;
     EditRetryCount: TEdit;
     UpDownRetryCount: TUpDown;
-    GroupNotifications: TGroupBox;
-    CheckNotifyOnConnect: TCheckBox;
-    CheckNotifyOnDisconnect: TCheckBox;
-    CheckNotifyOnConnectFailed: TCheckBox;
-    CheckNotifyOnAutoConnect: TCheckBox;
     GroupPolling: TGroupBox;
     LabelPollingMode: TLabel;
     LabelPollingInterval: TLabel;
@@ -94,32 +66,10 @@ type
     PanelDeviceList: TPanel;
     ListDevices: TListBox;
     PanelDeviceButtons: TPanel;
-    ButtonForgetDevice: TButton;
-    ButtonRefreshDevices: TButton;
     PanelDeviceSettings: TPanel;
     GroupDeviceInfo: TGroupBox;
     LabelDeviceAlias: TLabel;
-    LabelDeviceAddress: TLabel;
-    LabelDeviceAddressValue: TLabel;
     EditDeviceAlias: TEdit;
-    GroupDeviceOptions: TGroupBox;
-    CheckDevicePinned: TCheckBox;
-    CheckDeviceHidden: TCheckBox;
-    CheckDeviceAutoConnect: TCheckBox;
-    GroupDeviceConnection: TGroupBox;
-    LabelDeviceTimeout: TLabel;
-    LabelDeviceRetry: TLabel;
-    EditDeviceTimeout: TEdit;
-    EditDeviceRetryCount: TEdit;
-    GroupDeviceNotifications: TGroupBox;
-    LabelDeviceNotifyConnect: TLabel;
-    LabelDeviceNotifyDisconnect: TLabel;
-    LabelDeviceNotifyFailed: TLabel;
-    LabelDeviceNotifyAuto: TLabel;
-    ComboDeviceNotifyConnect: TComboBox;
-    ComboDeviceNotifyDisconnect: TComboBox;
-    ComboDeviceNotifyFailed: TComboBox;
-    ComboDeviceNotifyAuto: TComboBox;
 
     { Tab: Advanced }
     TabAdvanced: TTabSheet;
@@ -131,8 +81,46 @@ type
     CheckLogAppend: TCheckBox;
     GroupActions: TGroupBox;
     ButtonOpenConfig: TButton;
-    ButtonOpenLogFile: TButton;
     ButtonResetDefaults: TButton;
+    CheckAutostart: TCheckBox;
+    GroupPosition: TGroupBox;
+    LabelPositionMode: TLabel;
+    ComboPositionMode: TComboBox;
+    ButtonResetSize: TButton;
+    ButtonResetPosition: TButton;
+    GroupWindowOptions: TGroupBox;
+    CheckMinimizeToTray: TCheckBox;
+    CheckCloseToTray: TCheckBox;
+    GroupMenuOptions: TGroupBox;
+    CheckHideOnFocusLoss: TCheckBox;
+    CheckOnTop: TCheckBox;
+    GroupTheme: TGroupBox;
+    LabelTheme: TLabel;
+    ComboTheme: TComboBox;
+    CheckShowAddresses: TCheckBox;
+    GroupNotifications: TGroupBox;
+    CheckNotifyOnConnect: TCheckBox;
+    CheckNotifyOnDisconnect: TCheckBox;
+    CheckNotifyOnConnectFailed: TCheckBox;
+    CheckNotifyOnAutoConnect: TCheckBox;
+    LabelDeviceAddressValue: TLabel;
+    LabelDeviceAddress: TLabel;
+    CheckDeviceHidden: TCheckBox;
+    CheckDevicePinned: TCheckBox;
+    CheckDeviceAutoConnect: TCheckBox;
+    GroupDeviceConnection: TGroupBox;
+    LabelDeviceTimeout: TLabel;
+    LabelDeviceRetry: TLabel;
+    EditDeviceTimeout: TEdit;
+    EditDeviceRetryCount: TEdit;
+    GroupDeviceNotifications: TGroupBox;
+    LabelDeviceNotifyConnect: TLabel;
+    LabelDeviceNotifyDisconnect: TLabel;
+    ComboDeviceNotifyConnect: TComboBox;
+    ComboDeviceNotifyDisconnect: TComboBox;
+    ButtonOpenLogFile: TButton;
+    ButtonForgetDevice: TButton;
+    ButtonRefreshDevices: TButton;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
@@ -145,7 +133,7 @@ type
     procedure ButtonApplyClick(Sender: TObject);
 
     { General tab events }
-    procedure RadioWindowModeClick(Sender: TObject);
+    procedure ComboWindowModeChange(Sender: TObject);
 
     { Hotkey tab events }
     procedure ButtonRecordHotkeyClick(Sender: TObject);
@@ -163,6 +151,7 @@ type
     procedure ButtonOpenConfigClick(Sender: TObject);
     procedure ButtonOpenLogFileClick(Sender: TObject);
     procedure ButtonResetDefaultsClick(Sender: TObject);
+    procedure LabelDeviceTimeoutClick(Sender: TObject);
 
   private
     FPresenter: TSettingsPresenter;
@@ -271,7 +260,7 @@ end;
 
 { General tab events }
 
-procedure TFormSettings.RadioWindowModeClick(Sender: TObject);
+procedure TFormSettings.ComboWindowModeChange(Sender: TObject);
 begin
   UpdateWindowModeControls;
 end;
@@ -280,12 +269,20 @@ procedure TFormSettings.UpdateWindowModeControls;
 var
   IsWindowMode: Boolean;
 begin
-  IsWindowMode := RadioWindowMode.Checked;
-  GroupWindowOptions.Enabled := IsWindowMode;
-  CheckMinimizeToTray.Enabled := IsWindowMode;
-  CheckCloseToTray.Enabled := IsWindowMode;
-  GroupMenuOptions.Enabled := not IsWindowMode;
-  CheckHideOnFocusLoss.Enabled := not IsWindowMode;
+  // 0 = Window mode, 1 = Menu mode
+  IsWindowMode := ComboWindowMode.ItemIndex = 0;
+
+  // Apply bold style to the active mode's group caption
+  if IsWindowMode then
+  begin
+    GroupWindowOptions.Font.Style := [fsBold];
+    GroupMenuOptions.Font.Style := [];
+  end
+  else
+  begin
+    GroupWindowOptions.Font.Style := [];
+    GroupMenuOptions.Font.Style := [fsBold];
+  end;
 end;
 
 { Hotkey tab events }
@@ -404,7 +401,12 @@ end;
 
 { Devices tab events }
 
-procedure TFormSettings.ListDevicesClick(Sender: TObject);
+pprocedure TFormSettings.LabelDeviceTimeoutClick(Sender: TObject);
+begin
+
+end;
+
+rocedure TFormSettings.ListDevicesClick(Sender: TObject);
 begin
   FPresenter.OnDeviceSelected(ListDevices.ItemIndex);
 end;

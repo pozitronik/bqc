@@ -45,8 +45,7 @@ type
 
     // Control references (set during LoadSettings)
     // Tab: General
-    FRadioWindowMode: TRadioButton;
-    FRadioMenuMode: TRadioButton;
+    FComboWindowMode: TComboBox;
     FCheckOnTop: TCheckBox;
     FCheckMinimizeToTray: TCheckBox;
     FCheckCloseToTray: TCheckBox;
@@ -164,8 +163,7 @@ begin
   Form := TForm(ViewObj);
 
   // Tab: General
-  FRadioWindowMode := Form.FindComponent('RadioWindowMode') as TRadioButton;
-  FRadioMenuMode := Form.FindComponent('RadioMenuMode') as TRadioButton;
+  FComboWindowMode := Form.FindComponent('ComboWindowMode') as TComboBox;
   FCheckOnTop := Form.FindComponent('CheckOnTop') as TCheckBox;
   FCheckMinimizeToTray := Form.FindComponent('CheckMinimizeToTray') as TCheckBox;
   FCheckCloseToTray := Form.FindComponent('CheckCloseToTray') as TCheckBox;
@@ -387,10 +385,14 @@ begin
   InitControlReferences;
 
   // Tab: General
-  if FRadioWindowMode <> nil then
-    FRadioWindowMode.Checked := Config.WindowMode = wmWindow;
-  if FRadioMenuMode <> nil then
-    FRadioMenuMode.Checked := Config.WindowMode = wmMenu;
+  // ComboBox: 0 = Window mode, 1 = Menu mode
+  if FComboWindowMode <> nil then
+  begin
+    if Config.WindowMode = wmWindow then
+      FComboWindowMode.ItemIndex := 0
+    else
+      FComboWindowMode.ItemIndex := 1;
+  end;
   if FCheckOnTop <> nil then
     FCheckOnTop.Checked := Config.OnTop;
   if FCheckMinimizeToTray <> nil then
@@ -458,9 +460,10 @@ begin
       SaveDeviceSettings(FSelectedDeviceIndex);
 
     // Tab: General
-    if FRadioWindowMode <> nil then
+    // ComboBox: 0 = Window mode, 1 = Menu mode
+    if FComboWindowMode <> nil then
     begin
-      if FRadioWindowMode.Checked then
+      if FComboWindowMode.ItemIndex = 0 then
         Config.WindowMode := wmWindow
       else
         Config.WindowMode := wmMenu;

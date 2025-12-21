@@ -138,14 +138,22 @@
         <DCCReference Include="src\Domain\Bluetooth.Interfaces.pas"/>
         <DCCReference Include="src\Application\Bluetooth.ConnectionStrategies.pas"/>
         <DCCReference Include="src\Application\Bluetooth.Service.pas"/>
+        <DCCReference Include="src\Application\App.MainPresenter.pas"/>
+        <DCCReference Include="src\Application\App.SettingsPresenter.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.RadioControl.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceWatcher.pas"/>
         <DCCReference Include="src\Infrastructure\App.Logger.pas"/>
         <DCCReference Include="src\Infrastructure\App.Config.pas"/>
-        <DCCReference Include="src\Infrastructure\System.Permissions.pas"/>
+        <DCCReference Include="src\Infrastructure\App.Autostart.pas"/>
         <DCCReference Include="src\Presentation\UI.Theme.pas"/>
         <DCCReference Include="src\Presentation\UI.DeviceList.pas">
             <Form>$R *.res</Form>
+        </DCCReference>
+        <DCCReference Include="src\Presentation\UI.WindowPositioner.pas"/>
+        <DCCReference Include="src\Presentation\UI.TrayManager.pas"/>
+        <DCCReference Include="src\Presentation\UI.HotkeyManager.pas"/>
+        <DCCReference Include="src\Presentation\SettingsForm.pas">
+            <Form>FormSettings</Form>
         </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
