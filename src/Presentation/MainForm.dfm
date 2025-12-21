@@ -89,6 +89,7 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       ExplicitHeight = 15
+      OnClick = StatusLabelClick
     end
     object SettingsLink: TLabel
       Left = 10

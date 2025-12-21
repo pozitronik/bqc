@@ -48,6 +48,7 @@ type
     procedure HandleSettingsClick(Sender: TObject);
     procedure HandleRefreshClick(Sender: TObject);
     procedure TitleLabelClick(Sender: TObject);
+    procedure StatusLabelClick(Sender: TObject);
   private
     FPresenter: TMainPresenter;
     FDeviceList: TDeviceListBox;
@@ -109,7 +110,8 @@ uses
   ShellAPI,
   App.Logger,
   App.Config,
-  UI.WindowPositioner;
+  UI.WindowPositioner,
+  SettingsForm;
 
 {$R *.dfm}
 
@@ -353,6 +355,19 @@ end;
 procedure TFormMain.TitleLabelClick(Sender: TObject);
 begin
   FPresenter.OnRefreshRequested;
+end;
+
+procedure TFormMain.StatusLabelClick(Sender: TObject);
+var
+  SettingsDialog: TFormSettings;
+begin
+  Log('[MainForm] StatusLabelClick: Opening settings dialog');
+  SettingsDialog := TFormSettings.Create(Self);
+  try
+    SettingsDialog.ShowModal;
+  finally
+    SettingsDialog.Free;
+  end;
 end;
 
 procedure TFormMain.HandleHotkeyTriggered(Sender: TObject);

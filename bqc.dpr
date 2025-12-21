@@ -12,6 +12,7 @@ uses
   Bluetooth.ConnectionStrategies in 'src\Application\Bluetooth.ConnectionStrategies.pas',
   Bluetooth.Service in 'src\Application\Bluetooth.Service.pas',
   App.MainPresenter in 'src\Application\App.MainPresenter.pas',
+  App.SettingsPresenter in 'src\Application\App.SettingsPresenter.pas',
   Bluetooth.RadioControl in 'src\Infrastructure\Bluetooth.RadioControl.pas',
   Bluetooth.DeviceWatcher in 'src\Infrastructure\Bluetooth.DeviceWatcher.pas',
   App.Logger in 'src\Infrastructure\App.Logger.pas',
@@ -22,7 +23,8 @@ uses
   UI.DeviceList in 'src\Presentation\UI.DeviceList.pas',
   UI.WindowPositioner in 'src\Presentation\UI.WindowPositioner.pas',
   UI.TrayManager in 'src\Presentation\UI.TrayManager.pas',
-  UI.HotkeyManager in 'src\Presentation\UI.HotkeyManager.pas';
+  UI.HotkeyManager in 'src\Presentation\UI.HotkeyManager.pas',
+  SettingsForm in 'src\Presentation\SettingsForm.pas' {FormSettings};
 
 
 {$R *.res}
