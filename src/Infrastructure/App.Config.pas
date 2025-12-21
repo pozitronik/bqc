@@ -74,6 +74,9 @@ type
   /// </summary>
   TDeviceConfig = record
     Address: UInt64;
+    /// <summary>Original device name from Windows.</summary>
+    Name: string;
+    /// <summary>User-defined alias (display name override).</summary>
     Alias: string;
     Pinned: Boolean;
     Hidden: Boolean;
@@ -84,6 +87,10 @@ type
     ConnectionRetryCount: Integer;
     /// <summary>Per-device notification settings.</summary>
     Notifications: TDeviceNotificationConfig;
+    /// <summary>Device type override. -1 means use auto-detected type.</summary>
+    DeviceTypeOverride: Integer;
+    /// <summary>Last time the device was seen/discovered.</summary>
+    LastSeen: TDateTime;
 
     class function Default(AAddress: UInt64): TDeviceConfig; static;
   end;
@@ -212,6 +219,15 @@ type
     procedure RemoveDeviceConfig(AAddress: UInt64);
 
     /// <summary>
+    /// Registers a discovered device. Creates new config if not exists,
+    /// or updates Name and LastSeen if already registered.
+    /// </summary>
+    /// <param name="AAddress">Device Bluetooth address.</param>
+    /// <param name="AName">Original device name from Windows.</param>
+    /// <param name="ALastSeen">Timestamp when device was discovered.</param>
+    procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
+
+    /// <summary>
     /// Returns all configured device addresses.
     /// </summary>
     function GetConfiguredDeviceAddresses: TArray<UInt64>;
@@ -301,6 +317,7 @@ function Config: TAppConfig;
 implementation
 
 uses
+  System.DateUtils,
   App.Logger,
   App.Autostart;
 
@@ -374,6 +391,7 @@ end;
 class function TDeviceConfig.Default(AAddress: UInt64): TDeviceConfig;
 begin
   Result.Address := AAddress;
+  Result.Name := '';
   Result.Alias := '';
   Result.Pinned := False;
   Result.Hidden := False;
@@ -381,6 +399,8 @@ begin
   Result.ConnectionTimeout := -1;     // Use global default
   Result.ConnectionRetryCount := -1;  // Use global default
   Result.Notifications := TDeviceNotificationConfig.Default;
+  Result.DeviceTypeOverride := -1;    // Use auto-detected type
+  Result.LastSeen := 0;
 end;
 
 { TAppConfig }
@@ -608,6 +628,7 @@ var
   AddressStr: string;
   Address: UInt64;
   DeviceConfig: TDeviceConfig;
+  LastSeenStr: string;
 begin
   FDevices.Clear;
   Sections := TStringList.Create;
@@ -623,6 +644,7 @@ begin
         if TryStrToUInt64('$' + AddressStr, Address) then
         begin
           DeviceConfig := TDeviceConfig.Default(Address);
+          DeviceConfig.Name := AIni.ReadString(Section, 'Name', '');
           DeviceConfig.Alias := AIni.ReadString(Section, 'Alias', '');
           DeviceConfig.Pinned := AIni.ReadBool(Section, 'Pinned', False);
           DeviceConfig.Hidden := AIni.ReadBool(Section, 'Hidden', False);
@@ -634,6 +656,17 @@ begin
           DeviceConfig.Notifications.OnDisconnect := AIni.ReadInteger(Section, 'NotifyOnDisconnect', -1);
           DeviceConfig.Notifications.OnConnectFailed := AIni.ReadInteger(Section, 'NotifyOnConnectFailed', -1);
           DeviceConfig.Notifications.OnAutoConnect := AIni.ReadInteger(Section, 'NotifyOnAutoConnect', -1);
+          DeviceConfig.DeviceTypeOverride := AIni.ReadInteger(Section, 'DeviceTypeOverride', -1);
+          // Parse LastSeen as ISO 8601 datetime string
+          LastSeenStr := AIni.ReadString(Section, 'LastSeen', '');
+          if LastSeenStr <> '' then
+          begin
+            try
+              DeviceConfig.LastSeen := ISO8601ToDate(LastSeenStr, False);
+            except
+              DeviceConfig.LastSeen := 0;
+            end;
+          end;
           FDevices.Add(Address, DeviceConfig);
         end;
       end;
@@ -667,6 +700,8 @@ begin
   for Pair in FDevices do
   begin
     SectionName := SEC_DEVICE_PREFIX + IntToHex(Pair.Key, 12);
+    // Always save Name (original device name from Windows)
+    AIni.WriteString(SectionName, 'Name', Pair.Value.Name);
     AIni.WriteString(SectionName, 'Alias', Pair.Value.Alias);
     AIni.WriteBool(SectionName, 'Pinned', Pair.Value.Pinned);
     AIni.WriteBool(SectionName, 'Hidden', Pair.Value.Hidden);
@@ -685,6 +720,12 @@ begin
       AIni.WriteInteger(SectionName, 'NotifyOnConnectFailed', Pair.Value.Notifications.OnConnectFailed);
     if Pair.Value.Notifications.OnAutoConnect >= 0 then
       AIni.WriteInteger(SectionName, 'NotifyOnAutoConnect', Pair.Value.Notifications.OnAutoConnect);
+    // Only save DeviceTypeOverride if it's set (not auto-detect)
+    if Pair.Value.DeviceTypeOverride >= 0 then
+      AIni.WriteInteger(SectionName, 'DeviceTypeOverride', Pair.Value.DeviceTypeOverride);
+    // Save LastSeen as ISO 8601 datetime string
+    if Pair.Value.LastSeen > 0 then
+      AIni.WriteString(SectionName, 'LastSeen', DateToISO8601(Pair.Value.LastSeen, False));
   end;
 end;
 
@@ -706,6 +747,37 @@ begin
   begin
     FDevices.Remove(AAddress);
     FModified := True;
+  end;
+end;
+
+procedure TAppConfig.RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
+var
+  DeviceConfig: TDeviceConfig;
+  IsNew: Boolean;
+begin
+  IsNew := not FDevices.TryGetValue(AAddress, DeviceConfig);
+
+  if IsNew then
+  begin
+    // Create new device config with defaults
+    DeviceConfig := TDeviceConfig.Default(AAddress);
+    DeviceConfig.Name := AName;
+    DeviceConfig.LastSeen := ALastSeen;
+    FDevices.Add(AAddress, DeviceConfig);
+    FModified := True;
+    Log('[Config] RegisterDevice: New device registered: %s ($%.12X)', [AName, AAddress]);
+  end
+  else
+  begin
+    // Update existing device: always update LastSeen, update Name if changed
+    if (DeviceConfig.Name <> AName) or (DeviceConfig.LastSeen < ALastSeen) then
+    begin
+      if (AName <> '') and (DeviceConfig.Name <> AName) then
+        DeviceConfig.Name := AName;
+      DeviceConfig.LastSeen := ALastSeen;
+      FDevices[AAddress] := DeviceConfig;
+      FModified := True;
+    end;
   end;
 end;
 

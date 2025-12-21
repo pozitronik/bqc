@@ -356,6 +356,7 @@ begin
   ComboDeviceNotifyDisconnect.OnChange := HandleSettingChanged;
   ComboDeviceNotifyFailed.OnChange := HandleSettingChanged;
   ComboDeviceNotifyAuto.OnChange := HandleSettingChanged;
+  // Note: ComboDeviceType change handler is set dynamically via presenter if control exists
 
   // Tab: Advanced
   CheckLogEnabled.OnClick := HandleSettingChanged;
@@ -522,7 +523,7 @@ begin
     else if not TPath.IsPathRooted(InitialDir) then
       InitialDir := TPath.Combine(ExePath, InitialDir);
 
-    if DirectoryExists(InitialDir) then
+    if System.SysUtils.DirectoryExists(InitialDir) then
       Dialog.DefaultFolder := InitialDir;
 
     if Dialog.Execute then

@@ -333,10 +333,18 @@ begin
     FDevices := FBluetoothService.GetPairedDevices;
     Log('[MainPresenter] LoadDevices: Got %d devices', [Length(FDevices)]);
 
+    // Register all discovered devices to persistent config
     for I := 0 to High(FDevices) do
+    begin
       Log('[MainPresenter] LoadDevices: Device[%d] Address=$%.12X, Name="%s", Connected=%s', [
         I, FDevices[I].AddressInt, FDevices[I].Name, BoolToStr(FDevices[I].IsConnected, True)
       ]);
+      // Register device with current timestamp
+      Config.RegisterDevice(FDevices[I].AddressInt, FDevices[I].Name, Now);
+    end;
+
+    // Save config if any new devices were registered
+    Config.SaveIfModified;
 
     FView.ShowDevices(FDevices);
 
@@ -572,6 +580,10 @@ begin
       begin
         FView.UpdateDevice(LDevice);
       end;
+
+      // Update LastSeen timestamp in persistent config
+      Config.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
+      Config.SaveIfModified;
 
       FView.ShowStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
       ShowDeviceNotification(LDevice);

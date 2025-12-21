@@ -418,7 +418,11 @@ begin
 
   // Notify presenter to refresh if needed (for polling changes, etc.)
   if FPresenter <> nil then
+  begin
     FPresenter.OnSettingsChanged;
+    // Refresh device list to apply pinned/hidden changes
+    FPresenter.OnRefreshRequested;
+  end;
 
   Log('[MainForm] ApplyAllSettings: Complete');
 end;

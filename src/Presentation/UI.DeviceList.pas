@@ -476,6 +476,7 @@ var
   TextTop: Integer;
   DeviceConfig: TDeviceConfig;
   Style: TCustomStyleServices;
+  EffectiveDeviceType: TBluetoothDeviceType;
 begin
   Style := TStyleManager.ActiveStyle;
 
@@ -487,6 +488,12 @@ begin
     DisplayName := DeviceConfig.Alias
   else
     DisplayName := ADevice.Name;
+
+  // Determine effective device type: use override if set, otherwise auto-detected
+  if DeviceConfig.DeviceTypeOverride >= 0 then
+    EffectiveDeviceType := TBluetoothDeviceType(DeviceConfig.DeviceTypeOverride)
+  else
+    EffectiveDeviceType := ADevice.DeviceType;
 
   // Determine background color
   if AIsSelected then
@@ -508,7 +515,7 @@ begin
   IconRect.Right := IconRect.Left + ICON_SIZE;
   IconRect.Bottom := IconRect.Top + ICON_SIZE;
 
-  DrawDeviceIcon(ACanvas, IconRect, ADevice.DeviceType);
+  DrawDeviceIcon(ACanvas, IconRect, EffectiveDeviceType);
 
   // Text area
   TextRect.Left := IconRect.Right + ITEM_PADDING;

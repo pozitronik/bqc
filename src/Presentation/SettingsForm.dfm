@@ -508,7 +508,6 @@ object FormSettings: TFormSettings
           ItemHeight = 15
           TabOrder = 0
           OnClick = ListDevicesClick
-          ExplicitHeight = 307
         end
         object PanelDeviceButtons: TPanel
           Left = 0

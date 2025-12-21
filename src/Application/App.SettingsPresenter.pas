@@ -76,10 +76,12 @@ type
     // Tab: Devices
     FListDevices: TListBox;
     FLabelDeviceAddressValue: TLabel;
+    FLabelDeviceLastSeenValue: TLabel;
     FEditDeviceAlias: TEdit;
     FCheckDevicePinned: TCheckBox;
     FCheckDeviceHidden: TCheckBox;
     FCheckDeviceAutoConnect: TCheckBox;
+    FComboDeviceType: TComboBox;
     FEditDeviceTimeout: TEdit;
     FEditDeviceRetryCount: TEdit;
     FComboDeviceNotifyConnect: TComboBox;
@@ -97,6 +99,7 @@ type
     procedure LoadDeviceList;
     procedure LoadDeviceSettings(AIndex: Integer);
     procedure SaveDeviceSettings(AIndex: Integer);
+    procedure HandleDeviceSettingChanged(Sender: TObject);
     function FormatAddress(AAddress: UInt64): string;
 
   public
@@ -127,6 +130,7 @@ implementation
 uses
   Winapi.Windows,
   System.IOUtils,
+  System.DateUtils,
   Vcl.Forms,
   App.Logger,
   UI.Theme;
@@ -195,10 +199,12 @@ begin
   // Tab: Devices
   FListDevices := Form.FindComponent('ListDevices') as TListBox;
   FLabelDeviceAddressValue := Form.FindComponent('LabelDeviceAddressValue') as TLabel;
+  FLabelDeviceLastSeenValue := Form.FindComponent('LabelDeviceLastSeenValue') as TLabel;
   FEditDeviceAlias := Form.FindComponent('EditDeviceAlias') as TEdit;
   FCheckDevicePinned := Form.FindComponent('CheckDevicePinned') as TCheckBox;
   FCheckDeviceHidden := Form.FindComponent('CheckDeviceHidden') as TCheckBox;
   FCheckDeviceAutoConnect := Form.FindComponent('CheckDeviceAutoConnect') as TCheckBox;
+  FComboDeviceType := Form.FindComponent('ComboDeviceType') as TComboBox;
   FEditDeviceTimeout := Form.FindComponent('EditDeviceTimeout') as TEdit;
   FEditDeviceRetryCount := Form.FindComponent('EditDeviceRetryCount') as TEdit;
   FComboDeviceNotifyConnect := Form.FindComponent('ComboDeviceNotifyConnect') as TComboBox;
@@ -210,6 +216,11 @@ begin
   FCheckLogEnabled := Form.FindComponent('CheckLogEnabled') as TCheckBox;
   FEditLogFilename := Form.FindComponent('EditLogFilename') as TEdit;
   FCheckLogAppend := Form.FindComponent('CheckLogAppend') as TCheckBox;
+
+  // Connect change handlers for dynamically found controls
+  // (controls that may be added to form later)
+  if FComboDeviceType <> nil then
+    FComboDeviceType.OnChange := HandleDeviceSettingChanged;
 
   Log('[SettingsPresenter] InitControlReferences: Complete');
 end;
@@ -251,10 +262,23 @@ begin
   for Address in Addresses do
   begin
     DeviceConfig := Config.GetDeviceConfig(Address);
-    if DeviceConfig.Alias <> '' then
-      DisplayName := DeviceConfig.Alias
+    // Show device name with address: "DeviceName (XX:XX:XX:XX:XX:XX)"
+    // If alias is set, show: "Alias [DeviceName] (XX:XX:XX:XX:XX:XX)"
+    if DeviceConfig.Name <> '' then
+    begin
+      if DeviceConfig.Alias <> '' then
+        DisplayName := Format('%s [%s] (%s)', [DeviceConfig.Alias, DeviceConfig.Name, FormatAddress(Address)])
+      else
+        DisplayName := Format('%s (%s)', [DeviceConfig.Name, FormatAddress(Address)]);
+    end
     else
-      DisplayName := FormatAddress(Address);
+    begin
+      // Legacy entry without name - show alias or just address
+      if DeviceConfig.Alias <> '' then
+        DisplayName := Format('%s (%s)', [DeviceConfig.Alias, FormatAddress(Address)])
+      else
+        DisplayName := FormatAddress(Address);
+    end;
 
     FListDevices.Items.Add(DisplayName);
     FDeviceAddresses.Add(Address);
@@ -288,6 +312,12 @@ begin
   ]);
 end;
 
+procedure TSettingsPresenter.HandleDeviceSettingChanged(Sender: TObject);
+begin
+  // Mark settings as modified when dynamically found controls change
+  MarkModified;
+end;
+
 procedure TSettingsPresenter.LoadDeviceSettings(AIndex: Integer);
 var
   Address: UInt64;
@@ -306,6 +336,14 @@ begin
 
   if FLabelDeviceAddressValue <> nil then
     FLabelDeviceAddressValue.Caption := FormatAddress(Address);
+  // Display LastSeen timestamp
+  if FLabelDeviceLastSeenValue <> nil then
+  begin
+    if DeviceConfig.LastSeen > 0 then
+      FLabelDeviceLastSeenValue.Caption := DateTimeToStr(DeviceConfig.LastSeen)
+    else
+      FLabelDeviceLastSeenValue.Caption := 'Never';
+  end;
   if FEditDeviceAlias <> nil then
     FEditDeviceAlias.Text := DeviceConfig.Alias;
   if FCheckDevicePinned <> nil then
@@ -314,6 +352,9 @@ begin
     FCheckDeviceHidden.Checked := DeviceConfig.Hidden;
   if FCheckDeviceAutoConnect <> nil then
     FCheckDeviceAutoConnect.Checked := DeviceConfig.AutoConnect;
+  // DeviceType combo: -1=Auto(0), 0=Unknown(1), 1=AudioOutput(2), etc.
+  if FComboDeviceType <> nil then
+    FComboDeviceType.ItemIndex := DeviceConfig.DeviceTypeOverride + 1;
   if FEditDeviceTimeout <> nil then
     FEditDeviceTimeout.Text := IntToStr(DeviceConfig.ConnectionTimeout);
   if FEditDeviceRetryCount <> nil then
@@ -348,6 +389,9 @@ begin
     DeviceConfig.Hidden := FCheckDeviceHidden.Checked;
   if FCheckDeviceAutoConnect <> nil then
     DeviceConfig.AutoConnect := FCheckDeviceAutoConnect.Checked;
+  // DeviceType combo: Index 0=Auto(-1), 1=Unknown(0), 2=AudioOutput(1), etc.
+  if FComboDeviceType <> nil then
+    DeviceConfig.DeviceTypeOverride := FComboDeviceType.ItemIndex - 1;
   if FEditDeviceTimeout <> nil then
     DeviceConfig.ConnectionTimeout := StrToIntDef(FEditDeviceTimeout.Text, -1);
   if FEditDeviceRetryCount <> nil then
