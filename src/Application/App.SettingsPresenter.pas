@@ -272,22 +272,11 @@ begin
   begin
     DeviceConfig := Config.GetDeviceConfig(Address);
     // Show device name with address: "DeviceName (XX:XX:XX:XX:XX:XX)"
-    // If alias is set, show: "Alias [DeviceName] (XX:XX:XX:XX:XX:XX)"
     if DeviceConfig.Name <> '' then
-    begin
-      if DeviceConfig.Alias <> '' then
-        DisplayName := Format('%s [%s] (%s)', [DeviceConfig.Alias, DeviceConfig.Name, FormatAddress(Address)])
-      else
-        DisplayName := Format('%s (%s)', [DeviceConfig.Name, FormatAddress(Address)]);
-    end
+      DisplayName := Format('%s (%s)', [DeviceConfig.Name, FormatAddress(Address)])
     else
-    begin
-      // Legacy entry without name - show alias or just address
-      if DeviceConfig.Alias <> '' then
-        DisplayName := Format('%s (%s)', [DeviceConfig.Alias, FormatAddress(Address)])
-      else
-        DisplayName := FormatAddress(Address);
-    end;
+      // Edge case: device not yet discovered, show address only
+      DisplayName := FormatAddress(Address);
 
     FListDevices.Items.Add(DisplayName);
     FDeviceAddresses.Add(Address);

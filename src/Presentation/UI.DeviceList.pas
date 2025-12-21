@@ -622,7 +622,7 @@ begin
     btGamepad:      Result := #$E7FC;  // Gamepad
     btComputer:     Result := #$E7F8;  // PC
     btPhone:        Result := #$E8EA;  // Phone
-    btHID:          Result := #$E9CE;  // Devices
+    btHID:          Result := #$E961;  // General Input Device
   else
     Result := #$E702;  // Bluetooth
   end;
