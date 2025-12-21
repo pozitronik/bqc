@@ -41,6 +41,26 @@ type
     btHID
   );
 
+const
+  /// <summary>
+  /// Display names for device type override selection.
+  /// Index 0 is "Auto-detect" (value -1), subsequent indices map to TBluetoothDeviceType.
+  /// </summary>
+  DeviceTypeNames: array[0..10] of string = (
+    'Auto-detect',   // Index 0 = override value -1
+    'Unknown',       // Index 1 = btUnknown (0)
+    'Audio Output',  // Index 2 = btAudioOutput (1)
+    'Audio Input',   // Index 3 = btAudioInput (2)
+    'Headset',       // Index 4 = btHeadset (3)
+    'Computer',      // Index 5 = btComputer (4)
+    'Phone',         // Index 6 = btPhone (5)
+    'Keyboard',      // Index 7 = btKeyboard (6)
+    'Mouse',         // Index 8 = btMouse (7)
+    'Gamepad',       // Index 9 = btGamepad (8)
+    'Input Device'   // Index 10 = btHID (9)
+  );
+
+type
   /// <summary>
   /// Represents the connection state of a Bluetooth device.
   /// </summary>

@@ -59,9 +59,11 @@ object FormSettings: TFormSettings
     Top = 0
     Width = 550
     Height = 369
-    ActivePage = TabHotkeyVisuals
+    ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
+    ExplicitLeft = 8
+    ExplicitTop = 2
     object TabGeneral: TTabSheet
       Caption = 'General'
       object GroupWindowMode: TGroupBox
@@ -72,7 +74,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
-        ExplicitWidth = 540
         object LabelWindowMode: TLabel
           Left = 12
           Top = 24
@@ -141,8 +142,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
-        ExplicitTop = 168
-        ExplicitWidth = 540
         object LabelPositionMode: TLabel
           Left = 12
           Top = 25
@@ -218,7 +217,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Global Hotkey'
         TabOrder = 0
-        ExplicitWidth = 542
         object LabelHotkey: TLabel
           Left = 12
           Top = 24
@@ -269,7 +267,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Theme'
         TabOrder = 1
-        ExplicitWidth = 542
         object LabelTheme: TLabel
           Left = 12
           Top = 24
@@ -317,7 +314,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
-        ExplicitWidth = 542
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24
@@ -363,7 +359,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Default Connection Settings'
         TabOrder = 0
-        ExplicitWidth = 540
         object LabelTimeout: TLabel
           Left = 12
           Top = 24
@@ -429,8 +424,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
-        ExplicitTop = 101
-        ExplicitWidth = 540
         object LabelPollingMode: TLabel
           Left = 12
           Top = 24
@@ -498,7 +491,6 @@ object FormSettings: TFormSettings
         Align = alLeft
         BevelOuter = bvNone
         TabOrder = 0
-        ExplicitHeight = 339
         object ListDevices: TListBox
           Left = 0
           Top = 0
@@ -517,7 +509,6 @@ object FormSettings: TFormSettings
           Align = alBottom
           BevelOuter = bvNone
           TabOrder = 1
-          ExplicitTop = 307
           object ButtonForgetDevice: TButton
             Left = 0
             Top = 4
@@ -546,8 +537,6 @@ object FormSettings: TFormSettings
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 1
-        ExplicitWidth = 342
-        ExplicitHeight = 339
         object GroupDeviceInfo: TGroupBox
           Left = 0
           Top = 0
@@ -556,8 +545,6 @@ object FormSettings: TFormSettings
           Align = alTop
           Caption = 'Device Settings'
           TabOrder = 0
-          ExplicitLeft = 6
-          ExplicitWidth = 331
           object LabelDeviceAlias: TLabel
             Left = 12
             Top = 24
@@ -565,16 +552,23 @@ object FormSettings: TFormSettings
             Height = 15
             Caption = 'Alias:'
           end
+          object LabelDeviceType: TLabel
+            Left = 12
+            Top = 58
+            Width = 28
+            Height = 15
+            Caption = 'Type:'
+          end
           object EditDeviceAlias: TEdit
-            Left = 70
-            Top = 24
+            Left = 74
+            Top = 26
             Width = 250
             Height = 23
             TabOrder = 0
           end
           object CheckDeviceHidden: TCheckBox
-            Left = 12
-            Top = 80
+            Left = 160
+            Top = 86
             Width = 140
             Height = 17
             Caption = 'Hide from list'
@@ -582,7 +576,7 @@ object FormSettings: TFormSettings
           end
           object CheckDevicePinned: TCheckBox
             Left = 12
-            Top = 55
+            Top = 86
             Width = 140
             Height = 17
             Caption = 'Pin to top of list'
@@ -590,7 +584,7 @@ object FormSettings: TFormSettings
           end
           object CheckDeviceAutoConnect: TCheckBox
             Left = 12
-            Top = 105
+            Top = 109
             Width = 140
             Height = 17
             Caption = 'Auto-connect on start'
@@ -747,6 +741,14 @@ object FormSettings: TFormSettings
                 'None'
                 'Balloon')
             end
+          end
+          object ComboDeviceType: TComboBox
+            Left = 74
+            Top = 55
+            Width = 246
+            Height = 23
+            Style = csDropDownList
+            TabOrder = 6
           end
         end
       end

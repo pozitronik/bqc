@@ -133,7 +133,8 @@ uses
   System.DateUtils,
   Vcl.Forms,
   App.Logger,
-  UI.Theme;
+  UI.Theme,
+  Bluetooth.Types;
 
 { TSettingsPresenter }
 
@@ -158,6 +159,7 @@ procedure TSettingsPresenter.InitControlReferences;
 var
   Form: TForm;
   ViewObj: TObject;
+  I: Integer;
 begin
   // Get the form from the interface (cast to TObject works in Delphi XE2+)
   ViewObj := FView as TObject;
@@ -220,7 +222,14 @@ begin
   // Connect change handlers for dynamically found controls
   // (controls that may be added to form later)
   if FComboDeviceType <> nil then
+  begin
+    // Populate device type combo from DeviceTypeNames array
+    FComboDeviceType.Items.Clear;
+    for I := Low(DeviceTypeNames) to High(DeviceTypeNames) do
+      FComboDeviceType.Items.Add(DeviceTypeNames[I]);
+    FComboDeviceType.Style := csDropDownList;
     FComboDeviceType.OnChange := HandleDeviceSettingChanged;
+  end;
 
   Log('[SettingsPresenter] InitControlReferences: Complete');
 end;

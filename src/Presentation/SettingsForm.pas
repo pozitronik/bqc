@@ -130,6 +130,8 @@ type
     ButtonForgetDevice: TButton;
     ButtonRefreshDevices: TButton;
     CheckShowAddresses: TCheckBox;
+    LabelDeviceType: TLabel;
+    ComboDeviceType: TComboBox;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
