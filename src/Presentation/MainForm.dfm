@@ -2,9 +2,11 @@ object FormMain: TFormMain
   Left = 0
   Top = 0
   Caption = 'Bluetooth Quick Connect'
-  ClientHeight = 500
-  ClientWidth = 380
+  ClientHeight = 361
+  ClientWidth = 284
   Color = clBtnFace
+  Constraints.MinHeight = 400
+  Constraints.MinWidth = 300
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -12
@@ -21,7 +23,7 @@ object FormMain: TFormMain
   object HeaderPanel: TPanel
     Left = 0
     Top = 0
-    Width = 380
+    Width = 284
     Height = 33
     Align = alTop
     BevelOuter = bvNone
@@ -29,7 +31,7 @@ object FormMain: TFormMain
     Padding.Right = 10
     ParentBackground = False
     TabOrder = 0
-    ExplicitWidth = 374
+    ExplicitWidth = 380
     object TitleLabel: TLabel
       Left = 10
       Top = 0
@@ -48,7 +50,7 @@ object FormMain: TFormMain
       ExplicitHeight = 30
     end
     object BluetoothToggle: TToggleSwitch
-      Left = 297
+      Left = 201
       Top = 0
       Width = 73
       Height = 33
@@ -57,14 +59,14 @@ object FormMain: TFormMain
       StyleName = 'Windows'
       TabOrder = 0
       OnClick = HandleBluetoothToggle
-      ExplicitLeft = 291
+      ExplicitLeft = 297
       ExplicitHeight = 20
     end
   end
   object StatusPanel: TPanel
     Left = 0
-    Top = 470
-    Width = 380
+    Top = 331
+    Width = 284
     Height = 30
     Align = alBottom
     BevelOuter = bvNone
@@ -72,10 +74,10 @@ object FormMain: TFormMain
     Padding.Right = 10
     ParentBackground = False
     TabOrder = 1
-    ExplicitTop = 453
-    ExplicitWidth = 374
+    ExplicitTop = 470
+    ExplicitWidth = 380
     object StatusLabel: TLabel
-      Left = 338
+      Left = 242
       Top = 0
       Width = 32
       Height = 30
@@ -88,8 +90,9 @@ object FormMain: TFormMain
       Font.Style = []
       ParentFont = False
       Layout = tlCenter
-      ExplicitHeight = 15
       OnClick = StatusLabelClick
+      ExplicitLeft = 338
+      ExplicitHeight = 15
     end
     object SettingsLink: TLabel
       Left = 10
@@ -113,12 +116,12 @@ object FormMain: TFormMain
   object DevicesPanel: TPanel
     Left = 0
     Top = 33
-    Width = 380
-    Height = 437
+    Width = 284
+    Height = 298
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 2
-    ExplicitWidth = 374
-    ExplicitHeight = 420
+    ExplicitWidth = 380
+    ExplicitHeight = 437
   end
 end
