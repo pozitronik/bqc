@@ -73,6 +73,7 @@ type
     procedure HandleTrayToggleVisibility(Sender: TObject);
     procedure HandleTrayExitRequest(Sender: TObject);
     procedure HandleApplicationDeactivate(Sender: TObject);
+    procedure HandleSettingsApplied(Sender: TObject);
 
     { IMainView implementation }
     procedure ShowDevices(const ADevices: TBluetoothDeviceInfoArray);
@@ -100,6 +101,7 @@ type
 
   public
     { Public declarations }
+    procedure ApplyAllSettings;
   end;
 
 var
@@ -112,6 +114,7 @@ uses
   ShellAPI,
   App.Logger,
   App.Config,
+  App.SettingsPresenter,
   UI.WindowPositioner,
   SettingsForm;
 
@@ -374,6 +377,48 @@ begin
   Log('[MainForm] CalculateAutoSize: Calculated W=%d, H=%d', [AWidth, AHeight]);
 end;
 
+procedure TFormMain.ApplyAllSettings;
+begin
+  Log('[MainForm] ApplyAllSettings: Applying configuration changes');
+
+  // Re-register hotkey (unregister first, then register with new settings)
+  FHotkeyManager.Unregister;
+  FHotkeyManager.Register(Handle, Config.Hotkey, Config.UseLowLevelHook);
+  Log('[MainForm] ApplyAllSettings: Hotkey re-registered: %s', [Config.Hotkey]);
+
+  // Apply theme
+  if SameText(Config.Theme, 'System') then
+    Theme.SetThemeMode(tmSystem)
+  else if SameText(Config.Theme, 'Light') then
+    Theme.SetThemeMode(tmLight)
+  else if SameText(Config.Theme, 'Dark') then
+    Theme.SetThemeMode(tmDark)
+  else
+    Theme.SetStyle(Config.Theme);
+  ApplyTheme;
+  Log('[MainForm] ApplyAllSettings: Theme applied: %s', [Config.Theme]);
+
+  // Apply OnTop setting
+  if Config.OnTop or (Config.WindowMode = wmMenu) then
+    FormStyle := fsStayOnTop
+  else
+    FormStyle := fsNormal;
+  Log('[MainForm] ApplyAllSettings: OnTop=%s', [BoolToStr(Config.OnTop, True)]);
+
+  // Apply ShowAddresses to device list
+  if FDeviceList <> nil then
+  begin
+    FDeviceList.ShowAddresses := Config.ShowAddresses;
+    FDeviceList.Invalidate;
+  end;
+
+  // Notify presenter to refresh if needed (for polling changes, etc.)
+  if FPresenter <> nil then
+    FPresenter.OnSettingsChanged;
+
+  Log('[MainForm] ApplyAllSettings: Complete');
+end;
+
 { Event handlers }
 
 procedure TFormMain.HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
@@ -414,10 +459,16 @@ begin
   Log('[MainForm] StatusLabelClick: Opening settings dialog');
   SettingsDialog := TFormSettings.Create(Self);
   try
+    SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
     SettingsDialog.ShowModal;
   finally
     SettingsDialog.Free;
   end;
+end;
+
+procedure TFormMain.HandleSettingsApplied(Sender: TObject);
+begin
+  ApplyAllSettings;
 end;
 
 procedure TFormMain.HandleHotkeyTriggered(Sender: TObject);

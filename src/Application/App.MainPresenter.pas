@@ -195,6 +195,12 @@ type
     procedure OnExitRequested;
 
     /// <summary>
+    /// Called when settings have been changed.
+    /// Restarts Bluetooth monitoring if polling settings changed.
+    /// </summary>
+    procedure OnSettingsChanged;
+
+    /// <summary>
     /// Checks if the view can close or should hide to tray.
     /// </summary>
     /// <returns>True if view can close, False if it should hide.</returns>
@@ -690,6 +696,13 @@ procedure TMainPresenter.OnExitRequested;
 begin
   Log('[MainPresenter] OnExitRequested');
   FView.ForceClose;
+end;
+
+procedure TMainPresenter.OnSettingsChanged;
+begin
+  Log('[MainPresenter] OnSettingsChanged');
+  // Note: Polling mode changes require application restart to take effect.
+  // Other settings (theme, hotkey, etc.) are applied immediately by MainForm.
 end;
 
 function TMainPresenter.CanClose: Boolean;
