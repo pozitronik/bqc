@@ -7,6 +7,7 @@ uses
   Winapi.Messages,
   System.SysUtils,
   System.Classes,
+  System.IOUtils,
   System.UITypes,
   Vcl.Graphics,
   Vcl.Controls,
@@ -504,13 +505,31 @@ end;
 
 procedure TFormSettings.ButtonBrowseVsfDirClick(Sender: TObject);
 var
-  Dir: string;
+  Dialog: TFileOpenDialog;
+  InitialDir: string;
+  ExePath: string;
 begin
-  Dir := EditVsfDir.Text;
-  if Dir = '' then
-    Dir := ExtractFilePath(ParamStr(0));
-  if SelectDirectory('Select Styles Directory', '', Dir) then
-    EditVsfDir.Text := Dir;
+  Dialog := TFileOpenDialog.Create(Self);
+  try
+    Dialog.Title := 'Select Styles Directory';
+    Dialog.Options := [fdoPickFolders, fdoPathMustExist, fdoForceFileSystem];
+
+    // Resolve current path (may be relative)
+    ExePath := ExtractFilePath(ParamStr(0));
+    InitialDir := EditVsfDir.Text;
+    if InitialDir = '' then
+      InitialDir := ExePath
+    else if not TPath.IsPathRooted(InitialDir) then
+      InitialDir := TPath.Combine(ExePath, InitialDir);
+
+    if DirectoryExists(InitialDir) then
+      Dialog.DefaultFolder := InitialDir;
+
+    if Dialog.Execute then
+      EditVsfDir.Text := Dialog.FileName;
+  finally
+    Dialog.Free;
+  end;
 end;
 
 { Advanced tab events }
