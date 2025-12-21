@@ -18,7 +18,6 @@ uses
   App.Logger in 'src\Infrastructure\App.Logger.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',
   App.Autostart in 'src\Infrastructure\App.Autostart.pas',
-  System.Permissions in 'src\Infrastructure\System.Permissions.pas',
   UI.Theme in 'src\Presentation\UI.Theme.pas',
   UI.DeviceList in 'src\Presentation\UI.DeviceList.pas',
   UI.WindowPositioner in 'src\Presentation\UI.WindowPositioner.pas',
