@@ -29,6 +29,7 @@ type
     procedure CloseWithCancel;
     procedure ShowError(const AMessage: string);
     procedure ShowInfo(const AMessage: string);
+    procedure SetApplyEnabled(AEnabled: Boolean);
   end;
 
   /// <summary>
@@ -574,7 +575,7 @@ procedure TSettingsPresenter.OnApplyClicked;
 begin
   Log('[SettingsPresenter] OnApplyClicked');
   if SaveSettings then
-    FView.ShowInfo('Settings saved successfully.');
+    FView.SetApplyEnabled(False);
 end;
 
 procedure TSettingsPresenter.OnResetSizeClicked;
@@ -641,6 +642,7 @@ end;
 procedure TSettingsPresenter.MarkModified;
 begin
   FModified := True;
+  FView.SetApplyEnabled(True);
 end;
 
 end.

@@ -380,6 +380,8 @@ begin
 end;
 
 procedure TFormMain.ApplyAllSettings;
+var
+  ExStyle: LONG_PTR;
 begin
   Log('[MainForm] ApplyAllSettings: Applying configuration changes');
 
@@ -399,6 +401,41 @@ begin
     Theme.SetStyle(Config.Theme);
   ApplyTheme;
   Log('[MainForm] ApplyAllSettings: Theme applied: %s', [Config.Theme]);
+
+  // Apply window mode (border style and icons)
+  if Config.WindowMode = wmMenu then
+  begin
+    BorderStyle := bsNone;
+    BorderIcons := [];
+    Log('[MainForm] ApplyAllSettings: Applied Menu mode');
+  end
+  else
+  begin
+    BorderStyle := bsSizeable;
+    BorderIcons := [biSystemMenu, biMinimize];
+    Log('[MainForm] ApplyAllSettings: Applied Window mode');
+  end;
+
+  // Apply taskbar visibility based on window mode
+  // Must hide window before changing style, then show again to update taskbar
+  ExStyle := GetWindowLongPtr(Handle, GWL_EXSTYLE);
+  if Config.WindowMode = wmMenu then
+  begin
+    ShowWindow(Handle, SW_HIDE);
+    ExStyle := ExStyle or WS_EX_TOOLWINDOW;
+    ExStyle := ExStyle and (not WS_EX_APPWINDOW);
+    SetWindowLongPtr(Handle, GWL_EXSTYLE, ExStyle);
+    ShowWindow(Handle, SW_SHOW);
+  end
+  else
+  begin
+    ShowWindow(Handle, SW_HIDE);
+    ExStyle := ExStyle and (not WS_EX_TOOLWINDOW);
+    ExStyle := ExStyle or WS_EX_APPWINDOW;
+    SetWindowLongPtr(Handle, GWL_EXSTYLE, ExStyle);
+    ShowWindow(Handle, SW_SHOW);
+  end;
+  Log('[MainForm] ApplyAllSettings: Taskbar visibility updated');
 
   // Apply OnTop setting
   if Config.OnTop or (Config.WindowMode = wmMenu) then

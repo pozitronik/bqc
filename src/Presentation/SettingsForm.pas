@@ -166,9 +166,12 @@ type
     procedure CloseWithCancel;
     procedure ShowError(const AMessage: string);
     procedure ShowInfo(const AMessage: string);
+    procedure SetApplyEnabled(AEnabled: Boolean);
 
     { UI helpers }
     procedure UpdateWindowModeControls;
+    procedure HandleSettingChanged(Sender: TObject);
+    procedure ConnectChangeHandlers;
 
   protected
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
@@ -213,6 +216,8 @@ begin
   Log('[SettingsForm] FormShow');
   FPresenter.LoadSettings;
   UpdateWindowModeControls;
+  ConnectChangeHandlers;
+  ButtonApply.Enabled := False;
 end;
 
 procedure TFormSettings.ButtonOKClick(Sender: TObject);
@@ -252,6 +257,11 @@ begin
   MessageDlg(AMessage, mtInformation, [mbOK], 0);
 end;
 
+procedure TFormSettings.SetApplyEnabled(AEnabled: Boolean);
+begin
+  ButtonApply.Enabled := AEnabled;
+end;
+
 function TFormSettings.GetOnSettingsApplied: TNotifyEvent;
 begin
   Result := FPresenter.OnSettingsApplied;
@@ -287,6 +297,61 @@ begin
     GroupWindowOptions.Font.Style := [];
     GroupMenuOptions.Font.Style := [fsBold];
   end;
+end;
+
+procedure TFormSettings.HandleSettingChanged(Sender: TObject);
+begin
+  FPresenter.MarkModified;
+  // Special handling for window mode combo - also update UI
+  if Sender = ComboWindowMode then
+    UpdateWindowModeControls;
+end;
+
+procedure TFormSettings.ConnectChangeHandlers;
+begin
+  // Tab: General
+  ComboWindowMode.OnChange := HandleSettingChanged;
+  CheckOnTop.OnClick := HandleSettingChanged;
+  CheckMinimizeToTray.OnClick := HandleSettingChanged;
+  CheckCloseToTray.OnClick := HandleSettingChanged;
+  CheckHideOnFocusLoss.OnClick := HandleSettingChanged;
+  CheckAutostart.OnClick := HandleSettingChanged;
+  ComboPositionMode.OnChange := HandleSettingChanged;
+
+  // Tab: Hotkey & Visuals
+  EditHotkey.OnChange := HandleSettingChanged;
+  CheckUseLowLevelHook.OnClick := HandleSettingChanged;
+  ComboTheme.OnChange := HandleSettingChanged;
+  CheckShowAddresses.OnClick := HandleSettingChanged;
+
+  // Tab: Connection
+  EditTimeout.OnChange := HandleSettingChanged;
+  EditRetryCount.OnChange := HandleSettingChanged;
+  ComboPollingMode.OnChange := HandleSettingChanged;
+  EditPollingInterval.OnChange := HandleSettingChanged;
+
+  // Tab: Notifications
+  CheckNotifyOnConnect.OnClick := HandleSettingChanged;
+  CheckNotifyOnDisconnect.OnClick := HandleSettingChanged;
+  CheckNotifyOnConnectFailed.OnClick := HandleSettingChanged;
+  CheckNotifyOnAutoConnect.OnClick := HandleSettingChanged;
+
+  // Tab: Devices
+  EditDeviceAlias.OnChange := HandleSettingChanged;
+  CheckDevicePinned.OnClick := HandleSettingChanged;
+  CheckDeviceHidden.OnClick := HandleSettingChanged;
+  CheckDeviceAutoConnect.OnClick := HandleSettingChanged;
+  EditDeviceTimeout.OnChange := HandleSettingChanged;
+  EditDeviceRetryCount.OnChange := HandleSettingChanged;
+  ComboDeviceNotifyConnect.OnChange := HandleSettingChanged;
+  ComboDeviceNotifyDisconnect.OnChange := HandleSettingChanged;
+  ComboDeviceNotifyFailed.OnChange := HandleSettingChanged;
+  ComboDeviceNotifyAuto.OnChange := HandleSettingChanged;
+
+  // Tab: Advanced
+  CheckLogEnabled.OnClick := HandleSettingChanged;
+  EditLogFilename.OnChange := HandleSettingChanged;
+  CheckLogAppend.OnClick := HandleSettingChanged;
 end;
 
 { Hotkey tab events }
