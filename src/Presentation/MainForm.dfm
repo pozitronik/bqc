@@ -29,11 +29,12 @@ object FormMain: TFormMain
     Padding.Right = 10
     ParentBackground = False
     TabOrder = 0
+    ExplicitWidth = 374
     object TitleLabel: TLabel
       Left = 10
       Top = 0
       Width = 98
-      Height = 30
+      Height = 33
       Align = alLeft
       Caption = 'Bluetooth'
       Font.Charset = DEFAULT_CHARSET
@@ -44,6 +45,7 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       OnClick = TitleLabelClick
+      ExplicitHeight = 30
     end
     object BluetoothToggle: TToggleSwitch
       Left = 297
@@ -55,6 +57,7 @@ object FormMain: TFormMain
       StyleName = 'Windows'
       TabOrder = 0
       OnClick = HandleBluetoothToggle
+      ExplicitLeft = 291
       ExplicitHeight = 20
     end
   end
@@ -69,11 +72,13 @@ object FormMain: TFormMain
     Padding.Right = 10
     ParentBackground = False
     TabOrder = 1
+    ExplicitTop = 453
+    ExplicitWidth = 374
     object StatusLabel: TLabel
       Left = 338
       Top = 0
       Width = 32
-      Height = 15
+      Height = 30
       Align = alRight
       Caption = 'Ready'
       Font.Charset = DEFAULT_CHARSET
@@ -83,15 +88,16 @@ object FormMain: TFormMain
       Font.Style = []
       ParentFont = False
       Layout = tlCenter
+      ExplicitHeight = 15
     end
     object SettingsLink: TLabel
       Left = 10
       Top = 0
-      Width = 127
-      Height = 15
+      Width = 148
+      Height = 30
       Cursor = crHandPoint
       Align = alLeft
-      Caption = 'More Bluetooth settings'
+      Caption = 'Windows Bluetooth settings'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clHighlight
       Font.Height = -12
@@ -100,6 +106,7 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       OnClick = HandleSettingsClick
+      ExplicitHeight = 15
     end
   end
   object DevicesPanel: TPanel
@@ -110,5 +117,7 @@ object FormMain: TFormMain
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 2
+    ExplicitWidth = 374
+    ExplicitHeight = 420
   end
 end
