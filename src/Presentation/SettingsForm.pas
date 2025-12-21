@@ -103,21 +103,26 @@ type
     CheckNotifyOnDisconnect: TCheckBox;
     CheckNotifyOnConnectFailed: TCheckBox;
     CheckNotifyOnAutoConnect: TCheckBox;
-    LabelDeviceAddressValue: TLabel;
-    LabelDeviceAddress: TLabel;
-    CheckDeviceHidden: TCheckBox;
     CheckDevicePinned: TCheckBox;
+    CheckDeviceHidden: TCheckBox;
     CheckDeviceAutoConnect: TCheckBox;
     GroupDeviceConnection: TGroupBox;
     LabelDeviceTimeout: TLabel;
+    LabelDeviceTimeoutMs: TLabel;
     LabelDeviceRetry: TLabel;
     EditDeviceTimeout: TEdit;
+    UpDownDeviceTimeout: TUpDown;
     EditDeviceRetryCount: TEdit;
+    UpDownDeviceRetryCount: TUpDown;
     GroupDeviceNotifications: TGroupBox;
     LabelDeviceNotifyConnect: TLabel;
     LabelDeviceNotifyDisconnect: TLabel;
+    LabelDeviceNotifyFailed: TLabel;
+    LabelDeviceNotifyAuto: TLabel;
     ComboDeviceNotifyConnect: TComboBox;
     ComboDeviceNotifyDisconnect: TComboBox;
+    ComboDeviceNotifyFailed: TComboBox;
+    ComboDeviceNotifyAuto: TComboBox;
     ButtonOpenLogFile: TButton;
     ButtonForgetDevice: TButton;
     ButtonRefreshDevices: TButton;
@@ -151,7 +156,6 @@ type
     procedure ButtonOpenConfigClick(Sender: TObject);
     procedure ButtonOpenLogFileClick(Sender: TObject);
     procedure ButtonResetDefaultsClick(Sender: TObject);
-    procedure LabelDeviceTimeoutClick(Sender: TObject);
 
   private
     FPresenter: TSettingsPresenter;
@@ -401,12 +405,7 @@ end;
 
 { Devices tab events }
 
-pprocedure TFormSettings.LabelDeviceTimeoutClick(Sender: TObject);
-begin
-
-end;
-
-rocedure TFormSettings.ListDevicesClick(Sender: TObject);
+procedure TFormSettings.ListDevicesClick(Sender: TObject);
 begin
   FPresenter.OnDeviceSelected(ListDevices.ItemIndex);
 end;

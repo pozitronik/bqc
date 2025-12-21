@@ -24,7 +24,6 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitTop = 371
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -63,7 +62,6 @@ object FormSettings: TFormSettings
     ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
-    ExplicitTop = 2
     object TabGeneral: TTabSheet
       Caption = 'General'
       object GroupWindowMode: TGroupBox
@@ -405,7 +403,7 @@ object FormSettings: TFormSettings
           Left = 12
           Top = 57
           Width = 42
-          Height = 14
+          Height = 15
           Caption = 'Interval:'
         end
         object LabelPollingIntervalMs: TLabel
@@ -434,7 +432,7 @@ object FormSettings: TFormSettings
           Left = 110
           Top = 57
           Width = 75
-          Height = 22
+          Height = 23
           TabOrder = 1
           Text = '0'
         end
@@ -442,7 +440,7 @@ object FormSettings: TFormSettings
           Left = 185
           Top = 57
           Width = 16
-          Height = 22
+          Height = 23
           Associate = EditPollingInterval
           Max = 10000
           Increment = 500
@@ -470,7 +468,6 @@ object FormSettings: TFormSettings
           ItemHeight = 15
           TabOrder = 0
           OnClick = ListDevicesClick
-          ExplicitHeight = 276
         end
         object PanelDeviceButtons: TPanel
           Left = 0
@@ -480,7 +477,6 @@ object FormSettings: TFormSettings
           Align = alBottom
           BevelOuter = bvNone
           TabOrder = 1
-          ExplicitLeft = -1
           object ButtonForgetDevice: TButton
             Left = 0
             Top = 4
@@ -509,8 +505,6 @@ object FormSettings: TFormSettings
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 1
-        ExplicitLeft = 196
-        ExplicitTop = -2
         object GroupDeviceInfo: TGroupBox
           Left = 6
           Top = 0
@@ -520,57 +514,37 @@ object FormSettings: TFormSettings
           TabOrder = 0
           object LabelDeviceAlias: TLabel
             Left = 12
-            Top = 40
+            Top = 24
             Width = 28
             Height = 15
             Caption = 'Alias:'
           end
-          object LabelDeviceAddressValue: TLabel
-            Left = 70
-            Top = 18
-            Width = 87
-            Height = 15
-            Caption = '00:00:00:00:00:00'
-            Font.Charset = DEFAULT_CHARSET
-            Font.Color = clGray
-            Font.Height = -12
-            Font.Name = 'Segoe UI'
-            Font.Style = []
-            ParentFont = False
-          end
-          object LabelDeviceAddress: TLabel
-            Left = 12
-            Top = 18
-            Width = 45
-            Height = 15
-            Caption = 'Address:'
-          end
           object EditDeviceAlias: TEdit
             Left = 70
-            Top = 40
+            Top = 24
             Width = 250
             Height = 23
             TabOrder = 0
           end
           object CheckDeviceHidden: TCheckBox
-            Left = 131
-            Top = 69
-            Width = 100
+            Left = 12
+            Top = 80
+            Width = 140
             Height = 17
             Caption = 'Hide from list'
             TabOrder = 1
           end
           object CheckDevicePinned: TCheckBox
             Left = 12
-            Top = 69
-            Width = 120
+            Top = 55
+            Width = 140
             Height = 17
             Caption = 'Pin to top of list'
             TabOrder = 2
           end
           object CheckDeviceAutoConnect: TCheckBox
             Left = 12
-            Top = 92
+            Top = 105
             Width = 140
             Height = 17
             Caption = 'Auto-connect on start'
@@ -578,66 +552,111 @@ object FormSettings: TFormSettings
           end
           object GroupDeviceConnection: TGroupBox
             Left = 12
-            Top = 116
+            Top = 133
             Width = 308
-            Height = 51
+            Height = 95
             Caption = 'Connection (overrides global parameters)'
             TabOrder = 4
             object LabelDeviceTimeout: TLabel
               Left = 12
-              Top = 19
+              Top = 25
               Width = 48
               Height = 15
               Caption = 'Timeout:'
-              OnClick = LabelDeviceTimeoutClick
+            end
+            object LabelDeviceTimeoutMs: TLabel
+              Left = 206
+              Top = 25
+              Width = 16
+              Height = 15
+              Caption = 'ms'
             end
             object LabelDeviceRetry: TLabel
-              Left = 156
-              Top = 17
-              Width = 30
+              Left = 12
+              Top = 59
+              Width = 80
               Height = 15
-              Caption = 'Retry:'
+              Caption = 'Retry attempts:'
             end
             object EditDeviceTimeout: TEdit
-              Left = 70
-              Top = 19
+              Left = 110
+              Top = 25
               Width = 75
               Height = 23
               TabOrder = 0
+              Text = '-1'
+            end
+            object UpDownDeviceTimeout: TUpDown
+              Left = 185
+              Top = 25
+              Width = 16
+              Height = 23
+              Associate = EditDeviceTimeout
+              Min = -1
+              Max = 60000
+              Increment = 1000
+              Position = -1
+              TabOrder = 1
             end
             object EditDeviceRetryCount: TEdit
-              Left = 192
-              Top = 19
-              Width = 50
+              Left = 110
+              Top = 59
+              Width = 75
               Height = 23
-              TabOrder = 1
+              TabOrder = 2
+              Text = '-1'
+            end
+            object UpDownDeviceRetryCount: TUpDown
+              Left = 185
+              Top = 59
+              Width = 16
+              Height = 23
+              Associate = EditDeviceRetryCount
+              Min = -1
+              Max = 10
+              Position = -1
+              TabOrder = 3
             end
           end
           object GroupDeviceNotifications: TGroupBox
             Left = 12
-            Top = 173
-            Width = 318
-            Height = 41
-            Caption = 'Notification Overrides'
+            Top = 231
+            Width = 308
+            Height = 93
+            Caption = 'Notifications (overrides global parameters)'
             TabOrder = 5
             object LabelDeviceNotifyConnect: TLabel
               Left = 12
-              Top = 17
-              Width = 48
+              Top = 24
+              Width = 80
               Height = 15
               Caption = 'Connect:'
             end
             object LabelDeviceNotifyDisconnect: TLabel
-              Left = 168
-              Top = 17
-              Width = 62
+              Left = 12
+              Top = 60
+              Width = 80
               Height = 15
               Caption = 'Disconnect:'
             end
+            object LabelDeviceNotifyFailed: TLabel
+              Left = 153
+              Top = 24
+              Width = 81
+              Height = 15
+              Caption = 'Failed:'
+            end
+            object LabelDeviceNotifyAuto: TLabel
+              Left = 153
+              Top = 60
+              Width = 81
+              Height = 15
+              Caption = 'Auto-connect:'
+            end
             object ComboDeviceNotifyConnect: TComboBox
-              Left = 70
-              Top = 14
-              Width = 85
+              Left = 80
+              Top = 24
+              Width = 60
               Height = 23
               Style = csDropDownList
               TabOrder = 0
@@ -647,12 +666,36 @@ object FormSettings: TFormSettings
                 'Balloon')
             end
             object ComboDeviceNotifyDisconnect: TComboBox
-              Left = 240
-              Top = 14
-              Width = 70
+              Left = 80
+              Top = 60
+              Width = 60
               Height = 23
               Style = csDropDownList
               TabOrder = 1
+              Items.Strings = (
+                'Default'
+                'None'
+                'Balloon')
+            end
+            object ComboDeviceNotifyFailed: TComboBox
+              Left = 239
+              Top = 24
+              Width = 60
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 2
+              Items.Strings = (
+                'Default'
+                'None'
+                'Balloon')
+            end
+            object ComboDeviceNotifyAuto: TComboBox
+              Left = 239
+              Top = 60
+              Width = 60
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 3
               Items.Strings = (
                 'Default'
                 'None'
@@ -713,9 +756,9 @@ object FormSettings: TFormSettings
         end
         object ButtonOpenLogFile: TButton
           Left = 450
-          Top = 56
+          Top = 57
           Width = 80
-          Height = 24
+          Height = 23
           Caption = 'Open log file'
           TabOrder = 4
           OnClick = ButtonOpenLogFileClick
