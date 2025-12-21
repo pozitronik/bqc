@@ -21,7 +21,7 @@ uses
   UI.DeviceList,
   UI.TrayManager,
   UI.HotkeyManager,
-  App.MainPresenter;
+  App.MainPresenter, Vcl.Buttons, System.ImageList, Vcl.ImgList;
 
 const
   WM_DPICHANGED = $02E0;
@@ -37,8 +37,9 @@ type
     BluetoothToggle: TToggleSwitch;
     StatusPanel: TPanel;
     StatusLabel: TLabel;
-    SettingsLink: TLabel;
+    WindowsSettingsLink: TLabel;
     DevicesPanel: TPanel;
+    SettingsLabel: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -46,9 +47,9 @@ type
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure HandleBluetoothToggle(Sender: TObject);
     procedure HandleSettingsClick(Sender: TObject);
+    procedure HandleWindowsSettingsClick(Sender: TObject);
     procedure HandleRefreshClick(Sender: TObject);
     procedure TitleLabelClick(Sender: TObject);
-    procedure StatusLabelClick(Sender: TObject);
   private
     FPresenter: TMainPresenter;
     FDeviceList: TDeviceListBox;
@@ -268,7 +269,7 @@ begin
   DevicesPanel.Color := Colors.Background;
   StatusPanel.Color := Colors.Background;
   StatusLabel.Font.Color := Colors.TextSecondary;
-  SettingsLink.Font.Color := Colors.Accent;
+  WindowsSettingsLink.Font.Color := Colors.Accent;
 
   FDeviceList.Invalidate;
 end;
@@ -438,6 +439,20 @@ begin
 end;
 
 procedure TFormMain.HandleSettingsClick(Sender: TObject);
+var
+  SettingsDialog: TFormSettings;
+begin
+  Log('[MainForm] HandleSettingsClick: Opening settings dialog');
+  SettingsDialog := TFormSettings.Create(Self);
+  try
+    SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
+    SettingsDialog.ShowModal;
+  finally
+    SettingsDialog.Free;
+  end;
+end;
+
+procedure TFormMain.HandleWindowsSettingsClick(Sender: TObject);
 begin
   ShellExecute(0, 'open', 'ms-settings:bluetooth', nil, nil, SW_SHOWNORMAL);
 end;
@@ -450,20 +465,6 @@ end;
 procedure TFormMain.TitleLabelClick(Sender: TObject);
 begin
   FPresenter.OnRefreshRequested;
-end;
-
-procedure TFormMain.StatusLabelClick(Sender: TObject);
-var
-  SettingsDialog: TFormSettings;
-begin
-  Log('[MainForm] StatusLabelClick: Opening settings dialog');
-  SettingsDialog := TFormSettings.Create(Self);
-  try
-    SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
-    SettingsDialog.ShowModal;
-  finally
-    SettingsDialog.Free;
-  end;
 end;
 
 procedure TFormMain.HandleSettingsApplied(Sender: TObject);

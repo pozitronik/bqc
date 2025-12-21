@@ -11,7 +11,7 @@ object FormSettings: TFormSettings
   Font.Height = -12
   Font.Name = 'Segoe UI'
   Font.Style = []
-  Position = poDesigned
+  Position = poScreenCenter
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
@@ -532,7 +532,7 @@ object FormSettings: TFormSettings
             Width = 140
             Height = 17
             Caption = 'Hide from list'
-            TabOrder = 1
+            TabOrder = 2
           end
           object CheckDevicePinned: TCheckBox
             Left = 12
@@ -540,7 +540,7 @@ object FormSettings: TFormSettings
             Width = 140
             Height = 17
             Caption = 'Pin to top of list'
-            TabOrder = 2
+            TabOrder = 1
           end
           object CheckDeviceAutoConnect: TCheckBox
             Left = 12
@@ -628,28 +628,28 @@ object FormSettings: TFormSettings
             object LabelDeviceNotifyConnect: TLabel
               Left = 12
               Top = 24
-              Width = 80
+              Width = 48
               Height = 15
               Caption = 'Connect:'
             end
             object LabelDeviceNotifyDisconnect: TLabel
               Left = 12
               Top = 60
-              Width = 80
+              Width = 62
               Height = 15
               Caption = 'Disconnect:'
             end
             object LabelDeviceNotifyFailed: TLabel
               Left = 153
               Top = 24
-              Width = 81
+              Width = 34
               Height = 15
               Caption = 'Failed:'
             end
             object LabelDeviceNotifyAuto: TLabel
               Left = 153
               Top = 60
-              Width = 81
+              Width = 77
               Height = 15
               Caption = 'Auto-connect:'
             end
@@ -730,12 +730,20 @@ object FormSettings: TFormSettings
           Caption = 'Enable logging'
           TabOrder = 0
         end
+        object CheckLogAppend: TCheckBox
+          Left = 149
+          Top = 24
+          Width = 200
+          Height = 17
+          Caption = 'Append to existing log'
+          TabOrder = 1
+        end
         object EditLogFilename: TEdit
           Left = 70
           Top = 57
           Width = 288
           Height = 23
-          TabOrder = 1
+          TabOrder = 2
         end
         object ButtonBrowseLogFile: TButton
           Left = 364
@@ -743,16 +751,8 @@ object FormSettings: TFormSettings
           Width = 80
           Height = 23
           Caption = 'Browse...'
-          TabOrder = 2
-          OnClick = ButtonBrowseLogFileClick
-        end
-        object CheckLogAppend: TCheckBox
-          Left = 149
-          Top = 24
-          Width = 200
-          Height = 17
-          Caption = 'Append to existing log'
           TabOrder = 3
+          OnClick = ButtonBrowseLogFileClick
         end
         object ButtonOpenLogFile: TButton
           Left = 450

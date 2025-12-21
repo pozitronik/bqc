@@ -62,7 +62,7 @@ type
     /// <summary>
     /// Starts watching for Bluetooth radio state changes.
     /// </summary>
-    function Start: Boolean;
+    procedure Start;
 
     /// <summary>
     /// Stops watching for state changes.
@@ -469,15 +469,10 @@ begin
   end;
 end;
 
-function TBluetoothRadioWatcher.Start: Boolean;
+procedure TBluetoothRadioWatcher.Start;
 begin
-  Result := False;
-
   if FTimerID <> 0 then
-  begin
-    Result := True;
     Exit;
-  end;
 
   // Get initial state
   if GetBluetoothRadioState(FLastState) then
@@ -487,7 +482,6 @@ begin
 
   // Start polling timer
   FTimerID := SetTimer(FHandle, TIMER_ID_RADIO_POLL, RADIO_POLL_INTERVAL_MS, nil);
-  Result := (FTimerID <> 0);
 end;
 
 procedure TBluetoothRadioWatcher.Stop;

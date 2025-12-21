@@ -59,7 +59,6 @@ type
     function GetDevice(AIndex: Integer): TBluetoothDeviceInfo;
     function GetDeviceCount: Integer;
     function GetItemRect(AIndex: Integer): TRect;
-    function GetVisibleItemCount: Integer;
     function ItemAtPos(X, Y: Integer): Integer;
     procedure UpdateScrollRange;
     procedure ScrollTo(APos: Integer);
@@ -302,11 +301,6 @@ begin
   Result.Right := ClientWidth - ITEM_MARGIN;
   Result.Top := ITEM_MARGIN + AIndex * (ITEM_HEIGHT + ITEM_MARGIN) - FScrollPos;
   Result.Bottom := Result.Top + ITEM_HEIGHT;
-end;
-
-function TDeviceListBox.GetVisibleItemCount: Integer;
-begin
-  Result := (ClientHeight + ITEM_HEIGHT - 1) div (ITEM_HEIGHT + ITEM_MARGIN);
 end;
 
 function TDeviceListBox.ItemAtPos(X, Y: Integer): Integer;

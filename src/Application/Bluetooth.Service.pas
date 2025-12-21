@@ -243,6 +243,7 @@ begin
   // Clear cache and re-enumerate
   FDeviceCache.Clear;
   Result := GetPairedDevices;
+  DoDeviceListChanged;
 end;
 
 function TBluetoothService.ConvertToDeviceInfo(
@@ -590,6 +591,7 @@ begin
       // New paired device we haven't seen before
       Log('[Service] HandleWatcherDeviceConnected: New paired device, adding to cache');
       FDeviceCache.AddOrSetValue(ADeviceAddress, Device);
+      DoDeviceListChanged;
       DoDeviceStateChanged(Device);
     end;
   end
@@ -623,6 +625,7 @@ begin
       Log('[Service] HandleWatcherDeviceDisconnected: Got paired device from Windows, Name="%s"', [Device.Name]);
       UpdatedDevice := Device.WithConnectionState(csDisconnected);
       FDeviceCache.AddOrSetValue(ADeviceAddress, UpdatedDevice);
+      DoDeviceListChanged;
       DoDeviceStateChanged(UpdatedDevice);
     end
     else
