@@ -24,12 +24,12 @@ type
   TWindowPositioner = class
   public
     /// <summary>
-    /// Positions a form based on the specified menu position mode.
+    /// Positions a form based on the specified position mode.
     /// Handles taskbar detection and multi-monitor support.
     /// </summary>
     /// <param name="AForm">The form to position.</param>
     /// <param name="APosition">The positioning mode.</param>
-    class procedure PositionMenuPopup(AForm: TForm; APosition: TMenuPosition);
+    class procedure PositionWindow(AForm: TForm; APosition: TPositionMode);
 
     /// <summary>
     /// Ensures a form stays within the work area of its current monitor.
@@ -67,7 +67,7 @@ begin
   Result := TaskbarWidth > TaskbarHeight;
 end;
 
-class procedure TWindowPositioner.PositionMenuPopup(AForm: TForm; APosition: TMenuPosition);
+class procedure TWindowPositioner.PositionWindow(AForm: TForm; APosition: TPositionMode);
 var
   CursorPos: TPoint;
   Mon: TMonitor;
@@ -84,7 +84,8 @@ begin
   FormWidth := AForm.Width;
   FormHeight := AForm.Height;
 
-  Log('[WindowPositioner] PositionMenuPopup: FormWidth=%d, FormHeight=%d', [FormWidth, FormHeight]);
+  Log('[WindowPositioner] PositionWindow: FormWidth=%d, FormHeight=%d, Mode=%d',
+    [FormWidth, FormHeight, Ord(APosition)]);
 
   // Get cursor position and find which monitor it's on
   GetCursorPos(CursorPos);
@@ -95,7 +96,25 @@ begin
     WorkArea := Screen.WorkAreaRect;
 
   case APosition of
-    mpNearCursor:
+    pmCoordinates:
+      begin
+        // Use saved coordinates from config
+        if (Config.PositionX >= 0) and (Config.PositionY >= 0) then
+        begin
+          NewLeft := Config.PositionX;
+          NewTop := Config.PositionY;
+          Log('[WindowPositioner] Using saved coordinates X=%d, Y=%d', [NewLeft, NewTop]);
+        end
+        else
+        begin
+          // Default: center on active monitor
+          NewLeft := WorkArea.Left + (WorkArea.Width - FormWidth) div 2;
+          NewTop := WorkArea.Top + (WorkArea.Height - FormHeight) div 2;
+          Log('[WindowPositioner] No saved coordinates, centering on screen');
+        end;
+      end;
+
+    pmNearCursor:
       begin
         // Position popup above the cursor, centered horizontally
         NewLeft := CursorPos.X - (FormWidth div 2);
@@ -103,7 +122,7 @@ begin
         Log('[WindowPositioner] Near cursor (%d, %d)', [CursorPos.X, CursorPos.Y]);
       end;
 
-    mpNearTray:
+    pmNearTray:
       begin
         // Find the actual taskbar/tray position
         if GetTaskbarRect(TrayRect) then
@@ -163,7 +182,7 @@ begin
         end;
       end;
 
-    mpCenterScreen:
+    pmCenterScreen:
       begin
         // Center on the monitor where cursor is
         NewLeft := WorkArea.Left + (WorkArea.Width - FormWidth) div 2;
@@ -171,13 +190,6 @@ begin
         Log('[WindowPositioner] Center screen');
       end;
 
-    mpSameAsWindow:
-      begin
-        // Use current position (already applied from config)
-        NewLeft := AForm.Left;
-        NewTop := AForm.Top;
-        Log('[WindowPositioner] Same as window');
-      end;
   else
     NewLeft := AForm.Left;
     NewTop := AForm.Top;

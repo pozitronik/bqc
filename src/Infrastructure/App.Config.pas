@@ -38,21 +38,22 @@ type
   );
 
   /// <summary>
-  /// Popup menu position when showing in Menu mode.
+  /// Position mode for window/menu placement.
   /// </summary>
-  TMenuPosition = (
-    mpNearTray,    // Near system tray icon (default)
-    mpNearCursor,  // Near mouse cursor
-    mpCenterScreen,// Center of screen
-    mpSameAsWindow // Use saved window position
+  TPositionMode = (
+    pmCoordinates,   // Use saved X,Y coordinates (0)
+    pmNearTray,      // Near system tray icon (1)
+    pmNearCursor,    // Near mouse cursor (2)
+    pmCenterScreen   // Center of active screen (3)
   );
 
   /// <summary>
-  /// Autostart mode for the application.
+  /// Polling mode for device state detection.
   /// </summary>
-  TAutostartMode = (
-    amNone,           // No autostart (0)
-    amRegistry        // Start via Registry Run key (1)
+  TPollingMode = (
+    pmDisabled,  // No polling, event watcher only (0)
+    pmFallback,  // Polling as backup if watcher fails (1)
+    pmPrimary    // Polling only, no event watcher (2)
   );
 
   /// <summary>
@@ -97,83 +98,83 @@ type
     FModified: Boolean;
     FDevices: TDictionary<UInt64, TDeviceConfig>;
 
-    // General
-    FLoggingEnabled: Boolean;
+    // [General]
     FWindowMode: TWindowMode;
-    FMenuPosition: TMenuPosition;
-    FStayOnTop: Boolean;
+    FOnTop: Boolean;
+    FAutostart: Boolean;
 
-    // Hotkey
+    // [Window]
+    FMinimizeToTray: Boolean;
+    FCloseToTray: Boolean;
+
+    // [Menu]
+    FMenuHideOnFocusLoss: Boolean;
+
+    // [Hotkey]
     FHotkey: string;
     FUseLowLevelHook: Boolean;
 
-    // Polling
-    FPollingEnabled: Boolean;
-    FPollingInterval: Integer;
-    FPollingAsPrimary: Boolean;
+    // [Position]
+    FPositionMode: TPositionMode;
+    FPositionX: Integer;
+    FPositionY: Integer;
+    FPositionW: Integer;
+    FPositionH: Integer;
 
-    // Appearance
+    // [Polling]
+    FPollingMode: TPollingMode;
+    FPollingInterval: Integer;
+
+    // [Log]
+    FLogEnabled: Boolean;
+    FLogFilename: string;
+    FLogAppend: Boolean;
+
+    // [Appearance]
     FShowAddresses: Boolean;
     FTheme: string;
     FVsfDir: string;
 
-    // Window
-    FWindowX: Integer;
-    FWindowY: Integer;
-    FWindowWidth: Integer;
-    FWindowHeight: Integer;
-
-    // Connection
+    // [Device] - global defaults
     FConnectionTimeout: Integer;
     FConnectionRetryCount: Integer;
-
-    // Tray
-    FMinimizeToTray: Boolean;
-    FCloseToTray: Boolean;
-
-    // Notifications (global defaults)
     FNotifyOnConnect: TNotificationMode;
     FNotifyOnDisconnect: TNotificationMode;
     FNotifyOnConnectFailed: TNotificationMode;
     FNotifyOnAutoConnect: TNotificationMode;
-
-    // Menu behavior
-    FMenuHideOnFocusLoss: Boolean;
-
-    // Autostart
-    FAutostartMode: TAutostartMode;
 
     procedure SetDefaults;
     procedure LoadDevices(AIni: TMemIniFile);
     procedure SaveDevices(AIni: TMemIniFile);
 
     // Property setters with modification tracking
-    procedure SetLoggingEnabled(AValue: Boolean);
     procedure SetWindowMode(AValue: TWindowMode);
-    procedure SetMenuPosition(AValue: TMenuPosition);
-    procedure SetStayOnTop(AValue: Boolean);
+    procedure SetOnTop(AValue: Boolean);
+    procedure SetAutostart(AValue: Boolean);
+    procedure SetMinimizeToTray(AValue: Boolean);
+    procedure SetCloseToTray(AValue: Boolean);
+    procedure SetMenuHideOnFocusLoss(AValue: Boolean);
     procedure SetHotkey(const AValue: string);
     procedure SetUseLowLevelHook(AValue: Boolean);
-    procedure SetPollingEnabled(AValue: Boolean);
+    procedure SetPositionMode(AValue: TPositionMode);
+    procedure SetPositionX(AValue: Integer);
+    procedure SetPositionY(AValue: Integer);
+    procedure SetPositionW(AValue: Integer);
+    procedure SetPositionH(AValue: Integer);
+    procedure SetPollingMode(AValue: TPollingMode);
     procedure SetPollingInterval(AValue: Integer);
-    procedure SetPollingAsPrimary(AValue: Boolean);
+    procedure SetLogEnabled(AValue: Boolean);
+    procedure SetLogFilename(const AValue: string);
+    procedure SetLogAppend(AValue: Boolean);
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
     procedure SetVsfDir(const AValue: string);
-    procedure SetWindowX(AValue: Integer);
-    procedure SetWindowY(AValue: Integer);
-    procedure SetWindowWidth(AValue: Integer);
-    procedure SetWindowHeight(AValue: Integer);
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
-    procedure SetMinimizeToTray(AValue: Boolean);
-    procedure SetCloseToTray(AValue: Boolean);
     procedure SetNotifyOnConnect(AValue: TNotificationMode);
     procedure SetNotifyOnDisconnect(AValue: TNotificationMode);
     procedure SetNotifyOnConnectFailed(AValue: TNotificationMode);
     procedure SetNotifyOnAutoConnect(AValue: TNotificationMode);
-    procedure SetMenuHideOnFocusLoss(AValue: Boolean);
-    procedure SetAutostartMode(AValue: TAutostartMode);
 
   public
     constructor Create;
@@ -225,68 +226,71 @@ type
     /// </summary>
     property Modified: Boolean read FModified;
 
-    // General settings
-    property LoggingEnabled: Boolean read FLoggingEnabled write SetLoggingEnabled;
+    // [General]
     property WindowMode: TWindowMode read FWindowMode write SetWindowMode;
-    property MenuPosition: TMenuPosition read FMenuPosition write SetMenuPosition;
-    property StayOnTop: Boolean read FStayOnTop write SetStayOnTop;
+    property OnTop: Boolean read FOnTop write SetOnTop;
+    property Autostart: Boolean read FAutostart write SetAutostart;
 
-    // Hotkey
-    property Hotkey: string read FHotkey write SetHotkey;
-    /// <summary>
-    /// Use low-level keyboard hook instead of RegisterHotKey.
-    /// Allows overriding system hotkeys like Win+K.
-    /// </summary>
-    property UseLowLevelHook: Boolean read FUseLowLevelHook write SetUseLowLevelHook;
-
-    // Polling
-    property PollingEnabled: Boolean read FPollingEnabled write SetPollingEnabled;
-    property PollingInterval: Integer read FPollingInterval write SetPollingInterval;
-    property PollingAsPrimary: Boolean read FPollingAsPrimary write SetPollingAsPrimary;
-
-    // Appearance
-    property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
-    property Theme: string read FTheme write SetTheme;
-    /// <summary>
-    /// Directory containing .vsf style files. Relative paths are resolved from exe directory.
-    /// </summary>
-    property VsfDir: string read FVsfDir write SetVsfDir;
-
-    // Window
-    property WindowX: Integer read FWindowX write SetWindowX;
-    property WindowY: Integer read FWindowY write SetWindowY;
-    property WindowWidth: Integer read FWindowWidth write SetWindowWidth;
-    property WindowHeight: Integer read FWindowHeight write SetWindowHeight;
-
-    // Connection
-    property ConnectionTimeout: Integer read FConnectionTimeout write SetConnectionTimeout;
-    property ConnectionRetryCount: Integer read FConnectionRetryCount write SetConnectionRetryCount;
-
-    // Tray
+    // [Window]
     property MinimizeToTray: Boolean read FMinimizeToTray write SetMinimizeToTray;
     property CloseToTray: Boolean read FCloseToTray write SetCloseToTray;
 
-    // Notifications (global defaults)
+    // [Menu]
+    property MenuHideOnFocusLoss: Boolean read FMenuHideOnFocusLoss write SetMenuHideOnFocusLoss;
+
+    // [Hotkey]
+    property Hotkey: string read FHotkey write SetHotkey;
+    property UseLowLevelHook: Boolean read FUseLowLevelHook write SetUseLowLevelHook;
+
+    // [Position]
+    property PositionMode: TPositionMode read FPositionMode write SetPositionMode;
+    property PositionX: Integer read FPositionX write SetPositionX;
+    property PositionY: Integer read FPositionY write SetPositionY;
+    property PositionW: Integer read FPositionW write SetPositionW;
+    property PositionH: Integer read FPositionH write SetPositionH;
+
+    // [Polling]
+    property PollingMode: TPollingMode read FPollingMode write SetPollingMode;
+    property PollingInterval: Integer read FPollingInterval write SetPollingInterval;
+
+    // [Log]
+    property LogEnabled: Boolean read FLogEnabled write SetLogEnabled;
+    property LogFilename: string read FLogFilename write SetLogFilename;
+    property LogAppend: Boolean read FLogAppend write SetLogAppend;
+
+    // [Appearance]
+    property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
+    property Theme: string read FTheme write SetTheme;
+    property VsfDir: string read FVsfDir write SetVsfDir;
+
+    // [Device] - global defaults
+    property ConnectionTimeout: Integer read FConnectionTimeout write SetConnectionTimeout;
+    property ConnectionRetryCount: Integer read FConnectionRetryCount write SetConnectionRetryCount;
     property NotifyOnConnect: TNotificationMode read FNotifyOnConnect write SetNotifyOnConnect;
     property NotifyOnDisconnect: TNotificationMode read FNotifyOnDisconnect write SetNotifyOnDisconnect;
     property NotifyOnConnectFailed: TNotificationMode read FNotifyOnConnectFailed write SetNotifyOnConnectFailed;
     property NotifyOnAutoConnect: TNotificationMode read FNotifyOnAutoConnect write SetNotifyOnAutoConnect;
-
-    // Menu behavior
-    /// <summary>
-    /// When true, menu popup hides when application loses focus.
-    /// Only applies when WindowMode = wmMenu.
-    /// </summary>
-    property MenuHideOnFocusLoss: Boolean read FMenuHideOnFocusLoss write SetMenuHideOnFocusLoss;
-
-    // Autostart
-    property AutostartMode: TAutostartMode read FAutostartMode write SetAutostartMode;
 
     /// <summary>
     /// Gets effective notification mode for a device and event.
     /// Resolves per-device override or returns global default.
     /// </summary>
     function GetEffectiveNotification(AAddress: UInt64; AEvent: string): TNotificationMode;
+
+    /// <summary>
+    /// Gets effective connection timeout for a device.
+    /// Resolves per-device override or returns global default.
+    /// </summary>
+    function GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
+
+    /// <summary>
+    /// Gets effective retry count for a device.
+    /// Resolves per-device override or returns global default.
+    /// </summary>
+    function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
+
+    // Compatibility properties (map old names to new)
+    property StayOnTop: Boolean read FOnTop write SetOnTop;
   end;
 
 /// <summary>
@@ -303,43 +307,44 @@ uses
 const
   // Section names
   SEC_GENERAL = 'General';
-  SEC_HOTKEY = 'Hotkey';
-  SEC_POLLING = 'Polling';
-  SEC_APPEARANCE = 'Appearance';
   SEC_WINDOW = 'Window';
-  SEC_CONNECTION = 'Connection';
-  SEC_TRAY = 'Tray';
-  SEC_NOTIFICATIONS = 'Notifications';
-  SEC_AUTOSTART = 'Autostart';
+  SEC_MENU = 'Menu';
+  SEC_HOTKEY = 'Hotkey';
+  SEC_POSITION = 'Position';
+  SEC_POLLING = 'Polling';
+  SEC_LOG = 'Log';
+  SEC_APPEARANCE = 'Appearance';
+  SEC_DEVICE = 'Device';
   SEC_DEVICE_PREFIX = 'Device.';
 
   // Default values
-  DEF_LOGGING_ENABLED = False;
-  DEF_WINDOW_MODE = wmWindow;  // 1 = normal window (default)
-  DEF_MENU_POSITION = mpNearCursor;  // Near cursor is more reliable for multi-monitor
-  DEF_STAY_ON_TOP = False;
-  DEF_HOTKEY = '';
-  DEF_USE_LOW_LEVEL_HOOK = True;  // Use low-level hook by default to allow overriding system hotkeys
-  DEF_POLLING_ENABLED = True;
+  DEF_WINDOW_MODE = wmWindow;
+  DEF_ON_TOP = False;
+  DEF_AUTOSTART = False;
+  DEF_MINIMIZE_TO_TRAY = True;
+  DEF_CLOSE_TO_TRAY = True;
+  DEF_MENU_HIDE_ON_FOCUS_LOSS = True;
+  DEF_HOTKEY = 'Win+K';
+  DEF_USE_LOW_LEVEL_HOOK = True;
+  DEF_POSITION_MODE = pmCoordinates;
+  DEF_POSITION_X = -1;
+  DEF_POSITION_Y = -1;
+  DEF_POSITION_W = -1;
+  DEF_POSITION_H = -1;
+  DEF_POLLING_MODE = pmFallback;
   DEF_POLLING_INTERVAL = 2000;
-  DEF_POLLING_AS_PRIMARY = False;
+  DEF_LOG_ENABLED = False;
+  DEF_LOG_FILENAME = 'bqc.log';
+  DEF_LOG_APPEND = False;
   DEF_SHOW_ADDRESSES = False;
   DEF_THEME = 'System';
-  DEF_VSF_DIR = 'themes';  // Directory for .vsf style files, relative to exe
-  DEF_WINDOW_X = -1;  // -1 means use default/center
-  DEF_WINDOW_Y = -1;
-  DEF_WINDOW_WIDTH = 320;
-  DEF_WINDOW_HEIGHT = 400;
-  DEF_CONNECTION_TIMEOUT = 10000;  // 10 seconds
+  DEF_VSF_DIR = 'themes';
+  DEF_CONNECTION_TIMEOUT = 10000;
   DEF_CONNECTION_RETRY_COUNT = 2;
-  DEF_MINIMIZE_TO_TRAY = True;
-  DEF_CLOSE_TO_TRAY = True;  // Default: close hides to tray
   DEF_NOTIFY_ON_CONNECT = nmBalloon;
   DEF_NOTIFY_ON_DISCONNECT = nmBalloon;
   DEF_NOTIFY_ON_CONNECT_FAILED = nmBalloon;
   DEF_NOTIFY_ON_AUTO_CONNECT = nmBalloon;
-  DEF_MENU_HIDE_ON_FOCUS_LOSS = True;  // Menu hides when app loses focus (default)
-  DEF_AUTOSTART_MODE = amNone;
 
 var
   GConfig: TAppConfig = nil;
@@ -403,32 +408,51 @@ end;
 
 procedure TAppConfig.SetDefaults;
 begin
-  FLoggingEnabled := DEF_LOGGING_ENABLED;
+  // [General]
   FWindowMode := DEF_WINDOW_MODE;
-  FMenuPosition := DEF_MENU_POSITION;
-  FStayOnTop := DEF_STAY_ON_TOP;
+  FOnTop := DEF_ON_TOP;
+  FAutostart := DEF_AUTOSTART;
+
+  // [Window]
+  FMinimizeToTray := DEF_MINIMIZE_TO_TRAY;
+  FCloseToTray := DEF_CLOSE_TO_TRAY;
+
+  // [Menu]
+  FMenuHideOnFocusLoss := DEF_MENU_HIDE_ON_FOCUS_LOSS;
+
+  // [Hotkey]
   FHotkey := DEF_HOTKEY;
   FUseLowLevelHook := DEF_USE_LOW_LEVEL_HOOK;
-  FPollingEnabled := DEF_POLLING_ENABLED;
+
+  // [Position]
+  FPositionMode := DEF_POSITION_MODE;
+  FPositionX := DEF_POSITION_X;
+  FPositionY := DEF_POSITION_Y;
+  FPositionW := DEF_POSITION_W;
+  FPositionH := DEF_POSITION_H;
+
+  // [Polling]
+  FPollingMode := DEF_POLLING_MODE;
   FPollingInterval := DEF_POLLING_INTERVAL;
-  FPollingAsPrimary := DEF_POLLING_AS_PRIMARY;
+
+  // [Log]
+  FLogEnabled := DEF_LOG_ENABLED;
+  FLogFilename := DEF_LOG_FILENAME;
+  FLogAppend := DEF_LOG_APPEND;
+
+  // [Appearance]
   FShowAddresses := DEF_SHOW_ADDRESSES;
   FTheme := DEF_THEME;
   FVsfDir := DEF_VSF_DIR;
-  FWindowX := DEF_WINDOW_X;
-  FWindowY := DEF_WINDOW_Y;
-  FWindowWidth := DEF_WINDOW_WIDTH;
-  FWindowHeight := DEF_WINDOW_HEIGHT;
+
+  // [Device]
   FConnectionTimeout := DEF_CONNECTION_TIMEOUT;
   FConnectionRetryCount := DEF_CONNECTION_RETRY_COUNT;
-  FMinimizeToTray := DEF_MINIMIZE_TO_TRAY;
-  FCloseToTray := DEF_CLOSE_TO_TRAY;
   FNotifyOnConnect := DEF_NOTIFY_ON_CONNECT;
   FNotifyOnDisconnect := DEF_NOTIFY_ON_DISCONNECT;
   FNotifyOnConnectFailed := DEF_NOTIFY_ON_CONNECT_FAILED;
   FNotifyOnAutoConnect := DEF_NOTIFY_ON_AUTO_CONNECT;
-  FMenuHideOnFocusLoss := DEF_MENU_HIDE_ON_FOCUS_LOSS;
-  FAutostartMode := DEF_AUTOSTART_MODE;
+
   FDevices.Clear;
   FModified := False;
 end;
@@ -443,58 +467,57 @@ begin
     SetDefaults;
     Save;
     FModified := False;
-    // Apply logging setting directly (not via property setter)
-    App.Logger.SetLoggingEnabled(FLoggingEnabled);
+    // Apply logging setting directly
+    App.Logger.SetLoggingEnabled(FLogEnabled, FLogFilename, FLogAppend);
     Exit;
   end;
 
   Ini := TMemIniFile.Create(FConfigPath);
   try
-    // General
-    FLoggingEnabled := Ini.ReadBool(SEC_GENERAL, 'LoggingEnabled', DEF_LOGGING_ENABLED);
-    FWindowMode := TWindowMode(Ini.ReadInteger(SEC_GENERAL, 'WindowMode', Ord(DEF_WINDOW_MODE)));
-    FMenuPosition := TMenuPosition(Ini.ReadInteger(SEC_GENERAL, 'MenuPosition', Ord(DEF_MENU_POSITION)));
-    FStayOnTop := Ini.ReadBool(SEC_GENERAL, 'StayOnTop', DEF_STAY_ON_TOP);
+    // [General]
+    FWindowMode := TWindowMode(Ini.ReadInteger(SEC_GENERAL, 'Window', Ord(DEF_WINDOW_MODE)));
+    FOnTop := Ini.ReadBool(SEC_GENERAL, 'OnTop', DEF_ON_TOP);
+    FAutostart := Ini.ReadBool(SEC_GENERAL, 'Autostart', DEF_AUTOSTART);
 
-    // Hotkey
+    // [Window]
+    FMinimizeToTray := Ini.ReadBool(SEC_WINDOW, 'MinimizeToTray', DEF_MINIMIZE_TO_TRAY);
+    FCloseToTray := Ini.ReadBool(SEC_WINDOW, 'CloseToTray', DEF_CLOSE_TO_TRAY);
+
+    // [Menu]
+    FMenuHideOnFocusLoss := Ini.ReadBool(SEC_MENU, 'HideOnFocusLoss', DEF_MENU_HIDE_ON_FOCUS_LOSS);
+
+    // [Hotkey]
     FHotkey := Ini.ReadString(SEC_HOTKEY, 'GlobalHotkey', DEF_HOTKEY);
     FUseLowLevelHook := Ini.ReadBool(SEC_HOTKEY, 'UseLowLevelHook', DEF_USE_LOW_LEVEL_HOOK);
 
-    // Polling
-    FPollingEnabled := Ini.ReadBool(SEC_POLLING, 'Enabled', DEF_POLLING_ENABLED);
-    FPollingInterval := Ini.ReadInteger(SEC_POLLING, 'Interval', DEF_POLLING_INTERVAL);
-    FPollingAsPrimary := Ini.ReadBool(SEC_POLLING, 'UsePrimary', DEF_POLLING_AS_PRIMARY);
+    // [Position]
+    FPositionMode := TPositionMode(Ini.ReadInteger(SEC_POSITION, 'Mode', Ord(DEF_POSITION_MODE)));
+    FPositionX := Ini.ReadInteger(SEC_POSITION, 'X', DEF_POSITION_X);
+    FPositionY := Ini.ReadInteger(SEC_POSITION, 'Y', DEF_POSITION_Y);
+    FPositionW := Ini.ReadInteger(SEC_POSITION, 'W', DEF_POSITION_W);
+    FPositionH := Ini.ReadInteger(SEC_POSITION, 'H', DEF_POSITION_H);
 
-    // Appearance
+    // [Polling]
+    FPollingMode := TPollingMode(Ini.ReadInteger(SEC_POLLING, 'Mode', Ord(DEF_POLLING_MODE)));
+    FPollingInterval := Ini.ReadInteger(SEC_POLLING, 'Interval', DEF_POLLING_INTERVAL);
+
+    // [Log]
+    FLogEnabled := Ini.ReadBool(SEC_LOG, 'Enabled', DEF_LOG_ENABLED);
+    FLogFilename := Ini.ReadString(SEC_LOG, 'Filename', DEF_LOG_FILENAME);
+    FLogAppend := Ini.ReadBool(SEC_LOG, 'Append', DEF_LOG_APPEND);
+
+    // [Appearance]
     FShowAddresses := Ini.ReadBool(SEC_APPEARANCE, 'ShowAddresses', DEF_SHOW_ADDRESSES);
     FTheme := Ini.ReadString(SEC_APPEARANCE, 'Theme', DEF_THEME);
     FVsfDir := Ini.ReadString(SEC_APPEARANCE, 'VsfDir', DEF_VSF_DIR);
 
-    // Window
-    FWindowX := Ini.ReadInteger(SEC_WINDOW, 'X', DEF_WINDOW_X);
-    FWindowY := Ini.ReadInteger(SEC_WINDOW, 'Y', DEF_WINDOW_Y);
-    FWindowWidth := Ini.ReadInteger(SEC_WINDOW, 'Width', DEF_WINDOW_WIDTH);
-    FWindowHeight := Ini.ReadInteger(SEC_WINDOW, 'Height', DEF_WINDOW_HEIGHT);
-
-    // Connection
-    FConnectionTimeout := Ini.ReadInteger(SEC_CONNECTION, 'Timeout', DEF_CONNECTION_TIMEOUT);
-    FConnectionRetryCount := Ini.ReadInteger(SEC_CONNECTION, 'RetryCount', DEF_CONNECTION_RETRY_COUNT);
-
-    // Tray
-    FMinimizeToTray := Ini.ReadBool(SEC_TRAY, 'MinimizeToTray', DEF_MINIMIZE_TO_TRAY);
-    FCloseToTray := Ini.ReadBool(SEC_TRAY, 'CloseToTray', DEF_CLOSE_TO_TRAY);
-
-    // Notifications
-    FNotifyOnConnect := TNotificationMode(Ini.ReadInteger(SEC_NOTIFICATIONS, 'OnConnect', Ord(DEF_NOTIFY_ON_CONNECT)));
-    FNotifyOnDisconnect := TNotificationMode(Ini.ReadInteger(SEC_NOTIFICATIONS, 'OnDisconnect', Ord(DEF_NOTIFY_ON_DISCONNECT)));
-    FNotifyOnConnectFailed := TNotificationMode(Ini.ReadInteger(SEC_NOTIFICATIONS, 'OnConnectFailed', Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
-    FNotifyOnAutoConnect := TNotificationMode(Ini.ReadInteger(SEC_NOTIFICATIONS, 'OnAutoConnect', Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
-
-    // Menu behavior
-    FMenuHideOnFocusLoss := Ini.ReadBool(SEC_GENERAL, 'MenuHideOnFocusLoss', DEF_MENU_HIDE_ON_FOCUS_LOSS);
-
-    // Autostart - read from INI and sync with registry
-    FAutostartMode := TAutostartMode(Ini.ReadInteger(SEC_AUTOSTART, 'Mode', Ord(DEF_AUTOSTART_MODE)));
+    // [Device] - global defaults
+    FConnectionTimeout := Ini.ReadInteger(SEC_DEVICE, 'ConnectionTimeout', DEF_CONNECTION_TIMEOUT);
+    FConnectionRetryCount := Ini.ReadInteger(SEC_DEVICE, 'ConnectionRetryCount', DEF_CONNECTION_RETRY_COUNT);
+    FNotifyOnConnect := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, 'NotifyOnConnect', Ord(DEF_NOTIFY_ON_CONNECT)));
+    FNotifyOnDisconnect := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, 'NotifyOnDisconnect', Ord(DEF_NOTIFY_ON_DISCONNECT)));
+    FNotifyOnConnectFailed := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, 'NotifyOnConnectFailed', Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
+    FNotifyOnAutoConnect := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, 'NotifyOnAutoConnect', Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
 
     // Device-specific settings
     LoadDevices(Ini);
@@ -504,12 +527,11 @@ begin
     Ini.Free;
   end;
 
-  // Apply logging setting directly (not via property setter)
-  App.Logger.SetLoggingEnabled(FLoggingEnabled);
+  // Apply logging setting
+  App.Logger.SetLoggingEnabled(FLogEnabled, FLogFilename, FLogAppend);
 
   // Ensure registry matches config setting
-  // This handles cases where registry was modified externally
-  TAutostartManager.Apply(FAutostartMode = amRegistry);
+  TAutostartManager.Apply(FAutostart);
 end;
 
 procedure TAppConfig.Save;
@@ -518,51 +540,50 @@ var
 begin
   Ini := TMemIniFile.Create(FConfigPath);
   try
-    // General
-    Ini.WriteBool(SEC_GENERAL, 'LoggingEnabled', FLoggingEnabled);
-    Ini.WriteInteger(SEC_GENERAL, 'WindowMode', Ord(FWindowMode));
-    Ini.WriteInteger(SEC_GENERAL, 'MenuPosition', Ord(FMenuPosition));
-    Ini.WriteBool(SEC_GENERAL, 'StayOnTop', FStayOnTop);
+    // [General]
+    Ini.WriteInteger(SEC_GENERAL, 'Window', Ord(FWindowMode));
+    Ini.WriteBool(SEC_GENERAL, 'OnTop', FOnTop);
+    Ini.WriteBool(SEC_GENERAL, 'Autostart', FAutostart);
 
-    // Hotkey
+    // [Window]
+    Ini.WriteBool(SEC_WINDOW, 'MinimizeToTray', FMinimizeToTray);
+    Ini.WriteBool(SEC_WINDOW, 'CloseToTray', FCloseToTray);
+
+    // [Menu]
+    Ini.WriteBool(SEC_MENU, 'HideOnFocusLoss', FMenuHideOnFocusLoss);
+
+    // [Hotkey]
     Ini.WriteString(SEC_HOTKEY, 'GlobalHotkey', FHotkey);
     Ini.WriteBool(SEC_HOTKEY, 'UseLowLevelHook', FUseLowLevelHook);
 
-    // Polling
-    Ini.WriteBool(SEC_POLLING, 'Enabled', FPollingEnabled);
-    Ini.WriteInteger(SEC_POLLING, 'Interval', FPollingInterval);
-    Ini.WriteBool(SEC_POLLING, 'UsePrimary', FPollingAsPrimary);
+    // [Position]
+    Ini.WriteInteger(SEC_POSITION, 'Mode', Ord(FPositionMode));
+    Ini.WriteInteger(SEC_POSITION, 'X', FPositionX);
+    Ini.WriteInteger(SEC_POSITION, 'Y', FPositionY);
+    Ini.WriteInteger(SEC_POSITION, 'W', FPositionW);
+    Ini.WriteInteger(SEC_POSITION, 'H', FPositionH);
 
-    // Appearance
+    // [Polling]
+    Ini.WriteInteger(SEC_POLLING, 'Mode', Ord(FPollingMode));
+    Ini.WriteInteger(SEC_POLLING, 'Interval', FPollingInterval);
+
+    // [Log]
+    Ini.WriteBool(SEC_LOG, 'Enabled', FLogEnabled);
+    Ini.WriteString(SEC_LOG, 'Filename', FLogFilename);
+    Ini.WriteBool(SEC_LOG, 'Append', FLogAppend);
+
+    // [Appearance]
     Ini.WriteBool(SEC_APPEARANCE, 'ShowAddresses', FShowAddresses);
     Ini.WriteString(SEC_APPEARANCE, 'Theme', FTheme);
     Ini.WriteString(SEC_APPEARANCE, 'VsfDir', FVsfDir);
 
-    // Window
-    Ini.WriteInteger(SEC_WINDOW, 'X', FWindowX);
-    Ini.WriteInteger(SEC_WINDOW, 'Y', FWindowY);
-    Ini.WriteInteger(SEC_WINDOW, 'Width', FWindowWidth);
-    Ini.WriteInteger(SEC_WINDOW, 'Height', FWindowHeight);
-
-    // Connection
-    Ini.WriteInteger(SEC_CONNECTION, 'Timeout', FConnectionTimeout);
-    Ini.WriteInteger(SEC_CONNECTION, 'RetryCount', FConnectionRetryCount);
-
-    // Tray
-    Ini.WriteBool(SEC_TRAY, 'MinimizeToTray', FMinimizeToTray);
-    Ini.WriteBool(SEC_TRAY, 'CloseToTray', FCloseToTray);
-
-    // Notifications
-    Ini.WriteInteger(SEC_NOTIFICATIONS, 'OnConnect', Ord(FNotifyOnConnect));
-    Ini.WriteInteger(SEC_NOTIFICATIONS, 'OnDisconnect', Ord(FNotifyOnDisconnect));
-    Ini.WriteInteger(SEC_NOTIFICATIONS, 'OnConnectFailed', Ord(FNotifyOnConnectFailed));
-    Ini.WriteInteger(SEC_NOTIFICATIONS, 'OnAutoConnect', Ord(FNotifyOnAutoConnect));
-
-    // Menu behavior
-    Ini.WriteBool(SEC_GENERAL, 'MenuHideOnFocusLoss', FMenuHideOnFocusLoss);
-
-    // Autostart
-    Ini.WriteInteger(SEC_AUTOSTART, 'Mode', Ord(FAutostartMode));
+    // [Device] - global defaults
+    Ini.WriteInteger(SEC_DEVICE, 'ConnectionTimeout', FConnectionTimeout);
+    Ini.WriteInteger(SEC_DEVICE, 'ConnectionRetryCount', FConnectionRetryCount);
+    Ini.WriteInteger(SEC_DEVICE, 'NotifyOnConnect', Ord(FNotifyOnConnect));
+    Ini.WriteInteger(SEC_DEVICE, 'NotifyOnDisconnect', Ord(FNotifyOnDisconnect));
+    Ini.WriteInteger(SEC_DEVICE, 'NotifyOnConnectFailed', Ord(FNotifyOnConnectFailed));
+    Ini.WriteInteger(SEC_DEVICE, 'NotifyOnAutoConnect', Ord(FNotifyOnAutoConnect));
 
     // Device-specific settings
     SaveDevices(Ini);
@@ -629,7 +650,7 @@ var
   Pair: TPair<UInt64, TDeviceConfig>;
   SectionName: string;
 begin
-  // First, remove all existing device sections
+  // First, remove all existing device sections (except [Device] itself)
   Sections := TStringList.Create;
   try
     AIni.ReadSections(Sections);
@@ -695,17 +716,6 @@ end;
 
 // Property setters with modification tracking
 
-procedure TAppConfig.SetLoggingEnabled(AValue: Boolean);
-begin
-  if FLoggingEnabled <> AValue then
-  begin
-    FLoggingEnabled := AValue;
-    FModified := True;
-    // Apply to logger immediately
-    App.Logger.SetLoggingEnabled(AValue);
-  end;
-end;
-
 procedure TAppConfig.SetWindowMode(AValue: TWindowMode);
 begin
   if FWindowMode <> AValue then
@@ -715,20 +725,49 @@ begin
   end;
 end;
 
-procedure TAppConfig.SetMenuPosition(AValue: TMenuPosition);
+procedure TAppConfig.SetOnTop(AValue: Boolean);
 begin
-  if FMenuPosition <> AValue then
+  if FOnTop <> AValue then
   begin
-    FMenuPosition := AValue;
+    FOnTop := AValue;
     FModified := True;
   end;
 end;
 
-procedure TAppConfig.SetStayOnTop(AValue: Boolean);
+procedure TAppConfig.SetAutostart(AValue: Boolean);
 begin
-  if FStayOnTop <> AValue then
+  if FAutostart <> AValue then
   begin
-    FStayOnTop := AValue;
+    FAutostart := AValue;
+    FModified := True;
+    // Apply to registry immediately
+    TAutostartManager.Apply(AValue);
+  end;
+end;
+
+procedure TAppConfig.SetMinimizeToTray(AValue: Boolean);
+begin
+  if FMinimizeToTray <> AValue then
+  begin
+    FMinimizeToTray := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetCloseToTray(AValue: Boolean);
+begin
+  if FCloseToTray <> AValue then
+  begin
+    FCloseToTray := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetMenuHideOnFocusLoss(AValue: Boolean);
+begin
+  if FMenuHideOnFocusLoss <> AValue then
+  begin
+    FMenuHideOnFocusLoss := AValue;
     FModified := True;
   end;
 end;
@@ -751,11 +790,56 @@ begin
   end;
 end;
 
-procedure TAppConfig.SetPollingEnabled(AValue: Boolean);
+procedure TAppConfig.SetPositionMode(AValue: TPositionMode);
 begin
-  if FPollingEnabled <> AValue then
+  if FPositionMode <> AValue then
   begin
-    FPollingEnabled := AValue;
+    FPositionMode := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetPositionX(AValue: Integer);
+begin
+  if FPositionX <> AValue then
+  begin
+    FPositionX := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetPositionY(AValue: Integer);
+begin
+  if FPositionY <> AValue then
+  begin
+    FPositionY := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetPositionW(AValue: Integer);
+begin
+  if FPositionW <> AValue then
+  begin
+    FPositionW := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetPositionH(AValue: Integer);
+begin
+  if FPositionH <> AValue then
+  begin
+    FPositionH := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetPollingMode(AValue: TPollingMode);
+begin
+  if FPollingMode <> AValue then
+  begin
+    FPollingMode := AValue;
     FModified := True;
   end;
 end;
@@ -769,11 +853,31 @@ begin
   end;
 end;
 
-procedure TAppConfig.SetPollingAsPrimary(AValue: Boolean);
+procedure TAppConfig.SetLogEnabled(AValue: Boolean);
 begin
-  if FPollingAsPrimary <> AValue then
+  if FLogEnabled <> AValue then
   begin
-    FPollingAsPrimary := AValue;
+    FLogEnabled := AValue;
+    FModified := True;
+    // Apply to logger immediately
+    App.Logger.SetLoggingEnabled(AValue, FLogFilename, FLogAppend);
+  end;
+end;
+
+procedure TAppConfig.SetLogFilename(const AValue: string);
+begin
+  if FLogFilename <> AValue then
+  begin
+    FLogFilename := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetLogAppend(AValue: Boolean);
+begin
+  if FLogAppend <> AValue then
+  begin
+    FLogAppend := AValue;
     FModified := True;
   end;
 end;
@@ -805,42 +909,6 @@ begin
   end;
 end;
 
-procedure TAppConfig.SetWindowX(AValue: Integer);
-begin
-  if FWindowX <> AValue then
-  begin
-    FWindowX := AValue;
-    FModified := True;
-  end;
-end;
-
-procedure TAppConfig.SetWindowY(AValue: Integer);
-begin
-  if FWindowY <> AValue then
-  begin
-    FWindowY := AValue;
-    FModified := True;
-  end;
-end;
-
-procedure TAppConfig.SetWindowWidth(AValue: Integer);
-begin
-  if FWindowWidth <> AValue then
-  begin
-    FWindowWidth := AValue;
-    FModified := True;
-  end;
-end;
-
-procedure TAppConfig.SetWindowHeight(AValue: Integer);
-begin
-  if FWindowHeight <> AValue then
-  begin
-    FWindowHeight := AValue;
-    FModified := True;
-  end;
-end;
-
 procedure TAppConfig.SetConnectionTimeout(AValue: Integer);
 begin
   if FConnectionTimeout <> AValue then
@@ -855,24 +923,6 @@ begin
   if FConnectionRetryCount <> AValue then
   begin
     FConnectionRetryCount := AValue;
-    FModified := True;
-  end;
-end;
-
-procedure TAppConfig.SetMinimizeToTray(AValue: Boolean);
-begin
-  if FMinimizeToTray <> AValue then
-  begin
-    FMinimizeToTray := AValue;
-    FModified := True;
-  end;
-end;
-
-procedure TAppConfig.SetCloseToTray(AValue: Boolean);
-begin
-  if FCloseToTray <> AValue then
-  begin
-    FCloseToTray := AValue;
     FModified := True;
   end;
 end;
@@ -909,15 +959,6 @@ begin
   if FNotifyOnAutoConnect <> AValue then
   begin
     FNotifyOnAutoConnect := AValue;
-    FModified := True;
-  end;
-end;
-
-procedure TAppConfig.SetMenuHideOnFocusLoss(AValue: Boolean);
-begin
-  if FMenuHideOnFocusLoss <> AValue then
-  begin
-    FMenuHideOnFocusLoss := AValue;
     FModified := True;
   end;
 end;
@@ -960,15 +1001,26 @@ begin
   end;
 end;
 
-procedure TAppConfig.SetAutostartMode(AValue: TAutostartMode);
+function TAppConfig.GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
+var
+  DeviceConfig: TDeviceConfig;
 begin
-  if FAutostartMode <> AValue then
-  begin
-    FAutostartMode := AValue;
-    FModified := True;
-    // Apply to registry immediately
-    TAutostartManager.Apply(AValue = amRegistry);
-  end;
+  DeviceConfig := GetDeviceConfig(AAddress);
+  if DeviceConfig.ConnectionTimeout >= 0 then
+    Result := DeviceConfig.ConnectionTimeout
+  else
+    Result := FConnectionTimeout;
+end;
+
+function TAppConfig.GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
+var
+  DeviceConfig: TDeviceConfig;
+begin
+  DeviceConfig := GetDeviceConfig(AAddress);
+  if DeviceConfig.ConnectionRetryCount >= 0 then
+    Result := DeviceConfig.ConnectionRetryCount
+  else
+    Result := FConnectionRetryCount;
 end;
 
 initialization

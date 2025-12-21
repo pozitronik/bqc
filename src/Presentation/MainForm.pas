@@ -62,7 +62,9 @@ type
     procedure ApplyConfiguredTheme;
     procedure ApplyWindowMode;
     procedure ApplyMenuModeTaskbarHide;
-    procedure PositionMenuPopup;
+    procedure ApplyWindowPosition;
+    procedure ApplyWindowSize;
+    procedure CalculateAutoSize(out AWidth, AHeight: Integer);
 
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
@@ -129,35 +131,30 @@ begin
   // Apply window mode (must be done early before window handle is created)
   ApplyWindowMode;
 
-  // Restore window position/size from configuration
+  // Apply window size first (may be auto-calculated)
+  ApplyWindowSize;
+
+  // Apply window position (depends on size being set)
   if Config.WindowMode = wmMenu then
   begin
+    // Menu mode: start hidden off-screen, position will be set on show
     Position := poDesigned;
     Left := -10000;
     Top := -10000;
     Log('[MainForm] FormCreate: Menu mode, position will be set on show');
   end
-  else if (Config.WindowX >= 0) and (Config.WindowY >= 0) then
+  else
   begin
+    // Window mode: apply position based on PositionMode
     Position := poDesigned;
-    Left := Config.WindowX;
-    Top := Config.WindowY;
-    Log('[MainForm] FormCreate: Restored position X=%d, Y=%d', [Left, Top]);
+    ApplyWindowPosition;
   end;
 
-  // Restore window size (only in Window mode)
-  if (Config.WindowMode = wmWindow) and (Config.WindowWidth > 0) and (Config.WindowHeight > 0) then
-  begin
-    Width := Config.WindowWidth;
-    Height := Config.WindowHeight;
-    Log('[MainForm] FormCreate: Restored size W=%d, H=%d', [Width, Height]);
-  end;
-
-  // Apply StayOnTop setting
-  if Config.StayOnTop or (Config.WindowMode = wmMenu) then
+  // Apply OnTop setting
+  if Config.OnTop or (Config.WindowMode = wmMenu) then
   begin
     FormStyle := fsStayOnTop;
-    Log('[MainForm] FormCreate: StayOnTop enabled');
+    Log('[MainForm] FormCreate: OnTop enabled');
   end;
 
   // Load external VCL styles
@@ -209,14 +206,15 @@ end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
-  // Save window position (only in Window mode)
-  if (Config.WindowMode = wmWindow) and (WindowState = wsNormal) then
+  // Save window position and size (always save, applies when PositionMode=0)
+  if WindowState = wsNormal then
   begin
-    Config.WindowX := Left;
-    Config.WindowY := Top;
-    Config.WindowWidth := Width;
-    Config.WindowHeight := Height;
-    Log('[MainForm] FormDestroy: Saved position');
+    Config.PositionX := Left;
+    Config.PositionY := Top;
+    Config.PositionW := Width;
+    Config.PositionH := Height;
+    Log('[MainForm] FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d',
+      [Left, Top, Width, Height]);
   end;
 
   // Shutdown presenter
@@ -319,9 +317,61 @@ begin
   end;
 end;
 
-procedure TFormMain.PositionMenuPopup;
+procedure TFormMain.ApplyWindowPosition;
 begin
-  TWindowPositioner.PositionMenuPopup(Self, Config.MenuPosition);
+  TWindowPositioner.PositionWindow(Self, Config.PositionMode);
+end;
+
+procedure TFormMain.ApplyWindowSize;
+var
+  NewWidth, NewHeight: Integer;
+begin
+  // Check if auto-sizing is requested (-1 means auto)
+  if (Config.PositionW < 0) or (Config.PositionH < 0) then
+  begin
+    CalculateAutoSize(NewWidth, NewHeight);
+    if Config.PositionW < 0 then
+      Width := NewWidth
+    else
+      Width := Config.PositionW;
+    if Config.PositionH < 0 then
+      Height := NewHeight
+    else
+      Height := Config.PositionH;
+    Log('[MainForm] ApplyWindowSize: Auto-calculated W=%d, H=%d', [Width, Height]);
+  end
+  else if (Config.PositionW > 0) and (Config.PositionH > 0) then
+  begin
+    Width := Config.PositionW;
+    Height := Config.PositionH;
+    Log('[MainForm] ApplyWindowSize: Restored W=%d, H=%d', [Width, Height]);
+  end;
+  // else: use default form dimensions from DFM
+end;
+
+procedure TFormMain.CalculateAutoSize(out AWidth, AHeight: Integer);
+const
+  // Size constraints
+  MIN_WIDTH = 280;
+  MAX_WIDTH = 500;
+  MIN_HEIGHT = 200;
+  MAX_HEIGHT = 600;
+  // Default sizes for initial calculation
+  DEFAULT_WIDTH = 320;
+  DEFAULT_HEIGHT = 400;
+begin
+  // For now, use reasonable defaults
+  // TODO: Could calculate based on actual device count and content
+  AWidth := DEFAULT_WIDTH;
+  AHeight := DEFAULT_HEIGHT;
+
+  // Apply constraints
+  if AWidth < MIN_WIDTH then AWidth := MIN_WIDTH;
+  if AWidth > MAX_WIDTH then AWidth := MAX_WIDTH;
+  if AHeight < MIN_HEIGHT then AHeight := MIN_HEIGHT;
+  if AHeight > MAX_HEIGHT then AHeight := MAX_HEIGHT;
+
+  Log('[MainForm] CalculateAutoSize: Calculated W=%d, H=%d', [AWidth, AHeight]);
 end;
 
 { Event handlers }
@@ -499,8 +549,11 @@ procedure TFormMain.ShowView;
 begin
   Log('[MainForm] ShowView');
 
-  if Config.WindowMode = wmMenu then
-    PositionMenuPopup;
+  // Position window based on PositionMode
+  // In Menu mode or for modes 1-3 (tray/cursor/center), always reposition
+  // In Window mode with mode 0 (coordinates), use saved position
+  if (Config.WindowMode = wmMenu) or (Config.PositionMode <> pmCoordinates) then
+    ApplyWindowPosition;
 
   Show;
   WindowState := wsNormal;
@@ -546,8 +599,8 @@ begin
 
   if (Config.WindowMode = wmMenu) and Visible then
   begin
-    Log('[MainForm] WMDpiChanged: Repositioning popup');
-    PositionMenuPopup;
+    Log('[MainForm] WMDpiChanged: Repositioning window');
+    ApplyWindowPosition;
   end;
 end;
 

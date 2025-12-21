@@ -7,6 +7,7 @@ uses
   Winapi.Messages,
   System.SysUtils,
   System.Classes,
+  System.UITypes,
   Vcl.Graphics,
   Vcl.Controls,
   Vcl.Forms,

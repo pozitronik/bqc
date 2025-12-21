@@ -65,8 +65,8 @@ object FormSettings: TFormSettings
     object LabelPlaceholder: TLabel
       Left = 0
       Top = 0
-      Width = 500
-      Height = 359
+      Width = 243
+      Height = 21
       Align = alClient
       Alignment = taCenter
       Caption = 'Settings content will be added here'

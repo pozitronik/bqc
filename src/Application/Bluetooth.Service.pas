@@ -136,17 +136,25 @@ begin
   FPollingTimerID := 0;
 
   // Choose monitoring method based on configuration
-  if Config.PollingAsPrimary then
-  begin
-    // Use polling as primary method
-    Log('[Service] Create: Using polling as primary (interval=%d ms)', [Config.PollingInterval]);
-    StartPollingFallback;
-  end
-  else
-  begin
-    // Use device watcher as primary (default)
-    Log('[Service] Create: Using device watcher as primary');
-    StartDeviceWatcher;
+  case Config.PollingMode of
+    pmDisabled:
+      begin
+        // Use device watcher only, no polling fallback
+        Log('[Service] Create: Using device watcher only (polling disabled)');
+        StartDeviceWatcher;
+      end;
+    pmFallback:
+      begin
+        // Use device watcher with polling as fallback
+        Log('[Service] Create: Using device watcher with polling fallback');
+        StartDeviceWatcher;
+      end;
+    pmPrimary:
+      begin
+        // Use polling as primary method
+        Log('[Service] Create: Using polling as primary (interval=%d ms)', [Config.PollingInterval]);
+        StartPollingFallback;
+      end;
   end;
 end;
 
@@ -512,8 +520,8 @@ begin
     FDeviceWatcher.Free;
     FDeviceWatcher := nil;
 
-    // Fall back to polling if enabled in configuration
-    if Config.PollingEnabled then
+    // Fall back to polling if enabled in configuration (Fallback or Primary mode)
+    if Config.PollingMode <> pmDisabled then
     begin
       Log('[Service] StartDeviceWatcher: Falling back to polling (interval=%d ms)', [Config.PollingInterval]);
       StartPollingFallback;
