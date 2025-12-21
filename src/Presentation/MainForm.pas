@@ -20,10 +20,11 @@ uses
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
   UI.Theme,
-  UI.DeviceList;
+  UI.DeviceList,
+  UI.TrayManager,
+  UI.HotkeyManager;
 
 const
-  WM_HOTKEY_DETECTED = WM_USER + 100;
   WM_DPICHANGED = $02E0;
 
 type
@@ -54,18 +55,12 @@ type
     FRadioWatcher: TBluetoothRadioWatcher;
     FUpdatingToggle: Boolean;
     FDelayedLoadTimer: TTimer;
-    FTrayIcon: TTrayIcon;
-    FTrayMenu: TPopupMenu;
+    FTrayManager: TTrayManager;
+    FHotkeyManager: THotkeyManager;
     FForceClose: Boolean;
-    FHotkeyRegistered: Boolean;
-    FHotkeyId: Integer;
-    FUsingLowLevelHook: Boolean;
 
     procedure CreateDeviceList;
-    procedure CreateTrayIcon;
-    procedure RegisterGlobalHotkey;
-    procedure UnregisterGlobalHotkey;
-    function ParseHotkeyString(const AHotkey: string; out AModifiers: Cardinal; out AVirtualKey: Cardinal): Boolean;
+    procedure HandleHotkeyTriggered(Sender: TObject);
     procedure SetToggleState(AState: TToggleSwitchState);
     procedure ApplyTheme;
     procedure ApplyConfiguredTheme;
@@ -78,7 +73,6 @@ type
     procedure PositionMenuPopup;
     procedure ApplyWindowMode;
     procedure ApplyMenuModeTaskbarHide;
-    procedure ShowBalloonNotification(const ATitle, AMessage: string; AFlags: TBalloonFlags);
 
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
@@ -88,9 +82,8 @@ type
     procedure HandleThemeChanged(Sender: TObject);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
     procedure HandleDelayedLoadTimer(Sender: TObject);
-    procedure HandleTrayIconClick(Sender: TObject);
-    procedure HandleTrayMenuShowClick(Sender: TObject);
-    procedure HandleTrayMenuExitClick(Sender: TObject);
+    procedure HandleTrayToggleVisibility(Sender: TObject);
+    procedure HandleTrayExitRequest(Sender: TObject);
     procedure HandleApplicationDeactivate(Sender: TObject);
 
   protected
@@ -113,88 +106,10 @@ uses
   ShellAPI,
   Bluetooth.Service,
   App.Logger,
-  App.Config;
+  App.Config,
+  UI.WindowPositioner;
 
 {$R *.dfm}
-
-const
-  // Low-level keyboard hook constants
-  WH_KEYBOARD_LL = 13;
-  LLKHF_UP = $80;
-
-type
-  PKBDLLHOOKSTRUCT = ^TKBDLLHOOKSTRUCT;
-  TKBDLLHOOKSTRUCT = record
-    vkCode: DWORD;
-    scanCode: DWORD;
-    flags: DWORD;
-    time: DWORD;
-    dwExtraInfo: ULONG_PTR;
-  end;
-
-var
-  // Global state for low-level keyboard hook
-  GKeyboardHook: HHOOK = 0;
-  GHotkeyModifiers: Cardinal = 0;
-  GHotkeyVirtualKey: Cardinal = 0;
-  GHotkeyFormHandle: HWND = 0;
-  GCurrentModifiers: Cardinal = 0;
-
-function LowLevelKeyboardProc(nCode: Integer; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
-var
-  KbdStruct: PKBDLLHOOKSTRUCT;
-  VK: Cardinal;
-  IsKeyDown: Boolean;
-begin
-  if nCode < 0 then
-  begin
-    Result := CallNextHookEx(GKeyboardHook, nCode, wParam, lParam);
-    Exit;
-  end;
-
-  KbdStruct := PKBDLLHOOKSTRUCT(lParam);
-  VK := KbdStruct^.vkCode;
-  IsKeyDown := (KbdStruct^.flags and LLKHF_UP) = 0;
-
-  // Track modifier key states
-  case VK of
-    VK_LWIN, VK_RWIN:
-      if IsKeyDown then
-        GCurrentModifiers := GCurrentModifiers or MOD_WIN
-      else
-        GCurrentModifiers := GCurrentModifiers and (not MOD_WIN);
-    VK_LCONTROL, VK_RCONTROL:
-      if IsKeyDown then
-        GCurrentModifiers := GCurrentModifiers or MOD_CONTROL
-      else
-        GCurrentModifiers := GCurrentModifiers and (not MOD_CONTROL);
-    VK_LMENU, VK_RMENU:
-      if IsKeyDown then
-        GCurrentModifiers := GCurrentModifiers or MOD_ALT
-      else
-        GCurrentModifiers := GCurrentModifiers and (not MOD_ALT);
-    VK_LSHIFT, VK_RSHIFT:
-      if IsKeyDown then
-        GCurrentModifiers := GCurrentModifiers or MOD_SHIFT
-      else
-        GCurrentModifiers := GCurrentModifiers and (not MOD_SHIFT);
-  end;
-
-  // Check if our hotkey is triggered (on key down, not modifiers themselves)
-  if IsKeyDown and (GHotkeyVirtualKey <> 0) then
-  begin
-    // Check if this is the main key (not a modifier) and modifiers match
-    if (VK = GHotkeyVirtualKey) and (GCurrentModifiers = GHotkeyModifiers) then
-    begin
-      // Post message to form and consume the key
-      PostMessage(GHotkeyFormHandle, WM_HOTKEY_DETECTED, 0, 0);
-      Result := 1;  // Consume the key, don't pass to system
-      Exit;
-    end;
-  end;
-
-  Result := CallNextHookEx(GKeyboardHook, nCode, wParam, lParam);
-end;
 
 { TFormMain }
 
@@ -208,9 +123,6 @@ begin
   Log('[MainForm] FormCreate: Starting');
 
   FForceClose := False;
-  FHotkeyRegistered := False;
-  FHotkeyId := GlobalAddAtom('BQC_GlobalHotkey');
-  FUsingLowLevelHook := False;
 
   // Apply window mode (must be done early before window handle is created)
   ApplyWindowMode;
@@ -280,8 +192,10 @@ begin
   // Create custom device list control
   CreateDeviceList;
 
-  // Create tray icon
-  CreateTrayIcon;
+  // Create tray manager
+  FTrayManager := TTrayManager.Create(Self);
+  FTrayManager.OnToggleVisibility := HandleTrayToggleVisibility;
+  FTrayManager.OnExitRequest := HandleTrayExitRequest;
 
   // Apply configuration settings to device list
   FDeviceList.ShowAddresses := Config.ShowAddresses;
@@ -331,8 +245,10 @@ begin
     UpdateStatus('No Bluetooth adapter found');
   end;
 
-  // Register global hotkey if configured
-  RegisterGlobalHotkey;
+  // Create and register global hotkey if configured
+  FHotkeyManager := THotkeyManager.Create;
+  FHotkeyManager.OnHotkeyTriggered := HandleHotkeyTriggered;
+  FHotkeyManager.Register(Handle, Config.Hotkey, Config.UseLowLevelHook);
 
   // Hide from taskbar in Menu mode (must be after handle is created)
   ApplyMenuModeTaskbarHide;
@@ -362,10 +278,8 @@ begin
     Log('[MainForm] FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d', [Left, Top, Width, Height]);
   end;
 
-  // Unregister global hotkey
-  UnregisterGlobalHotkey;
-  if FHotkeyId <> 0 then
-    GlobalDeleteAtom(FHotkeyId);
+  // Free hotkey manager (unregisters hotkey automatically)
+  FHotkeyManager.Free;
 
   Theme.OnThemeChanged := nil;
   Application.OnDeactivate := nil;
@@ -402,268 +316,25 @@ begin
   FDeviceList.TabOrder := 0;
 end;
 
-procedure TFormMain.CreateTrayIcon;
-var
-  MenuItem: TMenuItem;
+procedure TFormMain.HandleHotkeyTriggered(Sender: TObject);
 begin
-  // Create popup menu for tray icon
-  FTrayMenu := TPopupMenu.Create(Self);
-
-  // Show/Hide menu item
-  MenuItem := TMenuItem.Create(FTrayMenu);
-  MenuItem.Caption := 'Show';
-  MenuItem.OnClick := HandleTrayMenuShowClick;
-  MenuItem.Default := True;
-  FTrayMenu.Items.Add(MenuItem);
-
-  // Separator
-  MenuItem := TMenuItem.Create(FTrayMenu);
-  MenuItem.Caption := '-';
-  FTrayMenu.Items.Add(MenuItem);
-
-  // Exit menu item
-  MenuItem := TMenuItem.Create(FTrayMenu);
-  MenuItem.Caption := 'Exit';
-  MenuItem.OnClick := HandleTrayMenuExitClick;
-  FTrayMenu.Items.Add(MenuItem);
-
-  // Create tray icon
-  FTrayIcon := TTrayIcon.Create(Self);
-  FTrayIcon.Hint := 'Bluetooth Quick Connect';
-  FTrayIcon.PopupMenu := FTrayMenu;
-  FTrayIcon.OnClick := HandleTrayIconClick;
-
-  // Use application icon
-  FTrayIcon.Icon.Assign(Application.Icon);
-
-  // Tray icon is always visible
-  FTrayIcon.Visible := True;
-
-  Log('[MainForm] CreateTrayIcon: Tray icon created');
-end;
-
-function TFormMain.ParseHotkeyString(const AHotkey: string;
-  out AModifiers: Cardinal; out AVirtualKey: Cardinal): Boolean;
-var
-  Parts: TArray<string>;
-  Part: string;
-  KeyPart: string;
-  I: Integer;
-begin
-  Result := False;
-  AModifiers := 0;
-  AVirtualKey := 0;
-
-  if Trim(AHotkey) = '' then
-    Exit;
-
-  // Split by '+' and process each part
-  Parts := AHotkey.Split(['+']);
-  if Length(Parts) = 0 then
-    Exit;
-
-  // Last part is the key, rest are modifiers
-  KeyPart := Trim(Parts[High(Parts)]).ToUpper;
-
-  // Process modifiers
-  for I := 0 to High(Parts) - 1 do
-  begin
-    Part := Trim(Parts[I]).ToUpper;
-    if (Part = 'CTRL') or (Part = 'CONTROL') then
-      AModifiers := AModifiers or MOD_CONTROL
-    else if Part = 'ALT' then
-      AModifiers := AModifiers or MOD_ALT
-    else if Part = 'SHIFT' then
-      AModifiers := AModifiers or MOD_SHIFT
-    else if (Part = 'WIN') or (Part = 'WINDOWS') then
-      AModifiers := AModifiers or MOD_WIN
-    else
-    begin
-      Log('[MainForm] ParseHotkeyString: Unknown modifier "%s"', [Part]);
-      Exit;
-    end;
-  end;
-
-  // Parse the key
-  if Length(KeyPart) = 1 then
-  begin
-    // Single character: A-Z or 0-9
-    if (KeyPart[1] >= 'A') and (KeyPart[1] <= 'Z') then
-      AVirtualKey := Ord(KeyPart[1])
-    else if (KeyPart[1] >= '0') and (KeyPart[1] <= '9') then
-      AVirtualKey := Ord(KeyPart[1])
-    else
-    begin
-      Log('[MainForm] ParseHotkeyString: Unknown key "%s"', [KeyPart]);
-      Exit;
-    end;
-  end
-  else if KeyPart.StartsWith('F') and (Length(KeyPart) <= 3) then
-  begin
-    // Function keys F1-F12
-    I := StrToIntDef(KeyPart.Substring(1), 0);
-    if (I >= 1) and (I <= 12) then
-      AVirtualKey := VK_F1 + I - 1
-    else
-    begin
-      Log('[MainForm] ParseHotkeyString: Unknown function key "%s"', [KeyPart]);
-      Exit;
-    end;
-  end
-  else if KeyPart = 'SPACE' then
-    AVirtualKey := VK_SPACE
-  else if KeyPart = 'ENTER' then
-    AVirtualKey := VK_RETURN
-  else if KeyPart = 'TAB' then
-    AVirtualKey := VK_TAB
-  else if KeyPart = 'ESCAPE' then
-    AVirtualKey := VK_ESCAPE
-  else if KeyPart = 'BACKSPACE' then
-    AVirtualKey := VK_BACK
-  else if KeyPart = 'DELETE' then
-    AVirtualKey := VK_DELETE
-  else if KeyPart = 'INSERT' then
-    AVirtualKey := VK_INSERT
-  else if KeyPart = 'HOME' then
-    AVirtualKey := VK_HOME
-  else if KeyPart = 'END' then
-    AVirtualKey := VK_END
-  else if KeyPart = 'PAGEUP' then
-    AVirtualKey := VK_PRIOR
-  else if KeyPart = 'PAGEDOWN' then
-    AVirtualKey := VK_NEXT
-  else if KeyPart = 'UP' then
-    AVirtualKey := VK_UP
-  else if KeyPart = 'DOWN' then
-    AVirtualKey := VK_DOWN
-  else if KeyPart = 'LEFT' then
-    AVirtualKey := VK_LEFT
-  else if KeyPart = 'RIGHT' then
-    AVirtualKey := VK_RIGHT
-  else
-  begin
-    Log('[MainForm] ParseHotkeyString: Unknown key "%s"', [KeyPart]);
-    Exit;
-  end;
-
-  // Need at least one modifier for global hotkeys
-  if AModifiers = 0 then
-  begin
-    Log('[MainForm] ParseHotkeyString: No modifiers specified');
-    Exit;
-  end;
-
-  Result := True;
-  Log('[MainForm] ParseHotkeyString: Parsed "%s" -> Modifiers=$%X, VK=$%X', [AHotkey, AModifiers, AVirtualKey]);
-end;
-
-procedure TFormMain.RegisterGlobalHotkey;
-var
-  Modifiers, VirtualKey: Cardinal;
-begin
-  if FHotkeyRegistered then
-    UnregisterGlobalHotkey;
-
-  if Trim(Config.Hotkey) = '' then
-  begin
-    Log('[MainForm] RegisterGlobalHotkey: No hotkey configured');
-    Exit;
-  end;
-
-  if not ParseHotkeyString(Config.Hotkey, Modifiers, VirtualKey) then
-  begin
-    Log('[MainForm] RegisterGlobalHotkey: Failed to parse hotkey "%s"', [Config.Hotkey]);
-    Exit;
-  end;
-
-  if Config.UseLowLevelHook then
-  begin
-    // Use low-level keyboard hook (can override system hotkeys)
-    GHotkeyModifiers := Modifiers;
-    GHotkeyVirtualKey := VirtualKey;
-    GHotkeyFormHandle := Handle;
-    GCurrentModifiers := 0;
-
-    GKeyboardHook := SetWindowsHookEx(WH_KEYBOARD_LL, @LowLevelKeyboardProc, HInstance, 0);
-    if GKeyboardHook <> 0 then
-    begin
-      FHotkeyRegistered := True;
-      FUsingLowLevelHook := True;
-      Log('[MainForm] RegisterGlobalHotkey: Installed low-level hook for "%s"', [Config.Hotkey]);
-    end
-    else
-    begin
-      Log('[MainForm] RegisterGlobalHotkey: Failed to install low-level hook (Error=%d)', [GetLastError]);
-    end;
-  end
-  else
-  begin
-    // Use standard RegisterHotKey (fallback, cannot override system hotkeys)
-    // Add MOD_NOREPEAT to prevent repeated triggers when holding key
-    if RegisterHotKey(Handle, FHotkeyId, Modifiers or MOD_NOREPEAT, VirtualKey) then
-    begin
-      FHotkeyRegistered := True;
-      FUsingLowLevelHook := False;
-      Log('[MainForm] RegisterGlobalHotkey: Registered hotkey "%s" (RegisterHotKey)', [Config.Hotkey]);
-    end
-    else
-    begin
-      Log('[MainForm] RegisterGlobalHotkey: Failed to register hotkey "%s" (Error=%d)', [Config.Hotkey, GetLastError]);
-    end;
-  end;
-end;
-
-procedure TFormMain.UnregisterGlobalHotkey;
-begin
-  if FHotkeyRegistered then
-  begin
-    if FUsingLowLevelHook then
-    begin
-      // Uninstall low-level hook
-      if GKeyboardHook <> 0 then
-      begin
-        UnhookWindowsHookEx(GKeyboardHook);
-        GKeyboardHook := 0;
-        GHotkeyModifiers := 0;
-        GHotkeyVirtualKey := 0;
-        GHotkeyFormHandle := 0;
-        Log('[MainForm] UnregisterGlobalHotkey: Uninstalled low-level hook');
-      end;
-    end
-    else
-    begin
-      // Unregister standard hotkey
-      UnregisterHotKey(Handle, FHotkeyId);
-      Log('[MainForm] UnregisterGlobalHotkey: Unregistered hotkey (RegisterHotKey)');
-    end;
-    FHotkeyRegistered := False;
-    FUsingLowLevelHook := False;
-  end;
-end;
-
-procedure TFormMain.WMHotkey(var Msg: TMessage);
-begin
-  // Handler for RegisterHotKey method
-  if Msg.WParam = Cardinal(FHotkeyId) then
-  begin
-    Log('[MainForm] WMHotkey: Global hotkey triggered (RegisterHotKey)');
-    // Toggle visibility (same as tray icon click)
-    if Visible and (WindowState <> wsMinimized) then
-      HideToTray
-    else
-      ShowFromTray;
-  end;
-end;
-
-procedure TFormMain.WMHotkeyDetected(var Msg: TMessage);
-begin
-  // Handler for low-level keyboard hook method
-  Log('[MainForm] WMHotkeyDetected: Global hotkey triggered (low-level hook)');
-  // Toggle visibility (same as tray icon click)
+  // Toggle visibility when global hotkey is triggered
   if Visible and (WindowState <> wsMinimized) then
     HideToTray
   else
     ShowFromTray;
+end;
+
+procedure TFormMain.WMHotkey(var Msg: TMessage);
+begin
+  // Delegate to hotkey manager
+  FHotkeyManager.HandleWMHotkey(Msg.WParam);
+end;
+
+procedure TFormMain.WMHotkeyDetected(var Msg: TMessage);
+begin
+  // Delegate to hotkey manager
+  FHotkeyManager.HandleHotkeyDetected;
 end;
 
 procedure TFormMain.WMDpiChanged(var Msg: TMessage);
@@ -1003,19 +674,19 @@ begin
           begin
             NotifyMode := Config.GetEffectiveNotification(LDevice.AddressInt, 'Connect');
             if NotifyMode = nmBalloon then
-              ShowBalloonNotification(DeviceName, 'Connected', bfInfo);
+              FTrayManager.ShowNotification(DeviceName, 'Connected', bfInfo);
           end;
         csDisconnected:
           begin
             NotifyMode := Config.GetEffectiveNotification(LDevice.AddressInt, 'Disconnect');
             if NotifyMode = nmBalloon then
-              ShowBalloonNotification(DeviceName, 'Disconnected', bfInfo);
+              FTrayManager.ShowNotification(DeviceName, 'Disconnected', bfInfo);
           end;
         csError:
           begin
             NotifyMode := Config.GetEffectiveNotification(LDevice.AddressInt, 'ConnectFailed');
             if NotifyMode = nmBalloon then
-              ShowBalloonNotification(DeviceName, 'Connection failed', bfError);
+              FTrayManager.ShowNotification(DeviceName, 'Connection failed', bfError);
           end;
       end;
     end
@@ -1189,8 +860,7 @@ begin
     SetFocus;
 
   // Update tray menu item caption
-  if FTrayMenu.Items.Count > 0 then
-    FTrayMenu.Items[0].Caption := 'Hide';
+  FTrayManager.UpdateMenuCaption(True);
 end;
 
 procedure TFormMain.HideToTray;
@@ -1199,21 +869,7 @@ begin
   Hide;
 
   // Update tray menu item caption
-  if FTrayMenu.Items.Count > 0 then
-    FTrayMenu.Items[0].Caption := 'Show';
-end;
-
-procedure TFormMain.ShowBalloonNotification(const ATitle, AMessage: string; AFlags: TBalloonFlags);
-begin
-  if FTrayIcon = nil then
-    Exit;
-
-  Log('[MainForm] ShowBalloonNotification: Title="%s", Message="%s"', [ATitle, AMessage]);
-
-  FTrayIcon.BalloonTitle := ATitle;
-  FTrayIcon.BalloonHint := AMessage;
-  FTrayIcon.BalloonFlags := AFlags;
-  FTrayIcon.ShowBalloonHint;
+  FTrayManager.UpdateMenuCaption(False);
 end;
 
 procedure TFormMain.ApplyWindowMode;
@@ -1253,146 +909,8 @@ begin
 end;
 
 procedure TFormMain.PositionMenuPopup;
-var
-  CursorPos: TPoint;
-  Mon: TMonitor;
-  WorkArea: TRect;
-  NewLeft, NewTop: Integer;
-  TrayWnd: HWND;
-  TrayRect: TRect;
-  TaskbarWidth, TaskbarHeight: Integer;
-  IsHorizontal: Boolean;
-  FormWidth, FormHeight: Integer;
 begin
-  // Ensure window handle exists so dimensions are accurate
-  if not HandleAllocated then
-    HandleNeeded;
-
-  // Use actual form dimensions
-  FormWidth := Width;
-  FormHeight := Height;
-
-  Log('[MainForm] PositionMenuPopup: Using FormWidth=%d, FormHeight=%d', [FormWidth, FormHeight]);
-
-  // Get cursor position and find which monitor it's on
-  GetCursorPos(CursorPos);
-  Mon := Screen.MonitorFromPoint(CursorPos);
-  if Mon <> nil then
-    WorkArea := Mon.WorkareaRect
-  else
-    WorkArea := Screen.WorkAreaRect;
-
-  case Config.MenuPosition of
-    mpNearCursor:
-      begin
-        // Position popup above the cursor, centered horizontally
-        NewLeft := CursorPos.X - (FormWidth div 2);
-        NewTop := CursorPos.Y - FormHeight - 10;
-        Log('[MainForm] PositionMenuPopup: Near cursor (%d, %d)', [CursorPos.X, CursorPos.Y]);
-      end;
-
-    mpNearTray:
-      begin
-        // Find the actual taskbar/tray position
-        TrayWnd := FindWindow('Shell_TrayWnd', nil);
-        if (TrayWnd <> 0) and GetWindowRect(TrayWnd, TrayRect) then
-        begin
-          TaskbarWidth := TrayRect.Right - TrayRect.Left;
-          TaskbarHeight := TrayRect.Bottom - TrayRect.Top;
-          IsHorizontal := TaskbarWidth > TaskbarHeight;
-
-          Log('[MainForm] PositionMenuPopup: Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
-            [TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom, BoolToStr(IsHorizontal, True)]);
-
-          // Get work area of monitor containing the taskbar
-          Mon := Screen.MonitorFromRect(TrayRect);
-          if Mon <> nil then
-            WorkArea := Mon.WorkareaRect;
-
-          if IsHorizontal then
-          begin
-            // Horizontal taskbar (top or bottom)
-            if TrayRect.Top < WorkArea.Top then
-            begin
-              // Taskbar at top - position popup below taskbar, near right edge
-              NewLeft := TrayRect.Right - FormWidth - 10;
-              NewTop := TrayRect.Bottom + 10;
-              Log('[MainForm] PositionMenuPopup: Taskbar at TOP');
-            end
-            else
-            begin
-              // Taskbar at bottom - position popup above taskbar, near right edge
-              NewLeft := TrayRect.Right - FormWidth - 10;
-              NewTop := TrayRect.Top - FormHeight - 10;
-              Log('[MainForm] PositionMenuPopup: Taskbar at BOTTOM');
-            end;
-          end
-          else
-          begin
-            // Vertical taskbar (left or right)
-            if TrayRect.Left < WorkArea.Left then
-            begin
-              // Taskbar at left - position popup to the right of taskbar, near bottom
-              NewLeft := TrayRect.Right + 10;
-              NewTop := TrayRect.Bottom - FormHeight - 10;
-              Log('[MainForm] PositionMenuPopup: Taskbar at LEFT');
-            end
-            else
-            begin
-              // Taskbar at right - position popup to the left of taskbar, near bottom
-              NewLeft := TrayRect.Left - FormWidth - 10;
-              NewTop := TrayRect.Bottom - FormHeight - 10;
-              Log('[MainForm] PositionMenuPopup: Taskbar at RIGHT');
-            end;
-          end;
-        end
-        else
-        begin
-          // Fallback: position at bottom-right of cursor's monitor work area
-          NewLeft := WorkArea.Right - FormWidth - 10;
-          NewTop := WorkArea.Bottom - FormHeight - 10;
-          Log('[MainForm] PositionMenuPopup: Near tray (fallback to bottom-right)');
-        end;
-      end;
-
-    mpCenterScreen:
-      begin
-        // Center on the monitor where cursor is
-        NewLeft := WorkArea.Left + (WorkArea.Width - FormWidth) div 2;
-        NewTop := WorkArea.Top + (WorkArea.Height - FormHeight) div 2;
-        Log('[MainForm] PositionMenuPopup: Center screen');
-      end;
-
-    mpSameAsWindow:
-      begin
-        // Use saved position (already applied in FormCreate)
-        NewLeft := Left;
-        NewTop := Top;
-        Log('[MainForm] PositionMenuPopup: Same as window');
-      end;
-  else
-    NewLeft := Left;
-    NewTop := Top;
-  end;
-
-  Log('[MainForm] PositionMenuPopup: Before bounds check: NewLeft=%d, NewTop=%d, WorkArea=(%d,%d,%d,%d)',
-    [NewLeft, NewTop, WorkArea.Left, WorkArea.Top, WorkArea.Right, WorkArea.Bottom]);
-
-  // Ensure popup stays within work area
-  if NewLeft < WorkArea.Left then
-    NewLeft := WorkArea.Left;
-  if NewLeft + FormWidth > WorkArea.Right then
-    NewLeft := WorkArea.Right - FormWidth;
-  if NewTop < WorkArea.Top then
-    NewTop := WorkArea.Top;
-  if NewTop + FormHeight > WorkArea.Bottom then
-    NewTop := WorkArea.Bottom - FormHeight;
-
-  Log('[MainForm] PositionMenuPopup: Final position: Left=%d, Top=%d (Bottom=%d)',
-    [NewLeft, NewTop, NewTop + FormHeight]);
-
-  Left := NewLeft;
-  Top := NewTop;
+  TWindowPositioner.PositionMenuPopup(Self, Config.MenuPosition);
 end;
 
 procedure TFormMain.FormDeactivate(Sender: TObject);
@@ -1417,7 +935,7 @@ begin
   end;
 end;
 
-procedure TFormMain.HandleTrayIconClick(Sender: TObject);
+procedure TFormMain.HandleTrayToggleVisibility(Sender: TObject);
 begin
   if Visible then
     HideToTray
@@ -1425,17 +943,9 @@ begin
     ShowFromTray;
 end;
 
-procedure TFormMain.HandleTrayMenuShowClick(Sender: TObject);
+procedure TFormMain.HandleTrayExitRequest(Sender: TObject);
 begin
-  if Visible then
-    HideToTray
-  else
-    ShowFromTray;
-end;
-
-procedure TFormMain.HandleTrayMenuExitClick(Sender: TObject);
-begin
-  Log('[MainForm] HandleTrayMenuExitClick: Forcing close');
+  Log('[MainForm] HandleTrayExitRequest: Forcing close');
   FForceClose := True;
   Close;
 end;

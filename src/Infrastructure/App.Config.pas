@@ -297,7 +297,8 @@ function Config: TAppConfig;
 implementation
 
 uses
-  App.Logger;
+  App.Logger,
+  App.Autostart;
 
 const
   // Section names
@@ -340,75 +341,8 @@ const
   DEF_MENU_HIDE_ON_FOCUS_LOSS = True;  // Menu hides when app loses focus (default)
   DEF_AUTOSTART_MODE = amNone;
 
-  // Registry autostart constants
-  REG_RUN_KEY = 'Software\Microsoft\Windows\CurrentVersion\Run';
-  REG_APP_NAME = 'BluetoothQuickConnect';
-
 var
   GConfig: TAppConfig = nil;
-
-/// <summary>
-/// Sets or removes the autostart registry entry.
-/// </summary>
-procedure ApplyAutostartRegistry(AEnable: Boolean);
-var
-  Reg: TRegistry;
-  ExePath: string;
-begin
-  Reg := TRegistry.Create(KEY_WRITE);
-  try
-    Reg.RootKey := HKEY_CURRENT_USER;
-    if Reg.OpenKey(REG_RUN_KEY, True) then
-    begin
-      try
-        if AEnable then
-        begin
-          ExePath := ParamStr(0);
-          Reg.WriteString(REG_APP_NAME, '"' + ExePath + '"');
-          Log('[Config] ApplyAutostartRegistry: Enabled autostart, path="%s"', [ExePath]);
-        end
-        else
-        begin
-          if Reg.ValueExists(REG_APP_NAME) then
-          begin
-            Reg.DeleteValue(REG_APP_NAME);
-            Log('[Config] ApplyAutostartRegistry: Disabled autostart');
-          end;
-        end;
-      finally
-        Reg.CloseKey;
-      end;
-    end
-    else
-      Log('[Config] ApplyAutostartRegistry: Failed to open registry key');
-  finally
-    Reg.Free;
-  end;
-end;
-
-/// <summary>
-/// Checks if autostart is currently enabled in the registry.
-/// </summary>
-function IsAutostartEnabled: Boolean;
-var
-  Reg: TRegistry;
-begin
-  Result := False;
-  Reg := TRegistry.Create(KEY_READ);
-  try
-    Reg.RootKey := HKEY_CURRENT_USER;
-    if Reg.OpenKeyReadOnly(REG_RUN_KEY) then
-    begin
-      try
-        Result := Reg.ValueExists(REG_APP_NAME);
-      finally
-        Reg.CloseKey;
-      end;
-    end;
-  finally
-    Reg.Free;
-  end;
-end;
 
 function Config: TAppConfig;
 begin
@@ -575,7 +509,7 @@ begin
 
   // Ensure registry matches config setting
   // This handles cases where registry was modified externally
-  ApplyAutostartRegistry(FAutostartMode = amRegistry);
+  TAutostartManager.Apply(FAutostartMode = amRegistry);
 end;
 
 procedure TAppConfig.Save;
@@ -1033,7 +967,7 @@ begin
     FAutostartMode := AValue;
     FModified := True;
     // Apply to registry immediately
-    ApplyAutostartRegistry(AValue = amRegistry);
+    TAutostartManager.Apply(AValue = amRegistry);
   end;
 end;
 

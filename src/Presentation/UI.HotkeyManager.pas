@@ -1,0 +1,437 @@
+{*******************************************************}
+{                                                       }
+{       Bluetooth Quick Connect                         }
+{       Global Hotkey Manager                           }
+{                                                       }
+{       Copyright (c) 2024                              }
+{                                                       }
+{*******************************************************}
+
+unit UI.HotkeyManager;
+
+interface
+
+uses
+  Winapi.Windows,
+  Winapi.Messages,
+  System.SysUtils,
+  System.Classes;
+
+const
+  /// <summary>
+  /// Custom message posted by the low-level keyboard hook when hotkey is detected.
+  /// </summary>
+  WM_HOTKEY_DETECTED = WM_USER + 100;
+
+type
+  /// <summary>
+  /// Manages global hotkey registration using either standard RegisterHotKey
+  /// or a low-level keyboard hook (for overriding system hotkeys).
+  /// </summary>
+  THotkeyManager = class
+  private
+    FHotkeyId: Integer;
+    FHotkeyRegistered: Boolean;
+    FUsingLowLevelHook: Boolean;
+    FWindowHandle: HWND;
+    FOnHotkeyTriggered: TNotifyEvent;
+
+    procedure DoHotkeyTriggered;
+  public
+    /// <summary>
+    /// Creates the hotkey manager. Allocates a global atom for the hotkey ID.
+    /// </summary>
+    constructor Create;
+
+    /// <summary>
+    /// Destroys the hotkey manager. Unregisters any active hotkey.
+    /// </summary>
+    destructor Destroy; override;
+
+    /// <summary>
+    /// Parses a hotkey string like "Ctrl+Alt+B" into modifiers and virtual key.
+    /// </summary>
+    /// <param name="AHotkey">The hotkey string to parse.</param>
+    /// <param name="AModifiers">Output: Modifier flags (MOD_CONTROL, MOD_ALT, etc.).</param>
+    /// <param name="AVirtualKey">Output: Virtual key code.</param>
+    /// <returns>True if parsing succeeded.</returns>
+    class function ParseHotkeyString(const AHotkey: string;
+      out AModifiers: Cardinal; out AVirtualKey: Cardinal): Boolean;
+
+    /// <summary>
+    /// Registers a global hotkey for the specified window.
+    /// </summary>
+    /// <param name="AWindowHandle">Handle of the window to receive hotkey messages.</param>
+    /// <param name="AHotkey">Hotkey string like "Ctrl+Alt+B".</param>
+    /// <param name="AUseLowLevelHook">If True, uses low-level hook to override system hotkeys.</param>
+    procedure Register(AWindowHandle: HWND; const AHotkey: string; AUseLowLevelHook: Boolean);
+
+    /// <summary>
+    /// Unregisters the current hotkey.
+    /// </summary>
+    procedure Unregister;
+
+    /// <summary>
+    /// Handles WM_HOTKEY message. Call this from the form's WM_HOTKEY handler.
+    /// </summary>
+    /// <param name="AWParam">WParam from the message (hotkey ID).</param>
+    /// <returns>True if this was our hotkey and event was fired.</returns>
+    function HandleWMHotkey(AWParam: WPARAM): Boolean;
+
+    /// <summary>
+    /// Handles WM_HOTKEY_DETECTED message from low-level hook.
+    /// Call this from the form's WM_HOTKEY_DETECTED handler.
+    /// </summary>
+    procedure HandleHotkeyDetected;
+
+    /// <summary>
+    /// Fired when the registered hotkey is triggered.
+    /// </summary>
+    property OnHotkeyTriggered: TNotifyEvent read FOnHotkeyTriggered write FOnHotkeyTriggered;
+
+    /// <summary>
+    /// Returns True if a hotkey is currently registered.
+    /// </summary>
+    property IsRegistered: Boolean read FHotkeyRegistered;
+  end;
+
+implementation
+
+uses
+  App.Logger;
+
+const
+  // Low-level keyboard hook constants
+  WH_KEYBOARD_LL = 13;
+  LLKHF_UP = $80;
+
+type
+  PKBDLLHOOKSTRUCT = ^TKBDLLHOOKSTRUCT;
+  TKBDLLHOOKSTRUCT = record
+    vkCode: DWORD;
+    scanCode: DWORD;
+    flags: DWORD;
+    time: DWORD;
+    dwExtraInfo: ULONG_PTR;
+  end;
+
+var
+  // Global state for low-level keyboard hook
+  // Only one hotkey manager can use the low-level hook at a time
+  GKeyboardHook: HHOOK = 0;
+  GHotkeyModifiers: Cardinal = 0;
+  GHotkeyVirtualKey: Cardinal = 0;
+  GHotkeyFormHandle: HWND = 0;
+  GCurrentModifiers: Cardinal = 0;
+
+function LowLevelKeyboardProc(nCode: Integer; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
+var
+  KbdStruct: PKBDLLHOOKSTRUCT;
+  VK: Cardinal;
+  IsKeyDown: Boolean;
+begin
+  if nCode < 0 then
+  begin
+    Result := CallNextHookEx(GKeyboardHook, nCode, wParam, lParam);
+    Exit;
+  end;
+
+  KbdStruct := PKBDLLHOOKSTRUCT(lParam);
+  VK := KbdStruct^.vkCode;
+  IsKeyDown := (KbdStruct^.flags and LLKHF_UP) = 0;
+
+  // Track modifier key states
+  case VK of
+    VK_LWIN, VK_RWIN:
+      if IsKeyDown then
+        GCurrentModifiers := GCurrentModifiers or MOD_WIN
+      else
+        GCurrentModifiers := GCurrentModifiers and (not MOD_WIN);
+    VK_LCONTROL, VK_RCONTROL:
+      if IsKeyDown then
+        GCurrentModifiers := GCurrentModifiers or MOD_CONTROL
+      else
+        GCurrentModifiers := GCurrentModifiers and (not MOD_CONTROL);
+    VK_LMENU, VK_RMENU:
+      if IsKeyDown then
+        GCurrentModifiers := GCurrentModifiers or MOD_ALT
+      else
+        GCurrentModifiers := GCurrentModifiers and (not MOD_ALT);
+    VK_LSHIFT, VK_RSHIFT:
+      if IsKeyDown then
+        GCurrentModifiers := GCurrentModifiers or MOD_SHIFT
+      else
+        GCurrentModifiers := GCurrentModifiers and (not MOD_SHIFT);
+  end;
+
+  // Check if our hotkey is triggered (on key down, not modifiers themselves)
+  if IsKeyDown and (GHotkeyVirtualKey <> 0) then
+  begin
+    // Check if this is the main key (not a modifier) and modifiers match
+    if (VK = GHotkeyVirtualKey) and (GCurrentModifiers = GHotkeyModifiers) then
+    begin
+      // Post message to form and consume the key
+      PostMessage(GHotkeyFormHandle, WM_HOTKEY_DETECTED, 0, 0);
+      Result := 1;  // Consume the key, don't pass to system
+      Exit;
+    end;
+  end;
+
+  Result := CallNextHookEx(GKeyboardHook, nCode, wParam, lParam);
+end;
+
+{ THotkeyManager }
+
+constructor THotkeyManager.Create;
+begin
+  inherited Create;
+  FHotkeyId := GlobalAddAtom('BQC_GlobalHotkey');
+  FHotkeyRegistered := False;
+  FUsingLowLevelHook := False;
+  FWindowHandle := 0;
+  Log('[HotkeyManager] Created with atom ID=%d', [FHotkeyId]);
+end;
+
+destructor THotkeyManager.Destroy;
+begin
+  Unregister;
+  if FHotkeyId <> 0 then
+    GlobalDeleteAtom(FHotkeyId);
+  Log('[HotkeyManager] Destroyed');
+  inherited;
+end;
+
+class function THotkeyManager.ParseHotkeyString(const AHotkey: string;
+  out AModifiers: Cardinal; out AVirtualKey: Cardinal): Boolean;
+var
+  Parts: TArray<string>;
+  Part: string;
+  KeyPart: string;
+  I: Integer;
+begin
+  Result := False;
+  AModifiers := 0;
+  AVirtualKey := 0;
+
+  if Trim(AHotkey) = '' then
+    Exit;
+
+  // Split by '+' and process each part
+  Parts := AHotkey.Split(['+']);
+  if Length(Parts) = 0 then
+    Exit;
+
+  // Last part is the key, rest are modifiers
+  KeyPart := Trim(Parts[High(Parts)]).ToUpper;
+
+  // Process modifiers
+  for I := 0 to High(Parts) - 1 do
+  begin
+    Part := Trim(Parts[I]).ToUpper;
+    if (Part = 'CTRL') or (Part = 'CONTROL') then
+      AModifiers := AModifiers or MOD_CONTROL
+    else if Part = 'ALT' then
+      AModifiers := AModifiers or MOD_ALT
+    else if Part = 'SHIFT' then
+      AModifiers := AModifiers or MOD_SHIFT
+    else if (Part = 'WIN') or (Part = 'WINDOWS') then
+      AModifiers := AModifiers or MOD_WIN
+    else
+    begin
+      Log('[HotkeyManager] ParseHotkeyString: Unknown modifier "%s"', [Part]);
+      Exit;
+    end;
+  end;
+
+  // Parse the key
+  if Length(KeyPart) = 1 then
+  begin
+    // Single character: A-Z or 0-9
+    if (KeyPart[1] >= 'A') and (KeyPart[1] <= 'Z') then
+      AVirtualKey := Ord(KeyPart[1])
+    else if (KeyPart[1] >= '0') and (KeyPart[1] <= '9') then
+      AVirtualKey := Ord(KeyPart[1])
+    else
+    begin
+      Log('[HotkeyManager] ParseHotkeyString: Unknown key "%s"', [KeyPart]);
+      Exit;
+    end;
+  end
+  else if KeyPart.StartsWith('F') and (Length(KeyPart) <= 3) then
+  begin
+    // Function keys F1-F12
+    I := StrToIntDef(KeyPart.Substring(1), 0);
+    if (I >= 1) and (I <= 12) then
+      AVirtualKey := VK_F1 + I - 1
+    else
+    begin
+      Log('[HotkeyManager] ParseHotkeyString: Unknown function key "%s"', [KeyPart]);
+      Exit;
+    end;
+  end
+  else if KeyPart = 'SPACE' then
+    AVirtualKey := VK_SPACE
+  else if KeyPart = 'ENTER' then
+    AVirtualKey := VK_RETURN
+  else if KeyPart = 'TAB' then
+    AVirtualKey := VK_TAB
+  else if KeyPart = 'ESCAPE' then
+    AVirtualKey := VK_ESCAPE
+  else if KeyPart = 'BACKSPACE' then
+    AVirtualKey := VK_BACK
+  else if KeyPart = 'DELETE' then
+    AVirtualKey := VK_DELETE
+  else if KeyPart = 'INSERT' then
+    AVirtualKey := VK_INSERT
+  else if KeyPart = 'HOME' then
+    AVirtualKey := VK_HOME
+  else if KeyPart = 'END' then
+    AVirtualKey := VK_END
+  else if KeyPart = 'PAGEUP' then
+    AVirtualKey := VK_PRIOR
+  else if KeyPart = 'PAGEDOWN' then
+    AVirtualKey := VK_NEXT
+  else if KeyPart = 'UP' then
+    AVirtualKey := VK_UP
+  else if KeyPart = 'DOWN' then
+    AVirtualKey := VK_DOWN
+  else if KeyPart = 'LEFT' then
+    AVirtualKey := VK_LEFT
+  else if KeyPart = 'RIGHT' then
+    AVirtualKey := VK_RIGHT
+  else
+  begin
+    Log('[HotkeyManager] ParseHotkeyString: Unknown key "%s"', [KeyPart]);
+    Exit;
+  end;
+
+  // Need at least one modifier for global hotkeys
+  if AModifiers = 0 then
+  begin
+    Log('[HotkeyManager] ParseHotkeyString: No modifiers specified');
+    Exit;
+  end;
+
+  Result := True;
+  Log('[HotkeyManager] ParseHotkeyString: Parsed "%s" -> Modifiers=$%X, VK=$%X', [AHotkey, AModifiers, AVirtualKey]);
+end;
+
+procedure THotkeyManager.Register(AWindowHandle: HWND; const AHotkey: string;
+  AUseLowLevelHook: Boolean);
+var
+  Modifiers, VirtualKey: Cardinal;
+begin
+  // Unregister any existing hotkey first
+  if FHotkeyRegistered then
+    Unregister;
+
+  if Trim(AHotkey) = '' then
+  begin
+    Log('[HotkeyManager] Register: No hotkey configured');
+    Exit;
+  end;
+
+  if not ParseHotkeyString(AHotkey, Modifiers, VirtualKey) then
+  begin
+    Log('[HotkeyManager] Register: Failed to parse hotkey "%s"', [AHotkey]);
+    Exit;
+  end;
+
+  FWindowHandle := AWindowHandle;
+
+  if AUseLowLevelHook then
+  begin
+    // Use low-level keyboard hook (can override system hotkeys)
+    GHotkeyModifiers := Modifiers;
+    GHotkeyVirtualKey := VirtualKey;
+    GHotkeyFormHandle := AWindowHandle;
+    GCurrentModifiers := 0;
+
+    GKeyboardHook := SetWindowsHookEx(WH_KEYBOARD_LL, @LowLevelKeyboardProc, HInstance, 0);
+    if GKeyboardHook <> 0 then
+    begin
+      FHotkeyRegistered := True;
+      FUsingLowLevelHook := True;
+      Log('[HotkeyManager] Register: Installed low-level hook for "%s"', [AHotkey]);
+    end
+    else
+    begin
+      Log('[HotkeyManager] Register: Failed to install low-level hook (Error=%d)', [GetLastError]);
+    end;
+  end
+  else
+  begin
+    // Use standard RegisterHotKey (fallback, cannot override system hotkeys)
+    // Add MOD_NOREPEAT to prevent repeated triggers when holding key
+    if RegisterHotKey(AWindowHandle, FHotkeyId, Modifiers or MOD_NOREPEAT, VirtualKey) then
+    begin
+      FHotkeyRegistered := True;
+      FUsingLowLevelHook := False;
+      Log('[HotkeyManager] Register: Registered hotkey "%s" (RegisterHotKey)', [AHotkey]);
+    end
+    else
+    begin
+      Log('[HotkeyManager] Register: Failed to register hotkey "%s" (Error=%d)', [AHotkey, GetLastError]);
+    end;
+  end;
+end;
+
+procedure THotkeyManager.Unregister;
+begin
+  if FHotkeyRegistered then
+  begin
+    if FUsingLowLevelHook then
+    begin
+      // Uninstall low-level hook
+      if GKeyboardHook <> 0 then
+      begin
+        UnhookWindowsHookEx(GKeyboardHook);
+        GKeyboardHook := 0;
+        GHotkeyModifiers := 0;
+        GHotkeyVirtualKey := 0;
+        GHotkeyFormHandle := 0;
+        Log('[HotkeyManager] Unregister: Uninstalled low-level hook');
+      end;
+    end
+    else
+    begin
+      // Unregister standard hotkey
+      if FWindowHandle <> 0 then
+        UnregisterHotKey(FWindowHandle, FHotkeyId);
+      Log('[HotkeyManager] Unregister: Unregistered hotkey (RegisterHotKey)');
+    end;
+    FHotkeyRegistered := False;
+    FUsingLowLevelHook := False;
+  end;
+end;
+
+procedure THotkeyManager.DoHotkeyTriggered;
+begin
+  if Assigned(FOnHotkeyTriggered) then
+    FOnHotkeyTriggered(Self);
+end;
+
+function THotkeyManager.HandleWMHotkey(AWParam: WPARAM): Boolean;
+begin
+  Result := False;
+  if FHotkeyRegistered and (not FUsingLowLevelHook) then
+  begin
+    if AWParam = Cardinal(FHotkeyId) then
+    begin
+      Log('[HotkeyManager] HandleWMHotkey: Hotkey triggered');
+      DoHotkeyTriggered;
+      Result := True;
+    end;
+  end;
+end;
+
+procedure THotkeyManager.HandleHotkeyDetected;
+begin
+  if FHotkeyRegistered and FUsingLowLevelHook then
+  begin
+    Log('[HotkeyManager] HandleHotkeyDetected: Hotkey triggered via low-level hook');
+    DoHotkeyTriggered;
+  end;
+end;
+
+end.
