@@ -61,7 +61,6 @@ type
     { View setup }
     procedure CreateDeviceList;
     procedure ApplyTheme;
-    procedure ApplyConfiguredTheme;
     procedure ApplyWindowMode;
     procedure ApplyMenuModeTaskbarHide;
     procedure ApplyWindowPosition;
@@ -70,7 +69,6 @@ type
 
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
-    procedure HandleThemeChanged(Sender: TObject);
     procedure HandleHotkeyTriggered(Sender: TObject);
     procedure HandleTrayToggleVisibility(Sender: TObject);
     procedure HandleTrayExitRequest(Sender: TObject);
@@ -162,12 +160,9 @@ begin
     Log('[MainForm] FormCreate: OnTop enabled');
   end;
 
-  // Load external VCL styles
+  // Load external VCL styles and apply configured theme
   Theme.LoadStylesFromDirectory(Config.VsfDir);
-  ApplyConfiguredTheme;
-
-  // Subscribe to theme changes
-  Theme.OnThemeChanged := HandleThemeChanged;
+  Theme.SetStyle(Config.Theme);
 
   // Subscribe to application deactivation
   Application.OnDeactivate := HandleApplicationDeactivate;
@@ -182,9 +177,6 @@ begin
 
   // Apply configuration to device list
   FDeviceList.ShowAddresses := Config.ShowAddresses;
-
-  // Apply theme
-  ApplyTheme;
 
   // Create and initialize presenter
   FPresenter := TMainPresenter.Create(Self);
@@ -233,7 +225,6 @@ begin
   // Free hotkey manager
   FHotkeyManager.Free;
 
-  Theme.OnThemeChanged := nil;
   Application.OnDeactivate := nil;
 
   Log('[MainForm] FormDestroy: Complete');
@@ -259,37 +250,13 @@ begin
 end;
 
 procedure TFormMain.ApplyTheme;
-var
-  Colors: TThemeColors;
 begin
-  Colors := Theme.Colors;
-
-  Color := Colors.Background;
-  HeaderPanel.Color := Colors.Background;
-  TitleLabel.Font.Color := Colors.TextPrimary;
-  DevicesPanel.Color := Colors.Background;
-  StatusPanel.Color := Colors.Background;
-  StatusLabel.Font.Color := Colors.TextSecondary;
-  WindowsSettingsLink.Font.Color := Colors.Accent;
-
-  FDeviceList.Invalidate;
-end;
-
-procedure TFormMain.ApplyConfiguredTheme;
-var
-  ThemeSetting: string;
-begin
-  ThemeSetting := Config.Theme;
-  Log('[MainForm] ApplyConfiguredTheme: Theme="%s"', [ThemeSetting]);
-
-  if SameText(ThemeSetting, 'System') then
-    Theme.SetThemeMode(tmSystem)
-  else if SameText(ThemeSetting, 'Light') then
-    Theme.SetThemeMode(tmLight)
-  else if SameText(ThemeSetting, 'Dark') then
-    Theme.SetThemeMode(tmDark)
-  else
-    Theme.SetStyle(ThemeSetting);
+  // VCL styles handle colors automatically
+  // Invalidate and repaint the form to show changes immediately
+  Invalidate;
+  if Assigned(FDeviceList) then
+    FDeviceList.Invalidate;
+  Update;
 end;
 
 procedure TFormMain.ApplyWindowMode;
@@ -390,15 +357,11 @@ begin
   FHotkeyManager.Register(Handle, Config.Hotkey, Config.UseLowLevelHook);
   Log('[MainForm] ApplyAllSettings: Hotkey re-registered: %s', [Config.Hotkey]);
 
+  // Reload styles from directory (loads any new styles, skips already loaded)
+  Theme.LoadStylesFromDirectory(Config.VsfDir);
+
   // Apply theme
-  if SameText(Config.Theme, 'System') then
-    Theme.SetThemeMode(tmSystem)
-  else if SameText(Config.Theme, 'Light') then
-    Theme.SetThemeMode(tmLight)
-  else if SameText(Config.Theme, 'Dark') then
-    Theme.SetThemeMode(tmDark)
-  else
-    Theme.SetStyle(Config.Theme);
+  Theme.SetStyle(Config.Theme);
   ApplyTheme;
   Log('[MainForm] ApplyAllSettings: Theme applied: %s', [Config.Theme]);
 
@@ -463,11 +426,6 @@ end;
 procedure TFormMain.HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
 begin
   FPresenter.OnDeviceClicked(ADevice);
-end;
-
-procedure TFormMain.HandleThemeChanged(Sender: TObject);
-begin
-  ApplyTheme;
 end;
 
 procedure TFormMain.HandleBluetoothToggle(Sender: TObject);

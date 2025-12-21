@@ -96,8 +96,10 @@ type
     CheckOnTop: TCheckBox;
     GroupTheme: TGroupBox;
     LabelTheme: TLabel;
+    LabelVsfDir: TLabel;
     ComboTheme: TComboBox;
-    CheckShowAddresses: TCheckBox;
+    EditVsfDir: TEdit;
+    ButtonBrowseVsfDir: TButton;
     GroupNotifications: TGroupBox;
     CheckNotifyOnConnect: TCheckBox;
     CheckNotifyOnDisconnect: TCheckBox;
@@ -126,6 +128,7 @@ type
     ButtonOpenLogFile: TButton;
     ButtonForgetDevice: TButton;
     ButtonRefreshDevices: TButton;
+    CheckShowAddresses: TCheckBox;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
@@ -150,6 +153,9 @@ type
     procedure ListDevicesClick(Sender: TObject);
     procedure ButtonForgetDeviceClick(Sender: TObject);
     procedure ButtonRefreshDevicesClick(Sender: TObject);
+
+    { Theme events }
+    procedure ButtonBrowseVsfDirClick(Sender: TObject);
 
     { Advanced tab events }
     procedure ButtonBrowseLogFileClick(Sender: TObject);
@@ -190,6 +196,7 @@ implementation
 
 uses
   ShellAPI,
+  Vcl.FileCtrl,
   App.Logger,
   App.Config;
 
@@ -322,6 +329,7 @@ begin
   EditHotkey.OnChange := HandleSettingChanged;
   CheckUseLowLevelHook.OnClick := HandleSettingChanged;
   ComboTheme.OnChange := HandleSettingChanged;
+  EditVsfDir.OnChange := HandleSettingChanged;
   CheckShowAddresses.OnClick := HandleSettingChanged;
 
   // Tab: Connection
@@ -490,6 +498,19 @@ end;
 procedure TFormSettings.ButtonRefreshDevicesClick(Sender: TObject);
 begin
   FPresenter.OnRefreshDevicesClicked;
+end;
+
+{ Theme events }
+
+procedure TFormSettings.ButtonBrowseVsfDirClick(Sender: TObject);
+var
+  Dir: string;
+begin
+  Dir := EditVsfDir.Text;
+  if Dir = '' then
+    Dir := ExtractFilePath(ParamStr(0));
+  if SelectDirectory('Select Styles Directory', '', Dir) then
+    EditVsfDir.Text := Dir;
 end;
 
 { Advanced tab events }

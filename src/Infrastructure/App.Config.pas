@@ -337,7 +337,7 @@ const
   DEF_LOG_FILENAME = 'bqc.log';
   DEF_LOG_APPEND = False;
   DEF_SHOW_ADDRESSES = False;
-  DEF_THEME = 'System';
+  DEF_THEME = '';
   DEF_VSF_DIR = 'themes';
   DEF_CONNECTION_TIMEOUT = 10000;
   DEF_CONNECTION_RETRY_COUNT = 2;

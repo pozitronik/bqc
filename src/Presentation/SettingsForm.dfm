@@ -59,7 +59,7 @@ object FormSettings: TFormSettings
     Top = 0
     Width = 550
     Height = 369
-    ActivePage = TabGeneral
+    ActivePage = TabHotkeyVisuals
     Align = alClient
     TabOrder = 1
     object TabGeneral: TTabSheet
@@ -67,10 +67,12 @@ object FormSettings: TFormSettings
       object GroupWindowMode: TGroupBox
         Left = 0
         Top = 0
-        Width = 540
+        Width = 534
         Height = 165
+        Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
+        ExplicitWidth = 540
         object LabelWindowMode: TLabel
           Left = 12
           Top = 24
@@ -133,11 +135,14 @@ object FormSettings: TFormSettings
       end
       object GroupPosition: TGroupBox
         Left = 0
-        Top = 168
-        Width = 540
+        Top = 165
+        Width = 534
         Height = 95
+        Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
+        ExplicitTop = 168
+        ExplicitWidth = 540
         object LabelPositionMode: TLabel
           Left = 12
           Top = 25
@@ -193,6 +198,14 @@ object FormSettings: TFormSettings
         Caption = 'Start with Windows'
         TabOrder = 2
       end
+      object CheckShowAddresses: TCheckBox
+        Left = 156
+        Top = 275
+        Width = 181
+        Height = 17
+        Caption = 'Show device MAC addresses'
+        TabOrder = 3
+      end
     end
     object TabHotkeyVisuals: TTabSheet
       Caption = 'Hotkey && Visuals'
@@ -200,10 +213,12 @@ object FormSettings: TFormSettings
       object GroupHotkey: TGroupBox
         Left = 0
         Top = 0
-        Width = 540
+        Width = 534
         Height = 95
+        Align = alTop
         Caption = 'Global Hotkey'
         TabOrder = 0
+        ExplicitWidth = 542
         object LabelHotkey: TLabel
           Left = 12
           Top = 24
@@ -248,17 +263,26 @@ object FormSettings: TFormSettings
       end
       object GroupTheme: TGroupBox
         Left = 0
-        Top = 98
-        Width = 540
+        Top = 95
+        Width = 534
         Height = 95
+        Align = alTop
         Caption = 'Theme'
         TabOrder = 1
+        ExplicitWidth = 542
         object LabelTheme: TLabel
           Left = 12
           Top = 24
           Width = 40
           Height = 15
           Caption = 'Theme:'
+        end
+        object LabelVsfDir: TLabel
+          Left = 12
+          Top = 59
+          Width = 62
+          Height = 15
+          Caption = 'Themes dir:'
         end
         object ComboTheme: TComboBox
           Left = 74
@@ -268,22 +292,32 @@ object FormSettings: TFormSettings
           Style = csDropDownList
           TabOrder = 0
         end
-        object CheckShowAddresses: TCheckBox
-          Left = 12
-          Top = 59
-          Width = 258
-          Height = 17
-          Caption = 'Show device MAC addresses'
+        object EditVsfDir: TEdit
+          Left = 94
+          Top = 56
+          Width = 346
+          Height = 23
           TabOrder = 1
+        end
+        object ButtonBrowseVsfDir: TButton
+          Left = 446
+          Top = 56
+          Width = 80
+          Height = 23
+          Caption = 'Browse...'
+          TabOrder = 2
+          OnClick = ButtonBrowseVsfDirClick
         end
       end
       object GroupNotifications: TGroupBox
         Left = 0
-        Top = 199
-        Width = 540
-        Height = 130
+        Top = 190
+        Width = 534
+        Height = 123
+        Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
+        ExplicitWidth = 542
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24
@@ -324,10 +358,12 @@ object FormSettings: TFormSettings
       object GroupConnectionDefaults: TGroupBox
         Left = 0
         Top = 0
-        Width = 540
+        Width = 534
         Height = 95
+        Align = alTop
         Caption = 'Default Connection Settings'
         TabOrder = 0
+        ExplicitWidth = 540
         object LabelTimeout: TLabel
           Left = 12
           Top = 24
@@ -387,11 +423,14 @@ object FormSettings: TFormSettings
       end
       object GroupPolling: TGroupBox
         Left = 0
-        Top = 98
-        Width = 540
+        Top = 95
+        Width = 534
         Height = 95
+        Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
+        ExplicitTop = 101
+        ExplicitWidth = 540
         object LabelPollingMode: TLabel
           Left = 12
           Top = 24
@@ -455,28 +494,31 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 0
         Width = 200
-        Height = 339
+        Height = 326
         Align = alLeft
         BevelOuter = bvNone
         TabOrder = 0
+        ExplicitHeight = 339
         object ListDevices: TListBox
           Left = 0
           Top = 0
           Width = 200
-          Height = 307
+          Height = 294
           Align = alClient
           ItemHeight = 15
           TabOrder = 0
           OnClick = ListDevicesClick
+          ExplicitHeight = 307
         end
         object PanelDeviceButtons: TPanel
           Left = 0
-          Top = 307
+          Top = 294
           Width = 200
           Height = 32
           Align = alBottom
           BevelOuter = bvNone
           TabOrder = 1
+          ExplicitTop = 307
           object ButtonForgetDevice: TButton
             Left = 0
             Top = 4
@@ -500,18 +542,23 @@ object FormSettings: TFormSettings
       object PanelDeviceSettings: TPanel
         Left = 200
         Top = 0
-        Width = 342
-        Height = 339
+        Width = 334
+        Height = 326
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 1
+        ExplicitWidth = 342
+        ExplicitHeight = 339
         object GroupDeviceInfo: TGroupBox
-          Left = 6
+          Left = 0
           Top = 0
-          Width = 331
+          Width = 334
           Height = 334
+          Align = alTop
           Caption = 'Device Settings'
           TabOrder = 0
+          ExplicitLeft = 6
+          ExplicitWidth = 331
           object LabelDeviceAlias: TLabel
             Left = 12
             Top = 24

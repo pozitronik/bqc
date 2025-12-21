@@ -207,14 +207,12 @@ object FormMain: TFormMain
         FrameColor = clRoyalblue
         ShowStateCaption = False
         StyleElements = [seFont, seClient]
-        StyleName = 'Windows'
         TabOrder = 0
         TabStop = False
         ThumbColor = clBtnText
+        ThumbWidth = 20
         OnClick = HandleBluetoothToggle
-        ExplicitLeft = 1
-        ExplicitTop = 1
-        ExplicitHeight = 31
+        ExplicitHeight = 20
       end
     end
   end

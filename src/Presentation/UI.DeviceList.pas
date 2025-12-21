@@ -26,8 +26,8 @@ uses
   Vcl.Graphics,
   Vcl.Forms,
   Vcl.StdCtrls,
+  Vcl.Themes,
   Bluetooth.Types,
-  UI.Theme,
   App.Config;
 
 type
@@ -429,9 +429,12 @@ var
   I: Integer;
   R: TRect;
   IsHover, IsSelected: Boolean;
+  Style: TCustomStyleServices;
 begin
+  Style := TStyleManager.ActiveStyle;
+
   // Background
-  Canvas.Brush.Color := Theme.Colors.Background;
+  Canvas.Brush.Color := Style.GetSystemColor(clWindow);
   Canvas.FillRect(ClientRect);
 
   // Draw items
@@ -456,7 +459,7 @@ begin
   begin
     R := GetItemRect(FSelectedIndex);
     InflateRect(R, -2, -2);
-    Canvas.Pen.Color := Theme.Colors.Accent;
+    Canvas.Pen.Color := Style.GetSystemColor(clHighlight);
     Canvas.Pen.Style := psDot;
     Canvas.Brush.Style := bsClear;
     Canvas.Rectangle(R);
@@ -472,7 +475,10 @@ var
   StatusText, DisplayName: string;
   TextTop: Integer;
   DeviceConfig: TDeviceConfig;
+  Style: TCustomStyleServices;
 begin
+  Style := TStyleManager.ActiveStyle;
+
   // Get device-specific configuration
   DeviceConfig := Config.GetDeviceConfig(ADevice.AddressInt);
 
@@ -481,13 +487,14 @@ begin
     DisplayName := DeviceConfig.Alias
   else
     DisplayName := ADevice.Name;
+
   // Determine background color
   if AIsSelected then
-    BgColor := Theme.Colors.ItemBackgroundSelected
+    BgColor := Style.GetSystemColor(clHighlight)
   else if AIsHover then
-    BgColor := Theme.Colors.ItemBackgroundHover
+    BgColor := Style.GetSystemColor(clBtnFace)
   else
-    BgColor := Theme.Colors.ItemBackground;
+    BgColor := Style.GetSystemColor(clWindow);
 
   // Draw rounded rectangle background
   ACanvas.Pen.Color := BgColor;
@@ -513,7 +520,10 @@ begin
   ACanvas.Font.Name := 'Segoe UI';
   ACanvas.Font.Size := 11;
   ACanvas.Font.Style := [];
-  ACanvas.Font.Color := Theme.Colors.TextPrimary;
+  if AIsSelected then
+    ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
+  else
+    ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
 
   TextTop := ARect.Top + ITEM_PADDING;
@@ -523,11 +533,14 @@ begin
   begin
     ACanvas.Font.Name := 'Segoe MDL2 Assets';
     ACanvas.Font.Size := 10;
-    ACanvas.Font.Color := Theme.Colors.TextSecondary;
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
     ACanvas.TextOut(ARect.Right - ITEM_PADDING - 12, ARect.Top + 6, #$E718);  // Pin icon
     ACanvas.Font.Name := 'Segoe UI';
     ACanvas.Font.Size := 11;
-    ACanvas.Font.Color := Theme.Colors.TextPrimary;
+    if AIsSelected then
+      ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
+    else
+      ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   end;
 
   ACanvas.TextOut(TextRect.Left, TextTop, DisplayName);
@@ -538,7 +551,7 @@ begin
     // Calculate position while still using name font size
     var AddrLeft := TextRect.Left + ACanvas.TextWidth(DisplayName) + 8;
     ACanvas.Font.Size := 8;
-    ACanvas.Font.Color := Theme.Colors.TextSecondary;
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
     ACanvas.TextOut(AddrLeft, TextTop + 3, '[' + ADevice.AddressString + ']');
     // Restore font for subsequent drawing
     ACanvas.Font.Size := 11;
@@ -548,12 +561,13 @@ begin
   if ADevice.IsConnected then
   begin
     StatusText := ADevice.ConnectionStateText;
-    ACanvas.Font.Color := Theme.Colors.ConnectedColor;
+    // Green for connected - use hardcoded color as there's no "success" system color
+    ACanvas.Font.Color := $00008000;  // Green
   end
   else
   begin
     StatusText := ADevice.ConnectionStateText;
-    ACanvas.Font.Color := Theme.Colors.TextSecondary;
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
   end;
 
   ACanvas.Font.Size := 9;
@@ -576,7 +590,7 @@ begin
   ACanvas.Font.Name := 'Segoe MDL2 Assets';
   ACanvas.Font.Size := 16;
   ACanvas.Font.Style := [];
-  ACanvas.Font.Color := Theme.Colors.IconColor;
+  ACanvas.Font.Color := TStyleManager.ActiveStyle.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
 
   TextSize := ACanvas.TextExtent(IconChar);

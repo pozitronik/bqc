@@ -60,6 +60,7 @@ type
 
     // Tab: Appearance
     FComboTheme: TComboBox;
+    FEditVsfDir: TEdit;
     FCheckShowAddresses: TCheckBox;
 
     // Tab: Connection
@@ -178,6 +179,7 @@ begin
 
   // Tab: Appearance
   FComboTheme := Form.FindComponent('ComboTheme') as TComboBox;
+  FEditVsfDir := Form.FindComponent('EditVsfDir') as TEdit;
   FCheckShowAddresses := Form.FindComponent('CheckShowAddresses') as TCheckBox;
 
   // Tab: Connection
@@ -214,38 +216,23 @@ end;
 
 procedure TSettingsPresenter.LoadThemeList;
 var
-  VsfDir, VsfPath: string;
-  Files: TArray<string>;
-  FileName: string;
+  Styles: TArray<string>;
+  StyleName: string;
 begin
   if FComboTheme = nil then Exit;
 
   FComboTheme.Items.Clear;
 
-  // Add built-in themes
-  FComboTheme.Items.Add('System');
-  FComboTheme.Items.Add('Light');
-  FComboTheme.Items.Add('Dark');
-
-  // Add loaded VCL styles
-  VsfDir := Config.VsfDir;
-  if ExtractFilePath(VsfDir) = '' then
-    VsfPath := ExtractFilePath(ParamStr(0)) + VsfDir
-  else
-    VsfPath := VsfDir;
-
-  if TDirectory.Exists(VsfPath) then
-  begin
-    Files := TDirectory.GetFiles(VsfPath, '*.vsf');
-    for FileName in Files do
-      FComboTheme.Items.Add(TPath.GetFileNameWithoutExtension(FileName));
-  end;
+  // Add all available styles (embedded + loaded from VsfDir)
+  Styles := Theme.GetAvailableStyles;
+  for StyleName in Styles do
+    FComboTheme.Items.Add(StyleName);
 
   // Select current theme
-  if FComboTheme.Items.IndexOf(Config.Theme) >= 0 then
+  if (Config.Theme <> '') and (FComboTheme.Items.IndexOf(Config.Theme) >= 0) then
     FComboTheme.ItemIndex := FComboTheme.Items.IndexOf(Config.Theme)
-  else
-    FComboTheme.ItemIndex := 0; // System
+  else if FComboTheme.Items.Count > 0 then
+    FComboTheme.ItemIndex := 0; // First available
 end;
 
 procedure TSettingsPresenter.LoadDeviceList;
@@ -414,6 +401,8 @@ begin
     FComboPositionMode.ItemIndex := Ord(Config.PositionMode);
 
   // Tab: Appearance
+  if FEditVsfDir <> nil then
+    FEditVsfDir.Text := Config.VsfDir;
   LoadThemeList;
   if FCheckShowAddresses <> nil then
     FCheckShowAddresses.Checked := Config.ShowAddresses;
@@ -491,6 +480,8 @@ begin
     // Tab: Appearance
     if FComboTheme <> nil then
       Config.Theme := FComboTheme.Text;
+    if FEditVsfDir <> nil then
+      Config.VsfDir := FEditVsfDir.Text;
     if FCheckShowAddresses <> nil then
       Config.ShowAddresses := FCheckShowAddresses.Checked;
 
