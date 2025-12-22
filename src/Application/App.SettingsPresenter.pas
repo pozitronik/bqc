@@ -457,14 +457,7 @@ end;
 
 function TSettingsPresenter.FormatAddress(AAddress: UInt64): string;
 begin
-  Result := Format('%.2X:%.2X:%.2X:%.2X:%.2X:%.2X', [
-    (AAddress shr 40) and $FF,
-    (AAddress shr 32) and $FF,
-    (AAddress shr 24) and $FF,
-    (AAddress shr 16) and $FF,
-    (AAddress shr 8) and $FF,
-    AAddress and $FF
-  ]);
+  Result := FormatAddressAsMAC(AAddress);
 end;
 
 procedure TSettingsPresenter.LoadDeviceSettings(AIndex: Integer);

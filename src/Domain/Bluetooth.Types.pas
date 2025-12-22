@@ -249,6 +249,14 @@ function UInt64ToBluetoothAddress(AValue: UInt64): TBluetoothAddress;
 /// </summary>
 function BluetoothAddressToUInt64(const AAddress: TBluetoothAddress): UInt64;
 
+/// <summary>
+/// Formats a 64-bit Bluetooth address as a MAC address string.
+/// Returns format: "XX:XX:XX:XX:XX:XX" (big-endian, uppercase).
+/// </summary>
+/// <param name="AAddressInt">The 64-bit address value.</param>
+/// <returns>Formatted MAC address string.</returns>
+function FormatAddressAsMAC(AAddressInt: UInt64): string;
+
 implementation
 
 { TBluetoothDeviceInfo }
@@ -293,10 +301,7 @@ end;
 
 function TBluetoothDeviceInfo.AddressString: string;
 begin
-  Result := Format('%.2X:%.2X:%.2X:%.2X:%.2X:%.2X', [
-    FAddress[5], FAddress[4], FAddress[3],
-    FAddress[2], FAddress[1], FAddress[0]
-  ]);
+  Result := FormatAddressAsMAC(FAddressInt);
 end;
 
 function TBluetoothDeviceInfo.IsConnected: Boolean;
@@ -443,6 +448,19 @@ begin
             (UInt64(AAddress[3]) shl 24) or
             (UInt64(AAddress[4]) shl 32) or
             (UInt64(AAddress[5]) shl 40);
+end;
+
+function FormatAddressAsMAC(AAddressInt: UInt64): string;
+begin
+  // Format as big-endian MAC address (most significant byte first)
+  Result := Format('%.2X:%.2X:%.2X:%.2X:%.2X:%.2X', [
+    (AAddressInt shr 40) and $FF,
+    (AAddressInt shr 32) and $FF,
+    (AAddressInt shr 24) and $FF,
+    (AAddressInt shr 16) and $FF,
+    (AAddressInt shr 8) and $FF,
+    AAddressInt and $FF
+  ]);
 end;
 
 end.

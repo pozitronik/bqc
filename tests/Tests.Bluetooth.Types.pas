@@ -211,6 +211,18 @@ type
     procedure RoundTrip_UInt64ToAddressAndBack_PreservesValue;
     [Test]
     procedure RoundTrip_AddressToUInt64AndBack_PreservesValue;
+
+    { FormatAddressAsMAC tests }
+    [Test]
+    procedure FormatAddressAsMAC_ZeroValue_ReturnsZeroMAC;
+    [Test]
+    procedure FormatAddressAsMAC_TypicalAddress_ReturnsCorrectFormat;
+    [Test]
+    procedure FormatAddressAsMAC_AllOnes_ReturnsAllFF;
+    [Test]
+    procedure FormatAddressAsMAC_SingleByte_ReturnsCorrectFormat;
+    [Test]
+    procedure FormatAddressAsMAC_MatchesAddressString;
   end;
 
 implementation
@@ -874,6 +886,52 @@ begin
 
   for I := 0 to 5 do
     Assert.AreEqual(Original[I], Converted[I], Format('Byte %d mismatch', [I]));
+end;
+
+procedure TAddressConversionTests.FormatAddressAsMAC_ZeroValue_ReturnsZeroMAC;
+begin
+  Assert.AreEqual('00:00:00:00:00:00', FormatAddressAsMAC(0));
+end;
+
+procedure TAddressConversionTests.FormatAddressAsMAC_TypicalAddress_ReturnsCorrectFormat;
+begin
+  // $581862015DAE should format as 58:18:62:01:5D:AE (big-endian)
+  Assert.AreEqual('58:18:62:01:5D:AE', FormatAddressAsMAC($581862015DAE));
+end;
+
+procedure TAddressConversionTests.FormatAddressAsMAC_AllOnes_ReturnsAllFF;
+begin
+  // All 48 bits set to 1
+  Assert.AreEqual('FF:FF:FF:FF:FF:FF', FormatAddressAsMAC($FFFFFFFFFFFF));
+end;
+
+procedure TAddressConversionTests.FormatAddressAsMAC_SingleByte_ReturnsCorrectFormat;
+begin
+  // Only lowest byte set
+  Assert.AreEqual('00:00:00:00:00:AB', FormatAddressAsMAC($AB));
+
+  // Only highest byte set
+  Assert.AreEqual('CD:00:00:00:00:00', FormatAddressAsMAC(UInt64($CD) shl 40));
+end;
+
+procedure TAddressConversionTests.FormatAddressAsMAC_MatchesAddressString;
+var
+  Device: TBluetoothDeviceInfo;
+  AddressInt: UInt64;
+begin
+  // Verify FormatAddressAsMAC produces same result as TBluetoothDeviceInfo.AddressString
+  AddressInt := $AABBCCDDEEFF;
+  Device := TBluetoothDeviceInfo.Create(
+    UInt64ToBluetoothAddress(AddressInt),
+    AddressInt,
+    'Test Device',
+    btUnknown,
+    csDisconnected,
+    False, False, 0, 0, 0
+  );
+
+  Assert.AreEqual(Device.AddressString, FormatAddressAsMAC(AddressInt),
+    'FormatAddressAsMAC should produce same result as TBluetoothDeviceInfo.AddressString');
 end;
 
 initialization

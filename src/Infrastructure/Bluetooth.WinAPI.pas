@@ -634,7 +634,8 @@ procedure InitDeviceInfo(out ADeviceInfo: BLUETOOTH_DEVICE_INFO);
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  Bluetooth.Types;
 
 function GetMajorDeviceClass(AClassOfDevice: ULONG): Byte;
 begin
@@ -648,14 +649,7 @@ end;
 
 function BluetoothAddressToString(const AAddress: BLUETOOTH_ADDRESS): string;
 begin
-  Result := Format('%.2X:%.2X:%.2X:%.2X:%.2X:%.2X', [
-    AAddress.rgBytes[5],
-    AAddress.rgBytes[4],
-    AAddress.rgBytes[3],
-    AAddress.rgBytes[2],
-    AAddress.rgBytes[1],
-    AAddress.rgBytes[0]
-  ]);
+  Result := FormatAddressAsMAC(AAddress.ullLong);
 end;
 
 procedure InitDeviceSearchParams(
