@@ -239,11 +239,11 @@ object FormMain: TFormMain
     object WindowsSettingsLink: TLabel
       Left = 10
       Top = 0
-      Width = 148
+      Width = 96
       Height = 30
       Cursor = crHandPoint
       Align = alLeft
-      Caption = 'Windows Bluetooth settings'
+      Caption = 'Bluetooth settings'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clHighlight
       Font.Height = -12
@@ -255,12 +255,12 @@ object FormMain: TFormMain
       ExplicitHeight = 15
     end
     object StatusLabel: TLabel
-      Left = 176
+      Left = 106
       Top = 0
-      Width = 80
+      Width = 150
       Height = 30
       Cursor = crHandPoint
-      Align = alRight
+      Align = alClient
       Alignment = taRightJustify
       AutoSize = False
       Caption = 'Ready'
@@ -272,7 +272,8 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       OnClick = HandleSettingsClick
-      ExplicitLeft = 168
+      ExplicitLeft = 125
+      ExplicitWidth = 131
     end
     object SettingsLabel: TLabel
       Left = 256
