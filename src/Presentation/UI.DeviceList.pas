@@ -234,6 +234,35 @@ const
 
 { TDeviceDisplayItem }
 
+{ TODO: Consider refactoring to builder pattern if requirements change.
+  Current design analysis (2024-12):
+
+  This factory method takes 7 parameters, which could suggest a builder pattern.
+  However, after analysis, the current approach was retained because:
+
+  1. All parameters are REQUIRED - there are no optional fields with defaults.
+     A builder pattern primarily benefits when you have optional parameters
+     that vary by call site.
+
+  2. Single creation site - TDeviceDisplayItemBuilder.BuildDisplayItem is the
+     only production code that calls this method. Test code creates instances
+     directly but this is acceptable for testing.
+
+  3. TDeviceDisplayItemBuilder already serves as a conceptual builder - it
+     gathers data from multiple sources (device info, config, formatter)
+     and produces the display item.
+
+  When to reconsider this decision:
+  - If new optional fields are added (e.g., custom icons, badges)
+  - If multiple creation sites emerge with different parameter combinations
+  - If the parameter list grows beyond 10 parameters
+
+  Alternative patterns considered:
+  - Full builder class: TDisplayItemBuilder.ForDevice(D).WithPinned(P)...Build
+  - Parameter object record: TDeviceDisplayItemParams with all fields
+  - Named parameter simulation via fluent interface
+
+  See also: TDeviceDisplayItemBuilder in UI.DeviceDisplayItemBuilder.pas }
 class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
   const ADisplayName: string; AIsPinned: Boolean;
   AEffectiveDeviceType: TBluetoothDeviceType;
