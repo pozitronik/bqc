@@ -16,6 +16,8 @@ uses
   App.SettingsPresenter in 'src\Application\App.SettingsPresenter.pas',
   Bluetooth.RadioControl in 'src\Infrastructure\Bluetooth.RadioControl.pas',
   Bluetooth.DeviceWatcher in 'src\Infrastructure\Bluetooth.DeviceWatcher.pas',
+  Bluetooth.DeviceMonitors in 'src\Infrastructure\Bluetooth.DeviceMonitors.pas',
+  Bluetooth.DeviceRepository in 'src\Infrastructure\Bluetooth.DeviceRepository.pas',
   App.Logger in 'src\Infrastructure\App.Logger.pas',
   App.ConfigInterfaces in 'src\Infrastructure\App.ConfigInterfaces.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',

@@ -18,7 +18,6 @@ interface
 uses
   System.SysUtils,
   System.Classes,
-  System.Generics.Collections,
   Winapi.Windows,
   Bluetooth.Types,
   Bluetooth.Interfaces,
@@ -35,22 +34,18 @@ type
   TBluetoothService = class(TInterfacedObject, IBluetoothService)
   private
     FOnDeviceStateChanged: TDeviceStateChangedEvent;
-    FOnDeviceListChanged: TDeviceListChangedEvent;
     FOnError: TBluetoothErrorEvent;
     FRadioHandle: THandle;
-    FDeviceCache: TDictionary<UInt64, TBluetoothDeviceInfo>;
 
     { Injected dependencies }
     FConnectionConfig: IConnectionConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
     FStrategyFactory: IConnectionStrategyFactory;
     FDeviceMonitor: IDeviceMonitor;
+    FDeviceRepository: IDeviceRepository;
 
     procedure CloseRadio;
-    function ConvertToDeviceInfo(const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
-    function ConvertSystemTimeToDateTime(const ASysTime: TSystemTime): TDateTime;
     procedure DoDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
-    procedure DoDeviceListChanged;
     procedure DoError(const AMessage: string; AErrorCode: Cardinal);
 
     function ConnectWithStrategy(
@@ -63,8 +58,6 @@ type
       const ADeviceAddress: UInt64; ANewState: TBluetoothConnectionState);
     procedure HandleMonitorError(Sender: TObject;
       const AMessage: string; AErrorCode: Cardinal);
-
-    function RefreshDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
 
   protected
     { IBluetoothService }
@@ -87,7 +80,8 @@ type
       AConnectionConfig: IConnectionConfig;
       ADeviceConfigProvider: IDeviceConfigProvider;
       AStrategyFactory: IConnectionStrategyFactory;
-      ADeviceMonitor: IDeviceMonitor
+      ADeviceMonitor: IDeviceMonitor;
+      ADeviceRepository: IDeviceRepository
     );
     destructor Destroy; override;
 
@@ -96,6 +90,7 @@ type
     property DeviceConfigProvider: IDeviceConfigProvider read FDeviceConfigProvider;
     property StrategyFactory: IConnectionStrategyFactory read FStrategyFactory;
     property DeviceMonitor: IDeviceMonitor read FDeviceMonitor;
+    property DeviceRepository: IDeviceRepository read FDeviceRepository;
   end;
 
 /// <summary>
@@ -107,9 +102,9 @@ function CreateBluetoothService: IBluetoothService;
 implementation
 
 uses
-  System.DateUtils,
   App.Bootstrap,
-  Bluetooth.DeviceMonitors;
+  Bluetooth.DeviceMonitors,
+  Bluetooth.DeviceRepository;
 
 function CreateBluetoothService: IBluetoothService;
 var
@@ -120,7 +115,8 @@ begin
     Bootstrap.ConnectionConfig,
     Bootstrap.DeviceConfigProvider,
     Bootstrap.ConnectionStrategyFactory,
-    MonitorFactory.CreateMonitor
+    MonitorFactory.CreateMonitor,
+    CreateDeviceRepository
   );
 end;
 
@@ -130,7 +126,8 @@ constructor TBluetoothService.Create(
   AConnectionConfig: IConnectionConfig;
   ADeviceConfigProvider: IDeviceConfigProvider;
   AStrategyFactory: IConnectionStrategyFactory;
-  ADeviceMonitor: IDeviceMonitor
+  ADeviceMonitor: IDeviceMonitor;
+  ADeviceRepository: IDeviceRepository
 );
 begin
   inherited Create;
@@ -140,9 +137,9 @@ begin
   FDeviceConfigProvider := ADeviceConfigProvider;
   FStrategyFactory := AStrategyFactory;
   FDeviceMonitor := ADeviceMonitor;
+  FDeviceRepository := ADeviceRepository;
 
   FRadioHandle := 0;
-  FDeviceCache := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
 
   // Configure and start device monitor
   FDeviceMonitor.OnDeviceStateChanged := HandleMonitorDeviceStateChanged;
@@ -159,7 +156,6 @@ begin
   if FDeviceMonitor <> nil then
     FDeviceMonitor.Stop;
   CloseRadio;
-  FDeviceCache.Free;
   inherited Destroy;
 end;
 
@@ -191,105 +187,14 @@ begin
 end;
 
 function TBluetoothService.GetPairedDevices: TBluetoothDeviceInfoArray;
-var
-  SearchParams: BLUETOOTH_DEVICE_SEARCH_PARAMS;
-  DeviceInfo: BLUETOOTH_DEVICE_INFO;
-  FindHandle: HBLUETOOTH_DEVICE_FIND;
-  DeviceList: TList<TBluetoothDeviceInfo>;
-  Device: TBluetoothDeviceInfo;
 begin
-  DeviceList := TList<TBluetoothDeviceInfo>.Create;
-  try
-    // Initialize search parameters for paired devices
-    InitDeviceSearchParams(SearchParams, 0);
-
-    // Initialize device info structure
-    InitDeviceInfo(DeviceInfo);
-
-    // Find first device
-    FindHandle := BluetoothFindFirstDevice(@SearchParams, DeviceInfo);
-
-    if FindHandle <> 0 then
-    begin
-      try
-        repeat
-          Device := ConvertToDeviceInfo(DeviceInfo);
-          DeviceList.Add(Device);
-
-          // Update cache
-          FDeviceCache.AddOrSetValue(Device.AddressInt, Device);
-
-          // Reset structure size for next iteration
-          DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
-        until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
-      finally
-        BluetoothFindDeviceClose(FindHandle);
-      end;
-    end;
-
-    Result := DeviceList.ToArray;
-
-  finally
-    DeviceList.Free;
-  end;
+  Result := FDeviceRepository.GetAll;
 end;
 
 function TBluetoothService.RefreshAllDevices: TBluetoothDeviceInfoArray;
 begin
-  // Clear cache and re-enumerate
-  FDeviceCache.Clear;
-  Result := GetPairedDevices;
-  DoDeviceListChanged;
-end;
-
-function TBluetoothService.ConvertToDeviceInfo(
-  const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
-var
-  Address: TBluetoothAddress;
-  ConnectionState: TBluetoothConnectionState;
-begin
-  // Copy address bytes
-  Move(AWinDeviceInfo.Address.rgBytes[0], Address[0], 6);
-
-  // Determine connection state
-  if AWinDeviceInfo.fConnected then
-    ConnectionState := csConnected
-  else
-    ConnectionState := csDisconnected;
-
-  Result := TBluetoothDeviceInfo.Create(
-    Address,
-    AWinDeviceInfo.Address.ullLong,
-    string(AWinDeviceInfo.szName),
-    DetermineDeviceType(AWinDeviceInfo.ulClassOfDevice),
-    ConnectionState,
-    AWinDeviceInfo.fRemembered,
-    AWinDeviceInfo.fAuthenticated,
-    AWinDeviceInfo.ulClassOfDevice,
-    ConvertSystemTimeToDateTime(AWinDeviceInfo.stLastSeen),
-    ConvertSystemTimeToDateTime(AWinDeviceInfo.stLastUsed)
-  );
-end;
-
-function TBluetoothService.ConvertSystemTimeToDateTime(
-  const ASysTime: TSystemTime): TDateTime;
-begin
-  try
-    if (ASysTime.wYear >= 1900) and (ASysTime.wYear <= 2100) then
-      Result := EncodeDateTime(
-        ASysTime.wYear,
-        ASysTime.wMonth,
-        ASysTime.wDay,
-        ASysTime.wHour,
-        ASysTime.wMinute,
-        ASysTime.wSecond,
-        ASysTime.wMilliseconds
-      )
-    else
-      Result := 0;
-  except
-    Result := 0;
-  end;
+  FDeviceRepository.Refresh;
+  Result := FDeviceRepository.GetAll;
 end;
 
 function TBluetoothService.Connect(const ADevice: TBluetoothDeviceInfo): Boolean;
@@ -430,8 +335,8 @@ begin
     DoError('Failed to change connection state', ErrorCode);
   end;
 
-  // Update cache and notify
-  FDeviceCache.AddOrSetValue(UpdatedDevice.AddressInt, UpdatedDevice);
+  // Update repository and notify
+  FDeviceRepository.AddOrUpdate(UpdatedDevice);
   DoDeviceStateChanged(UpdatedDevice);
 end;
 
@@ -446,12 +351,6 @@ begin
   ]);
   if Assigned(FOnDeviceStateChanged) then
     FOnDeviceStateChanged(Self, ADevice);
-end;
-
-procedure TBluetoothService.DoDeviceListChanged;
-begin
-  if Assigned(FOnDeviceListChanged) then
-    FOnDeviceListChanged(Self);
 end;
 
 procedure TBluetoothService.DoError(const AMessage: string; AErrorCode: Cardinal);
@@ -473,13 +372,13 @@ end;
 
 function TBluetoothService.GetOnDeviceListChanged: TDeviceListChangedEvent;
 begin
-  Result := FOnDeviceListChanged;
+  Result := FDeviceRepository.OnListChanged;
 end;
 
 procedure TBluetoothService.SetOnDeviceListChanged(
   AValue: TDeviceListChangedEvent);
 begin
-  FOnDeviceListChanged := AValue;
+  FDeviceRepository.OnListChanged := AValue;
 end;
 
 function TBluetoothService.GetOnError: TBluetoothErrorEvent;
@@ -504,23 +403,22 @@ begin
     ADeviceAddress, Ord(ANewState)
   ]);
 
-  // Check if device is in cache
-  if FDeviceCache.TryGetValue(ADeviceAddress, Device) then
+  // Check if device is in repository
+  if FDeviceRepository.TryGetByAddress(ADeviceAddress, Device) then
   begin
-    // Update cached device with new state
+    // Update device with new state
     UpdatedDevice := Device.WithConnectionState(ANewState);
-    FDeviceCache[ADeviceAddress] := UpdatedDevice;
+    FDeviceRepository.AddOrUpdate(UpdatedDevice);
     DoDeviceStateChanged(UpdatedDevice);
   end
   else
   begin
-    // Device not in cache - try to get full info from Windows
-    Device := RefreshDeviceByAddress(ADeviceAddress);
-    if (Device.AddressInt <> 0) and Device.IsPaired then
+    // Device not in repository - refresh from Windows and try again
+    FDeviceRepository.Refresh;
+    if FDeviceRepository.TryGetByAddress(ADeviceAddress, Device) then
     begin
       UpdatedDevice := Device.WithConnectionState(ANewState);
-      FDeviceCache.AddOrSetValue(ADeviceAddress, UpdatedDevice);
-      DoDeviceListChanged;
+      FDeviceRepository.AddOrUpdate(UpdatedDevice);
       DoDeviceStateChanged(UpdatedDevice);
     end;
   end;
@@ -531,27 +429,6 @@ procedure TBluetoothService.HandleMonitorError(Sender: TObject;
 begin
   Log('[Service] HandleMonitorError: %s (code %d)', [AMessage, AErrorCode]);
   DoError(AMessage, AErrorCode);
-end;
-
-function TBluetoothService.RefreshDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
-var
-  DeviceInfo: BLUETOOTH_DEVICE_INFO;
-  ErrorCode: DWORD;
-begin
-  // Initialize structure with address to query
-  InitDeviceInfo(DeviceInfo);
-  DeviceInfo.Address.ullLong := AAddress;
-
-  // Query current device info from Windows
-  ErrorCode := BluetoothGetDeviceInfo(0, DeviceInfo);
-
-  if ErrorCode = ERROR_SUCCESS then
-    Result := ConvertToDeviceInfo(DeviceInfo)
-  else
-  begin
-    // Device not found - return empty record with just the address
-    FillChar(Result, SizeOf(Result), 0);
-  end;
 end;
 
 end.

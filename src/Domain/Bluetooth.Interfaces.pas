@@ -304,6 +304,78 @@ type
     procedure Clear;
   end;
 
+  /// <summary>
+  /// Repository interface for device storage and retrieval.
+  /// Centralizes device cache management and enumeration.
+  /// </summary>
+  IDeviceRepository = interface
+    ['{E5F6A7B8-9999-AAAA-BBBB-CCCC0000EEEE}']
+
+    /// <summary>
+    /// Gets all cached devices.
+    /// </summary>
+    function GetAll: TBluetoothDeviceInfoArray;
+
+    /// <summary>
+    /// Gets a device by its address.
+    /// Returns empty record if not found.
+    /// </summary>
+    function GetByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
+
+    /// <summary>
+    /// Tries to get a device by its address.
+    /// </summary>
+    /// <returns>True if device was found.</returns>
+    function TryGetByAddress(AAddress: UInt64; out ADevice: TBluetoothDeviceInfo): Boolean;
+
+    /// <summary>
+    /// Checks if a device with the given address exists in the repository.
+    /// </summary>
+    function Contains(AAddress: UInt64): Boolean;
+
+    /// <summary>
+    /// Adds or updates a device in the repository.
+    /// </summary>
+    procedure AddOrUpdate(const ADevice: TBluetoothDeviceInfo);
+
+    /// <summary>
+    /// Updates the connection state of a device.
+    /// </summary>
+    /// <returns>The updated device, or empty record if not found.</returns>
+    function UpdateConnectionState(AAddress: UInt64;
+      AState: TBluetoothConnectionState): TBluetoothDeviceInfo;
+
+    /// <summary>
+    /// Removes a device from the repository.
+    /// </summary>
+    procedure Remove(AAddress: UInt64);
+
+    /// <summary>
+    /// Clears all devices from the repository.
+    /// </summary>
+    procedure Clear;
+
+    /// <summary>
+    /// Refreshes all devices from Windows Bluetooth API.
+    /// Clears cache and re-enumerates paired devices.
+    /// </summary>
+    procedure Refresh;
+
+    /// <summary>
+    /// Gets the number of devices in the repository.
+    /// </summary>
+    function GetCount: Integer;
+    property Count: Integer read GetCount;
+
+    /// <summary>
+    /// Event fired when the device list changes (add/remove).
+    /// </summary>
+    function GetOnListChanged: TDeviceListChangedEvent;
+    procedure SetOnListChanged(AValue: TDeviceListChangedEvent);
+    property OnListChanged: TDeviceListChangedEvent
+      read GetOnListChanged write SetOnListChanged;
+  end;
+
 implementation
 
 end.
