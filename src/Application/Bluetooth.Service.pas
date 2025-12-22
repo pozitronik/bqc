@@ -27,7 +27,8 @@ uses
   Bluetooth.ConnectionStrategies,
   Bluetooth.DeviceWatcher,
   Bluetooth.EventDebouncer,
-  App.Logger;
+  App.Logger,
+  App.ConfigInterfaces;
 
 type
   /// <summary>
@@ -51,6 +52,15 @@ type
 
     { Event debouncing - filters duplicate events from multiple Windows sources }
     FEventDebouncer: TDeviceEventDebouncer;
+
+    { Injected configuration interfaces }
+    FPollingConfig: IPollingConfig;
+    FConnectionConfig: IConnectionConfig;
+    FDeviceConfigProvider: IDeviceConfigProvider;
+
+    function GetPollingConfig: IPollingConfig;
+    function GetConnectionConfig: IConnectionConfig;
+    function GetDeviceConfigProvider: IDeviceConfigProvider;
 
     procedure CloseRadio;
     function ConvertToDeviceInfo(const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
@@ -103,6 +113,11 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+
+    { Dependency injection properties (optional - uses Bootstrap fallback if not set) }
+    property PollingConfig: IPollingConfig read GetPollingConfig write FPollingConfig;
+    property ConnectionConfig: IConnectionConfig read GetConnectionConfig write FConnectionConfig;
+    property DeviceConfigProvider: IDeviceConfigProvider read GetDeviceConfigProvider write FDeviceConfigProvider;
   end;
 
 /// <summary>
@@ -116,8 +131,7 @@ implementation
 uses
   System.DateUtils,
   Vcl.Forms,
-  App.ConfigInterfaces,
-  App.Config;
+  App.Bootstrap;
 
 const
   POLLING_TIMER_ID = 1;
@@ -129,12 +143,33 @@ end;
 
 { TBluetoothService }
 
+function TBluetoothService.GetPollingConfig: IPollingConfig;
+begin
+  if FPollingConfig = nil then
+    FPollingConfig := Bootstrap.PollingConfig;
+  Result := FPollingConfig;
+end;
+
+function TBluetoothService.GetConnectionConfig: IConnectionConfig;
+begin
+  if FConnectionConfig = nil then
+    FConnectionConfig := Bootstrap.ConnectionConfig;
+  Result := FConnectionConfig;
+end;
+
+function TBluetoothService.GetDeviceConfigProvider: IDeviceConfigProvider;
+begin
+  if FDeviceConfigProvider = nil then
+    FDeviceConfigProvider := Bootstrap.DeviceConfigProvider;
+  Result := FDeviceConfigProvider;
+end;
+
 constructor TBluetoothService.Create;
 begin
   inherited Create;
   FRadioHandle := 0;
   FDeviceCache := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
-  FEventDebouncer := TDeviceEventDebouncer.Create(Config.EventDebounceMs);
+  FEventDebouncer := TDeviceEventDebouncer.Create(PollingConfig.EventDebounceMs);
   FDeviceWatcher := nil;
   FDeviceWatcherStarted := False;
   FPollingEnabled := False;
@@ -142,7 +177,7 @@ begin
   FPollingTimerID := 0;
 
   // Choose monitoring method based on configuration
-  case Config.PollingMode of
+  case PollingConfig.PollingMode of
     pmDisabled:
       begin
         // Use device watcher only, no polling fallback
@@ -158,7 +193,7 @@ begin
     pmPrimary:
       begin
         // Use polling as primary method
-        Log('[Service] Create: Using polling as primary (interval=%d ms)', [Config.PollingInterval]);
+        Log('[Service] Create: Using polling as primary (interval=%d ms)', [PollingConfig.PollingInterval]);
         StartPollingFallback;
       end;
   end;
@@ -343,13 +378,13 @@ begin
   ErrorCode := ERROR_SUCCESS;
 
   // Get device-specific configuration
-  DeviceConfig := Config.GetDeviceConfig(ADevice.AddressInt);
+  DeviceConfig := DeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt);
 
   // Get retry count: device-specific if set, otherwise global
   if DeviceConfig.ConnectionRetryCount >= 0 then
     RetryCount := DeviceConfig.ConnectionRetryCount
   else
-    RetryCount := Config.ConnectionRetryCount;
+    RetryCount := ConnectionConfig.ConnectionRetryCount;
 
   // Bounds checking
   if RetryCount < 0 then
@@ -529,9 +564,9 @@ begin
     FDeviceWatcher := nil;
 
     // Fall back to polling if enabled in configuration (Fallback or Primary mode)
-    if Config.PollingMode <> pmDisabled then
+    if PollingConfig.PollingMode <> pmDisabled then
     begin
-      Log('[Service] StartDeviceWatcher: Falling back to polling (interval=%d ms)', [Config.PollingInterval]);
+      Log('[Service] StartDeviceWatcher: Falling back to polling (interval=%d ms)', [PollingConfig.PollingInterval]);
       StartPollingFallback;
     end;
   end;
@@ -741,7 +776,7 @@ begin
     Exit;
 
   // Get polling interval from configuration (with reasonable bounds)
-  Interval := Config.PollingInterval;
+  Interval := PollingConfig.PollingInterval;
   if Interval < 500 then
     Interval := 500;  // Minimum 500ms
   if Interval > 30000 then
