@@ -14,7 +14,9 @@ interface
 uses
   System.SysUtils,
   System.Generics.Collections,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  Bluetooth.Types,
+  Bluetooth.Interfaces;
 
 type
   /// <summary>
@@ -162,6 +164,57 @@ type
     // Test setup properties
     property ConnectionTimeout: Integer read FConnectionTimeout write FConnectionTimeout;
     property ConnectionRetryCount: Integer read FConnectionRetryCount write FConnectionRetryCount;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IConnectionStrategy for testing.
+  /// Allows configuring behavior for specific device types.
+  /// </summary>
+  TMockConnectionStrategy = class(TInterfacedObject, IConnectionStrategy)
+  private
+    FPriority: Integer;
+    FSupportedTypes: TArray<TBluetoothDeviceType>;
+    FServiceGuids: TArray<TGUID>;
+    FCanHandleResult: Boolean;
+  public
+    constructor Create; overload;
+    constructor Create(APriority: Integer; ASupportedTypes: TArray<TBluetoothDeviceType>); overload;
+
+    // IConnectionStrategy
+    function CanHandle(ADeviceType: TBluetoothDeviceType): Boolean;
+    function GetServiceGuids: TArray<TGUID>;
+    function GetPriority: Integer;
+
+    // Test setup
+    property Priority: Integer read FPriority write FPriority;
+    property SupportedTypes: TArray<TBluetoothDeviceType> read FSupportedTypes write FSupportedTypes;
+    property ServiceGuids: TArray<TGUID> read FServiceGuids write FServiceGuids;
+    property CanHandleResult: Boolean read FCanHandleResult write FCanHandleResult;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IConnectionStrategyFactory for testing.
+  /// Allows injecting custom strategies for testing connection behavior.
+  /// </summary>
+  TMockConnectionStrategyFactory = class(TInterfacedObject, IConnectionStrategyFactory)
+  private
+    FStrategies: TList<IConnectionStrategy>;
+    FGetStrategyCallCount: Integer;
+    FLastRequestedDeviceType: TBluetoothDeviceType;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    // IConnectionStrategyFactory
+    function GetStrategy(ADeviceType: TBluetoothDeviceType): IConnectionStrategy;
+    procedure RegisterStrategy(AStrategy: IConnectionStrategy);
+    function GetAllStrategies: TArray<IConnectionStrategy>;
+    procedure Clear;
+
+    // Test helpers
+    property GetStrategyCallCount: Integer read FGetStrategyCallCount;
+    property LastRequestedDeviceType: TBluetoothDeviceType read FLastRequestedDeviceType;
+    property Strategies: TList<IConnectionStrategy> read FStrategies;
   end;
 
 implementation
@@ -438,6 +491,115 @@ end;
 function TMockConnectionConfig.GetConnectionRetryCount: Integer;
 begin
   Result := FConnectionRetryCount;
+end;
+
+{ TMockConnectionStrategy }
+
+constructor TMockConnectionStrategy.Create;
+begin
+  inherited Create;
+  FPriority := 0;
+  FSupportedTypes := [];
+  FServiceGuids := [];
+  FCanHandleResult := True;
+end;
+
+constructor TMockConnectionStrategy.Create(APriority: Integer;
+  ASupportedTypes: TArray<TBluetoothDeviceType>);
+begin
+  inherited Create;
+  FPriority := APriority;
+  FSupportedTypes := ASupportedTypes;
+  FServiceGuids := [];
+  FCanHandleResult := True;
+end;
+
+function TMockConnectionStrategy.CanHandle(ADeviceType: TBluetoothDeviceType): Boolean;
+var
+  DevType: TBluetoothDeviceType;
+begin
+  // If FCanHandleResult is False, always return False
+  if not FCanHandleResult then
+    Exit(False);
+
+  // If no specific types configured, use FCanHandleResult
+  if Length(FSupportedTypes) = 0 then
+    Exit(FCanHandleResult);
+
+  // Check if device type is in supported list
+  for DevType in FSupportedTypes do
+    if DevType = ADeviceType then
+      Exit(True);
+
+  Result := False;
+end;
+
+function TMockConnectionStrategy.GetServiceGuids: TArray<TGUID>;
+begin
+  Result := FServiceGuids;
+end;
+
+function TMockConnectionStrategy.GetPriority: Integer;
+begin
+  Result := FPriority;
+end;
+
+{ TMockConnectionStrategyFactory }
+
+constructor TMockConnectionStrategyFactory.Create;
+begin
+  inherited Create;
+  FStrategies := TList<IConnectionStrategy>.Create;
+  FGetStrategyCallCount := 0;
+  FLastRequestedDeviceType := btUnknown;
+end;
+
+destructor TMockConnectionStrategyFactory.Destroy;
+begin
+  FStrategies.Free;
+  inherited Destroy;
+end;
+
+function TMockConnectionStrategyFactory.GetStrategy(
+  ADeviceType: TBluetoothDeviceType): IConnectionStrategy;
+var
+  Strategy: IConnectionStrategy;
+  BestStrategy: IConnectionStrategy;
+  BestPriority: Integer;
+begin
+  Inc(FGetStrategyCallCount);
+  FLastRequestedDeviceType := ADeviceType;
+
+  BestStrategy := nil;
+  BestPriority := -1;
+
+  for Strategy in FStrategies do
+  begin
+    if Strategy.CanHandle(ADeviceType) and (Strategy.GetPriority > BestPriority) then
+    begin
+      BestStrategy := Strategy;
+      BestPriority := Strategy.GetPriority;
+    end;
+  end;
+
+  Result := BestStrategy;
+end;
+
+procedure TMockConnectionStrategyFactory.RegisterStrategy(
+  AStrategy: IConnectionStrategy);
+begin
+  FStrategies.Add(AStrategy);
+end;
+
+function TMockConnectionStrategyFactory.GetAllStrategies: TArray<IConnectionStrategy>;
+begin
+  Result := FStrategies.ToArray;
+end;
+
+procedure TMockConnectionStrategyFactory.Clear;
+begin
+  FStrategies.Clear;
+  FGetStrategyCallCount := 0;
 end;
 
 end.

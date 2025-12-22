@@ -100,9 +100,12 @@
         <DCCReference Include="FastMM5\FastMM5.pas"/>
         <DCCReference Include="Tests.Bluetooth.Types.pas"/>
         <DCCReference Include="Tests.App.Config.pas"/>
+        <DCCReference Include="Tests.ConnectionStrategies.pas"/>
         <DCCReference Include="Tests.Mocks.pas"/>
         <DCCReference Include="..\src\Domain\Bluetooth.Types.pas"/>
         <DCCReference Include="..\src\Domain\Bluetooth.Interfaces.pas"/>
+        <DCCReference Include="..\src\Application\Bluetooth.ConnectionStrategies.pas"/>
+        <DCCReference Include="..\src\Infrastructure\Bluetooth.WinAPI.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.ConfigInterfaces.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.Config.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.Bootstrap.pas"/>
