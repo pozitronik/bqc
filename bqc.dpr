@@ -10,6 +10,7 @@ uses
   Bluetooth.Types in 'src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in 'src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in 'src\Application\Bluetooth.ConnectionStrategies.pas',
+  Bluetooth.EventDebouncer in 'src\Application\Bluetooth.EventDebouncer.pas',
   Bluetooth.Service in 'src\Application\Bluetooth.Service.pas',
   App.MainPresenter in 'src\Application\App.MainPresenter.pas',
   App.SettingsPresenter in 'src\Application\App.SettingsPresenter.pas',

@@ -150,6 +150,7 @@ type
     // [Polling]
     FPollingMode: TPollingMode;
     FPollingInterval: Integer;
+    FEventDebounceMs: Integer;
 
     // [Log]
     FLogEnabled: Boolean;
@@ -206,6 +207,7 @@ type
     procedure SetPositionH(AValue: Integer);
     procedure SetPollingMode(AValue: TPollingMode);
     procedure SetPollingInterval(AValue: Integer);
+    procedure SetEventDebounceMs(AValue: Integer);
     procedure SetLogEnabled(AValue: Boolean);
     procedure SetLogFilename(const AValue: string);
     procedure SetLogAppend(AValue: Boolean);
@@ -319,6 +321,7 @@ type
     // [Polling]
     property PollingMode: TPollingMode read FPollingMode write SetPollingMode;
     property PollingInterval: Integer read FPollingInterval write SetPollingInterval;
+    property EventDebounceMs: Integer read FEventDebounceMs write SetEventDebounceMs;
 
     // [Log]
     property LogEnabled: Boolean read FLogEnabled write SetLogEnabled;
@@ -433,6 +436,11 @@ const
   MIN_POLLING_INTERVAL = 0;
   MAX_POLLING_INTERVAL = 10000;
   DEF_POLLING_INTERVAL = 2000;
+
+  // Event debounce limits (filters duplicate events from multiple Windows sources)
+  MIN_EVENT_DEBOUNCE_MS = 0;
+  MAX_EVENT_DEBOUNCE_MS = 5000;
+  DEF_EVENT_DEBOUNCE_MS = 500;
 
   // Appearance defaults
   DEF_CONNECTED_COLOR = $00008000;  // Dark green (BGR format)
@@ -587,6 +595,7 @@ begin
   // [Polling]
   FPollingMode := DEF_POLLING_MODE;
   FPollingInterval := DEF_POLLING_INTERVAL;
+  FEventDebounceMs := DEF_EVENT_DEBOUNCE_MS;
 
   // [Log]
   FLogEnabled := DEF_LOG_ENABLED;
@@ -670,6 +679,7 @@ begin
     // [Polling]
     FPollingMode := TPollingMode(Ini.ReadInteger(SEC_POLLING, 'Mode', Ord(DEF_POLLING_MODE)));
     FPollingInterval := Ini.ReadInteger(SEC_POLLING, 'Interval', DEF_POLLING_INTERVAL);
+    FEventDebounceMs := Ini.ReadInteger(SEC_POLLING, 'EventDebounceMs', DEF_EVENT_DEBOUNCE_MS);
 
     // [Log]
     FLogEnabled := Ini.ReadBool(SEC_LOG, 'Enabled', DEF_LOG_ENABLED);
@@ -709,6 +719,7 @@ begin
     // Validate numeric values to ensure they're within acceptable ranges
     // (handles corrupted INI files or manual edits with invalid values)
     FPollingInterval := EnsureRange(FPollingInterval, MIN_POLLING_INTERVAL, MAX_POLLING_INTERVAL);
+    FEventDebounceMs := EnsureRange(FEventDebounceMs, MIN_EVENT_DEBOUNCE_MS, MAX_EVENT_DEBOUNCE_MS);
     FItemHeight := EnsureRange(FItemHeight, MIN_ITEM_HEIGHT, MAX_ITEM_HEIGHT);
     FItemPadding := EnsureRange(FItemPadding, MIN_ITEM_PADDING, MAX_ITEM_PADDING);
     FItemMargin := EnsureRange(FItemMargin, MIN_ITEM_MARGIN, MAX_ITEM_MARGIN);
@@ -769,6 +780,7 @@ begin
     // [Polling]
     Ini.WriteInteger(SEC_POLLING, 'Mode', Ord(FPollingMode));
     Ini.WriteInteger(SEC_POLLING, 'Interval', FPollingInterval);
+    Ini.WriteInteger(SEC_POLLING, 'EventDebounceMs', FEventDebounceMs);
 
     // [Log]
     Ini.WriteBool(SEC_LOG, 'Enabled', FLogEnabled);
@@ -1121,6 +1133,15 @@ begin
   if FPollingInterval <> AValue then
   begin
     FPollingInterval := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetEventDebounceMs(AValue: Integer);
+begin
+  if FEventDebounceMs <> AValue then
+  begin
+    FEventDebounceMs := AValue;
     FModified := True;
   end;
 end;

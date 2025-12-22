@@ -26,6 +26,7 @@ uses
   Bluetooth.WinAPI,
   Bluetooth.ConnectionStrategies,
   Bluetooth.DeviceWatcher,
+  Bluetooth.EventDebouncer,
   App.Logger;
 
 type
@@ -47,6 +48,9 @@ type
     FPollingEnabled: Boolean;
     FPollingHandle: HWND;
     FPollingTimerID: UINT_PTR;
+
+    { Event debouncing - filters duplicate events from multiple Windows sources }
+    FEventDebouncer: TDeviceEventDebouncer;
 
     procedure CloseRadio;
     function ConvertToDeviceInfo(const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
@@ -129,6 +133,7 @@ begin
   inherited Create;
   FRadioHandle := 0;
   FDeviceCache := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
+  FEventDebouncer := TDeviceEventDebouncer.Create(Config.EventDebounceMs);
   FDeviceWatcher := nil;
   FDeviceWatcherStarted := False;
   FPollingEnabled := False;
@@ -163,6 +168,7 @@ begin
   StopPollingFallback;
   StopDeviceWatcher;
   CloseRadio;
+  FEventDebouncer.Free;
   FDeviceCache.Free;
   inherited Destroy;
 end;
@@ -570,6 +576,10 @@ var
 begin
   Log('[Service] HandleWatcherDeviceConnected: Address=$%.12X', [ADeviceAddress]);
 
+  // Debounce: filter duplicate connect events
+  if not FEventDebouncer.ShouldProcess(ADeviceAddress, detConnect, csConnected) then
+    Exit;
+
   // Refresh device info from Windows to get current state
   Device := RefreshDeviceByAddress(ADeviceAddress);
   Log('[Service] HandleWatcherDeviceConnected: RefreshDeviceByAddress returned AddressInt=$%.12X, Name="%s"', [
@@ -607,6 +617,10 @@ var
 begin
   Log('[Service] HandleWatcherDeviceDisconnected: Address=$%.12X', [ADeviceAddress]);
 
+  // Debounce: filter duplicate disconnect events
+  if not FEventDebouncer.ShouldProcess(ADeviceAddress, detDisconnect, csDisconnected) then
+    Exit;
+
   // Update cache with disconnected state
   if FDeviceCache.ContainsKey(ADeviceAddress) then
   begin
@@ -640,6 +654,7 @@ var
   CachedDevice: TBluetoothDeviceInfo;
   Address: UInt64;
   EventName: string;
+  ConnectionState: TBluetoothConnectionState;
 begin
   Address := ADeviceInfo.Address.ullLong;
 
@@ -656,6 +671,14 @@ begin
     Log('[Service] HandleWatcherDeviceAttributeChanged: Zero address, skipping');
     Exit;
   end;
+
+  // Debounce: filter duplicate attribute change events
+  if ADeviceInfo.fConnected then
+    ConnectionState := csConnected
+  else
+    ConnectionState := csDisconnected;
+  if not FEventDebouncer.ShouldProcess(Address, detAttributeChange, ConnectionState) then
+    Exit;
 
   // Get name from event (may be empty)
   EventName := Trim(string(ADeviceInfo.szName));
