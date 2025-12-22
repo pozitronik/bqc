@@ -194,6 +194,26 @@ function WindowsGetStringRawBuffer(str: HSTRING; out length: Cardinal): PWideCha
 function RoInitialize(initType: Cardinal): HRESULT; stdcall;
   external 'combase.dll';
 
+/// <summary>
+/// RoUninitialize is declared but intentionally NOT called in this unit.
+///
+/// IMPORTANT: We do NOT call RoUninitialize for the following reasons:
+///
+/// 1. WinRT COM objects (IRadio, IVectorViewRadio, etc.) may still be held
+///    by the Bluetooth subsystem after our code returns. Calling RoUninitialize
+///    would invalidate these interface pointers, causing access violations
+///    when they are later released or used by the system.
+///
+/// 2. For desktop applications, the Windows Runtime is designed to be
+///    initialized once and remain active for the process lifetime.
+///    The runtime cleans up automatically when the process exits.
+///
+/// 3. Multiple calls to RoInitialize are reference-counted, but calling
+///    RoUninitialize while interfaces are still alive is undefined behavior.
+///
+/// This is the recommended pattern for WinRT usage in desktop applications.
+/// See: https://docs.microsoft.com/en-us/windows/win32/api/roapi/nf-roapi-roinitialize
+/// </summary>
 procedure RoUninitialize; stdcall;
   external 'combase.dll';
 
@@ -313,7 +333,7 @@ begin
       FreeHString(ClassName);
     end;
   finally
-    // Don't uninitialize here as caller may need the radio reference
+    // See RoUninitialize declaration for why we don't call it here
   end;
 end;
 
@@ -382,7 +402,7 @@ begin
     Result.Result := rcError;
     Result.ErrorCode := AccessStatus;
   end;
-  // Note: Don't call RoUninitialize - interfaces must be released first
+  // See RoUninitialize declaration for why we don't call it here
 end;
 
 function SetBluetoothRadioState(AEnable: Boolean): TRadioControlResult;
@@ -408,8 +428,7 @@ begin
 
   AEnabled := (RadioState = RadioState_On);
   Result := True;
-  // Note: Don't call RoUninitialize here - interfaces must be released first,
-  // and for a GUI app it's safe to leave WinRT initialized for the app lifetime
+  // See RoUninitialize declaration for why we don't call it here
 end;
 
 { TBluetoothRadioWatcher }
