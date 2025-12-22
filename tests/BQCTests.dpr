@@ -23,6 +23,7 @@ uses
   Tests.DeviceRepository in 'Tests.DeviceRepository.pas',
   Tests.ConnectionExecutor in 'Tests.ConnectionExecutor.pas',
   Tests.AdapterQuery in 'Tests.AdapterQuery.pas',
+  Tests.DeviceConfigRepository in 'Tests.DeviceConfigRepository.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
@@ -35,6 +36,8 @@ uses
   Bluetooth.DeviceWatcher in '..\src\Infrastructure\Bluetooth.DeviceWatcher.pas',
   App.ConfigInterfaces in '..\src\Infrastructure\App.ConfigInterfaces.pas',
   App.Config in '..\src\Infrastructure\App.Config.pas',
+  App.SettingsRepository in '..\src\Infrastructure\App.SettingsRepository.pas',
+  App.DeviceConfigRepository in '..\src\Infrastructure\App.DeviceConfigRepository.pas',
   App.Bootstrap in '..\src\Infrastructure\App.Bootstrap.pas',
   App.Logger in '..\src\Infrastructure\App.Logger.pas',
   App.Autostart in '..\src\Infrastructure\App.Autostart.pas';
