@@ -366,6 +366,66 @@ type
     property StayOnTop: Boolean read FOnTop write SetOnTop;
   end;
 
+const
+  // Layout value limits (shared with UI TUpDown controls)
+  MIN_ITEM_HEIGHT = 30;
+  MAX_ITEM_HEIGHT = 200;
+  DEF_ITEM_HEIGHT = 70;
+
+  MIN_ITEM_PADDING = 0;
+  MAX_ITEM_PADDING = 50;
+  DEF_ITEM_PADDING = 6;
+
+  MIN_ITEM_MARGIN = 0;
+  MAX_ITEM_MARGIN = 30;
+  DEF_ITEM_MARGIN = 4;
+
+  MIN_ICON_SIZE = 16;
+  MAX_ICON_SIZE = 64;
+  DEF_ICON_SIZE = 46;
+
+  MIN_CORNER_RADIUS = 0;
+  MAX_CORNER_RADIUS = 30;
+  DEF_CORNER_RADIUS = 8;
+
+  MIN_ITEM_BORDER_WIDTH = 0;
+  MAX_ITEM_BORDER_WIDTH = 20;
+  DEF_ITEM_BORDER_WIDTH = 0;
+  DEF_ITEM_BORDER_COLOR = $00808080;  // Gray
+
+  // Font size limits
+  MIN_DEVICE_NAME_FONT_SIZE = 6;
+  MAX_DEVICE_NAME_FONT_SIZE = 24;
+  DEF_DEVICE_NAME_FONT_SIZE = 12;
+
+  MIN_STATUS_FONT_SIZE = 6;
+  MAX_STATUS_FONT_SIZE = 24;
+  DEF_STATUS_FONT_SIZE = 10;
+
+  MIN_ADDRESS_FONT_SIZE = 6;
+  MAX_ADDRESS_FONT_SIZE = 24;
+  DEF_ADDRESS_FONT_SIZE = 8;
+
+  MIN_ICON_FONT_SIZE = 8;
+  MAX_ICON_FONT_SIZE = 32;
+  DEF_ICON_FONT_SIZE = 16;
+
+  // Connection limits
+  MIN_CONNECTION_TIMEOUT = 0;
+  MAX_CONNECTION_TIMEOUT = 60000;
+  DEF_CONNECTION_TIMEOUT = 10000;
+
+  MIN_CONNECTION_RETRY_COUNT = 0;
+  MAX_CONNECTION_RETRY_COUNT = 10;
+  DEF_CONNECTION_RETRY_COUNT = 2;
+
+  MIN_POLLING_INTERVAL = 0;
+  MAX_POLLING_INTERVAL = 10000;
+  DEF_POLLING_INTERVAL = 2000;
+
+  // Appearance defaults
+  DEF_CONNECTED_COLOR = $00008000;  // Dark green (BGR format)
+
 /// <summary>
 /// Returns the singleton configuration instance.
 /// </summary>
@@ -374,6 +434,7 @@ function Config: TAppConfig;
 implementation
 
 uses
+  System.Math,
   System.DateUtils,
   App.Logger,
   App.Autostart;
@@ -407,15 +468,13 @@ const
   DEF_POSITION_W = -1;
   DEF_POSITION_H = -1;
   DEF_POLLING_MODE = pmFallback;
-  DEF_POLLING_INTERVAL = 2000;
   DEF_LOG_ENABLED = False;
   DEF_LOG_FILENAME = 'bqc.log';
   DEF_LOG_APPEND = False;
   DEF_SHOW_ADDRESSES = False;
   DEF_THEME = '';
   DEF_VSF_DIR = 'themes';
-  DEF_CONNECTION_TIMEOUT = 10000;
-  DEF_CONNECTION_RETRY_COUNT = 2;
+
   DEF_NOTIFY_ON_CONNECT = nmBalloon;
   DEF_NOTIFY_ON_DISCONNECT = nmBalloon;
   DEF_NOTIFY_ON_CONNECT_FAILED = nmBalloon;
@@ -425,20 +484,6 @@ const
   DEF_SHOW_LAST_SEEN = False;
   DEF_LAST_SEEN_FORMAT = lsfRelative;
   DEF_SHOW_DEVICE_ICONS = True;
-  DEF_CONNECTED_COLOR = $00008000;  // Dark green (BGR format)
-
-  // [Layout] defaults
-  DEF_ITEM_HEIGHT = 70;
-  DEF_ITEM_PADDING = 6;
-  DEF_ITEM_MARGIN = 4;
-  DEF_ICON_SIZE = 46;
-  DEF_CORNER_RADIUS = 8;
-  DEF_DEVICE_NAME_FONT_SIZE = 12;
-  DEF_STATUS_FONT_SIZE = 10;
-  DEF_ADDRESS_FONT_SIZE = 8;
-  DEF_ICON_FONT_SIZE = 16;
-  DEF_ITEM_BORDER_WIDTH = 0;        // No border by default
-  DEF_ITEM_BORDER_COLOR = $00808080; // Gray
 
 var
   GConfig: TAppConfig = nil;
@@ -649,6 +694,22 @@ begin
     FNotifyOnDisconnect := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, 'NotifyOnDisconnect', Ord(DEF_NOTIFY_ON_DISCONNECT)));
     FNotifyOnConnectFailed := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, 'NotifyOnConnectFailed', Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
     FNotifyOnAutoConnect := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, 'NotifyOnAutoConnect', Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
+
+    // Validate numeric values to ensure they're within acceptable ranges
+    // (handles corrupted INI files or manual edits with invalid values)
+    FPollingInterval := EnsureRange(FPollingInterval, MIN_POLLING_INTERVAL, MAX_POLLING_INTERVAL);
+    FItemHeight := EnsureRange(FItemHeight, MIN_ITEM_HEIGHT, MAX_ITEM_HEIGHT);
+    FItemPadding := EnsureRange(FItemPadding, MIN_ITEM_PADDING, MAX_ITEM_PADDING);
+    FItemMargin := EnsureRange(FItemMargin, MIN_ITEM_MARGIN, MAX_ITEM_MARGIN);
+    FIconSize := EnsureRange(FIconSize, MIN_ICON_SIZE, MAX_ICON_SIZE);
+    FCornerRadius := EnsureRange(FCornerRadius, MIN_CORNER_RADIUS, MAX_CORNER_RADIUS);
+    FItemBorderWidth := EnsureRange(FItemBorderWidth, MIN_ITEM_BORDER_WIDTH, MAX_ITEM_BORDER_WIDTH);
+    FDeviceNameFontSize := EnsureRange(FDeviceNameFontSize, MIN_DEVICE_NAME_FONT_SIZE, MAX_DEVICE_NAME_FONT_SIZE);
+    FStatusFontSize := EnsureRange(FStatusFontSize, MIN_STATUS_FONT_SIZE, MAX_STATUS_FONT_SIZE);
+    FAddressFontSize := EnsureRange(FAddressFontSize, MIN_ADDRESS_FONT_SIZE, MAX_ADDRESS_FONT_SIZE);
+    FIconFontSize := EnsureRange(FIconFontSize, MIN_ICON_FONT_SIZE, MAX_ICON_FONT_SIZE);
+    FConnectionTimeout := EnsureRange(FConnectionTimeout, MIN_CONNECTION_TIMEOUT, MAX_CONNECTION_TIMEOUT);
+    FConnectionRetryCount := EnsureRange(FConnectionRetryCount, MIN_CONNECTION_RETRY_COUNT, MAX_CONNECTION_RETRY_COUNT);
 
     // Device-specific settings
     LoadDevices(Ini);

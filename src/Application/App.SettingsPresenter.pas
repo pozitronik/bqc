@@ -131,6 +131,7 @@ type
     FShapeBorderColor: TShape;
 
     procedure InitControlReferences;
+    procedure InitUpDownLimits;
     procedure LoadThemeList;
     procedure LoadDeviceList;
     procedure LoadDeviceSettings(AIndex: Integer);
@@ -298,6 +299,94 @@ begin
   end;
 
   Log('[SettingsPresenter] InitControlReferences: Complete');
+end;
+
+procedure TSettingsPresenter.InitUpDownLimits;
+begin
+  // Layout limits
+  if FUpDownItemHeight <> nil then
+  begin
+    FUpDownItemHeight.Min := MIN_ITEM_HEIGHT;
+    FUpDownItemHeight.Max := MAX_ITEM_HEIGHT;
+  end;
+  if FUpDownItemPadding <> nil then
+  begin
+    FUpDownItemPadding.Min := MIN_ITEM_PADDING;
+    FUpDownItemPadding.Max := MAX_ITEM_PADDING;
+  end;
+  if FUpDownItemMargin <> nil then
+  begin
+    FUpDownItemMargin.Min := MIN_ITEM_MARGIN;
+    FUpDownItemMargin.Max := MAX_ITEM_MARGIN;
+  end;
+  if FUpDownIconSize <> nil then
+  begin
+    FUpDownIconSize.Min := MIN_ICON_SIZE;
+    FUpDownIconSize.Max := MAX_ICON_SIZE;
+  end;
+  if FUpDownCornerRadius <> nil then
+  begin
+    FUpDownCornerRadius.Min := MIN_CORNER_RADIUS;
+    FUpDownCornerRadius.Max := MAX_CORNER_RADIUS;
+  end;
+  if FUpDownBorderWidth <> nil then
+  begin
+    FUpDownBorderWidth.Min := MIN_ITEM_BORDER_WIDTH;
+    FUpDownBorderWidth.Max := MAX_ITEM_BORDER_WIDTH;
+  end;
+
+  // Font size limits
+  if FUpDownDeviceNameSize <> nil then
+  begin
+    FUpDownDeviceNameSize.Min := MIN_DEVICE_NAME_FONT_SIZE;
+    FUpDownDeviceNameSize.Max := MAX_DEVICE_NAME_FONT_SIZE;
+  end;
+  if FUpDownStatusSize <> nil then
+  begin
+    FUpDownStatusSize.Min := MIN_STATUS_FONT_SIZE;
+    FUpDownStatusSize.Max := MAX_STATUS_FONT_SIZE;
+  end;
+  if FUpDownAddressSize <> nil then
+  begin
+    FUpDownAddressSize.Min := MIN_ADDRESS_FONT_SIZE;
+    FUpDownAddressSize.Max := MAX_ADDRESS_FONT_SIZE;
+  end;
+  if FUpDownIconFontSize <> nil then
+  begin
+    FUpDownIconFontSize.Min := MIN_ICON_FONT_SIZE;
+    FUpDownIconFontSize.Max := MAX_ICON_FONT_SIZE;
+  end;
+
+  // Connection limits
+  if FUpDownTimeout <> nil then
+  begin
+    FUpDownTimeout.Min := MIN_CONNECTION_TIMEOUT;
+    FUpDownTimeout.Max := MAX_CONNECTION_TIMEOUT;
+  end;
+  if FUpDownRetryCount <> nil then
+  begin
+    FUpDownRetryCount.Min := MIN_CONNECTION_RETRY_COUNT;
+    FUpDownRetryCount.Max := MAX_CONNECTION_RETRY_COUNT;
+  end;
+  if FUpDownPollingInterval <> nil then
+  begin
+    FUpDownPollingInterval.Min := MIN_POLLING_INTERVAL;
+    FUpDownPollingInterval.Max := MAX_POLLING_INTERVAL;
+  end;
+
+  // Per-device connection limits (allow -1 for "use global")
+  if FUpDownDeviceTimeout <> nil then
+  begin
+    FUpDownDeviceTimeout.Min := -1;
+    FUpDownDeviceTimeout.Max := MAX_CONNECTION_TIMEOUT;
+  end;
+  if FUpDownDeviceRetryCount <> nil then
+  begin
+    FUpDownDeviceRetryCount.Min := -1;
+    FUpDownDeviceRetryCount.Max := MAX_CONNECTION_RETRY_COUNT;
+  end;
+
+  Log('[SettingsPresenter] InitUpDownLimits: Complete');
 end;
 
 procedure TSettingsPresenter.LoadThemeList;
@@ -485,6 +574,7 @@ begin
   Log('[SettingsPresenter] LoadSettings');
 
   InitControlReferences;
+  InitUpDownLimits;
 
   // Tab: General
   // ComboBox: 0 = Window mode, 1 = Menu mode
@@ -821,29 +911,29 @@ begin
   Log('[SettingsPresenter] OnResetLayoutClicked');
   // Reset layout settings to defaults using TUpDown.Position
   if FUpDownItemHeight <> nil then
-    FUpDownItemHeight.Position := 70;
+    FUpDownItemHeight.Position := DEF_ITEM_HEIGHT;
   if FUpDownItemPadding <> nil then
-    FUpDownItemPadding.Position := 6;
+    FUpDownItemPadding.Position := DEF_ITEM_PADDING;
   if FUpDownItemMargin <> nil then
-    FUpDownItemMargin.Position := 4;
+    FUpDownItemMargin.Position := DEF_ITEM_MARGIN;
   if FUpDownIconSize <> nil then
-    FUpDownIconSize.Position := 46;
+    FUpDownIconSize.Position := DEF_ICON_SIZE;
   if FUpDownCornerRadius <> nil then
-    FUpDownCornerRadius.Position := 8;
+    FUpDownCornerRadius.Position := DEF_CORNER_RADIUS;
   if FUpDownDeviceNameSize <> nil then
-    FUpDownDeviceNameSize.Position := 12;
+    FUpDownDeviceNameSize.Position := DEF_DEVICE_NAME_FONT_SIZE;
   if FUpDownStatusSize <> nil then
-    FUpDownStatusSize.Position := 10;
+    FUpDownStatusSize.Position := DEF_STATUS_FONT_SIZE;
   if FUpDownAddressSize <> nil then
-    FUpDownAddressSize.Position := 8;
+    FUpDownAddressSize.Position := DEF_ADDRESS_FONT_SIZE;
   if FUpDownIconFontSize <> nil then
-    FUpDownIconFontSize.Position := 16;
+    FUpDownIconFontSize.Position := DEF_ICON_FONT_SIZE;
   if FUpDownBorderWidth <> nil then
-    FUpDownBorderWidth.Position := 0;  // No border by default
+    FUpDownBorderWidth.Position := DEF_ITEM_BORDER_WIDTH;
   if FShapeBorderColor <> nil then
-    FShapeBorderColor.Brush.Color := TColor($00808080);  // Default gray
+    FShapeBorderColor.Brush.Color := TColor(DEF_ITEM_BORDER_COLOR);
   if FShapeConnectedColor <> nil then
-    FShapeConnectedColor.Brush.Color := TColor($00008000);  // Default green
+    FShapeConnectedColor.Brush.Color := TColor(DEF_CONNECTED_COLOR);
   MarkModified;
 end;
 
