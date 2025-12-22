@@ -24,6 +24,8 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
+    ExplicitTop = 337
+    ExplicitWidth = 540
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -62,6 +64,8 @@ object FormSettings: TFormSettings
     ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
+    ExplicitWidth = 540
+    ExplicitHeight = 337
     object TabGeneral: TTabSheet
       Caption = 'Window'
       object GroupWindowMode: TGroupBox
@@ -72,6 +76,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
+        ExplicitWidth = 524
         object LabelWindowMode: TLabel
           Left = 12
           Top = 24
@@ -140,6 +145,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
+        ExplicitWidth = 524
         object LabelPositionMode: TLabel
           Left = 12
           Top = 25
@@ -188,20 +194,12 @@ object FormSettings: TFormSettings
         end
       end
       object CheckAutostart: TCheckBox
-        Left = 0
+        Left = 12
         Top = 273
         Width = 136
         Height = 21
         Caption = 'Start with Windows'
         TabOrder = 2
-      end
-      object CheckShowAddresses: TCheckBox
-        Left = 156
-        Top = 275
-        Width = 181
-        Height = 17
-        Caption = 'Show device MAC addresses'
-        TabOrder = 3
       end
     end
     object TabAppearance: TTabSheet
@@ -216,14 +214,14 @@ object FormSettings: TFormSettings
         Caption = 'Display Options'
         TabOrder = 0
         object LabelConnectedColor: TLabel
-          Left = 270
+          Left = 274
           Top = 24
           Width = 91
           Height = 15
           Caption = 'Connected color:'
         end
         object ShapeConnectedColor: TShape
-          Left = 358
+          Left = 368
           Top = 22
           Width = 50
           Height = 21
@@ -261,6 +259,14 @@ object FormSettings: TFormSettings
           Height = 17
           Caption = 'Absolute format'
           TabOrder = 3
+        end
+        object CheckShowAddresses: TCheckBox
+          Left = 274
+          Top = 49
+          Width = 181
+          Height = 17
+          Caption = 'Show device MAC addresses'
+          TabOrder = 4
         end
       end
       object GroupLayout: TGroupBox

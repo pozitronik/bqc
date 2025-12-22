@@ -136,7 +136,6 @@ type
     ButtonOpenLogFile: TButton;
     ButtonForgetDevice: TButton;
     ButtonRefreshDevices: TButton;
-    CheckShowAddresses: TCheckBox;
     LabelDeviceType: TLabel;
     ComboDeviceType: TComboBox;
     ColorDialogConnected: TColorDialog;
@@ -185,6 +184,7 @@ type
     UpDownAddressSize: TUpDown;
     EditIconFontSize: TEdit;
     UpDownIconFontSize: TUpDown;
+    CheckShowAddresses: TCheckBox;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
