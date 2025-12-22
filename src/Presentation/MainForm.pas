@@ -26,6 +26,17 @@ uses
 const
   WM_DPICHANGED = $02E0;
 
+  // Windows Settings URI for Bluetooth
+  WINDOWS_BLUETOOTH_SETTINGS_URI = 'ms-settings:bluetooth';
+
+  // Window size constraints for auto-sizing
+  WINDOW_MIN_WIDTH = 280;
+  WINDOW_MAX_WIDTH = 500;
+  WINDOW_MIN_HEIGHT = 200;
+  WINDOW_MAX_HEIGHT = 600;
+  WINDOW_DEFAULT_WIDTH = 320;
+  WINDOW_DEFAULT_HEIGHT = 400;
+
 type
   /// <summary>
   /// Main application form displaying Bluetooth devices.
@@ -324,26 +335,17 @@ begin
 end;
 
 procedure TFormMain.CalculateAutoSize(out AWidth, AHeight: Integer);
-const
-  // Size constraints
-  MIN_WIDTH = 280;
-  MAX_WIDTH = 500;
-  MIN_HEIGHT = 200;
-  MAX_HEIGHT = 600;
-  // Default sizes for initial calculation
-  DEFAULT_WIDTH = 320;
-  DEFAULT_HEIGHT = 400;
 begin
   // For now, use reasonable defaults
   // TODO: Could calculate based on actual device count and content
-  AWidth := DEFAULT_WIDTH;
-  AHeight := DEFAULT_HEIGHT;
+  AWidth := WINDOW_DEFAULT_WIDTH;
+  AHeight := WINDOW_DEFAULT_HEIGHT;
 
   // Apply constraints
-  if AWidth < MIN_WIDTH then AWidth := MIN_WIDTH;
-  if AWidth > MAX_WIDTH then AWidth := MAX_WIDTH;
-  if AHeight < MIN_HEIGHT then AHeight := MIN_HEIGHT;
-  if AHeight > MAX_HEIGHT then AHeight := MAX_HEIGHT;
+  if AWidth < WINDOW_MIN_WIDTH then AWidth := WINDOW_MIN_WIDTH;
+  if AWidth > WINDOW_MAX_WIDTH then AWidth := WINDOW_MAX_WIDTH;
+  if AHeight < WINDOW_MIN_HEIGHT then AHeight := WINDOW_MIN_HEIGHT;
+  if AHeight > WINDOW_MAX_HEIGHT then AHeight := WINDOW_MAX_HEIGHT;
 
   Log('[MainForm] CalculateAutoSize: Calculated W=%d, H=%d', [AWidth, AHeight]);
 end;
@@ -456,7 +458,7 @@ end;
 
 procedure TFormMain.HandleWindowsSettingsClick(Sender: TObject);
 begin
-  ShellExecute(0, 'open', 'ms-settings:bluetooth', nil, nil, SW_SHOWNORMAL);
+  ShellExecute(0, 'open', WINDOWS_BLUETOOTH_SETTINGS_URI, nil, nil, SW_SHOWNORMAL);
 end;
 
 procedure TFormMain.HandleRefreshClick(Sender: TObject);

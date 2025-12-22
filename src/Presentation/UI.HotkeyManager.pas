@@ -101,6 +101,9 @@ uses
   App.Logger;
 
 const
+  // Hotkey atom name for registration
+  HOTKEY_ATOM_NAME = 'BQC_GlobalHotkey';
+
   // Low-level keyboard hook constants
   WH_KEYBOARD_LL = 13;
   LLKHF_UP = $80;
@@ -185,7 +188,7 @@ end;
 constructor THotkeyManager.Create;
 begin
   inherited Create;
-  FHotkeyId := GlobalAddAtom('BQC_GlobalHotkey');
+  FHotkeyId := GlobalAddAtom(HOTKEY_ATOM_NAME);
   FHotkeyRegistered := False;
   FUsingLowLevelHook := False;
   FWindowHandle := 0;

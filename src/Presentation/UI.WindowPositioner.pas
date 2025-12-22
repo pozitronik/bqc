@@ -48,13 +48,20 @@ uses
   Vcl.Controls,
   App.Logger;
 
+const
+  // Windows Shell class name for taskbar
+  TASKBAR_CLASS_NAME = 'Shell_TrayWnd';
+
+  // Margin between window and screen/taskbar edge
+  WINDOW_EDGE_MARGIN = 10;
+
 { TWindowPositioner }
 
 class function TWindowPositioner.GetTaskbarRect(out ARect: TRect): Boolean;
 var
   TrayWnd: HWND;
 begin
-  TrayWnd := FindWindow('Shell_TrayWnd', nil);
+  TrayWnd := FindWindow(TASKBAR_CLASS_NAME, nil);
   Result := (TrayWnd <> 0) and GetWindowRect(TrayWnd, ARect);
 end;
 
@@ -118,7 +125,7 @@ begin
       begin
         // Position popup above the cursor, centered horizontally
         NewLeft := CursorPos.X - (FormWidth div 2);
-        NewTop := CursorPos.Y - FormHeight - 10;
+        NewTop := CursorPos.Y - FormHeight - WINDOW_EDGE_MARGIN;
         Log('[WindowPositioner] Near cursor (%d, %d)', [CursorPos.X, CursorPos.Y]);
       end;
 
@@ -142,15 +149,15 @@ begin
             if TrayRect.Top < WorkArea.Top then
             begin
               // Taskbar at top - position popup below taskbar, near right edge
-              NewLeft := TrayRect.Right - FormWidth - 10;
-              NewTop := TrayRect.Bottom + 10;
+              NewLeft := TrayRect.Right - FormWidth - WINDOW_EDGE_MARGIN;
+              NewTop := TrayRect.Bottom + WINDOW_EDGE_MARGIN;
               Log('[WindowPositioner] Taskbar at TOP');
             end
             else
             begin
               // Taskbar at bottom - position popup above taskbar, near right edge
-              NewLeft := TrayRect.Right - FormWidth - 10;
-              NewTop := TrayRect.Top - FormHeight - 10;
+              NewLeft := TrayRect.Right - FormWidth - WINDOW_EDGE_MARGIN;
+              NewTop := TrayRect.Top - FormHeight - WINDOW_EDGE_MARGIN;
               Log('[WindowPositioner] Taskbar at BOTTOM');
             end;
           end
@@ -160,15 +167,15 @@ begin
             if TrayRect.Left < WorkArea.Left then
             begin
               // Taskbar at left - position popup to the right of taskbar, near bottom
-              NewLeft := TrayRect.Right + 10;
-              NewTop := TrayRect.Bottom - FormHeight - 10;
+              NewLeft := TrayRect.Right + WINDOW_EDGE_MARGIN;
+              NewTop := TrayRect.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
               Log('[WindowPositioner] Taskbar at LEFT');
             end
             else
             begin
               // Taskbar at right - position popup to the left of taskbar, near bottom
-              NewLeft := TrayRect.Left - FormWidth - 10;
-              NewTop := TrayRect.Bottom - FormHeight - 10;
+              NewLeft := TrayRect.Left - FormWidth - WINDOW_EDGE_MARGIN;
+              NewTop := TrayRect.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
               Log('[WindowPositioner] Taskbar at RIGHT');
             end;
           end;
@@ -176,8 +183,8 @@ begin
         else
         begin
           // Fallback: position at bottom-right of cursor's monitor work area
-          NewLeft := WorkArea.Right - FormWidth - 10;
-          NewTop := WorkArea.Bottom - FormHeight - 10;
+          NewLeft := WorkArea.Right - FormWidth - WINDOW_EDGE_MARGIN;
+          NewTop := WorkArea.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
           Log('[WindowPositioner] Near tray (fallback to bottom-right)');
         end;
       end;

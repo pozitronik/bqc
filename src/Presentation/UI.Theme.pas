@@ -68,6 +68,10 @@ uses
   System.StrUtils,
   App.Logger;
 
+const
+  // Fallback style name when no styles are available
+  FALLBACK_STYLE_NAME = 'Windows';
+
 /// <summary>
 /// Safely gets style names, catching exceptions from DiscoverStyleResources
 /// when project references styles that don't exist.
@@ -135,7 +139,7 @@ begin
   if Length(Styles) > 0 then
     Result := Styles[0]
   else
-    Result := 'Windows';
+    Result := FALLBACK_STYLE_NAME;
 end;
 
 procedure TThemeManager.LoadStylesFromDirectory(const ADirectory: string);

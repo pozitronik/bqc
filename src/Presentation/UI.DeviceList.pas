@@ -133,6 +133,16 @@ const
   ICON_INPUT_DEVICE = #$E961;
   ICON_BLUETOOTH = #$E702;
 
+  // Layout spacing constants
+  FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
+  PIN_ICON_WIDTH = 12;         // Width reserved for pin icon
+  PIN_ICON_FONT_SIZE = 10;     // Font size for pin icon
+  ADDRESS_SPACING = 8;         // Space between device name and address
+
+  // Default control dimensions
+  DEFAULT_CONTROL_WIDTH = 300;
+  DEFAULT_CONTROL_HEIGHT = 400;
+
 { TDeviceListBox }
 
 constructor TDeviceListBox.Create(AOwner: TComponent);
@@ -148,8 +158,8 @@ begin
   ControlStyle := ControlStyle + [csOpaque];
   TabStop := True;
   DoubleBuffered := True;
-  Width := 300;
-  Height := 400;
+  Width := DEFAULT_CONTROL_WIDTH;
+  Height := DEFAULT_CONTROL_HEIGHT;
 end;
 
 procedure TDeviceListBox.SetShowAddresses(AValue: Boolean);
@@ -530,7 +540,7 @@ begin
   if Focused and (FSelectedIndex >= 0) then
   begin
     R := GetItemRect(FSelectedIndex);
-    InflateRect(R, -2, -2);
+    InflateRect(R, -FOCUS_RECT_INSET, -FOCUS_RECT_INSET);
     Canvas.Pen.Color := Style.GetSystemColor(clHighlight);
     Canvas.Pen.Style := psDot;
     Canvas.Brush.Style := bsClear;
@@ -700,9 +710,9 @@ begin
   if DeviceConfig.Pinned then
   begin
     ACanvas.Font.Name := FONT_ICONS;
-    ACanvas.Font.Size := 10;
+    ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    ACanvas.TextOut(ARect.Right - ItemPadding - 12, NameLineTop, ICON_PIN);
+    ACanvas.TextOut(ARect.Right - ItemPadding - PIN_ICON_WIDTH, NameLineTop, ICON_PIN);
     ACanvas.Font.Name := FONT_UI;
     ACanvas.Font.Size := DeviceNameFontSize;
     if AIsSelected then
@@ -717,7 +727,7 @@ begin
   // Address after device name if enabled
   if FShowAddresses then
   begin
-    var AddrLeft := TextRect.Left + ACanvas.TextWidth(DisplayName) + 8;
+    var AddrLeft := TextRect.Left + ACanvas.TextWidth(DisplayName) + ADDRESS_SPACING;
     var NameHeight := ACanvas.TextHeight('Ay');  // Get height before changing font
     ACanvas.Font.Size := AddressFontSize;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);

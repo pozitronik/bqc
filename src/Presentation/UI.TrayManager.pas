@@ -100,6 +100,17 @@ uses
   Vcl.Forms,
   App.Logger;
 
+const
+  // Tray menu captions
+  MENU_CAPTION_SHOW = 'Show';
+  MENU_CAPTION_HIDE = 'Hide';
+  MENU_CAPTION_SETTINGS = 'Settings...';
+  MENU_CAPTION_EXIT = 'Exit';
+  MENU_CAPTION_SEPARATOR = '-';
+
+  // Tray icon hint
+  TRAY_HINT_DEFAULT = 'Bluetooth Quick Connect';
+
 { TTrayManager }
 
 constructor TTrayManager.Create(AOwner: TComponent);
@@ -111,36 +122,36 @@ begin
 
   // Show/Hide menu item
   MenuItem := TMenuItem.Create(FTrayMenu);
-  MenuItem.Caption := 'Show';
+  MenuItem.Caption := MENU_CAPTION_SHOW;
   MenuItem.OnClick := HandleMenuShowClick;
   MenuItem.Default := True;
   FTrayMenu.Items.Add(MenuItem);
 
   // Separator
   MenuItem := TMenuItem.Create(FTrayMenu);
-  MenuItem.Caption := '-';
+  MenuItem.Caption := MENU_CAPTION_SEPARATOR;
   FTrayMenu.Items.Add(MenuItem);
 
   // Settings menu item
   MenuItem := TMenuItem.Create(FTrayMenu);
-  MenuItem.Caption := 'Settings...';
+  MenuItem.Caption := MENU_CAPTION_SETTINGS;
   MenuItem.OnClick := HandleMenuSettingsClick;
   FTrayMenu.Items.Add(MenuItem);
 
   // Separator
   MenuItem := TMenuItem.Create(FTrayMenu);
-  MenuItem.Caption := '-';
+  MenuItem.Caption := MENU_CAPTION_SEPARATOR;
   FTrayMenu.Items.Add(MenuItem);
 
   // Exit menu item
   MenuItem := TMenuItem.Create(FTrayMenu);
-  MenuItem.Caption := 'Exit';
+  MenuItem.Caption := MENU_CAPTION_EXIT;
   MenuItem.OnClick := HandleMenuExitClick;
   FTrayMenu.Items.Add(MenuItem);
 
   // Create tray icon
   FTrayIcon := TTrayIcon.Create(AOwner);
-  FTrayIcon.Hint := 'Bluetooth Quick Connect';
+  FTrayIcon.Hint := TRAY_HINT_DEFAULT;
   FTrayIcon.PopupMenu := FTrayMenu;
   FTrayIcon.OnClick := HandleTrayClick;
 
@@ -197,9 +208,9 @@ begin
   if FTrayMenu.Items.Count > 0 then
   begin
     if AFormVisible then
-      FTrayMenu.Items[0].Caption := 'Hide'
+      FTrayMenu.Items[0].Caption := MENU_CAPTION_HIDE
     else
-      FTrayMenu.Items[0].Caption := 'Show';
+      FTrayMenu.Items[0].Caption := MENU_CAPTION_SHOW;
   end;
 end;
 
