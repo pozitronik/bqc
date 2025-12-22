@@ -32,6 +32,35 @@ type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
 
   /// <summary>
+  /// Context record for item drawing operations.
+  /// Holds layout parameters and calculated positions to avoid repeated lookups.
+  /// </summary>
+  TItemDrawContext = record
+    // Layout settings
+    ItemPadding: Integer;
+    IconSize: Integer;
+    CornerRadius: Integer;
+    DeviceNameFontSize: Integer;
+    StatusFontSize: Integer;
+    AddressFontSize: Integer;
+    ItemBorderWidth: Integer;
+    ItemBorderColor: TColor;
+    // Appearance settings
+    ShowDeviceIcons: Boolean;
+    ShowLastSeen: Boolean;
+    ShowAddresses: Boolean;
+    ConnectedColor: TColor;
+    // Calculated positions
+    NameLineTop: Integer;
+    StatusLineTop: Integer;
+    TextRect: TRect;
+    ItemRect: TRect;
+    // State
+    IsSelected: Boolean;
+    IsHover: Boolean;
+  end;
+
+  /// <summary>
   /// Pre-processed display item for device list rendering.
   /// Contains all data needed for display without further config lookups.
   /// Created by presenter, consumed by view (Information Expert pattern).
@@ -106,6 +135,13 @@ type
 
     procedure DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
       const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
+    function CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
+      AIsHover, AIsSelected: Boolean): TItemDrawContext;
+    procedure DrawItemBackground(ACanvas: TCanvas; const AContext: TItemDrawContext);
+    procedure DrawItemTopLine(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
+      const AContext: TItemDrawContext);
+    procedure DrawItemBottomLine(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
+      const AContext: TItemDrawContext);
     procedure DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
       ADeviceType: TBluetoothDeviceType);
     function GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Char;
@@ -544,47 +580,70 @@ begin
   end;
 end;
 
-procedure TDeviceListBox.DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
-  const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
+function TDeviceListBox.CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
+  AIsHover, AIsSelected: Boolean): TItemDrawContext;
 var
-  BgColor: TColor;
-  IconRect, TextRect: TRect;
-  StatusText: string;
-  NameLineTop, StatusLineTop: Integer;
   StatusLineHeight: Integer;
-  Style: TCustomStyleServices;
-  ItemPadding, IconSize, CornerRadius: Integer;
-  DeviceNameFontSize, StatusFontSize, AddressFontSize: Integer;
-  ShowDeviceIcons, ShowLastSeen: Boolean;
-  ItemBorderWidth: Integer;
-  ItemBorderColor: TColor;
+  IconRect: TRect;
 begin
-  Style := TStyleManager.ActiveStyle;
+  // Store item rect for reference
+  Result.ItemRect := ARect;
 
   // Get layout settings from config
-  ItemPadding := LayoutConfig.ItemPadding;
-  IconSize := LayoutConfig.IconSize;
-  CornerRadius := LayoutConfig.CornerRadius;
-  DeviceNameFontSize := LayoutConfig.DeviceNameFontSize;
-  StatusFontSize := LayoutConfig.StatusFontSize;
-  AddressFontSize := LayoutConfig.AddressFontSize;
-  ShowDeviceIcons := AppearanceConfig.ShowDeviceIcons;
-  ShowLastSeen := AppearanceConfig.ShowLastSeen;
-  ItemBorderWidth := LayoutConfig.ItemBorderWidth;
-  ItemBorderColor := TColor(LayoutConfig.ItemBorderColor);
+  Result.ItemPadding := LayoutConfig.ItemPadding;
+  Result.IconSize := LayoutConfig.IconSize;
+  Result.CornerRadius := LayoutConfig.CornerRadius;
+  Result.DeviceNameFontSize := LayoutConfig.DeviceNameFontSize;
+  Result.StatusFontSize := LayoutConfig.StatusFontSize;
+  Result.AddressFontSize := LayoutConfig.AddressFontSize;
+  Result.ItemBorderWidth := LayoutConfig.ItemBorderWidth;
+  Result.ItemBorderColor := TColor(LayoutConfig.ItemBorderColor);
+
+  // Get appearance settings from config
+  Result.ShowDeviceIcons := AppearanceConfig.ShowDeviceIcons;
+  Result.ShowLastSeen := AppearanceConfig.ShowLastSeen;
+  Result.ConnectedColor := TColor(AppearanceConfig.ConnectedColor);
+  Result.ShowAddresses := FShowAddresses;
+
+  // State
+  Result.IsSelected := AIsSelected;
+  Result.IsHover := AIsHover;
 
   // Calculate status line height for bottom anchoring
   ACanvas.Font.Name := FONT_UI;
-  ACanvas.Font.Size := StatusFontSize;
+  ACanvas.Font.Size := Result.StatusFontSize;
   StatusLineHeight := ACanvas.TextHeight('Ay');
 
-  NameLineTop := ARect.Top + ItemPadding;
-  StatusLineTop := ARect.Bottom - ItemPadding - StatusLineHeight;
+  Result.NameLineTop := ARect.Top + Result.ItemPadding;
+  Result.StatusLineTop := ARect.Bottom - Result.ItemPadding - StatusLineHeight;
+
+  // Calculate text rect based on icon visibility
+  if Result.ShowDeviceIcons then
+  begin
+    IconRect.Left := ARect.Left + Result.ItemPadding;
+    IconRect.Right := IconRect.Left + Result.IconSize;
+    Result.TextRect.Left := IconRect.Right + Result.ItemPadding;
+  end
+  else
+    Result.TextRect.Left := ARect.Left + Result.ItemPadding;
+
+  Result.TextRect.Right := ARect.Right - Result.ItemPadding;
+  Result.TextRect.Top := ARect.Top;
+  Result.TextRect.Bottom := ARect.Bottom;
+end;
+
+procedure TDeviceListBox.DrawItemBackground(ACanvas: TCanvas;
+  const AContext: TItemDrawContext);
+var
+  BgColor: TColor;
+  Style: TCustomStyleServices;
+begin
+  Style := TStyleManager.ActiveStyle;
 
   // Determine background color
-  if AIsSelected then
+  if AContext.IsSelected then
     BgColor := Style.GetSystemColor(clHighlight)
-  else if AIsHover then
+  else if AContext.IsHover then
     BgColor := Style.GetSystemColor(clBtnFace)
   else
     BgColor := Style.GetSystemColor(clWindow);
@@ -592,106 +651,136 @@ begin
   // Draw rounded rectangle background
   ACanvas.Pen.Color := BgColor;
   ACanvas.Brush.Color := BgColor;
-  ACanvas.RoundRect(ARect.Left, ARect.Top, ARect.Right, ARect.Bottom,
-    CornerRadius, CornerRadius);
+  ACanvas.RoundRect(
+    AContext.ItemRect.Left, AContext.ItemRect.Top,
+    AContext.ItemRect.Right, AContext.ItemRect.Bottom,
+    AContext.CornerRadius, AContext.CornerRadius);
 
   // Draw border if enabled
-  if ItemBorderWidth > 0 then
+  if AContext.ItemBorderWidth > 0 then
   begin
-    ACanvas.Pen.Color := ItemBorderColor;
-    ACanvas.Pen.Width := ItemBorderWidth;
+    ACanvas.Pen.Color := AContext.ItemBorderColor;
+    ACanvas.Pen.Width := AContext.ItemBorderWidth;
     ACanvas.Brush.Style := bsClear;
-    ACanvas.RoundRect(ARect.Left, ARect.Top, ARect.Right, ARect.Bottom,
-      CornerRadius, CornerRadius);
+    ACanvas.RoundRect(
+      AContext.ItemRect.Left, AContext.ItemRect.Top,
+      AContext.ItemRect.Right, AContext.ItemRect.Bottom,
+      AContext.CornerRadius, AContext.CornerRadius);
     ACanvas.Pen.Width := 1;
     ACanvas.Brush.Style := bsSolid;
   end;
+end;
 
-  // Icon area (only if ShowDeviceIcons is enabled)
-  if ShowDeviceIcons then
-  begin
-    IconRect.Left := ARect.Left + ItemPadding;
-    IconRect.Top := ARect.Top + ((ARect.Bottom - ARect.Top) - IconSize) div 2;
-    IconRect.Right := IconRect.Left + IconSize;
-    IconRect.Bottom := IconRect.Top + IconSize;
+procedure TDeviceListBox.DrawItemTopLine(ACanvas: TCanvas;
+  const AItem: TDeviceDisplayItem; const AContext: TItemDrawContext);
+var
+  Style: TCustomStyleServices;
+  AddrLeft, NameHeight, AddrOffset: Integer;
+begin
+  Style := TStyleManager.ActiveStyle;
 
-    // Use pre-computed EffectiveDeviceType from display item
-    DrawDeviceIcon(ACanvas, IconRect, AItem.EffectiveDeviceType);
-
-    TextRect.Left := IconRect.Right + ItemPadding;
-  end
-  else
-  begin
-    TextRect.Left := ARect.Left + ItemPadding;
-  end;
-
-  TextRect.Right := ARect.Right - ItemPadding;
-  TextRect.Top := ARect.Top;
-  TextRect.Bottom := ARect.Bottom;
-
-  // === TOP LINE: Device name, address, pin icon ===
+  // Set up font for device name
   ACanvas.Font.Name := FONT_UI;
-  ACanvas.Font.Size := DeviceNameFontSize;
+  ACanvas.Font.Size := AContext.DeviceNameFontSize;
   ACanvas.Font.Style := [];
-  if AIsSelected then
+  if AContext.IsSelected then
     ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
   else
     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
 
-  // Draw pin indicator using pre-computed IsPinned
+  // Draw pin indicator
   if AItem.IsPinned then
   begin
     ACanvas.Font.Name := FONT_ICONS;
     ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    ACanvas.TextOut(ARect.Right - ItemPadding - PIN_ICON_WIDTH, NameLineTop, ICON_PIN);
+    ACanvas.TextOut(AContext.TextRect.Right + AContext.ItemPadding - PIN_ICON_WIDTH,
+      AContext.NameLineTop, ICON_PIN);
+
+    // Restore font for name
     ACanvas.Font.Name := FONT_UI;
-    ACanvas.Font.Size := DeviceNameFontSize;
-    if AIsSelected then
+    ACanvas.Font.Size := AContext.DeviceNameFontSize;
+    if AContext.IsSelected then
       ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
     else
       ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   end;
 
-  // Device name (pre-computed DisplayName)
-  ACanvas.TextOut(TextRect.Left, NameLineTop, AItem.DisplayName);
+  // Draw device name
+  ACanvas.TextOut(AContext.TextRect.Left, AContext.NameLineTop, AItem.DisplayName);
 
-  // Address after device name if enabled
-  if FShowAddresses then
+  // Draw address if enabled
+  if AContext.ShowAddresses then
   begin
-    var AddrLeft := TextRect.Left + ACanvas.TextWidth(AItem.DisplayName) + ADDRESS_SPACING;
-    var NameHeight := ACanvas.TextHeight('Ay');
-    ACanvas.Font.Size := AddressFontSize;
+    AddrLeft := AContext.TextRect.Left + ACanvas.TextWidth(AItem.DisplayName) + ADDRESS_SPACING;
+    NameHeight := ACanvas.TextHeight('Ay');
+    ACanvas.Font.Size := AContext.AddressFontSize;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    var AddrOffset := (NameHeight - ACanvas.TextHeight('Ay')) div 2;
-    ACanvas.TextOut(AddrLeft, NameLineTop + AddrOffset, '[' + AItem.Device.AddressString + ']');
+    AddrOffset := (NameHeight - ACanvas.TextHeight('Ay')) div 2;
+    ACanvas.TextOut(AddrLeft, AContext.NameLineTop + AddrOffset,
+      '[' + AItem.Device.AddressString + ']');
   end;
+end;
 
-  // === BOTTOM LINE: Connection status (left), LastSeen (right) ===
-  ACanvas.Font.Size := StatusFontSize;
+procedure TDeviceListBox.DrawItemBottomLine(ACanvas: TCanvas;
+  const AItem: TDeviceDisplayItem; const AContext: TItemDrawContext);
+var
+  Style: TCustomStyleServices;
+  StatusText: string;
+  LastSeenWidth: Integer;
+begin
+  Style := TStyleManager.ActiveStyle;
+
+  ACanvas.Font.Name := FONT_UI;
+  ACanvas.Font.Size := AContext.StatusFontSize;
+  ACanvas.Font.Style := [];
 
   // Connection status (left-aligned)
+  StatusText := AItem.Device.ConnectionStateText;
   if AItem.Device.IsConnected then
-  begin
-    StatusText := AItem.Device.ConnectionStateText;
-    ACanvas.Font.Color := TColor(AppearanceConfig.ConnectedColor);
-  end
+    ACanvas.Font.Color := AContext.ConnectedColor
   else
-  begin
-    StatusText := AItem.Device.ConnectionStateText;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-  end;
 
-  ACanvas.TextOut(TextRect.Left, StatusLineTop, StatusText);
+  ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
 
-  // LastSeen (right-aligned) - use pre-formatted LastSeenText
-  if ShowLastSeen then
+  // LastSeen (right-aligned)
+  if AContext.ShowLastSeen then
   begin
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    var LastSeenWidth := ACanvas.TextWidth(AItem.LastSeenText);
-    ACanvas.TextOut(TextRect.Right - LastSeenWidth, StatusLineTop, AItem.LastSeenText);
+    LastSeenWidth := ACanvas.TextWidth(AItem.LastSeenText);
+    ACanvas.TextOut(AContext.TextRect.Right - LastSeenWidth,
+      AContext.StatusLineTop, AItem.LastSeenText);
   end;
+end;
+
+procedure TDeviceListBox.DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
+  const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
+var
+  Context: TItemDrawContext;
+  IconRect: TRect;
+begin
+  // Create context with all layout parameters
+  Context := CreateDrawContext(ACanvas, ARect, AIsHover, AIsSelected);
+
+  // Draw background and border
+  DrawItemBackground(ACanvas, Context);
+
+  // Draw device icon if enabled
+  if Context.ShowDeviceIcons then
+  begin
+    IconRect.Left := Context.ItemRect.Left + Context.ItemPadding;
+    IconRect.Top := Context.ItemRect.Top +
+      ((Context.ItemRect.Bottom - Context.ItemRect.Top) - Context.IconSize) div 2;
+    IconRect.Right := IconRect.Left + Context.IconSize;
+    IconRect.Bottom := IconRect.Top + Context.IconSize;
+    DrawDeviceIcon(ACanvas, IconRect, AItem.EffectiveDeviceType);
+  end;
+
+  // Draw text content
+  DrawItemTopLine(ACanvas, AItem, Context);
+  DrawItemBottomLine(ACanvas, AItem, Context);
 
   ACanvas.Brush.Style := bsSolid;
 end;
