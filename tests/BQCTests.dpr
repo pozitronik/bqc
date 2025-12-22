@@ -24,6 +24,7 @@ uses
   Tests.ConnectionExecutor in 'Tests.ConnectionExecutor.pas',
   Tests.AdapterQuery in 'Tests.AdapterQuery.pas',
   Tests.DeviceConfigRepository in 'Tests.DeviceConfigRepository.pas',
+  Tests.SettingsRepository in 'Tests.SettingsRepository.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
