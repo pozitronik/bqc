@@ -444,7 +444,8 @@ uses
   System.Math,
   System.DateUtils,
   App.Logger,
-  App.Autostart;
+  App.Autostart,
+  App.Bootstrap;
 
 const
   // Section names
@@ -563,17 +564,13 @@ const
   DEF_LAST_SEEN_FORMAT = lsfRelative;
   DEF_SHOW_DEVICE_ICONS = True;
 
-var
-  GConfig: TAppConfig = nil;
-
+/// <summary>
+/// Returns the configuration instance managed by Bootstrap.
+/// Deprecated: Use Bootstrap interface methods instead.
+/// </summary>
 function Config: TAppConfig;
 begin
-  if GConfig = nil then
-  begin
-    GConfig := TAppConfig.Create;
-    GConfig.Load;
-  end;
-  Result := GConfig;
+  Result := TAppConfig(Bootstrap.AppConfig);
 end;
 
 { TAppConfig }
@@ -1791,10 +1788,5 @@ function TAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
 begin
   Result := Self;
 end;
-
-initialization
-
-finalization
-  FreeAndNil(GConfig);
 
 end.

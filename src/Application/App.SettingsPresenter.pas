@@ -406,8 +406,8 @@ begin
     FComboTheme.Items.Add(StyleName);
 
   // Select current theme
-  if (Config.Theme <> '') and (FComboTheme.Items.IndexOf(Config.Theme) >= 0) then
-    FComboTheme.ItemIndex := FComboTheme.Items.IndexOf(Config.Theme)
+  if (TAppConfig(Bootstrap.AppConfig).Theme <> '') and (FComboTheme.Items.IndexOf(TAppConfig(Bootstrap.AppConfig).Theme) >= 0) then
+    FComboTheme.ItemIndex := FComboTheme.Items.IndexOf(TAppConfig(Bootstrap.AppConfig).Theme)
   else if FComboTheme.Items.Count > 0 then
     FComboTheme.ItemIndex := 0; // First available
 end;
@@ -582,100 +582,100 @@ begin
   // ComboBox: 0 = Window mode, 1 = Menu mode
   if FComboWindowMode <> nil then
   begin
-    if Config.WindowMode = wmWindow then
+    if TAppConfig(Bootstrap.AppConfig).WindowMode = wmWindow then
       FComboWindowMode.ItemIndex := 0
     else
       FComboWindowMode.ItemIndex := 1;
   end;
   if FCheckOnTop <> nil then
-    FCheckOnTop.Checked := Config.OnTop;
+    FCheckOnTop.Checked := TAppConfig(Bootstrap.AppConfig).OnTop;
   if FCheckMinimizeToTray <> nil then
-    FCheckMinimizeToTray.Checked := Config.MinimizeToTray;
+    FCheckMinimizeToTray.Checked := TAppConfig(Bootstrap.AppConfig).MinimizeToTray;
   if FCheckCloseToTray <> nil then
-    FCheckCloseToTray.Checked := Config.CloseToTray;
+    FCheckCloseToTray.Checked := TAppConfig(Bootstrap.AppConfig).CloseToTray;
   if FCheckHideOnFocusLoss <> nil then
-    FCheckHideOnFocusLoss.Checked := Config.MenuHideOnFocusLoss;
+    FCheckHideOnFocusLoss.Checked := TAppConfig(Bootstrap.AppConfig).MenuHideOnFocusLoss;
   if FCheckAutostart <> nil then
-    FCheckAutostart.Checked := Config.Autostart;
+    FCheckAutostart.Checked := TAppConfig(Bootstrap.AppConfig).Autostart;
 
   // Tab: Hotkey & Position
   if FEditHotkey <> nil then
-    FEditHotkey.Text := Config.Hotkey;
+    FEditHotkey.Text := TAppConfig(Bootstrap.AppConfig).Hotkey;
   if FCheckUseLowLevelHook <> nil then
-    FCheckUseLowLevelHook.Checked := Config.UseLowLevelHook;
+    FCheckUseLowLevelHook.Checked := TAppConfig(Bootstrap.AppConfig).UseLowLevelHook;
   if FComboPositionMode <> nil then
-    FComboPositionMode.ItemIndex := Ord(Config.PositionMode);
+    FComboPositionMode.ItemIndex := Ord(TAppConfig(Bootstrap.AppConfig).PositionMode);
 
   // Tab: Appearance
   if FEditVsfDir <> nil then
-    FEditVsfDir.Text := Config.VsfDir;
+    FEditVsfDir.Text := TAppConfig(Bootstrap.AppConfig).VsfDir;
   LoadThemeList;
   if FCheckShowAddresses <> nil then
-    FCheckShowAddresses.Checked := Config.ShowAddresses;
+    FCheckShowAddresses.Checked := TAppConfig(Bootstrap.AppConfig).ShowAddresses;
 
   // Tab: Connection - use TUpDown.Position for spin controls
   if FUpDownTimeout <> nil then
-    FUpDownTimeout.Position := Config.ConnectionTimeout;
+    FUpDownTimeout.Position := TAppConfig(Bootstrap.AppConfig).ConnectionTimeout;
   if FUpDownRetryCount <> nil then
-    FUpDownRetryCount.Position := Config.ConnectionRetryCount;
+    FUpDownRetryCount.Position := TAppConfig(Bootstrap.AppConfig).ConnectionRetryCount;
   if FCheckNotifyOnConnect <> nil then
-    FCheckNotifyOnConnect.Checked := Config.NotifyOnConnect = nmBalloon;
+    FCheckNotifyOnConnect.Checked := TAppConfig(Bootstrap.AppConfig).NotifyOnConnect = nmBalloon;
   if FCheckNotifyOnDisconnect <> nil then
-    FCheckNotifyOnDisconnect.Checked := Config.NotifyOnDisconnect = nmBalloon;
+    FCheckNotifyOnDisconnect.Checked := TAppConfig(Bootstrap.AppConfig).NotifyOnDisconnect = nmBalloon;
   if FCheckNotifyOnConnectFailed <> nil then
-    FCheckNotifyOnConnectFailed.Checked := Config.NotifyOnConnectFailed = nmBalloon;
+    FCheckNotifyOnConnectFailed.Checked := TAppConfig(Bootstrap.AppConfig).NotifyOnConnectFailed = nmBalloon;
   if FCheckNotifyOnAutoConnect <> nil then
-    FCheckNotifyOnAutoConnect.Checked := Config.NotifyOnAutoConnect = nmBalloon;
+    FCheckNotifyOnAutoConnect.Checked := TAppConfig(Bootstrap.AppConfig).NotifyOnAutoConnect = nmBalloon;
   if FComboPollingMode <> nil then
-    FComboPollingMode.ItemIndex := Ord(Config.PollingMode);
+    FComboPollingMode.ItemIndex := Ord(TAppConfig(Bootstrap.AppConfig).PollingMode);
   if FUpDownPollingInterval <> nil then
-    FUpDownPollingInterval.Position := Config.PollingInterval;
+    FUpDownPollingInterval.Position := TAppConfig(Bootstrap.AppConfig).PollingInterval;
 
   // Tab: Devices
   LoadDeviceList;
 
   // Tab: Advanced
   if FCheckLogEnabled <> nil then
-    FCheckLogEnabled.Checked := Config.LogEnabled;
+    FCheckLogEnabled.Checked := TAppConfig(Bootstrap.AppConfig).LogEnabled;
   if FEditLogFilename <> nil then
-    FEditLogFilename.Text := Config.LogFilename;
+    FEditLogFilename.Text := TAppConfig(Bootstrap.AppConfig).LogFilename;
   if FCheckLogAppend <> nil then
-    FCheckLogAppend.Checked := Config.LogAppend;
+    FCheckLogAppend.Checked := TAppConfig(Bootstrap.AppConfig).LogAppend;
 
   // Tab: Appearance (new)
   if FCheckShowDeviceIcons <> nil then
-    FCheckShowDeviceIcons.Checked := Config.ShowDeviceIcons;
+    FCheckShowDeviceIcons.Checked := TAppConfig(Bootstrap.AppConfig).ShowDeviceIcons;
   if FCheckShowLastSeen <> nil then
-    FCheckShowLastSeen.Checked := Config.ShowLastSeen;
+    FCheckShowLastSeen.Checked := TAppConfig(Bootstrap.AppConfig).ShowLastSeen;
   if FRadioLastSeenRelative <> nil then
-    FRadioLastSeenRelative.Checked := Config.LastSeenFormat = lsfRelative;
+    FRadioLastSeenRelative.Checked := TAppConfig(Bootstrap.AppConfig).LastSeenFormat = lsfRelative;
   if FRadioLastSeenAbsolute <> nil then
-    FRadioLastSeenAbsolute.Checked := Config.LastSeenFormat = lsfAbsolute;
+    FRadioLastSeenAbsolute.Checked := TAppConfig(Bootstrap.AppConfig).LastSeenFormat = lsfAbsolute;
   if FShapeConnectedColor <> nil then
-    FShapeConnectedColor.Brush.Color := TColor(Config.ConnectedColor);
+    FShapeConnectedColor.Brush.Color := TColor(TAppConfig(Bootstrap.AppConfig).ConnectedColor);
   // Set TUpDown.Position directly - this automatically updates the associated Edit.Text
   if FUpDownItemHeight <> nil then
-    FUpDownItemHeight.Position := Config.ItemHeight;
+    FUpDownItemHeight.Position := TAppConfig(Bootstrap.AppConfig).ItemHeight;
   if FUpDownItemPadding <> nil then
-    FUpDownItemPadding.Position := Config.ItemPadding;
+    FUpDownItemPadding.Position := TAppConfig(Bootstrap.AppConfig).ItemPadding;
   if FUpDownItemMargin <> nil then
-    FUpDownItemMargin.Position := Config.ItemMargin;
+    FUpDownItemMargin.Position := TAppConfig(Bootstrap.AppConfig).ItemMargin;
   if FUpDownIconSize <> nil then
-    FUpDownIconSize.Position := Config.IconSize;
+    FUpDownIconSize.Position := TAppConfig(Bootstrap.AppConfig).IconSize;
   if FUpDownCornerRadius <> nil then
-    FUpDownCornerRadius.Position := Config.CornerRadius;
+    FUpDownCornerRadius.Position := TAppConfig(Bootstrap.AppConfig).CornerRadius;
   if FUpDownDeviceNameSize <> nil then
-    FUpDownDeviceNameSize.Position := Config.DeviceNameFontSize;
+    FUpDownDeviceNameSize.Position := TAppConfig(Bootstrap.AppConfig).DeviceNameFontSize;
   if FUpDownStatusSize <> nil then
-    FUpDownStatusSize.Position := Config.StatusFontSize;
+    FUpDownStatusSize.Position := TAppConfig(Bootstrap.AppConfig).StatusFontSize;
   if FUpDownAddressSize <> nil then
-    FUpDownAddressSize.Position := Config.AddressFontSize;
+    FUpDownAddressSize.Position := TAppConfig(Bootstrap.AppConfig).AddressFontSize;
   if FUpDownIconFontSize <> nil then
-    FUpDownIconFontSize.Position := Config.IconFontSize;
+    FUpDownIconFontSize.Position := TAppConfig(Bootstrap.AppConfig).IconFontSize;
   if FUpDownBorderWidth <> nil then
-    FUpDownBorderWidth.Position := Config.ItemBorderWidth;
+    FUpDownBorderWidth.Position := TAppConfig(Bootstrap.AppConfig).ItemBorderWidth;
   if FShapeBorderColor <> nil then
-    FShapeBorderColor.Brush.Color := TColor(Config.ItemBorderColor);
+    FShapeBorderColor.Brush.Color := TColor(TAppConfig(Bootstrap.AppConfig).ItemBorderColor);
 
   FModified := False;
   Log('[SettingsPresenter] LoadSettings: Complete');
@@ -695,119 +695,119 @@ begin
     if FComboWindowMode <> nil then
     begin
       if FComboWindowMode.ItemIndex = 0 then
-        Config.WindowMode := wmWindow
+        TAppConfig(Bootstrap.AppConfig).WindowMode := wmWindow
       else
-        Config.WindowMode := wmMenu;
+        TAppConfig(Bootstrap.AppConfig).WindowMode := wmMenu;
     end;
     if FCheckOnTop <> nil then
-      Config.OnTop := FCheckOnTop.Checked;
+      TAppConfig(Bootstrap.AppConfig).OnTop := FCheckOnTop.Checked;
     if FCheckMinimizeToTray <> nil then
-      Config.MinimizeToTray := FCheckMinimizeToTray.Checked;
+      TAppConfig(Bootstrap.AppConfig).MinimizeToTray := FCheckMinimizeToTray.Checked;
     if FCheckCloseToTray <> nil then
-      Config.CloseToTray := FCheckCloseToTray.Checked;
+      TAppConfig(Bootstrap.AppConfig).CloseToTray := FCheckCloseToTray.Checked;
     if FCheckHideOnFocusLoss <> nil then
-      Config.MenuHideOnFocusLoss := FCheckHideOnFocusLoss.Checked;
+      TAppConfig(Bootstrap.AppConfig).MenuHideOnFocusLoss := FCheckHideOnFocusLoss.Checked;
     if FCheckAutostart <> nil then
-      Config.Autostart := FCheckAutostart.Checked;
+      TAppConfig(Bootstrap.AppConfig).Autostart := FCheckAutostart.Checked;
 
     // Tab: Hotkey & Position
     if FEditHotkey <> nil then
-      Config.Hotkey := FEditHotkey.Text;
+      TAppConfig(Bootstrap.AppConfig).Hotkey := FEditHotkey.Text;
     if FCheckUseLowLevelHook <> nil then
-      Config.UseLowLevelHook := FCheckUseLowLevelHook.Checked;
+      TAppConfig(Bootstrap.AppConfig).UseLowLevelHook := FCheckUseLowLevelHook.Checked;
     if FComboPositionMode <> nil then
-      Config.PositionMode := TPositionMode(FComboPositionMode.ItemIndex);
+      TAppConfig(Bootstrap.AppConfig).PositionMode := TPositionMode(FComboPositionMode.ItemIndex);
 
     // Tab: Appearance
     if FComboTheme <> nil then
-      Config.Theme := FComboTheme.Text;
+      TAppConfig(Bootstrap.AppConfig).Theme := FComboTheme.Text;
     if FEditVsfDir <> nil then
-      Config.VsfDir := FEditVsfDir.Text;
+      TAppConfig(Bootstrap.AppConfig).VsfDir := FEditVsfDir.Text;
     if FCheckShowAddresses <> nil then
-      Config.ShowAddresses := FCheckShowAddresses.Checked;
+      TAppConfig(Bootstrap.AppConfig).ShowAddresses := FCheckShowAddresses.Checked;
 
     // Tab: Connection
     if FEditTimeout <> nil then
-      Config.ConnectionTimeout := StrToIntDef(FEditTimeout.Text, 10000);
+      TAppConfig(Bootstrap.AppConfig).ConnectionTimeout := StrToIntDef(FEditTimeout.Text, 10000);
     if FEditRetryCount <> nil then
-      Config.ConnectionRetryCount := StrToIntDef(FEditRetryCount.Text, 2);
+      TAppConfig(Bootstrap.AppConfig).ConnectionRetryCount := StrToIntDef(FEditRetryCount.Text, 2);
     if FCheckNotifyOnConnect <> nil then
     begin
       if FCheckNotifyOnConnect.Checked then
-        Config.NotifyOnConnect := nmBalloon
+        TAppConfig(Bootstrap.AppConfig).NotifyOnConnect := nmBalloon
       else
-        Config.NotifyOnConnect := nmNone;
+        TAppConfig(Bootstrap.AppConfig).NotifyOnConnect := nmNone;
     end;
     if FCheckNotifyOnDisconnect <> nil then
     begin
       if FCheckNotifyOnDisconnect.Checked then
-        Config.NotifyOnDisconnect := nmBalloon
+        TAppConfig(Bootstrap.AppConfig).NotifyOnDisconnect := nmBalloon
       else
-        Config.NotifyOnDisconnect := nmNone;
+        TAppConfig(Bootstrap.AppConfig).NotifyOnDisconnect := nmNone;
     end;
     if FCheckNotifyOnConnectFailed <> nil then
     begin
       if FCheckNotifyOnConnectFailed.Checked then
-        Config.NotifyOnConnectFailed := nmBalloon
+        TAppConfig(Bootstrap.AppConfig).NotifyOnConnectFailed := nmBalloon
       else
-        Config.NotifyOnConnectFailed := nmNone;
+        TAppConfig(Bootstrap.AppConfig).NotifyOnConnectFailed := nmNone;
     end;
     if FCheckNotifyOnAutoConnect <> nil then
     begin
       if FCheckNotifyOnAutoConnect.Checked then
-        Config.NotifyOnAutoConnect := nmBalloon
+        TAppConfig(Bootstrap.AppConfig).NotifyOnAutoConnect := nmBalloon
       else
-        Config.NotifyOnAutoConnect := nmNone;
+        TAppConfig(Bootstrap.AppConfig).NotifyOnAutoConnect := nmNone;
     end;
     if FComboPollingMode <> nil then
-      Config.PollingMode := TPollingMode(FComboPollingMode.ItemIndex);
+      TAppConfig(Bootstrap.AppConfig).PollingMode := TPollingMode(FComboPollingMode.ItemIndex);
     if FEditPollingInterval <> nil then
-      Config.PollingInterval := StrToIntDef(FEditPollingInterval.Text, 2000);
+      TAppConfig(Bootstrap.AppConfig).PollingInterval := StrToIntDef(FEditPollingInterval.Text, 2000);
 
     // Tab: Advanced
     if FCheckLogEnabled <> nil then
-      Config.LogEnabled := FCheckLogEnabled.Checked;
+      TAppConfig(Bootstrap.AppConfig).LogEnabled := FCheckLogEnabled.Checked;
     if FEditLogFilename <> nil then
-      Config.LogFilename := FEditLogFilename.Text;
+      TAppConfig(Bootstrap.AppConfig).LogFilename := FEditLogFilename.Text;
     if FCheckLogAppend <> nil then
-      Config.LogAppend := FCheckLogAppend.Checked;
+      TAppConfig(Bootstrap.AppConfig).LogAppend := FCheckLogAppend.Checked;
 
     // Tab: Appearance (new)
     if FCheckShowDeviceIcons <> nil then
-      Config.ShowDeviceIcons := FCheckShowDeviceIcons.Checked;
+      TAppConfig(Bootstrap.AppConfig).ShowDeviceIcons := FCheckShowDeviceIcons.Checked;
     if FCheckShowLastSeen <> nil then
-      Config.ShowLastSeen := FCheckShowLastSeen.Checked;
+      TAppConfig(Bootstrap.AppConfig).ShowLastSeen := FCheckShowLastSeen.Checked;
     if FRadioLastSeenRelative <> nil then
     begin
       if FRadioLastSeenRelative.Checked then
-        Config.LastSeenFormat := lsfRelative
+        TAppConfig(Bootstrap.AppConfig).LastSeenFormat := lsfRelative
       else
-        Config.LastSeenFormat := lsfAbsolute;
+        TAppConfig(Bootstrap.AppConfig).LastSeenFormat := lsfAbsolute;
     end;
     if FShapeConnectedColor <> nil then
-      Config.ConnectedColor := Integer(FShapeConnectedColor.Brush.Color);
+      TAppConfig(Bootstrap.AppConfig).ConnectedColor := Integer(FShapeConnectedColor.Brush.Color);
     if FEditItemHeight <> nil then
-      Config.ItemHeight := StrToIntDef(FEditItemHeight.Text, 70);
+      TAppConfig(Bootstrap.AppConfig).ItemHeight := StrToIntDef(FEditItemHeight.Text, 70);
     if FEditItemPadding <> nil then
-      Config.ItemPadding := StrToIntDef(FEditItemPadding.Text, 12);
+      TAppConfig(Bootstrap.AppConfig).ItemPadding := StrToIntDef(FEditItemPadding.Text, 12);
     if FEditItemMargin <> nil then
-      Config.ItemMargin := StrToIntDef(FEditItemMargin.Text, 4);
+      TAppConfig(Bootstrap.AppConfig).ItemMargin := StrToIntDef(FEditItemMargin.Text, 4);
     if FEditIconSize <> nil then
-      Config.IconSize := StrToIntDef(FEditIconSize.Text, 32);
+      TAppConfig(Bootstrap.AppConfig).IconSize := StrToIntDef(FEditIconSize.Text, 32);
     if FEditCornerRadius <> nil then
-      Config.CornerRadius := StrToIntDef(FEditCornerRadius.Text, 8);
+      TAppConfig(Bootstrap.AppConfig).CornerRadius := StrToIntDef(FEditCornerRadius.Text, 8);
     if FEditDeviceNameSize <> nil then
-      Config.DeviceNameFontSize := StrToIntDef(FEditDeviceNameSize.Text, 11);
+      TAppConfig(Bootstrap.AppConfig).DeviceNameFontSize := StrToIntDef(FEditDeviceNameSize.Text, 11);
     if FEditStatusSize <> nil then
-      Config.StatusFontSize := StrToIntDef(FEditStatusSize.Text, 9);
+      TAppConfig(Bootstrap.AppConfig).StatusFontSize := StrToIntDef(FEditStatusSize.Text, 9);
     if FEditAddressSize <> nil then
-      Config.AddressFontSize := StrToIntDef(FEditAddressSize.Text, 8);
+      TAppConfig(Bootstrap.AppConfig).AddressFontSize := StrToIntDef(FEditAddressSize.Text, 8);
     if FEditIconFontSize <> nil then
-      Config.IconFontSize := StrToIntDef(FEditIconFontSize.Text, 16);
+      TAppConfig(Bootstrap.AppConfig).IconFontSize := StrToIntDef(FEditIconFontSize.Text, 16);
     if FUpDownBorderWidth <> nil then
-      Config.ItemBorderWidth := FUpDownBorderWidth.Position;
+      TAppConfig(Bootstrap.AppConfig).ItemBorderWidth := FUpDownBorderWidth.Position;
     if FShapeBorderColor <> nil then
-      Config.ItemBorderColor := Integer(FShapeBorderColor.Brush.Color);
+      TAppConfig(Bootstrap.AppConfig).ItemBorderColor := Integer(FShapeBorderColor.Brush.Color);
 
     // Save configuration to file
     Bootstrap.AppConfig.Save;
@@ -850,16 +850,16 @@ end;
 procedure TSettingsPresenter.OnResetSizeClicked;
 begin
   Log('[SettingsPresenter] OnResetSizeClicked');
-  Config.PositionW := -1;
-  Config.PositionH := -1;
+  TAppConfig(Bootstrap.AppConfig).PositionW := -1;
+  TAppConfig(Bootstrap.AppConfig).PositionH := -1;
   FView.ShowInfo('Window size will be reset to default on next application start.');
 end;
 
 procedure TSettingsPresenter.OnResetPositionClicked;
 begin
   Log('[SettingsPresenter] OnResetPositionClicked');
-  Config.PositionX := -1;
-  Config.PositionY := -1;
+  TAppConfig(Bootstrap.AppConfig).PositionX := -1;
+  TAppConfig(Bootstrap.AppConfig).PositionY := -1;
   FView.ShowInfo('Window position will be reset to default on next application start.');
 end;
 

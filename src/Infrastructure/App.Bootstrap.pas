@@ -9,9 +9,8 @@
 
 /// <summary>
 /// Composition root for dependency injection.
+/// Owns and manages the application configuration instance.
 /// Provides factory methods for obtaining layer-specific configuration interfaces.
-/// During migration, this wraps the existing Config() singleton.
-/// After migration completes, the singleton can be replaced with proper DI.
 /// </summary>
 unit App.Bootstrap;
 
@@ -23,13 +22,18 @@ uses
 type
   /// <summary>
   /// Application bootstrapper - composition root for DI.
-  /// Provides interface-based access to configuration subsystems.
+  /// Owns the configuration instance and provides interface-based access.
   /// </summary>
   TAppBootstrap = class
   private
     class var FInstance: TAppBootstrap;
     class function GetInstance: TAppBootstrap; static;
+  private
+    FConfig: TObject;  // Actually TAppConfig, but avoids circular reference
+    function GetConfig: TObject;
   public
+    constructor Create;
+    destructor Destroy; override;
     class destructor Destroy;
 
     /// <summary>
@@ -69,10 +73,8 @@ function Bootstrap: TAppBootstrap;
 implementation
 
 uses
+  System.SysUtils,
   App.Config;
-
-var
-  GBootstrap: TAppBootstrap = nil;
 
 function Bootstrap: TAppBootstrap;
 begin
@@ -80,6 +82,18 @@ begin
 end;
 
 { TAppBootstrap }
+
+constructor TAppBootstrap.Create;
+begin
+  inherited Create;
+  FConfig := nil;  // Lazy initialization
+end;
+
+destructor TAppBootstrap.Destroy;
+begin
+  FConfig.Free;
+  inherited Destroy;
+end;
 
 class destructor TAppBootstrap.Destroy;
 begin
@@ -94,66 +108,74 @@ begin
   Result := FInstance;
 end;
 
+function TAppBootstrap.GetConfig: TObject;
+begin
+  if FConfig = nil then
+  begin
+    FConfig := TAppConfig.Create;
+    TAppConfig(FConfig).Load;
+  end;
+  Result := FConfig;
+end;
+
 function TAppBootstrap.AppConfig: IAppConfig;
 begin
-  // During migration: delegate to existing singleton
-  // After migration: this will create/return a managed instance
-  Result := Config;
+  Result := TAppConfig(GetConfig);
 end;
 
 function TAppBootstrap.GeneralConfig: IGeneralConfig;
 begin
-  Result := Config.AsGeneralConfig;
+  Result := TAppConfig(GetConfig).AsGeneralConfig;
 end;
 
 function TAppBootstrap.WindowConfig: IWindowConfig;
 begin
-  Result := Config.AsWindowConfig;
+  Result := TAppConfig(GetConfig).AsWindowConfig;
 end;
 
 function TAppBootstrap.PositionConfig: IPositionConfig;
 begin
-  Result := Config.AsPositionConfig;
+  Result := TAppConfig(GetConfig).AsPositionConfig;
 end;
 
 function TAppBootstrap.HotkeyConfig: IHotkeyConfig;
 begin
-  Result := Config.AsHotkeyConfig;
+  Result := TAppConfig(GetConfig).AsHotkeyConfig;
 end;
 
 function TAppBootstrap.PollingConfig: IPollingConfig;
 begin
-  Result := Config.AsPollingConfig;
+  Result := TAppConfig(GetConfig).AsPollingConfig;
 end;
 
 function TAppBootstrap.LogConfig: ILogConfig;
 begin
-  Result := Config.AsLogConfig;
+  Result := TAppConfig(GetConfig).AsLogConfig;
 end;
 
 function TAppBootstrap.AppearanceConfig: IAppearanceConfig;
 begin
-  Result := Config.AsAppearanceConfig;
+  Result := TAppConfig(GetConfig).AsAppearanceConfig;
 end;
 
 function TAppBootstrap.LayoutConfig: ILayoutConfig;
 begin
-  Result := Config.AsLayoutConfig;
+  Result := TAppConfig(GetConfig).AsLayoutConfig;
 end;
 
 function TAppBootstrap.ConnectionConfig: IConnectionConfig;
 begin
-  Result := Config.AsConnectionConfig;
+  Result := TAppConfig(GetConfig).AsConnectionConfig;
 end;
 
 function TAppBootstrap.NotificationConfig: INotificationConfig;
 begin
-  Result := Config.AsNotificationConfig;
+  Result := TAppConfig(GetConfig).AsNotificationConfig;
 end;
 
 function TAppBootstrap.DeviceConfigProvider: IDeviceConfigProvider;
 begin
-  Result := Config.AsDeviceConfigProvider;
+  Result := TAppConfig(GetConfig).AsDeviceConfigProvider;
 end;
 
 end.
