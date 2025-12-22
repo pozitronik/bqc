@@ -31,8 +31,10 @@ type
     class function GetInstance: TAppBootstrap; static;
   private
     FConfig: TObject;  // Actually TAppConfig, but avoids circular reference
+    FDeviceRepository: IDeviceConfigRepository;
     FStrategyFactory: IConnectionStrategyFactory;
     function GetConfig: TObject;
+    procedure ApplySideEffects;
   public
     constructor Create;
     destructor Destroy; override;
@@ -80,6 +82,10 @@ implementation
 uses
   System.SysUtils,
   App.Config,
+  App.SettingsRepository,
+  App.DeviceConfigRepository,
+  App.Logger,
+  App.Autostart,
   Bluetooth.ConnectionStrategies;
 
 function Bootstrap: TAppBootstrap;
@@ -115,13 +121,44 @@ begin
 end;
 
 function TAppBootstrap.GetConfig: TObject;
+var
+  Cfg: TAppConfig;
+  SettingsRepo: ISettingsRepository;
 begin
   if FConfig = nil then
   begin
-    FConfig := TAppConfig.Create;
-    TAppConfig(FConfig).Load;
+    Cfg := TAppConfig.Create;
+    FConfig := Cfg;
+
+    // Create device repository
+    FDeviceRepository := CreateDeviceConfigRepository;
+
+    // Create settings repository with device repository reference
+    SettingsRepo := TIniSettingsRepository.Create(Cfg.ConfigPath, FDeviceRepository);
+
+    // Wire up repositories
+    Cfg.SetRepositories(SettingsRepo, FDeviceRepository);
+
+    // Load configuration
+    Cfg.Load;
+
+    // Apply side effects after loading
+    ApplySideEffects;
   end;
   Result := FConfig;
+end;
+
+procedure TAppBootstrap.ApplySideEffects;
+var
+  Cfg: TAppConfig;
+begin
+  Cfg := TAppConfig(FConfig);
+
+  // Initialize logger with settings from config
+  App.Logger.SetLoggingEnabled(Cfg.LogEnabled, Cfg.LogFilename, Cfg.LogAppend);
+
+  // Ensure autostart registry matches config setting
+  TAutostartManager.Apply(Cfg.Autostart);
 end;
 
 function TAppBootstrap.AppConfig: IAppConfig;

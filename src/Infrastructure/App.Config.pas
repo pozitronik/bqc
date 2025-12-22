@@ -48,7 +48,8 @@ type
   private
     FConfigPath: string;
     FModified: Boolean;
-    FDevices: TDictionary<UInt64, TDeviceConfig>;
+    FDeviceRepository: IDeviceConfigRepository;
+    FSettingsRepository: ISettingsRepository;
 
     // [General]
     FWindowMode: TWindowMode;
@@ -114,8 +115,6 @@ type
     FNotifyOnAutoConnect: TNotificationMode;
 
     procedure SetDefaults;
-    procedure LoadDevices(AIni: TMemIniFile);
-    procedure SaveDevices(AIni: TMemIniFile);
 
     // Property setters with modification tracking
     procedure SetWindowMode(AValue: TWindowMode);
@@ -216,12 +215,21 @@ type
     destructor Destroy; override;
 
     /// <summary>
+    /// Sets the repositories for persistence and device configuration.
+    /// Must be called before Load/Save operations.
+    /// </summary>
+    procedure SetRepositories(ASettingsRepository: ISettingsRepository;
+      ADeviceRepository: IDeviceConfigRepository);
+
+    /// <summary>
     /// Loads configuration from INI file. Creates file with defaults if not exists.
+    /// Delegates to ISettingsRepository.
     /// </summary>
     procedure Load;
 
     /// <summary>
     /// Saves configuration to INI file.
+    /// Delegates to ISettingsRepository.
     /// </summary>
     procedure Save;
 
@@ -229,6 +237,11 @@ type
     /// Saves configuration only if modified.
     /// </summary>
     procedure SaveIfModified;
+
+    /// <summary>
+    /// Clears the modified flag. Called by repository after save.
+    /// </summary>
+    procedure ClearModified;
 
     /// <summary>
     /// Gets device-specific configuration.
@@ -443,126 +456,9 @@ implementation
 uses
   System.Math,
   System.DateUtils,
-  App.Logger,
-  App.Autostart,
+  App.SettingsRepository,
+  App.DeviceConfigRepository,
   App.Bootstrap;
-
-const
-  // Section names
-  SEC_GENERAL = 'General';
-  SEC_WINDOW = 'Window';
-  SEC_MENU = 'Menu';
-  SEC_HOTKEY = 'Hotkey';
-  SEC_POSITION = 'Position';
-  SEC_POLLING = 'Polling';
-  SEC_LOG = 'Log';
-  SEC_APPEARANCE = 'Appearance';
-  SEC_LAYOUT = 'Layout';
-  SEC_DEVICE = 'Device';
-  SEC_DEVICE_PREFIX = 'Device.';
-
-  // INI key names - [General]
-  KEY_WINDOW = 'Window';
-  KEY_ON_TOP = 'OnTop';
-  KEY_AUTOSTART = 'Autostart';
-
-  // INI key names - [Window]
-  KEY_MINIMIZE_TO_TRAY = 'MinimizeToTray';
-  KEY_CLOSE_TO_TRAY = 'CloseToTray';
-
-  // INI key names - [Menu]
-  KEY_HIDE_ON_FOCUS_LOSS = 'HideOnFocusLoss';
-
-  // INI key names - [Hotkey]
-  KEY_GLOBAL_HOTKEY = 'GlobalHotkey';
-  KEY_USE_LOW_LEVEL_HOOK = 'UseLowLevelHook';
-
-  // INI key names - [Position]
-  KEY_MODE = 'Mode';
-  KEY_X = 'X';
-  KEY_Y = 'Y';
-  KEY_W = 'W';
-  KEY_H = 'H';
-
-  // INI key names - [Polling]
-  KEY_INTERVAL = 'Interval';
-  KEY_EVENT_DEBOUNCE_MS = 'EventDebounceMs';
-
-  // INI key names - [Log]
-  KEY_ENABLED = 'Enabled';
-  KEY_FILENAME = 'Filename';
-  KEY_APPEND = 'Append';
-
-  // INI key names - [Appearance]
-  KEY_SHOW_ADDRESSES = 'ShowAddresses';
-  KEY_THEME = 'Theme';
-  KEY_VSF_DIR = 'VsfDir';
-  KEY_SHOW_LAST_SEEN = 'ShowLastSeen';
-  KEY_LAST_SEEN_FORMAT = 'LastSeenFormat';
-  KEY_SHOW_DEVICE_ICONS = 'ShowDeviceIcons';
-  KEY_CONNECTED_COLOR = 'ConnectedColor';
-
-  // INI key names - [Layout]
-  KEY_ITEM_HEIGHT = 'ItemHeight';
-  KEY_ITEM_PADDING = 'ItemPadding';
-  KEY_ITEM_MARGIN = 'ItemMargin';
-  KEY_ICON_SIZE = 'IconSize';
-  KEY_CORNER_RADIUS = 'CornerRadius';
-  KEY_DEVICE_NAME_FONT_SIZE = 'DeviceNameFontSize';
-  KEY_STATUS_FONT_SIZE = 'StatusFontSize';
-  KEY_ADDRESS_FONT_SIZE = 'AddressFontSize';
-  KEY_ICON_FONT_SIZE = 'IconFontSize';
-  KEY_ITEM_BORDER_WIDTH = 'ItemBorderWidth';
-  KEY_ITEM_BORDER_COLOR = 'ItemBorderColor';
-
-  // INI key names - [Device] (global defaults and per-device)
-  KEY_CONNECTION_TIMEOUT = 'ConnectionTimeout';
-  KEY_CONNECTION_RETRY_COUNT = 'ConnectionRetryCount';
-  KEY_NOTIFY_ON_CONNECT = 'NotifyOnConnect';
-  KEY_NOTIFY_ON_DISCONNECT = 'NotifyOnDisconnect';
-  KEY_NOTIFY_ON_CONNECT_FAILED = 'NotifyOnConnectFailed';
-  KEY_NOTIFY_ON_AUTO_CONNECT = 'NotifyOnAutoConnect';
-
-  // INI key names - [Device.XXX] (per-device only)
-  KEY_NAME = 'Name';
-  KEY_ALIAS = 'Alias';
-  KEY_PINNED = 'Pinned';
-  KEY_HIDDEN = 'Hidden';
-  KEY_AUTO_CONNECT = 'AutoConnect';
-  KEY_DEVICE_TYPE_OVERRIDE = 'DeviceTypeOverride';
-  KEY_LAST_SEEN = 'LastSeen';
-
-  // Default values
-  DEF_WINDOW_MODE = wmWindow;
-  DEF_ON_TOP = False;
-  DEF_AUTOSTART = False;
-  DEF_MINIMIZE_TO_TRAY = True;
-  DEF_CLOSE_TO_TRAY = True;
-  DEF_MENU_HIDE_ON_FOCUS_LOSS = True;
-  DEF_HOTKEY = 'Win+K';
-  DEF_USE_LOW_LEVEL_HOOK = True;
-  DEF_POSITION_MODE = pmCoordinates;
-  DEF_POSITION_X = -1;
-  DEF_POSITION_Y = -1;
-  DEF_POSITION_W = -1;
-  DEF_POSITION_H = -1;
-  DEF_POLLING_MODE = pmFallback;
-  DEF_LOG_ENABLED = False;
-  DEF_LOG_FILENAME = 'bqc.log';
-  DEF_LOG_APPEND = False;
-  DEF_SHOW_ADDRESSES = False;
-  DEF_THEME = '';
-  DEF_VSF_DIR = 'themes';
-
-  DEF_NOTIFY_ON_CONNECT = nmBalloon;
-  DEF_NOTIFY_ON_DISCONNECT = nmBalloon;
-  DEF_NOTIFY_ON_CONNECT_FAILED = nmBalloon;
-  DEF_NOTIFY_ON_AUTO_CONNECT = nmBalloon;
-
-  // [Appearance] additional defaults
-  DEF_SHOW_LAST_SEEN = False;
-  DEF_LAST_SEEN_FORMAT = lsfRelative;
-  DEF_SHOW_DEVICE_ICONS = True;
 
 /// <summary>
 /// Returns the configuration instance managed by Bootstrap.
@@ -580,7 +476,6 @@ var
   ExePath: string;
 begin
   inherited Create;
-  FDevices := TDictionary<UInt64, TDeviceConfig>.Create;
 
   // Config file next to executable
   ExePath := ExtractFilePath(ParamStr(0));
@@ -592,52 +487,71 @@ end;
 destructor TAppConfig.Destroy;
 begin
   SaveIfModified;
-  FDevices.Free;
+  // Repositories are interface-based, released automatically
+  FSettingsRepository := nil;
+  FDeviceRepository := nil;
   inherited Destroy;
+end;
+
+procedure TAppConfig.SetRepositories(ASettingsRepository: ISettingsRepository;
+  ADeviceRepository: IDeviceConfigRepository);
+begin
+  FSettingsRepository := ASettingsRepository;
+  FDeviceRepository := ADeviceRepository;
+  // Connect device repository to global config for effective value resolution
+  if Assigned(FDeviceRepository) then
+    (FDeviceRepository as TDeviceConfigRepository).GlobalConfig := Self;
+end;
+
+procedure TAppConfig.ClearModified;
+begin
+  FModified := False;
+  if Assigned(FDeviceRepository) then
+    FDeviceRepository.ClearModified;
 end;
 
 procedure TAppConfig.SetDefaults;
 begin
   // [General]
-  FWindowMode := DEF_WINDOW_MODE;
-  FOnTop := DEF_ON_TOP;
-  FAutostart := DEF_AUTOSTART;
+  FWindowMode := App.SettingsRepository.DEF_WINDOW_MODE;
+  FOnTop := App.SettingsRepository.DEF_ON_TOP;
+  FAutostart := App.SettingsRepository.DEF_AUTOSTART;
 
   // [Window]
-  FMinimizeToTray := DEF_MINIMIZE_TO_TRAY;
-  FCloseToTray := DEF_CLOSE_TO_TRAY;
+  FMinimizeToTray := App.SettingsRepository.DEF_MINIMIZE_TO_TRAY;
+  FCloseToTray := App.SettingsRepository.DEF_CLOSE_TO_TRAY;
 
   // [Menu]
-  FMenuHideOnFocusLoss := DEF_MENU_HIDE_ON_FOCUS_LOSS;
+  FMenuHideOnFocusLoss := App.SettingsRepository.DEF_MENU_HIDE_ON_FOCUS_LOSS;
 
   // [Hotkey]
-  FHotkey := DEF_HOTKEY;
-  FUseLowLevelHook := DEF_USE_LOW_LEVEL_HOOK;
+  FHotkey := App.SettingsRepository.DEF_HOTKEY;
+  FUseLowLevelHook := App.SettingsRepository.DEF_USE_LOW_LEVEL_HOOK;
 
   // [Position]
-  FPositionMode := DEF_POSITION_MODE;
-  FPositionX := DEF_POSITION_X;
-  FPositionY := DEF_POSITION_Y;
-  FPositionW := DEF_POSITION_W;
-  FPositionH := DEF_POSITION_H;
+  FPositionMode := App.SettingsRepository.DEF_POSITION_MODE;
+  FPositionX := App.SettingsRepository.DEF_POSITION_X;
+  FPositionY := App.SettingsRepository.DEF_POSITION_Y;
+  FPositionW := App.SettingsRepository.DEF_POSITION_W;
+  FPositionH := App.SettingsRepository.DEF_POSITION_H;
 
   // [Polling]
-  FPollingMode := DEF_POLLING_MODE;
+  FPollingMode := App.SettingsRepository.DEF_POLLING_MODE;
   FPollingInterval := DEF_POLLING_INTERVAL;
   FEventDebounceMs := DEF_EVENT_DEBOUNCE_MS;
 
   // [Log]
-  FLogEnabled := DEF_LOG_ENABLED;
-  FLogFilename := DEF_LOG_FILENAME;
-  FLogAppend := DEF_LOG_APPEND;
+  FLogEnabled := App.SettingsRepository.DEF_LOG_ENABLED;
+  FLogFilename := App.SettingsRepository.DEF_LOG_FILENAME;
+  FLogAppend := App.SettingsRepository.DEF_LOG_APPEND;
 
   // [Appearance]
-  FShowAddresses := DEF_SHOW_ADDRESSES;
-  FTheme := DEF_THEME;
-  FVsfDir := DEF_VSF_DIR;
-  FShowLastSeen := DEF_SHOW_LAST_SEEN;
-  FLastSeenFormat := DEF_LAST_SEEN_FORMAT;
-  FShowDeviceIcons := DEF_SHOW_DEVICE_ICONS;
+  FShowAddresses := App.SettingsRepository.DEF_SHOW_ADDRESSES;
+  FTheme := App.SettingsRepository.DEF_THEME;
+  FVsfDir := App.SettingsRepository.DEF_VSF_DIR;
+  FShowLastSeen := App.SettingsRepository.DEF_SHOW_LAST_SEEN;
+  FLastSeenFormat := App.SettingsRepository.DEF_LAST_SEEN_FORMAT;
+  FShowDeviceIcons := App.SettingsRepository.DEF_SHOW_DEVICE_ICONS;
   FConnectedColor := DEF_CONNECTED_COLOR;
 
   // [Layout]
@@ -656,375 +570,73 @@ begin
   // [Device]
   FConnectionTimeout := DEF_CONNECTION_TIMEOUT;
   FConnectionRetryCount := DEF_CONNECTION_RETRY_COUNT;
-  FNotifyOnConnect := DEF_NOTIFY_ON_CONNECT;
-  FNotifyOnDisconnect := DEF_NOTIFY_ON_DISCONNECT;
-  FNotifyOnConnectFailed := DEF_NOTIFY_ON_CONNECT_FAILED;
-  FNotifyOnAutoConnect := DEF_NOTIFY_ON_AUTO_CONNECT;
+  FNotifyOnConnect := App.SettingsRepository.DEF_NOTIFY_ON_CONNECT;
+  FNotifyOnDisconnect := App.SettingsRepository.DEF_NOTIFY_ON_DISCONNECT;
+  FNotifyOnConnectFailed := App.SettingsRepository.DEF_NOTIFY_ON_CONNECT_FAILED;
+  FNotifyOnAutoConnect := App.SettingsRepository.DEF_NOTIFY_ON_AUTO_CONNECT;
 
-  FDevices.Clear;
   FModified := False;
 end;
 
 procedure TAppConfig.Load;
-var
-  Ini: TMemIniFile;
 begin
-  if not FileExists(FConfigPath) then
-  begin
-    // Create default config file
-    SetDefaults;
-    Save;
-    FModified := False;
-    // Apply logging setting directly
-    App.Logger.SetLoggingEnabled(FLogEnabled, FLogFilename, FLogAppend);
-    Exit;
-  end;
-
-  Ini := TMemIniFile.Create(FConfigPath);
-  try
-    // [General]
-    FWindowMode := TWindowMode(Ini.ReadInteger(SEC_GENERAL, KEY_WINDOW, Ord(DEF_WINDOW_MODE)));
-    FOnTop := Ini.ReadBool(SEC_GENERAL, KEY_ON_TOP, DEF_ON_TOP);
-    FAutostart := Ini.ReadBool(SEC_GENERAL, KEY_AUTOSTART, DEF_AUTOSTART);
-
-    // [Window]
-    FMinimizeToTray := Ini.ReadBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, DEF_MINIMIZE_TO_TRAY);
-    FCloseToTray := Ini.ReadBool(SEC_WINDOW, KEY_CLOSE_TO_TRAY, DEF_CLOSE_TO_TRAY);
-
-    // [Menu]
-    FMenuHideOnFocusLoss := Ini.ReadBool(SEC_MENU, KEY_HIDE_ON_FOCUS_LOSS, DEF_MENU_HIDE_ON_FOCUS_LOSS);
-
-    // [Hotkey]
-    FHotkey := Ini.ReadString(SEC_HOTKEY, KEY_GLOBAL_HOTKEY, DEF_HOTKEY);
-    FUseLowLevelHook := Ini.ReadBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, DEF_USE_LOW_LEVEL_HOOK);
-
-    // [Position]
-    FPositionMode := TPositionMode(Ini.ReadInteger(SEC_POSITION, KEY_MODE, Ord(DEF_POSITION_MODE)));
-    FPositionX := Ini.ReadInteger(SEC_POSITION, KEY_X, DEF_POSITION_X);
-    FPositionY := Ini.ReadInteger(SEC_POSITION, KEY_Y, DEF_POSITION_Y);
-    FPositionW := Ini.ReadInteger(SEC_POSITION, KEY_W, DEF_POSITION_W);
-    FPositionH := Ini.ReadInteger(SEC_POSITION, KEY_H, DEF_POSITION_H);
-
-    // [Polling]
-    FPollingMode := TPollingMode(Ini.ReadInteger(SEC_POLLING, KEY_MODE, Ord(DEF_POLLING_MODE)));
-    FPollingInterval := Ini.ReadInteger(SEC_POLLING, KEY_INTERVAL, DEF_POLLING_INTERVAL);
-    FEventDebounceMs := Ini.ReadInteger(SEC_POLLING, KEY_EVENT_DEBOUNCE_MS, DEF_EVENT_DEBOUNCE_MS);
-
-    // [Log]
-    FLogEnabled := Ini.ReadBool(SEC_LOG, KEY_ENABLED, DEF_LOG_ENABLED);
-    FLogFilename := Ini.ReadString(SEC_LOG, KEY_FILENAME, DEF_LOG_FILENAME);
-    FLogAppend := Ini.ReadBool(SEC_LOG, KEY_APPEND, DEF_LOG_APPEND);
-
-    // [Appearance]
-    FShowAddresses := Ini.ReadBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, DEF_SHOW_ADDRESSES);
-    FTheme := Ini.ReadString(SEC_APPEARANCE, KEY_THEME, DEF_THEME);
-    FVsfDir := Ini.ReadString(SEC_APPEARANCE, KEY_VSF_DIR, DEF_VSF_DIR);
-    FShowLastSeen := Ini.ReadBool(SEC_APPEARANCE, KEY_SHOW_LAST_SEEN, DEF_SHOW_LAST_SEEN);
-    FLastSeenFormat := TLastSeenFormat(Ini.ReadInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(DEF_LAST_SEEN_FORMAT)));
-    FShowDeviceIcons := Ini.ReadBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, DEF_SHOW_DEVICE_ICONS);
-    FConnectedColor := Ini.ReadInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, DEF_CONNECTED_COLOR);
-
-    // [Layout]
-    FItemHeight := Ini.ReadInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, DEF_ITEM_HEIGHT);
-    FItemPadding := Ini.ReadInteger(SEC_LAYOUT, KEY_ITEM_PADDING, DEF_ITEM_PADDING);
-    FItemMargin := Ini.ReadInteger(SEC_LAYOUT, KEY_ITEM_MARGIN, DEF_ITEM_MARGIN);
-    FIconSize := Ini.ReadInteger(SEC_LAYOUT, KEY_ICON_SIZE, DEF_ICON_SIZE);
-    FCornerRadius := Ini.ReadInteger(SEC_LAYOUT, KEY_CORNER_RADIUS, DEF_CORNER_RADIUS);
-    FDeviceNameFontSize := Ini.ReadInteger(SEC_LAYOUT, KEY_DEVICE_NAME_FONT_SIZE, DEF_DEVICE_NAME_FONT_SIZE);
-    FStatusFontSize := Ini.ReadInteger(SEC_LAYOUT, KEY_STATUS_FONT_SIZE, DEF_STATUS_FONT_SIZE);
-    FAddressFontSize := Ini.ReadInteger(SEC_LAYOUT, KEY_ADDRESS_FONT_SIZE, DEF_ADDRESS_FONT_SIZE);
-    FIconFontSize := Ini.ReadInteger(SEC_LAYOUT, KEY_ICON_FONT_SIZE, DEF_ICON_FONT_SIZE);
-    FItemBorderWidth := Ini.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, DEF_ITEM_BORDER_WIDTH);
-    FItemBorderColor := Ini.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, DEF_ITEM_BORDER_COLOR);
-
-    // [Device] - global defaults
-    FConnectionTimeout := Ini.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
-    FConnectionRetryCount := Ini.ReadInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, DEF_CONNECTION_RETRY_COUNT);
-    FNotifyOnConnect := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(DEF_NOTIFY_ON_CONNECT)));
-    FNotifyOnDisconnect := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(DEF_NOTIFY_ON_DISCONNECT)));
-    FNotifyOnConnectFailed := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
-    FNotifyOnAutoConnect := TNotificationMode(Ini.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
-
-    // Validate numeric values to ensure they're within acceptable ranges
-    // (handles corrupted INI files or manual edits with invalid values)
-    FPollingInterval := EnsureRange(FPollingInterval, MIN_POLLING_INTERVAL, MAX_POLLING_INTERVAL);
-    FEventDebounceMs := EnsureRange(FEventDebounceMs, MIN_EVENT_DEBOUNCE_MS, MAX_EVENT_DEBOUNCE_MS);
-    FItemHeight := EnsureRange(FItemHeight, MIN_ITEM_HEIGHT, MAX_ITEM_HEIGHT);
-    FItemPadding := EnsureRange(FItemPadding, MIN_ITEM_PADDING, MAX_ITEM_PADDING);
-    FItemMargin := EnsureRange(FItemMargin, MIN_ITEM_MARGIN, MAX_ITEM_MARGIN);
-    FIconSize := EnsureRange(FIconSize, MIN_ICON_SIZE, MAX_ICON_SIZE);
-    FCornerRadius := EnsureRange(FCornerRadius, MIN_CORNER_RADIUS, MAX_CORNER_RADIUS);
-    FItemBorderWidth := EnsureRange(FItemBorderWidth, MIN_ITEM_BORDER_WIDTH, MAX_ITEM_BORDER_WIDTH);
-    FDeviceNameFontSize := EnsureRange(FDeviceNameFontSize, MIN_DEVICE_NAME_FONT_SIZE, MAX_DEVICE_NAME_FONT_SIZE);
-    FStatusFontSize := EnsureRange(FStatusFontSize, MIN_STATUS_FONT_SIZE, MAX_STATUS_FONT_SIZE);
-    FAddressFontSize := EnsureRange(FAddressFontSize, MIN_ADDRESS_FONT_SIZE, MAX_ADDRESS_FONT_SIZE);
-    FIconFontSize := EnsureRange(FIconFontSize, MIN_ICON_FONT_SIZE, MAX_ICON_FONT_SIZE);
-    FConnectionTimeout := EnsureRange(FConnectionTimeout, MIN_CONNECTION_TIMEOUT, MAX_CONNECTION_TIMEOUT);
-    FConnectionRetryCount := EnsureRange(FConnectionRetryCount, MIN_CONNECTION_RETRY_COUNT, MAX_CONNECTION_RETRY_COUNT);
-
-    // Device-specific settings
-    LoadDevices(Ini);
-
-    FModified := False;
-  finally
-    Ini.Free;
-  end;
-
-  // Apply logging setting
-  App.Logger.SetLoggingEnabled(FLogEnabled, FLogFilename, FLogAppend);
-
-  // Ensure registry matches config setting
-  TAutostartManager.Apply(FAutostart);
+  // Delegate to settings repository
+  if Assigned(FSettingsRepository) then
+    FSettingsRepository.LoadSettings(Self)
+  else
+    raise EInvalidOperation.Create('Settings repository not set. Call SetRepositories first.');
 end;
 
 procedure TAppConfig.Save;
-var
-  Ini: TMemIniFile;
 begin
-  Ini := TMemIniFile.Create(FConfigPath);
-  try
-    // [General]
-    Ini.WriteInteger(SEC_GENERAL, KEY_WINDOW, Ord(FWindowMode));
-    Ini.WriteBool(SEC_GENERAL, KEY_ON_TOP, FOnTop);
-    Ini.WriteBool(SEC_GENERAL, KEY_AUTOSTART, FAutostart);
-
-    // [Window]
-    Ini.WriteBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, FMinimizeToTray);
-    Ini.WriteBool(SEC_WINDOW, KEY_CLOSE_TO_TRAY, FCloseToTray);
-
-    // [Menu]
-    Ini.WriteBool(SEC_MENU, KEY_HIDE_ON_FOCUS_LOSS, FMenuHideOnFocusLoss);
-
-    // [Hotkey]
-    Ini.WriteString(SEC_HOTKEY, KEY_GLOBAL_HOTKEY, FHotkey);
-    Ini.WriteBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, FUseLowLevelHook);
-
-    // [Position]
-    Ini.WriteInteger(SEC_POSITION, KEY_MODE, Ord(FPositionMode));
-    Ini.WriteInteger(SEC_POSITION, KEY_X, FPositionX);
-    Ini.WriteInteger(SEC_POSITION, KEY_Y, FPositionY);
-    Ini.WriteInteger(SEC_POSITION, KEY_W, FPositionW);
-    Ini.WriteInteger(SEC_POSITION, KEY_H, FPositionH);
-
-    // [Polling]
-    Ini.WriteInteger(SEC_POLLING, KEY_MODE, Ord(FPollingMode));
-    Ini.WriteInteger(SEC_POLLING, KEY_INTERVAL, FPollingInterval);
-    Ini.WriteInteger(SEC_POLLING, KEY_EVENT_DEBOUNCE_MS, FEventDebounceMs);
-
-    // [Log]
-    Ini.WriteBool(SEC_LOG, KEY_ENABLED, FLogEnabled);
-    Ini.WriteString(SEC_LOG, KEY_FILENAME, FLogFilename);
-    Ini.WriteBool(SEC_LOG, KEY_APPEND, FLogAppend);
-
-    // [Appearance]
-    Ini.WriteBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, FShowAddresses);
-    Ini.WriteString(SEC_APPEARANCE, KEY_THEME, FTheme);
-    Ini.WriteString(SEC_APPEARANCE, KEY_VSF_DIR, FVsfDir);
-    Ini.WriteBool(SEC_APPEARANCE, KEY_SHOW_LAST_SEEN, FShowLastSeen);
-    Ini.WriteInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(FLastSeenFormat));
-    Ini.WriteBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, FShowDeviceIcons);
-    Ini.WriteInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, FConnectedColor);
-
-    // [Layout]
-    Ini.WriteInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, FItemHeight);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_ITEM_PADDING, FItemPadding);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_ITEM_MARGIN, FItemMargin);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_ICON_SIZE, FIconSize);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_CORNER_RADIUS, FCornerRadius);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_DEVICE_NAME_FONT_SIZE, FDeviceNameFontSize);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_STATUS_FONT_SIZE, FStatusFontSize);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_ADDRESS_FONT_SIZE, FAddressFontSize);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_ICON_FONT_SIZE, FIconFontSize);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, FItemBorderWidth);
-    Ini.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, FItemBorderColor);
-
-    // [Device] - global defaults
-    Ini.WriteInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, FConnectionTimeout);
-    Ini.WriteInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, FConnectionRetryCount);
-    Ini.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(FNotifyOnConnect));
-    Ini.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(FNotifyOnDisconnect));
-    Ini.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(FNotifyOnConnectFailed));
-    Ini.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(FNotifyOnAutoConnect));
-
-    // Device-specific settings
-    SaveDevices(Ini);
-
-    Ini.UpdateFile;
-    FModified := False;
-  finally
-    Ini.Free;
-  end;
+  // Delegate to settings repository
+  if Assigned(FSettingsRepository) then
+    FSettingsRepository.SaveSettings(Self)
+  else
+    raise EInvalidOperation.Create('Settings repository not set. Call SetRepositories first.');
 end;
 
 procedure TAppConfig.SaveIfModified;
+var
+  DeviceModified: Boolean;
 begin
-  if FModified then
+  DeviceModified := Assigned(FDeviceRepository) and FDeviceRepository.IsModified;
+  if FModified or DeviceModified then
     Save;
-end;
-
-procedure TAppConfig.LoadDevices(AIni: TMemIniFile);
-var
-  Sections: TStringList;
-  Section: string;
-  AddressStr: string;
-  Address: UInt64;
-  DeviceConfig: TDeviceConfig;
-  LastSeenStr: string;
-begin
-  FDevices.Clear;
-  Sections := TStringList.Create;
-  try
-    AIni.ReadSections(Sections);
-    for Section in Sections do
-    begin
-      if Section.StartsWith(SEC_DEVICE_PREFIX) then
-      begin
-        AddressStr := Section.Substring(Length(SEC_DEVICE_PREFIX));
-        // Support both formats: 581862015DAE and 58:18:62:01:5D:AE
-        AddressStr := StringReplace(AddressStr, ':', '', [rfReplaceAll]);
-        if TryStrToUInt64('$' + AddressStr, Address) then
-        begin
-          DeviceConfig := TDeviceConfig.Default(Address);
-          DeviceConfig.Name := AIni.ReadString(Section, KEY_NAME, '');
-          DeviceConfig.Alias := AIni.ReadString(Section, KEY_ALIAS, '');
-          DeviceConfig.Pinned := AIni.ReadBool(Section, KEY_PINNED, False);
-          DeviceConfig.Hidden := AIni.ReadBool(Section, KEY_HIDDEN, False);
-          DeviceConfig.AutoConnect := AIni.ReadBool(Section, KEY_AUTO_CONNECT, False);
-          DeviceConfig.ConnectionTimeout := AIni.ReadInteger(Section, KEY_CONNECTION_TIMEOUT, -1);
-          DeviceConfig.ConnectionRetryCount := AIni.ReadInteger(Section, KEY_CONNECTION_RETRY_COUNT, -1);
-          // Per-device notification overrides (-1 = use global)
-          DeviceConfig.Notifications.OnConnect := AIni.ReadInteger(Section, KEY_NOTIFY_ON_CONNECT, -1);
-          DeviceConfig.Notifications.OnDisconnect := AIni.ReadInteger(Section, KEY_NOTIFY_ON_DISCONNECT, -1);
-          DeviceConfig.Notifications.OnConnectFailed := AIni.ReadInteger(Section, KEY_NOTIFY_ON_CONNECT_FAILED, -1);
-          DeviceConfig.Notifications.OnAutoConnect := AIni.ReadInteger(Section, KEY_NOTIFY_ON_AUTO_CONNECT, -1);
-          DeviceConfig.DeviceTypeOverride := AIni.ReadInteger(Section, KEY_DEVICE_TYPE_OVERRIDE, -1);
-          // Parse LastSeen as ISO 8601 datetime string
-          LastSeenStr := AIni.ReadString(Section, KEY_LAST_SEEN, '');
-          if LastSeenStr <> '' then
-          begin
-            try
-              DeviceConfig.LastSeen := ISO8601ToDate(LastSeenStr, False);
-            except
-              DeviceConfig.LastSeen := 0;
-            end;
-          end;
-          FDevices.Add(Address, DeviceConfig);
-        end;
-      end;
-    end;
-  finally
-    Sections.Free;
-  end;
-end;
-
-procedure TAppConfig.SaveDevices(AIni: TMemIniFile);
-var
-  Sections: TStringList;
-  Section: string;
-  Pair: TPair<UInt64, TDeviceConfig>;
-  SectionName: string;
-begin
-  // First, remove all existing device sections (except [Device] itself)
-  Sections := TStringList.Create;
-  try
-    AIni.ReadSections(Sections);
-    for Section in Sections do
-    begin
-      if Section.StartsWith(SEC_DEVICE_PREFIX) then
-        AIni.EraseSection(Section);
-    end;
-  finally
-    Sections.Free;
-  end;
-
-  // Write current device configurations
-  for Pair in FDevices do
-  begin
-    SectionName := SEC_DEVICE_PREFIX + IntToHex(Pair.Key, 12);
-    // Always save Name (original device name from Windows)
-    AIni.WriteString(SectionName, KEY_NAME, Pair.Value.Name);
-    AIni.WriteString(SectionName, KEY_ALIAS, Pair.Value.Alias);
-    AIni.WriteBool(SectionName, KEY_PINNED, Pair.Value.Pinned);
-    AIni.WriteBool(SectionName, KEY_HIDDEN, Pair.Value.Hidden);
-    AIni.WriteBool(SectionName, KEY_AUTO_CONNECT, Pair.Value.AutoConnect);
-    // Only save connection settings if they override defaults
-    if Pair.Value.ConnectionTimeout >= 0 then
-      AIni.WriteInteger(SectionName, KEY_CONNECTION_TIMEOUT, Pair.Value.ConnectionTimeout);
-    if Pair.Value.ConnectionRetryCount >= 0 then
-      AIni.WriteInteger(SectionName, KEY_CONNECTION_RETRY_COUNT, Pair.Value.ConnectionRetryCount);
-    // Only save notification settings if they override globals
-    if Pair.Value.Notifications.OnConnect >= 0 then
-      AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_CONNECT, Pair.Value.Notifications.OnConnect);
-    if Pair.Value.Notifications.OnDisconnect >= 0 then
-      AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_DISCONNECT, Pair.Value.Notifications.OnDisconnect);
-    if Pair.Value.Notifications.OnConnectFailed >= 0 then
-      AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_CONNECT_FAILED, Pair.Value.Notifications.OnConnectFailed);
-    if Pair.Value.Notifications.OnAutoConnect >= 0 then
-      AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_AUTO_CONNECT, Pair.Value.Notifications.OnAutoConnect);
-    // Only save DeviceTypeOverride if it's set (not auto-detect)
-    if Pair.Value.DeviceTypeOverride >= 0 then
-      AIni.WriteInteger(SectionName, KEY_DEVICE_TYPE_OVERRIDE, Pair.Value.DeviceTypeOverride);
-    // Save LastSeen as ISO 8601 datetime string
-    if Pair.Value.LastSeen > 0 then
-      AIni.WriteString(SectionName, KEY_LAST_SEEN, DateToISO8601(Pair.Value.LastSeen, False));
-  end;
 end;
 
 function TAppConfig.GetDeviceConfig(AAddress: UInt64): TDeviceConfig;
 begin
-  if not FDevices.TryGetValue(AAddress, Result) then
+  if Assigned(FDeviceRepository) then
+    Result := FDeviceRepository.GetConfig(AAddress)
+  else
     Result := TDeviceConfig.Default(AAddress);
 end;
 
 procedure TAppConfig.SetDeviceConfig(const AConfig: TDeviceConfig);
 begin
-  FDevices.AddOrSetValue(AConfig.Address, AConfig);
-  FModified := True;
+  if Assigned(FDeviceRepository) then
+    FDeviceRepository.SetConfig(AConfig);
 end;
 
 procedure TAppConfig.RemoveDeviceConfig(AAddress: UInt64);
 begin
-  if FDevices.ContainsKey(AAddress) then
-  begin
-    FDevices.Remove(AAddress);
-    FModified := True;
-  end;
+  if Assigned(FDeviceRepository) then
+    FDeviceRepository.Remove(AAddress);
 end;
 
 procedure TAppConfig.RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
-var
-  DeviceConfig: TDeviceConfig;
-  IsNew: Boolean;
 begin
-  IsNew := not FDevices.TryGetValue(AAddress, DeviceConfig);
-
-  if IsNew then
-  begin
-    // Create new device config with defaults
-    DeviceConfig := TDeviceConfig.Default(AAddress);
-    DeviceConfig.Name := AName;
-    DeviceConfig.LastSeen := ALastSeen;
-    FDevices.Add(AAddress, DeviceConfig);
-    FModified := True;
-    Log('[Config] RegisterDevice: New device registered: %s ($%.12X)', [AName, AAddress]);
-  end
-  else
-  begin
-    // Update existing device: always update LastSeen, update Name if changed
-    if (DeviceConfig.Name <> AName) or (DeviceConfig.LastSeen < ALastSeen) then
-    begin
-      if (AName <> '') and (DeviceConfig.Name <> AName) then
-        DeviceConfig.Name := AName;
-      DeviceConfig.LastSeen := ALastSeen;
-      FDevices[AAddress] := DeviceConfig;
-      FModified := True;
-    end;
-  end;
+  if Assigned(FDeviceRepository) then
+    FDeviceRepository.RegisterDevice(AAddress, AName, ALastSeen);
 end;
 
 function TAppConfig.GetConfiguredDeviceAddresses: TArray<UInt64>;
 begin
-  Result := FDevices.Keys.ToArray;
+  if Assigned(FDeviceRepository) then
+    Result := FDeviceRepository.GetAllAddresses
+  else
+    Result := nil;
 end;
 
 // Property setters with modification tracking
@@ -1053,8 +665,7 @@ begin
   begin
     FAutostart := AValue;
     FModified := True;
-    // Apply to registry immediately
-    TAutostartManager.Apply(AValue);
+    // Note: Side effect (registry update) is handled by Bootstrap.ApplySideEffects
   end;
 end;
 
@@ -1181,8 +792,7 @@ begin
   begin
     FLogEnabled := AValue;
     FModified := True;
-    // Apply to logger immediately
-    App.Logger.SetLoggingEnabled(AValue, FLogFilename, FLogAppend);
+    // Note: Side effect (logger update) is handled by Bootstrap.ApplySideEffects
   end;
 end;
 

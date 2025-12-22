@@ -316,6 +316,110 @@ type
     function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
   end;
 
+  //--------------------------------------------------------------------------
+  // Repository Interfaces (for persistence separation)
+  //--------------------------------------------------------------------------
+
+  /// <summary>
+  /// Repository interface for application settings persistence.
+  /// Separates INI file handling from configuration state.
+  /// </summary>
+  ISettingsRepository = interface
+    ['{B1C2D3E4-2222-3333-4444-555566667777}']
+
+    /// <summary>
+    /// Loads settings from storage into the config object.
+    /// </summary>
+    procedure LoadSettings(AConfig: TObject);
+
+    /// <summary>
+    /// Saves settings from the config object to storage.
+    /// </summary>
+    procedure SaveSettings(AConfig: TObject);
+
+    /// <summary>
+    /// Gets the path to the configuration file.
+    /// </summary>
+    function GetConfigPath: string;
+
+    property ConfigPath: string read GetConfigPath;
+  end;
+
+  /// <summary>
+  /// Repository interface for per-device configuration.
+  /// Separates device config storage from main configuration.
+  /// </summary>
+  IDeviceConfigRepository = interface
+    ['{C2D3E4F5-3333-4444-5555-666677778888}']
+
+    /// <summary>
+    /// Gets configuration for a specific device.
+    /// Returns default config if device not found.
+    /// </summary>
+    function GetConfig(AAddress: UInt64): TDeviceConfig;
+
+    /// <summary>
+    /// Sets configuration for a device.
+    /// </summary>
+    procedure SetConfig(const AConfig: TDeviceConfig);
+
+    /// <summary>
+    /// Removes configuration for a device.
+    /// </summary>
+    procedure Remove(AAddress: UInt64);
+
+    /// <summary>
+    /// Registers a newly discovered device.
+    /// Creates default config if not exists, updates LastSeen if exists.
+    /// </summary>
+    procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
+
+    /// <summary>
+    /// Gets all configured device addresses.
+    /// </summary>
+    function GetAllAddresses: TArray<UInt64>;
+
+    /// <summary>
+    /// Gets all device configurations.
+    /// </summary>
+    function GetAll: TArray<TDeviceConfig>;
+
+    /// <summary>
+    /// Loads device configurations from INI file.
+    /// </summary>
+    procedure LoadFrom(AIni: TObject);  // TMemIniFile
+
+    /// <summary>
+    /// Saves device configurations to INI file.
+    /// </summary>
+    procedure SaveTo(AIni: TObject);  // TMemIniFile
+
+    /// <summary>
+    /// Returns true if any device config has been modified.
+    /// </summary>
+    function IsModified: Boolean;
+
+    /// <summary>
+    /// Clears the modified flag.
+    /// </summary>
+    procedure ClearModified;
+
+    /// <summary>
+    /// Gets effective notification mode for a device and event.
+    /// </summary>
+    function GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
+
+    /// <summary>
+    /// Gets effective connection timeout for a device.
+    /// </summary>
+    function GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
+
+    /// <summary>
+    /// Gets effective retry count for a device.
+    /// </summary>
+    function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
+  end;
+
   /// <summary>
   /// Full configuration interface for settings forms and persistence.
   /// Combines all config interfaces. Used by: SettingsForm, App.Config internals
