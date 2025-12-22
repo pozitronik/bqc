@@ -24,8 +24,27 @@ type
   /// <summary>
   /// Application configuration manager.
   /// Singleton class that handles loading/saving settings from INI file.
+  /// Implements layer-specific configuration interfaces for dependency injection.
   /// </summary>
-  TAppConfig = class
+  TAppConfig = class(TObject,
+    IInterface,
+    IGeneralConfig,
+    IWindowConfig,
+    IPositionConfig,
+    IHotkeyConfig,
+    IPollingConfig,
+    ILogConfig,
+    IAppearanceConfig,
+    ILayoutConfig,
+    IConnectionConfig,
+    INotificationConfig,
+    IDeviceConfigProvider,
+    IAppConfig)
+  protected
+    // IInterface - manual implementation for singleton (no reference counting)
+    function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+    function _AddRef: Integer; stdcall;
+    function _Release: Integer; stdcall;
   private
     FConfigPath: string;
     FModified: Boolean;
@@ -142,6 +161,68 @@ type
     procedure SetNotifyOnDisconnect(AValue: TNotificationMode);
     procedure SetNotifyOnConnectFailed(AValue: TNotificationMode);
     procedure SetNotifyOnAutoConnect(AValue: TNotificationMode);
+
+    // Interface getter methods
+    function GetWindowMode: TWindowMode;
+    function GetOnTop: Boolean;
+    function GetAutostart: Boolean;
+    function GetMinimizeToTray: Boolean;
+    function GetCloseToTray: Boolean;
+    function GetMenuHideOnFocusLoss: Boolean;
+    function GetPositionMode: TPositionMode;
+    function GetPositionX: Integer;
+    function GetPositionY: Integer;
+    function GetPositionW: Integer;
+    function GetPositionH: Integer;
+    function GetHotkey: string;
+    function GetUseLowLevelHook: Boolean;
+    function GetPollingMode: TPollingMode;
+    function GetPollingInterval: Integer;
+    function GetEventDebounceMs: Integer;
+    function GetLogEnabled: Boolean;
+    function GetLogFilename: string;
+    function GetLogAppend: Boolean;
+    function GetShowAddresses: Boolean;
+    function GetTheme: string;
+    function GetVsfDir: string;
+    function GetShowLastSeen: Boolean;
+    function GetLastSeenFormat: TLastSeenFormat;
+    function GetShowDeviceIcons: Boolean;
+    function GetConnectedColor: Integer;
+    function GetItemHeight: Integer;
+    function GetItemPadding: Integer;
+    function GetItemMargin: Integer;
+    function GetIconSize: Integer;
+    function GetCornerRadius: Integer;
+    function GetDeviceNameFontSize: Integer;
+    function GetStatusFontSize: Integer;
+    function GetAddressFontSize: Integer;
+    function GetIconFontSize: Integer;
+    function GetItemBorderWidth: Integer;
+    function GetItemBorderColor: Integer;
+    function GetConnectionTimeout: Integer;
+    function GetConnectionRetryCount: Integer;
+    function GetNotifyOnConnect: TNotificationMode;
+    function GetNotifyOnDisconnect: TNotificationMode;
+    function GetNotifyOnConnectFailed: TNotificationMode;
+    function GetNotifyOnAutoConnect: TNotificationMode;
+
+    // IAppConfig getters
+    function GetConfigPath: string;
+    function GetModified: Boolean;
+
+    // IAppConfig - aggregate interface access
+    function AsGeneralConfig: IGeneralConfig;
+    function AsWindowConfig: IWindowConfig;
+    function AsPositionConfig: IPositionConfig;
+    function AsHotkeyConfig: IHotkeyConfig;
+    function AsPollingConfig: IPollingConfig;
+    function AsLogConfig: ILogConfig;
+    function AsAppearanceConfig: IAppearanceConfig;
+    function AsLayoutConfig: ILayoutConfig;
+    function AsConnectionConfig: IConnectionConfig;
+    function AsNotificationConfig: INotificationConfig;
+    function AsDeviceConfigProvider: IDeviceConfigProvider;
 
   public
     constructor Create;
@@ -1405,6 +1486,310 @@ begin
     Result := DeviceConfig.ConnectionRetryCount
   else
     Result := FConnectionRetryCount;
+end;
+
+// IInterface implementation - manual for singleton (no reference counting)
+
+function TAppConfig.QueryInterface(const IID: TGUID; out Obj): HResult;
+begin
+  if GetInterface(IID, Obj) then
+    Result := S_OK
+  else
+    Result := E_NOINTERFACE;
+end;
+
+function TAppConfig._AddRef: Integer;
+begin
+  Result := -1;  // Singleton - no reference counting
+end;
+
+function TAppConfig._Release: Integer;
+begin
+  Result := -1;  // Singleton - no reference counting
+end;
+
+// Interface getter implementations
+
+function TAppConfig.GetWindowMode: TWindowMode;
+begin
+  Result := FWindowMode;
+end;
+
+function TAppConfig.GetOnTop: Boolean;
+begin
+  Result := FOnTop;
+end;
+
+function TAppConfig.GetAutostart: Boolean;
+begin
+  Result := FAutostart;
+end;
+
+function TAppConfig.GetMinimizeToTray: Boolean;
+begin
+  Result := FMinimizeToTray;
+end;
+
+function TAppConfig.GetCloseToTray: Boolean;
+begin
+  Result := FCloseToTray;
+end;
+
+function TAppConfig.GetMenuHideOnFocusLoss: Boolean;
+begin
+  Result := FMenuHideOnFocusLoss;
+end;
+
+function TAppConfig.GetPositionMode: TPositionMode;
+begin
+  Result := FPositionMode;
+end;
+
+function TAppConfig.GetPositionX: Integer;
+begin
+  Result := FPositionX;
+end;
+
+function TAppConfig.GetPositionY: Integer;
+begin
+  Result := FPositionY;
+end;
+
+function TAppConfig.GetPositionW: Integer;
+begin
+  Result := FPositionW;
+end;
+
+function TAppConfig.GetPositionH: Integer;
+begin
+  Result := FPositionH;
+end;
+
+function TAppConfig.GetHotkey: string;
+begin
+  Result := FHotkey;
+end;
+
+function TAppConfig.GetUseLowLevelHook: Boolean;
+begin
+  Result := FUseLowLevelHook;
+end;
+
+function TAppConfig.GetPollingMode: TPollingMode;
+begin
+  Result := FPollingMode;
+end;
+
+function TAppConfig.GetPollingInterval: Integer;
+begin
+  Result := FPollingInterval;
+end;
+
+function TAppConfig.GetEventDebounceMs: Integer;
+begin
+  Result := FEventDebounceMs;
+end;
+
+function TAppConfig.GetLogEnabled: Boolean;
+begin
+  Result := FLogEnabled;
+end;
+
+function TAppConfig.GetLogFilename: string;
+begin
+  Result := FLogFilename;
+end;
+
+function TAppConfig.GetLogAppend: Boolean;
+begin
+  Result := FLogAppend;
+end;
+
+function TAppConfig.GetShowAddresses: Boolean;
+begin
+  Result := FShowAddresses;
+end;
+
+function TAppConfig.GetTheme: string;
+begin
+  Result := FTheme;
+end;
+
+function TAppConfig.GetVsfDir: string;
+begin
+  Result := FVsfDir;
+end;
+
+function TAppConfig.GetShowLastSeen: Boolean;
+begin
+  Result := FShowLastSeen;
+end;
+
+function TAppConfig.GetLastSeenFormat: TLastSeenFormat;
+begin
+  Result := FLastSeenFormat;
+end;
+
+function TAppConfig.GetShowDeviceIcons: Boolean;
+begin
+  Result := FShowDeviceIcons;
+end;
+
+function TAppConfig.GetConnectedColor: Integer;
+begin
+  Result := FConnectedColor;
+end;
+
+function TAppConfig.GetItemHeight: Integer;
+begin
+  Result := FItemHeight;
+end;
+
+function TAppConfig.GetItemPadding: Integer;
+begin
+  Result := FItemPadding;
+end;
+
+function TAppConfig.GetItemMargin: Integer;
+begin
+  Result := FItemMargin;
+end;
+
+function TAppConfig.GetIconSize: Integer;
+begin
+  Result := FIconSize;
+end;
+
+function TAppConfig.GetCornerRadius: Integer;
+begin
+  Result := FCornerRadius;
+end;
+
+function TAppConfig.GetDeviceNameFontSize: Integer;
+begin
+  Result := FDeviceNameFontSize;
+end;
+
+function TAppConfig.GetStatusFontSize: Integer;
+begin
+  Result := FStatusFontSize;
+end;
+
+function TAppConfig.GetAddressFontSize: Integer;
+begin
+  Result := FAddressFontSize;
+end;
+
+function TAppConfig.GetIconFontSize: Integer;
+begin
+  Result := FIconFontSize;
+end;
+
+function TAppConfig.GetItemBorderWidth: Integer;
+begin
+  Result := FItemBorderWidth;
+end;
+
+function TAppConfig.GetItemBorderColor: Integer;
+begin
+  Result := FItemBorderColor;
+end;
+
+function TAppConfig.GetConnectionTimeout: Integer;
+begin
+  Result := FConnectionTimeout;
+end;
+
+function TAppConfig.GetConnectionRetryCount: Integer;
+begin
+  Result := FConnectionRetryCount;
+end;
+
+function TAppConfig.GetNotifyOnConnect: TNotificationMode;
+begin
+  Result := FNotifyOnConnect;
+end;
+
+function TAppConfig.GetNotifyOnDisconnect: TNotificationMode;
+begin
+  Result := FNotifyOnDisconnect;
+end;
+
+function TAppConfig.GetNotifyOnConnectFailed: TNotificationMode;
+begin
+  Result := FNotifyOnConnectFailed;
+end;
+
+function TAppConfig.GetNotifyOnAutoConnect: TNotificationMode;
+begin
+  Result := FNotifyOnAutoConnect;
+end;
+
+function TAppConfig.GetConfigPath: string;
+begin
+  Result := FConfigPath;
+end;
+
+function TAppConfig.GetModified: Boolean;
+begin
+  Result := FModified;
+end;
+
+// IAppConfig - aggregate interface access
+
+function TAppConfig.AsGeneralConfig: IGeneralConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsWindowConfig: IWindowConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsPositionConfig: IPositionConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsHotkeyConfig: IHotkeyConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsPollingConfig: IPollingConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsLogConfig: ILogConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsAppearanceConfig: IAppearanceConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsLayoutConfig: ILayoutConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsConnectionConfig: IConnectionConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsNotificationConfig: INotificationConfig;
+begin
+  Result := Self;
+end;
+
+function TAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
+begin
+  Result := Self;
 end;
 
 initialization
