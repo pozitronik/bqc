@@ -36,6 +36,70 @@ type
     GroupWindowMode: TGroupBox;
     LabelWindowMode: TLabel;
     ComboWindowMode: TComboBox;
+    GroupWindowOptions: TGroupBox;
+    CheckMinimizeToTray: TCheckBox;
+    CheckCloseToTray: TCheckBox;
+    GroupMenuOptions: TGroupBox;
+    CheckHideOnFocusLoss: TCheckBox;
+    GroupPosition: TGroupBox;
+    LabelPositionMode: TLabel;
+    ComboPositionMode: TComboBox;
+    ButtonResetSize: TButton;
+    ButtonResetPosition: TButton;
+    CheckOnTop: TCheckBox;
+    CheckAutostart: TCheckBox;
+
+    { Tab: Appearance }
+    TabAppearance: TTabSheet;
+    GroupDisplayOptions: TGroupBox;
+    LabelConnectedColor: TLabel;
+    ShapeConnectedColor: TShape;
+    CheckShowDeviceIcons: TCheckBox;
+    CheckShowLastSeen: TCheckBox;
+    RadioLastSeenRelative: TRadioButton;
+    RadioLastSeenAbsolute: TRadioButton;
+    CheckShowAddresses: TCheckBox;
+    GroupLayout: TGroupBox;
+    LabelItemHeight: TLabel;
+    LabelItemPadding: TLabel;
+    LabelItemMargin: TLabel;
+    LabelIconSize: TLabel;
+    LabelCornerRadius: TLabel;
+    LabelBorderWidth: TLabel;
+    LabelBorderColor: TLabel;
+    LabelPx1: TLabel;
+    LabelPx2: TLabel;
+    LabelPx3: TLabel;
+    LabelPx4: TLabel;
+    LabelPx5: TLabel;
+    LabelPx6: TLabel;
+    EditItemHeight: TEdit;
+    UpDownItemHeight: TUpDown;
+    EditItemPadding: TEdit;
+    UpDownItemPadding: TUpDown;
+    EditItemMargin: TEdit;
+    UpDownItemMargin: TUpDown;
+    EditIconSize: TEdit;
+    UpDownIconSize: TUpDown;
+    EditCornerRadius: TEdit;
+    UpDownCornerRadius: TUpDown;
+    EditBorderWidth: TEdit;
+    UpDownBorderWidth: TUpDown;
+    ShapeBorderColor: TShape;
+    ButtonResetLayout: TButton;
+    GroupFontSizes: TGroupBox;
+    LabelDeviceNameSize: TLabel;
+    LabelStatusSize: TLabel;
+    LabelAddressSize: TLabel;
+    LabelIconFontSize: TLabel;
+    EditDeviceNameSize: TEdit;
+    UpDownDeviceNameSize: TUpDown;
+    EditStatusSize: TEdit;
+    UpDownStatusSize: TUpDown;
+    EditAddressSize: TEdit;
+    UpDownAddressSize: TUpDown;
+    EditIconFontSize: TEdit;
+    UpDownIconFontSize: TUpDown;
 
     { Tab: Keys }
     TabKeys: TTabSheet;
@@ -45,40 +109,6 @@ type
     ButtonRecordHotkey: TButton;
     ButtonClearHotkey: TButton;
     CheckUseLowLevelHook: TCheckBox;
-
-    { Tab: Devices }
-    TabDevices: TTabSheet;
-    PanelDeviceList: TPanel;
-    ListDevices: TListBox;
-    PanelDeviceButtons: TPanel;
-    PanelDeviceSettings: TPanel;
-    GroupDeviceInfo: TGroupBox;
-    LabelDeviceAlias: TLabel;
-    EditDeviceAlias: TEdit;
-
-    { Tab: Advanced }
-    TabAdvanced: TTabSheet;
-    GroupLogging: TGroupBox;
-    LabelLogFilename: TLabel;
-    CheckLogEnabled: TCheckBox;
-    EditLogFilename: TEdit;
-    ButtonBrowseLogFile: TButton;
-    CheckLogAppend: TCheckBox;
-    GroupActions: TGroupBox;
-    ButtonOpenConfig: TButton;
-    ButtonResetDefaults: TButton;
-    CheckAutostart: TCheckBox;
-    GroupPosition: TGroupBox;
-    LabelPositionMode: TLabel;
-    ComboPositionMode: TComboBox;
-    ButtonResetSize: TButton;
-    ButtonResetPosition: TButton;
-    GroupWindowOptions: TGroupBox;
-    CheckMinimizeToTray: TCheckBox;
-    CheckCloseToTray: TCheckBox;
-    GroupMenuOptions: TGroupBox;
-    CheckHideOnFocusLoss: TCheckBox;
-    CheckOnTop: TCheckBox;
 
     { Tab: Themes }
     TabThemes: TTabSheet;
@@ -103,6 +133,7 @@ type
     LabelPollingMode: TLabel;
     LabelPollingInterval: TLabel;
     LabelPollingIntervalMs: TLabel;
+    LabelPollingModeHint: TLabel;
     ComboPollingMode: TComboBox;
     EditPollingInterval: TEdit;
     UpDownPollingInterval: TUpDown;
@@ -113,6 +144,18 @@ type
     CheckNotifyOnAutoConnect: TCheckBox;
 
     { Tab: Devices }
+    TabDevices: TTabSheet;
+    PanelDeviceList: TPanel;
+    ListDevices: TListBox;
+    PanelDeviceButtons: TPanel;
+    ButtonForgetDevice: TButton;
+    ButtonRefreshDevices: TButton;
+    PanelDeviceSettings: TPanel;
+    GroupDeviceInfo: TGroupBox;
+    LabelDeviceAlias: TLabel;
+    EditDeviceAlias: TEdit;
+    LabelDeviceType: TLabel;
+    ComboDeviceType: TComboBox;
     CheckDevicePinned: TCheckBox;
     CheckDeviceHidden: TCheckBox;
     CheckDeviceAutoConnect: TCheckBox;
@@ -133,65 +176,22 @@ type
     ComboDeviceNotifyDisconnect: TComboBox;
     ComboDeviceNotifyFailed: TComboBox;
     ComboDeviceNotifyAuto: TComboBox;
-    ButtonOpenLogFile: TButton;
-    ButtonForgetDevice: TButton;
-    ButtonRefreshDevices: TButton;
-    LabelDeviceType: TLabel;
-    ComboDeviceType: TComboBox;
-    ColorDialogConnected: TColorDialog;
 
-    { Tab: Appearance }
-    TabAppearance: TTabSheet;
-    GroupDisplayOptions: TGroupBox;
-    LabelConnectedColor: TLabel;
-    ShapeConnectedColor: TShape;
-    CheckShowDeviceIcons: TCheckBox;
-    CheckShowLastSeen: TCheckBox;
-    RadioLastSeenRelative: TRadioButton;
-    RadioLastSeenAbsolute: TRadioButton;
-    GroupLayout: TGroupBox;
-    LabelItemHeight: TLabel;
-    LabelItemPadding: TLabel;
-    LabelItemMargin: TLabel;
-    LabelIconSize: TLabel;
-    LabelCornerRadius: TLabel;
-    LabelPx1: TLabel;
-    LabelPx2: TLabel;
-    LabelPx3: TLabel;
-    LabelPx4: TLabel;
-    LabelPx5: TLabel;
-    EditItemHeight: TEdit;
-    UpDownItemHeight: TUpDown;
-    EditItemPadding: TEdit;
-    UpDownItemPadding: TUpDown;
-    EditItemMargin: TEdit;
-    UpDownItemMargin: TUpDown;
-    EditIconSize: TEdit;
-    UpDownIconSize: TUpDown;
-    EditCornerRadius: TEdit;
-    UpDownCornerRadius: TUpDown;
-    LabelBorderWidth: TLabel;
-    LabelPx6: TLabel;
-    LabelBorderColor: TLabel;
-    EditBorderWidth: TEdit;
-    UpDownBorderWidth: TUpDown;
-    ShapeBorderColor: TShape;
-    ButtonResetLayout: TButton;
-    GroupFontSizes: TGroupBox;
-    LabelDeviceNameSize: TLabel;
-    LabelStatusSize: TLabel;
-    LabelAddressSize: TLabel;
-    LabelIconFontSize: TLabel;
-    EditDeviceNameSize: TEdit;
-    UpDownDeviceNameSize: TUpDown;
-    EditStatusSize: TEdit;
-    UpDownStatusSize: TUpDown;
-    EditAddressSize: TEdit;
-    UpDownAddressSize: TUpDown;
-    EditIconFontSize: TEdit;
-    UpDownIconFontSize: TUpDown;
-    CheckShowAddresses: TCheckBox;
-    LabelPollingModeHint: TLabel;
+    { Tab: Diagnostics }
+    TabAdvanced: TTabSheet;
+    GroupLogging: TGroupBox;
+    LabelLogFilename: TLabel;
+    CheckLogEnabled: TCheckBox;
+    CheckLogAppend: TCheckBox;
+    EditLogFilename: TEdit;
+    ButtonBrowseLogFile: TButton;
+    ButtonOpenLogFile: TButton;
+    GroupActions: TGroupBox;
+    ButtonOpenConfig: TButton;
+    ButtonResetDefaults: TButton;
+
+    { Common dialogs }
+    ColorDialogConnected: TColorDialog;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
@@ -227,12 +227,9 @@ type
     procedure ButtonResetDefaultsClick(Sender: TObject);
 
     { Appearance tab events }
-    procedure ShapeConnectedColorMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
-    procedure ShapeBorderColorMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
     procedure ButtonResetLayoutClick(Sender: TObject);
-    procedure EditCornerRadiusChange(Sender: TObject);
+    procedure HandleShapeColorMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
 
   private
     FPresenter: TSettingsPresenter;
@@ -417,6 +414,7 @@ begin
 
   // Tab: Devices
   EditDeviceAlias.OnChange := HandleSettingChanged;
+  ComboDeviceType.OnChange := HandleSettingChanged;
   CheckDevicePinned.OnClick := HandleSettingChanged;
   CheckDeviceHidden.OnClick := HandleSettingChanged;
   CheckDeviceAutoConnect.OnClick := HandleSettingChanged;
@@ -426,7 +424,6 @@ begin
   ComboDeviceNotifyDisconnect.OnChange := HandleSettingChanged;
   ComboDeviceNotifyFailed.OnChange := HandleSettingChanged;
   ComboDeviceNotifyAuto.OnChange := HandleSettingChanged;
-  // Note: ComboDeviceType change handler is set dynamically via presenter if control exists
 
   // Tab: Advanced
   CheckLogEnabled.OnClick := HandleSettingChanged;
@@ -438,21 +435,18 @@ begin
   CheckShowLastSeen.OnClick := HandleSettingChanged;
   RadioLastSeenRelative.OnClick := HandleSettingChanged;
   RadioLastSeenAbsolute.OnClick := HandleSettingChanged;
+  ShapeConnectedColor.OnMouseDown := HandleShapeColorMouseDown;
   EditItemHeight.OnChange := HandleSettingChanged;
   EditItemPadding.OnChange := HandleSettingChanged;
   EditItemMargin.OnChange := HandleSettingChanged;
   EditIconSize.OnChange := HandleSettingChanged;
   EditCornerRadius.OnChange := HandleSettingChanged;
+  EditBorderWidth.OnChange := HandleSettingChanged;
+  ShapeBorderColor.OnMouseDown := HandleShapeColorMouseDown;
   EditDeviceNameSize.OnChange := HandleSettingChanged;
   EditStatusSize.OnChange := HandleSettingChanged;
   EditAddressSize.OnChange := HandleSettingChanged;
   EditIconFontSize.OnChange := HandleSettingChanged;
-  EditBorderWidth.OnChange := HandleSettingChanged;
-end;
-
-procedure TFormSettings.EditCornerRadiusChange(Sender: TObject);
-begin
-  HandleSettingChanged(Sender);
 end;
 
 { Hotkey tab events }
@@ -664,24 +658,20 @@ end;
 
 { Appearance tab events }
 
-procedure TFormSettings.ShapeConnectedColorMouseDown(Sender: TObject;
+procedure TFormSettings.HandleShapeColorMouseDown(Sender: TObject;
   Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  Shape: TShape;
 begin
-  ColorDialogConnected.Color := ShapeConnectedColor.Brush.Color;
+  if Button <> mbLeft then
+    Exit;
+  if not (Sender is TShape) then
+    Exit;
+  Shape := TShape(Sender);
+  ColorDialogConnected.Color := Shape.Brush.Color;
   if ColorDialogConnected.Execute then
   begin
-    ShapeConnectedColor.Brush.Color := ColorDialogConnected.Color;
-    FPresenter.MarkModified;
-  end;
-end;
-
-procedure TFormSettings.ShapeBorderColorMouseDown(Sender: TObject;
-  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-begin
-  ColorDialogConnected.Color := ShapeBorderColor.Brush.Color;
-  if ColorDialogConnected.Execute then
-  begin
-    ShapeBorderColor.Brush.Color := ColorDialogConnected.Color;
+    Shape.Brush.Color := ColorDialogConnected.Color;
     FPresenter.MarkModified;
   end;
 end;

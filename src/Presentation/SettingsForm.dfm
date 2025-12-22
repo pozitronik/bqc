@@ -220,7 +220,6 @@ object FormSettings: TFormSettings
           Width = 50
           Height = 21
           Cursor = crHandPoint
-          OnMouseDown = ShapeConnectedColorMouseDown
         end
         object CheckShowDeviceIcons: TCheckBox
           Left = 12
@@ -368,7 +367,6 @@ object FormSettings: TFormSettings
           Width = 61
           Height = 23
           Brush.Color = clGray
-          OnMouseDown = ShapeBorderColorMouseDown
         end
         object EditItemHeight: TEdit
           Left = 100
@@ -450,7 +448,6 @@ object FormSettings: TFormSettings
           Height = 23
           TabOrder = 8
           Text = '8'
-          OnChange = EditCornerRadiusChange
         end
         object UpDownCornerRadius: TUpDown
           Left = 317

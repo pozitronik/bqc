@@ -135,7 +135,6 @@ type
     procedure LoadDeviceList;
     procedure LoadDeviceSettings(AIndex: Integer);
     procedure SaveDeviceSettings(AIndex: Integer);
-    procedure HandleDeviceSettingChanged(Sender: TObject);
     function FormatAddress(AAddress: UInt64): string;
 
   public
@@ -289,16 +288,13 @@ begin
   FUpDownBorderWidth := Form.FindComponent('UpDownBorderWidth') as TUpDown;
   FShapeBorderColor := Form.FindComponent('ShapeBorderColor') as TShape;
 
-  // Connect change handlers for dynamically found controls
-  // (controls that may be added to form later)
+  // Populate device type combo from DeviceTypeNames array
   if FComboDeviceType <> nil then
   begin
-    // Populate device type combo from DeviceTypeNames array
     FComboDeviceType.Items.Clear;
     for I := Low(DeviceTypeNames) to High(DeviceTypeNames) do
       FComboDeviceType.Items.Add(DeviceTypeNames[I]);
     FComboDeviceType.Style := csDropDownList;
-    FComboDeviceType.OnChange := HandleDeviceSettingChanged;
   end;
 
   Log('[SettingsPresenter] InitControlReferences: Complete');
@@ -378,12 +374,6 @@ begin
     (AAddress shr 8) and $FF,
     AAddress and $FF
   ]);
-end;
-
-procedure TSettingsPresenter.HandleDeviceSettingChanged(Sender: TObject);
-begin
-  // Mark settings as modified when dynamically found controls change
-  MarkModified;
 end;
 
 procedure TSettingsPresenter.LoadDeviceSettings(AIndex: Integer);
