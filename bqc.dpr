@@ -18,6 +18,7 @@ uses
   Bluetooth.DeviceWatcher in 'src\Infrastructure\Bluetooth.DeviceWatcher.pas',
   Bluetooth.DeviceMonitors in 'src\Infrastructure\Bluetooth.DeviceMonitors.pas',
   Bluetooth.DeviceRepository in 'src\Infrastructure\Bluetooth.DeviceRepository.pas',
+  Bluetooth.ConnectionExecutor in 'src\Infrastructure\Bluetooth.ConnectionExecutor.pas',
   App.Logger in 'src\Infrastructure\App.Logger.pas',
   App.ConfigInterfaces in 'src\Infrastructure\App.ConfigInterfaces.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',

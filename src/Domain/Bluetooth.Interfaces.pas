@@ -376,6 +376,54 @@ type
       read GetOnListChanged write SetOnListChanged;
   end;
 
+  /// <summary>
+  /// Result of a connection execution attempt.
+  /// </summary>
+  TConnectionResult = record
+    Success: Boolean;
+    ErrorCode: Cardinal;
+    class function Ok: TConnectionResult; static;
+    class function Fail(AErrorCode: Cardinal): TConnectionResult; static;
+  end;
+
+  /// <summary>
+  /// Interface for executing Bluetooth connection operations.
+  /// Single Responsibility: Only handles low-level connection execution.
+  /// Separates Windows API calls from business logic.
+  /// </summary>
+  IConnectionExecutor = interface
+    ['{F6A7B8C9-AAAA-BBBB-CCCC-DDDD0000FFFF}']
+
+    /// <summary>
+    /// Executes a connection or disconnection operation.
+    /// </summary>
+    /// <param name="ADevice">The device to connect/disconnect.</param>
+    /// <param name="AServiceGuids">Service GUIDs to use for the operation.</param>
+    /// <param name="AEnable">True to connect, False to disconnect.</param>
+    /// <param name="ARetryCount">Number of retry attempts on failure.</param>
+    /// <returns>Connection result with success status and error code.</returns>
+    function Execute(
+      const ADevice: TBluetoothDeviceInfo;
+      const AServiceGuids: TArray<TGUID>;
+      AEnable: Boolean;
+      ARetryCount: Integer
+    ): TConnectionResult;
+  end;
+
 implementation
+
+{ TConnectionResult }
+
+class function TConnectionResult.Ok: TConnectionResult;
+begin
+  Result.Success := True;
+  Result.ErrorCode := 0;
+end;
+
+class function TConnectionResult.Fail(AErrorCode: Cardinal): TConnectionResult;
+begin
+  Result.Success := False;
+  Result.ErrorCode := AErrorCode;
+end;
 
 end.

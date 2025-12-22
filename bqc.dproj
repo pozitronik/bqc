@@ -146,6 +146,7 @@
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceWatcher.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceMonitors.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceRepository.pas"/>
+        <DCCReference Include="src\Infrastructure\Bluetooth.ConnectionExecutor.pas"/>
         <DCCReference Include="src\Infrastructure\App.Logger.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigInterfaces.pas"/>
         <DCCReference Include="src\Infrastructure\App.Config.pas"/>

@@ -43,6 +43,7 @@ type
     FStrategyFactory: IConnectionStrategyFactory;
     FDeviceMonitor: IDeviceMonitor;
     FDeviceRepository: IDeviceRepository;
+    FConnectionExecutor: IConnectionExecutor;
 
     procedure CloseRadio;
     procedure DoDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
@@ -81,7 +82,8 @@ type
       ADeviceConfigProvider: IDeviceConfigProvider;
       AStrategyFactory: IConnectionStrategyFactory;
       ADeviceMonitor: IDeviceMonitor;
-      ADeviceRepository: IDeviceRepository
+      ADeviceRepository: IDeviceRepository;
+      AConnectionExecutor: IConnectionExecutor
     );
     destructor Destroy; override;
 
@@ -91,6 +93,7 @@ type
     property StrategyFactory: IConnectionStrategyFactory read FStrategyFactory;
     property DeviceMonitor: IDeviceMonitor read FDeviceMonitor;
     property DeviceRepository: IDeviceRepository read FDeviceRepository;
+    property ConnectionExecutor: IConnectionExecutor read FConnectionExecutor;
   end;
 
 /// <summary>
@@ -104,7 +107,8 @@ implementation
 uses
   App.Bootstrap,
   Bluetooth.DeviceMonitors,
-  Bluetooth.DeviceRepository;
+  Bluetooth.DeviceRepository,
+  Bluetooth.ConnectionExecutor;
 
 function CreateBluetoothService: IBluetoothService;
 var
@@ -116,7 +120,8 @@ begin
     Bootstrap.DeviceConfigProvider,
     Bootstrap.ConnectionStrategyFactory,
     MonitorFactory.CreateMonitor,
-    CreateDeviceRepository
+    CreateDeviceRepository,
+    CreateConnectionExecutor
   );
 end;
 
@@ -127,7 +132,8 @@ constructor TBluetoothService.Create(
   ADeviceConfigProvider: IDeviceConfigProvider;
   AStrategyFactory: IConnectionStrategyFactory;
   ADeviceMonitor: IDeviceMonitor;
-  ADeviceRepository: IDeviceRepository
+  ADeviceRepository: IDeviceRepository;
+  AConnectionExecutor: IConnectionExecutor
 );
 begin
   inherited Create;
@@ -138,6 +144,7 @@ begin
   FStrategyFactory := AStrategyFactory;
   FDeviceMonitor := ADeviceMonitor;
   FDeviceRepository := ADeviceRepository;
+  FConnectionExecutor := AConnectionExecutor;
 
   FRadioHandle := 0;
 
@@ -229,18 +236,12 @@ function TBluetoothService.ConnectWithStrategy(
 var
   Strategy: IConnectionStrategy;
   ServiceGuids: TArray<TGUID>;
-  ServiceGuid: TGUID;
-  WinDeviceInfo: BLUETOOTH_DEVICE_INFO;
-  ServiceFlag: DWORD;
-  ErrorCode: DWORD;
   UpdatedDevice: TBluetoothDeviceInfo;
-  AnySuccess: Boolean;
-  RetryCount, Attempt: Integer;
+  RetryCount: Integer;
   DeviceConfig: TDeviceConfig;
+  ExecResult: TConnectionResult;
 begin
   Result := False;
-  AnySuccess := False;
-  ErrorCode := ERROR_SUCCESS;
 
   // Get device-specific configuration
   DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt);
@@ -250,12 +251,6 @@ begin
     RetryCount := DeviceConfig.ConnectionRetryCount
   else
     RetryCount := FConnectionConfig.ConnectionRetryCount;
-
-  // Bounds checking
-  if RetryCount < 0 then
-    RetryCount := 0;
-  if RetryCount > 10 then
-    RetryCount := 10;  // Cap at 10 retries
 
   Log('[Service] ConnectWithStrategy: Device=%s, RetryCount=%d (device-specific=%s)', [
     ADevice.Name, RetryCount, BoolToStr(DeviceConfig.ConnectionRetryCount >= 0, True)
@@ -277,11 +272,6 @@ begin
     Exit;
   end;
 
-  // Prepare device info structure
-  InitDeviceInfo(WinDeviceInfo);
-  WinDeviceInfo.Address.ullLong := ADevice.AddressInt;
-  Move(ADevice.Address[0], WinDeviceInfo.Address.rgBytes[0], 6);
-
   // Notify state change (connecting/disconnecting)
   if AEnable then
     UpdatedDevice := ADevice.WithConnectionState(csConnecting)
@@ -289,43 +279,9 @@ begin
     UpdatedDevice := ADevice.WithConnectionState(csDisconnecting);
   DoDeviceStateChanged(UpdatedDevice);
 
-  // Set service flag
-  if AEnable then
-    ServiceFlag := BLUETOOTH_SERVICE_ENABLE
-  else
-    ServiceFlag := BLUETOOTH_SERVICE_DISABLE;
-
-  // Try connection with retries
-  for Attempt := 0 to RetryCount do
-  begin
-    if Attempt > 0 then
-    begin
-      Log('[Service] ConnectWithStrategy: Retry attempt %d of %d', [Attempt, RetryCount]);
-      Sleep(500);  // Brief pause between retries
-    end;
-
-    AnySuccess := False;
-    ErrorCode := ERROR_SUCCESS;
-
-    // Try each service GUID
-    for ServiceGuid in ServiceGuids do
-    begin
-      ErrorCode := BluetoothSetServiceState(
-        0,  // Use first available radio
-        @WinDeviceInfo,
-        @ServiceGuid,
-        ServiceFlag
-      );
-
-      if ErrorCode = ERROR_SUCCESS then
-        AnySuccess := True;
-    end;
-
-    if AnySuccess then
-      Break;  // Success, no need for more retries
-  end;
-
-  Result := AnySuccess;
+  // Execute connection via executor
+  ExecResult := FConnectionExecutor.Execute(ADevice, ServiceGuids, AEnable, RetryCount);
+  Result := ExecResult.Success;
 
   // Update final state
   if Result then
@@ -338,7 +294,7 @@ begin
   else
   begin
     UpdatedDevice := ADevice.WithConnectionState(csError);
-    DoError('Failed to change connection state', ErrorCode);
+    DoError('Failed to change connection state', ExecResult.ErrorCode);
   end;
 
   // Update repository and notify
