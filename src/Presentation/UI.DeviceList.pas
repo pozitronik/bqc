@@ -568,13 +568,15 @@ var
   IconRect, TextRect: TRect;
   StatusText, DisplayName, LastSeenText: string;
   NameLineTop, StatusLineTop: Integer;
-  NameLineHeight, StatusLineHeight, MinGap: Integer;
+  StatusLineHeight: Integer;
   DeviceConfig: TDeviceConfig;
   Style: TCustomStyleServices;
   EffectiveDeviceType: TBluetoothDeviceType;
   ItemPadding, IconSize, CornerRadius: Integer;
   DeviceNameFontSize, StatusFontSize, AddressFontSize: Integer;
   ShowDeviceIcons, ShowLastSeen: Boolean;
+  ItemBorderWidth: Integer;
+  ItemBorderColor: TColor;
 begin
   Style := TStyleManager.ActiveStyle;
 
@@ -587,6 +589,8 @@ begin
   AddressFontSize := Config.AddressFontSize;
   ShowDeviceIcons := Config.ShowDeviceIcons;
   ShowLastSeen := Config.ShowLastSeen;
+  ItemBorderWidth := Config.ItemBorderWidth;
+  ItemBorderColor := TColor(Config.ItemBorderColor);
 
   // Get device-specific configuration
   DeviceConfig := Config.GetDeviceConfig(ADevice.AddressInt);
@@ -597,26 +601,17 @@ begin
   else
     DisplayName := ADevice.Name;
 
-  // Pre-calculate text line heights for layout
+  // Calculate status line height for bottom anchoring
   ACanvas.Font.Name := 'Segoe UI';
-  ACanvas.Font.Size := DeviceNameFontSize;
-  NameLineHeight := ACanvas.TextHeight('Ay');
-
   ACanvas.Font.Size := StatusFontSize;
   StatusLineHeight := ACanvas.TextHeight('Ay');
 
-  // Calculate line positions to fill available height
-  // Name line at top with full padding, status line at bottom with reduced padding
-  MinGap := 4;
+  // Simple anchored layout:
+  // - Top line anchored to top with padding
+  // - Bottom line anchored to bottom with padding
+  // No overlap detection - user controls layout via settings
   NameLineTop := ARect.Top + ItemPadding;
-  StatusLineTop := ARect.Bottom - (ItemPadding div 2) - StatusLineHeight;
-
-  // Check for overlap and adjust if needed
-  if NameLineTop + NameLineHeight + MinGap > StatusLineTop then
-  begin
-    // Tight space - position status right after name with minimum gap
-    StatusLineTop := NameLineTop + NameLineHeight + MinGap;
-  end;
+  StatusLineTop := ARect.Bottom - ItemPadding - StatusLineHeight;
 
   // Determine effective device type: use override if set, otherwise auto-detected
   if DeviceConfig.DeviceTypeOverride >= 0 then
@@ -637,6 +632,18 @@ begin
   ACanvas.Brush.Color := BgColor;
   ACanvas.RoundRect(ARect.Left, ARect.Top, ARect.Right, ARect.Bottom,
     CornerRadius, CornerRadius);
+
+  // Draw border if enabled
+  if ItemBorderWidth > 0 then
+  begin
+    ACanvas.Pen.Color := ItemBorderColor;
+    ACanvas.Pen.Width := ItemBorderWidth;
+    ACanvas.Brush.Style := bsClear;
+    ACanvas.RoundRect(ARect.Left, ARect.Top, ARect.Right, ARect.Bottom,
+      CornerRadius, CornerRadius);
+    ACanvas.Pen.Width := 1;
+    ACanvas.Brush.Style := bsSolid;
+  end;
 
   // Icon area (only if ShowDeviceIcons is enabled)
   if ShowDeviceIcons then
@@ -694,10 +701,11 @@ begin
   if FShowAddresses then
   begin
     var AddrLeft := TextRect.Left + ACanvas.TextWidth(DisplayName) + 8;
+    var NameHeight := ACanvas.TextHeight('Ay');  // Get height before changing font
     ACanvas.Font.Size := AddressFontSize;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
     // Align address baseline with device name
-    var AddrOffset := (NameLineHeight - ACanvas.TextHeight('Ay')) div 2;
+    var AddrOffset := (NameHeight - ACanvas.TextHeight('Ay')) div 2;
     ACanvas.TextOut(AddrLeft, NameLineTop + AddrOffset, '[' + ADevice.AddressString + ']');
   end;
 

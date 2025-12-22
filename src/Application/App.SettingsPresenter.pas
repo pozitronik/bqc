@@ -127,6 +127,8 @@ type
     FUpDownStatusSize: TUpDown;
     FUpDownAddressSize: TUpDown;
     FUpDownIconFontSize: TUpDown;
+    FUpDownBorderWidth: TUpDown;
+    FShapeBorderColor: TShape;
 
     procedure InitControlReferences;
     procedure LoadThemeList;
@@ -284,6 +286,8 @@ begin
   FUpDownStatusSize := Form.FindComponent('UpDownStatusSize') as TUpDown;
   FUpDownAddressSize := Form.FindComponent('UpDownAddressSize') as TUpDown;
   FUpDownIconFontSize := Form.FindComponent('UpDownIconFontSize') as TUpDown;
+  FUpDownBorderWidth := Form.FindComponent('UpDownBorderWidth') as TUpDown;
+  FShapeBorderColor := Form.FindComponent('ShapeBorderColor') as TShape;
 
   // Connect change handlers for dynamically found controls
   // (controls that may be added to form later)
@@ -586,6 +590,10 @@ begin
     FUpDownAddressSize.Position := Config.AddressFontSize;
   if FUpDownIconFontSize <> nil then
     FUpDownIconFontSize.Position := Config.IconFontSize;
+  if FUpDownBorderWidth <> nil then
+    FUpDownBorderWidth.Position := Config.ItemBorderWidth;
+  if FShapeBorderColor <> nil then
+    FShapeBorderColor.Brush.Color := TColor(Config.ItemBorderColor);
 
   FModified := False;
   Log('[SettingsPresenter] LoadSettings: Complete');
@@ -714,6 +722,10 @@ begin
       Config.AddressFontSize := StrToIntDef(FEditAddressSize.Text, 8);
     if FEditIconFontSize <> nil then
       Config.IconFontSize := StrToIntDef(FEditIconFontSize.Text, 16);
+    if FUpDownBorderWidth <> nil then
+      Config.ItemBorderWidth := FUpDownBorderWidth.Position;
+    if FShapeBorderColor <> nil then
+      Config.ItemBorderColor := Integer(FShapeBorderColor.Brush.Color);
 
     // Save configuration to file
     Config.Save;
@@ -821,21 +833,25 @@ begin
   if FUpDownItemHeight <> nil then
     FUpDownItemHeight.Position := 70;
   if FUpDownItemPadding <> nil then
-    FUpDownItemPadding.Position := 12;
+    FUpDownItemPadding.Position := 6;
   if FUpDownItemMargin <> nil then
     FUpDownItemMargin.Position := 4;
   if FUpDownIconSize <> nil then
-    FUpDownIconSize.Position := 32;
+    FUpDownIconSize.Position := 46;
   if FUpDownCornerRadius <> nil then
     FUpDownCornerRadius.Position := 8;
   if FUpDownDeviceNameSize <> nil then
-    FUpDownDeviceNameSize.Position := 11;
+    FUpDownDeviceNameSize.Position := 12;
   if FUpDownStatusSize <> nil then
-    FUpDownStatusSize.Position := 9;
+    FUpDownStatusSize.Position := 10;
   if FUpDownAddressSize <> nil then
     FUpDownAddressSize.Position := 8;
   if FUpDownIconFontSize <> nil then
     FUpDownIconFontSize.Position := 16;
+  if FUpDownBorderWidth <> nil then
+    FUpDownBorderWidth.Position := 0;  // No border by default
+  if FShapeBorderColor <> nil then
+    FShapeBorderColor.Brush.Color := TColor($00808080);  // Default gray
   if FShapeConnectedColor <> nil then
     FShapeConnectedColor.Brush.Color := TColor($00008000);  // Default green
   MarkModified;

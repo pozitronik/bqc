@@ -164,6 +164,8 @@ type
     FStatusFontSize: Integer;
     FAddressFontSize: Integer;
     FIconFontSize: Integer;
+    FItemBorderWidth: Integer;
+    FItemBorderColor: Integer;
 
     // [Device] - global defaults
     FConnectionTimeout: Integer;
@@ -212,6 +214,8 @@ type
     procedure SetStatusFontSize(AValue: Integer);
     procedure SetAddressFontSize(AValue: Integer);
     procedure SetIconFontSize(AValue: Integer);
+    procedure SetItemBorderWidth(AValue: Integer);
+    procedure SetItemBorderColor(AValue: Integer);
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
     procedure SetNotifyOnConnect(AValue: TNotificationMode);
@@ -329,6 +333,8 @@ type
     property StatusFontSize: Integer read FStatusFontSize write SetStatusFontSize;
     property AddressFontSize: Integer read FAddressFontSize write SetAddressFontSize;
     property IconFontSize: Integer read FIconFontSize write SetIconFontSize;
+    property ItemBorderWidth: Integer read FItemBorderWidth write SetItemBorderWidth;
+    property ItemBorderColor: Integer read FItemBorderColor write SetItemBorderColor;
 
     // [Device] - global defaults
     property ConnectionTimeout: Integer read FConnectionTimeout write SetConnectionTimeout;
@@ -423,14 +429,16 @@ const
 
   // [Layout] defaults
   DEF_ITEM_HEIGHT = 70;
-  DEF_ITEM_PADDING = 12;
+  DEF_ITEM_PADDING = 6;
   DEF_ITEM_MARGIN = 4;
-  DEF_ICON_SIZE = 32;
+  DEF_ICON_SIZE = 46;
   DEF_CORNER_RADIUS = 8;
-  DEF_DEVICE_NAME_FONT_SIZE = 11;
-  DEF_STATUS_FONT_SIZE = 9;
+  DEF_DEVICE_NAME_FONT_SIZE = 12;
+  DEF_STATUS_FONT_SIZE = 10;
   DEF_ADDRESS_FONT_SIZE = 8;
   DEF_ICON_FONT_SIZE = 16;
+  DEF_ITEM_BORDER_WIDTH = 0;        // No border by default
+  DEF_ITEM_BORDER_COLOR = $00808080; // Gray
 
 var
   GConfig: TAppConfig = nil;
@@ -548,6 +556,8 @@ begin
   FStatusFontSize := DEF_STATUS_FONT_SIZE;
   FAddressFontSize := DEF_ADDRESS_FONT_SIZE;
   FIconFontSize := DEF_ICON_FONT_SIZE;
+  FItemBorderWidth := DEF_ITEM_BORDER_WIDTH;
+  FItemBorderColor := DEF_ITEM_BORDER_COLOR;
 
   // [Device]
   FConnectionTimeout := DEF_CONNECTION_TIMEOUT;
@@ -629,6 +639,8 @@ begin
     FStatusFontSize := Ini.ReadInteger(SEC_LAYOUT, 'StatusFontSize', DEF_STATUS_FONT_SIZE);
     FAddressFontSize := Ini.ReadInteger(SEC_LAYOUT, 'AddressFontSize', DEF_ADDRESS_FONT_SIZE);
     FIconFontSize := Ini.ReadInteger(SEC_LAYOUT, 'IconFontSize', DEF_ICON_FONT_SIZE);
+    FItemBorderWidth := Ini.ReadInteger(SEC_LAYOUT, 'ItemBorderWidth', DEF_ITEM_BORDER_WIDTH);
+    FItemBorderColor := Ini.ReadInteger(SEC_LAYOUT, 'ItemBorderColor', DEF_ITEM_BORDER_COLOR);
 
     // [Device] - global defaults
     FConnectionTimeout := Ini.ReadInteger(SEC_DEVICE, 'ConnectionTimeout', DEF_CONNECTION_TIMEOUT);
@@ -710,6 +722,8 @@ begin
     Ini.WriteInteger(SEC_LAYOUT, 'StatusFontSize', FStatusFontSize);
     Ini.WriteInteger(SEC_LAYOUT, 'AddressFontSize', FAddressFontSize);
     Ini.WriteInteger(SEC_LAYOUT, 'IconFontSize', FIconFontSize);
+    Ini.WriteInteger(SEC_LAYOUT, 'ItemBorderWidth', FItemBorderWidth);
+    Ini.WriteInteger(SEC_LAYOUT, 'ItemBorderColor', FItemBorderColor);
 
     // [Device] - global defaults
     Ini.WriteInteger(SEC_DEVICE, 'ConnectionTimeout', FConnectionTimeout);
@@ -1208,6 +1222,24 @@ begin
   if FIconFontSize <> AValue then
   begin
     FIconFontSize := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetItemBorderWidth(AValue: Integer);
+begin
+  if FItemBorderWidth <> AValue then
+  begin
+    FItemBorderWidth := AValue;
+    FModified := True;
+  end;
+end;
+
+procedure TAppConfig.SetItemBorderColor(AValue: Integer);
+begin
+  if FItemBorderColor <> AValue then
+  begin
+    FItemBorderColor := AValue;
     FModified := True;
   end;
 end;

@@ -24,8 +24,6 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitTop = 337
-    ExplicitWidth = 540
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -64,22 +62,19 @@ object FormSettings: TFormSettings
     ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
-    ExplicitWidth = 540
-    ExplicitHeight = 337
     object TabGeneral: TTabSheet
       Caption = 'Window'
       object GroupWindowMode: TGroupBox
         Left = 0
         Top = 0
-        Width = 534
+        Width = 542
         Height = 165
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
-        ExplicitWidth = 524
         object LabelWindowMode: TLabel
           Left = 12
-          Top = 24
+          Top = 27
           Width = 34
           Height = 15
           Caption = 'Mode:'
@@ -140,22 +135,21 @@ object FormSettings: TFormSettings
       object GroupPosition: TGroupBox
         Left = 0
         Top = 165
-        Width = 534
+        Width = 542
         Height = 95
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
-        ExplicitWidth = 524
         object LabelPositionMode: TLabel
           Left = 12
-          Top = 25
+          Top = 28
           Width = 46
           Height = 15
           Caption = 'Position:'
         end
         object ComboPositionMode: TComboBox
           Left = 74
-          Top = 24
+          Top = 25
           Width = 250
           Height = 23
           Style = csDropDownList
@@ -186,7 +180,7 @@ object FormSettings: TFormSettings
         end
         object CheckOnTop: TCheckBox
           Left = 336
-          Top = 24
+          Top = 28
           Width = 105
           Height = 17
           Caption = 'Always on top'
@@ -208,7 +202,7 @@ object FormSettings: TFormSettings
       object GroupDisplayOptions: TGroupBox
         Left = 0
         Top = 0
-        Width = 534
+        Width = 542
         Height = 95
         Align = alTop
         Caption = 'Display Options'
@@ -272,7 +266,7 @@ object FormSettings: TFormSettings
       object GroupLayout: TGroupBox
         Left = 0
         Top = 95
-        Width = 534
+        Width = 542
         Height = 120
         Align = alTop
         Caption = 'Layout'
@@ -299,11 +293,11 @@ object FormSettings: TFormSettings
           Caption = 'Item margin:'
         end
         object LabelIconSize: TLabel
-          Left = 190
-          Top = 24
-          Width = 48
+          Left = 364
+          Top = 23
+          Width = 59
           Height = 15
-          Caption = 'Icon size:'
+          Caption = 'Icon width:'
         end
         object LabelCornerRadius: TLabel
           Left = 190
@@ -334,18 +328,47 @@ object FormSettings: TFormSettings
           Caption = 'px'
         end
         object LabelPx4: TLabel
-          Left = 341
+          Left = 506
           Top = 24
           Width = 12
           Height = 15
           Caption = 'px'
         end
         object LabelPx5: TLabel
-          Left = 341
+          Left = 333
           Top = 53
           Width = 12
           Height = 15
           Caption = 'px'
+        end
+        object LabelBorderWidth: TLabel
+          Left = 190
+          Top = 24
+          Width = 71
+          Height = 15
+          Caption = 'Border width:'
+        end
+        object LabelPx6: TLabel
+          Left = 333
+          Top = 24
+          Width = 12
+          Height = 15
+          Caption = 'px'
+        end
+        object LabelBorderColor: TLabel
+          Left = 190
+          Top = 82
+          Width = 68
+          Height = 15
+          Caption = 'Border color:'
+        end
+        object ShapeBorderColor: TShape
+          Left = 272
+          Top = 79
+          Width = 61
+          Height = 23
+          Brush.Color = clGray
+          OnMouseDown = ShapeBorderColorMouseDown
         end
         object EditItemHeight: TEdit
           Left = 100
@@ -366,12 +389,48 @@ object FormSettings: TFormSettings
           Position = 70
           TabOrder = 1
         end
+        object EditBorderWidth: TEdit
+          Left = 272
+          Top = 21
+          Width = 45
+          Height = 23
+          TabOrder = 2
+          Text = '0'
+        end
+        object UpDownBorderWidth: TUpDown
+          Left = 317
+          Top = 21
+          Width = 16
+          Height = 23
+          Associate = EditBorderWidth
+          Max = 20
+          TabOrder = 3
+        end
+        object EditIconSize: TEdit
+          Left = 443
+          Top = 21
+          Width = 45
+          Height = 23
+          TabOrder = 4
+          Text = '32'
+        end
+        object UpDownIconSize: TUpDown
+          Left = 488
+          Top = 21
+          Width = 16
+          Height = 23
+          Associate = EditIconSize
+          Min = 16
+          Max = 64
+          Position = 32
+          TabOrder = 5
+        end
         object EditItemPadding: TEdit
           Left = 100
           Top = 50
           Width = 45
           Height = 23
-          TabOrder = 2
+          TabOrder = 6
           Text = '12'
         end
         object UpDownItemPadding: TUpDown
@@ -382,14 +441,33 @@ object FormSettings: TFormSettings
           Associate = EditItemPadding
           Max = 50
           Position = 12
-          TabOrder = 3
+          TabOrder = 7
+        end
+        object EditCornerRadius: TEdit
+          Left = 272
+          Top = 50
+          Width = 45
+          Height = 23
+          TabOrder = 8
+          Text = '8'
+          OnChange = EditCornerRadiusChange
+        end
+        object UpDownCornerRadius: TUpDown
+          Left = 317
+          Top = 50
+          Width = 16
+          Height = 23
+          Associate = EditCornerRadius
+          Max = 30
+          Position = 8
+          TabOrder = 9
         end
         object EditItemMargin: TEdit
           Left = 100
           Top = 79
           Width = 45
           Height = 23
-          TabOrder = 4
+          TabOrder = 10
           Text = '4'
         end
         object UpDownItemMargin: TUpDown
@@ -400,59 +478,22 @@ object FormSettings: TFormSettings
           Associate = EditItemMargin
           Max = 30
           Position = 4
-          TabOrder = 5
-        end
-        object EditIconSize: TEdit
-          Left = 278
-          Top = 21
-          Width = 45
-          Height = 23
-          TabOrder = 6
-          Text = '32'
-        end
-        object UpDownIconSize: TUpDown
-          Left = 323
-          Top = 21
-          Width = 16
-          Height = 23
-          Associate = EditIconSize
-          Min = 16
-          Max = 64
-          Position = 32
-          TabOrder = 7
-        end
-        object EditCornerRadius: TEdit
-          Left = 278
-          Top = 50
-          Width = 45
-          Height = 23
-          TabOrder = 8
-          Text = '8'
-        end
-        object UpDownCornerRadius: TUpDown
-          Left = 323
-          Top = 50
-          Width = 16
-          Height = 23
-          Associate = EditCornerRadius
-          Max = 30
-          Position = 8
-          TabOrder = 9
+          TabOrder = 11
         end
         object ButtonResetLayout: TButton
-          Left = 368
-          Top = 82
-          Width = 150
-          Height = 25
+          Left = 364
+          Top = 79
+          Width = 154
+          Height = 23
           Caption = 'Reset layout to defaults'
-          TabOrder = 10
+          TabOrder = 12
           OnClick = ButtonResetLayoutClick
         end
       end
       object GroupFontSizes: TGroupBox
         Left = 0
         Top = 215
-        Width = 534
+        Width = 542
         Height = 95
         Align = alTop
         Caption = 'Font Sizes (pt)'
@@ -504,31 +545,12 @@ object FormSettings: TFormSettings
           Position = 11
           TabOrder = 1
         end
-        object EditStatusSize: TEdit
-          Left = 100
-          Top = 50
-          Width = 45
-          Height = 23
-          TabOrder = 2
-          Text = '9'
-        end
-        object UpDownStatusSize: TUpDown
-          Left = 145
-          Top = 50
-          Width = 16
-          Height = 23
-          Associate = EditStatusSize
-          Min = 6
-          Max = 24
-          Position = 9
-          TabOrder = 3
-        end
         object EditAddressSize: TEdit
           Left = 278
           Top = 21
           Width = 45
           Height = 23
-          TabOrder = 4
+          TabOrder = 2
           Text = '8'
         end
         object UpDownAddressSize: TUpDown
@@ -540,6 +562,25 @@ object FormSettings: TFormSettings
           Min = 6
           Max = 24
           Position = 8
+          TabOrder = 3
+        end
+        object EditStatusSize: TEdit
+          Left = 100
+          Top = 50
+          Width = 45
+          Height = 23
+          TabOrder = 4
+          Text = '9'
+        end
+        object UpDownStatusSize: TUpDown
+          Left = 145
+          Top = 50
+          Width = 16
+          Height = 23
+          Associate = EditStatusSize
+          Min = 6
+          Max = 24
+          Position = 9
           TabOrder = 5
         end
         object EditIconFontSize: TEdit
@@ -569,14 +610,14 @@ object FormSettings: TFormSettings
       object GroupHotkey: TGroupBox
         Left = 0
         Top = 0
-        Width = 534
+        Width = 542
         Height = 95
         Align = alTop
         Caption = 'Global Hotkey'
         TabOrder = 0
         object LabelHotkey: TLabel
           Left = 12
-          Top = 24
+          Top = 27
           Width = 41
           Height = 15
           Caption = 'Hotkey:'
@@ -623,14 +664,14 @@ object FormSettings: TFormSettings
       object GroupTheme: TGroupBox
         Left = 0
         Top = 0
-        Width = 534
+        Width = 542
         Height = 95
         Align = alTop
         Caption = 'Theme'
         TabOrder = 0
         object LabelTheme: TLabel
           Left = 12
-          Top = 24
+          Top = 27
           Width = 40
           Height = 15
           Caption = 'Theme:'
@@ -643,7 +684,7 @@ object FormSettings: TFormSettings
           Caption = 'Themes dir:'
         end
         object ComboTheme: TComboBox
-          Left = 74
+          Left = 94
           Top = 24
           Width = 250
           Height = 23
@@ -674,28 +715,28 @@ object FormSettings: TFormSettings
       object GroupConnectionDefaults: TGroupBox
         Left = 0
         Top = 0
-        Width = 534
+        Width = 542
         Height = 95
         Align = alTop
         Caption = 'Default Connection Settings'
         TabOrder = 0
         object LabelTimeout: TLabel
           Left = 12
-          Top = 24
+          Top = 27
           Width = 48
           Height = 15
           Caption = 'Timeout:'
         end
         object LabelTimeoutMs: TLabel
           Left = 206
-          Top = 24
+          Top = 27
           Width = 16
           Height = 15
           Caption = 'ms'
         end
         object LabelRetryCount: TLabel
           Left = 12
-          Top = 58
+          Top = 61
           Width = 80
           Height = 15
           Caption = 'Retry attempts:'
@@ -739,35 +780,35 @@ object FormSettings: TFormSettings
       object GroupPolling: TGroupBox
         Left = 0
         Top = 95
-        Width = 534
+        Width = 542
         Height = 95
         Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
         object LabelPollingMode: TLabel
           Left = 12
-          Top = 24
+          Top = 27
           Width = 74
           Height = 15
           Caption = 'Polling mode:'
         end
         object LabelPollingInterval: TLabel
           Left = 12
-          Top = 57
+          Top = 60
           Width = 42
           Height = 15
           Caption = 'Interval:'
         end
         object LabelPollingIntervalMs: TLabel
           Left = 206
-          Top = 57
+          Top = 60
           Width = 16
           Height = 15
           Caption = 'ms'
         end
         object LabelPollingModeHint: TLabel
           Left = 250
-          Top = 24
+          Top = 27
           Width = 130
           Height = 15
           Caption = 'Requires program restart'
@@ -815,7 +856,7 @@ object FormSettings: TFormSettings
       object GroupNotifications: TGroupBox
         Left = 0
         Top = 190
-        Width = 534
+        Width = 542
         Height = 123
         Align = alTop
         Caption = 'Notifications'
@@ -861,7 +902,7 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 0
         Width = 200
-        Height = 326
+        Height = 339
         Align = alLeft
         BevelOuter = bvNone
         TabOrder = 0
@@ -869,7 +910,7 @@ object FormSettings: TFormSettings
           Left = 0
           Top = 0
           Width = 200
-          Height = 294
+          Height = 307
           Align = alClient
           ItemHeight = 15
           TabOrder = 0
@@ -877,7 +918,7 @@ object FormSettings: TFormSettings
         end
         object PanelDeviceButtons: TPanel
           Left = 0
-          Top = 294
+          Top = 307
           Width = 200
           Height = 32
           Align = alBottom
@@ -906,22 +947,22 @@ object FormSettings: TFormSettings
       object PanelDeviceSettings: TPanel
         Left = 200
         Top = 0
-        Width = 334
-        Height = 326
+        Width = 342
+        Height = 339
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 1
         object GroupDeviceInfo: TGroupBox
           Left = 0
           Top = 0
-          Width = 334
+          Width = 342
           Height = 334
           Align = alTop
           Caption = 'Device Settings'
           TabOrder = 0
           object LabelDeviceAlias: TLabel
             Left = 12
-            Top = 24
+            Top = 29
             Width = 28
             Height = 15
             Caption = 'Alias:'
@@ -934,19 +975,19 @@ object FormSettings: TFormSettings
             Caption = 'Type:'
           end
           object EditDeviceAlias: TEdit
-            Left = 74
+            Left = 80
             Top = 26
             Width = 250
             Height = 23
             TabOrder = 0
           end
-          object CheckDeviceHidden: TCheckBox
-            Left = 160
-            Top = 86
-            Width = 140
-            Height = 17
-            Caption = 'Hide from list'
-            TabOrder = 2
+          object ComboDeviceType: TComboBox
+            Left = 80
+            Top = 55
+            Width = 250
+            Height = 23
+            Style = csDropDownList
+            TabOrder = 1
           end
           object CheckDevicePinned: TCheckBox
             Left = 12
@@ -954,7 +995,15 @@ object FormSettings: TFormSettings
             Width = 140
             Height = 17
             Caption = 'Pin to top of list'
-            TabOrder = 1
+            TabOrder = 2
+          end
+          object CheckDeviceHidden: TCheckBox
+            Left = 160
+            Top = 86
+            Width = 140
+            Height = 17
+            Caption = 'Hide from list'
+            TabOrder = 3
           end
           object CheckDeviceAutoConnect: TCheckBox
             Left = 12
@@ -962,18 +1011,18 @@ object FormSettings: TFormSettings
             Width = 140
             Height = 17
             Caption = 'Auto-connect on start'
-            TabOrder = 3
+            TabOrder = 4
           end
           object GroupDeviceConnection: TGroupBox
-            Left = 12
-            Top = 133
-            Width = 308
+            Left = 6
+            Top = 132
+            Width = 330
             Height = 95
             Caption = 'Connection (overrides global parameters)'
-            TabOrder = 4
+            TabOrder = 5
             object LabelDeviceTimeout: TLabel
               Left = 12
-              Top = 25
+              Top = 28
               Width = 48
               Height = 15
               Caption = 'Timeout:'
@@ -987,7 +1036,7 @@ object FormSettings: TFormSettings
             end
             object LabelDeviceRetry: TLabel
               Left = 12
-              Top = 59
+              Top = 62
               Width = 80
               Height = 15
               Caption = 'Retry attempts:'
@@ -1033,36 +1082,36 @@ object FormSettings: TFormSettings
             end
           end
           object GroupDeviceNotifications: TGroupBox
-            Left = 12
-            Top = 231
-            Width = 308
+            Left = 6
+            Top = 227
+            Width = 331
             Height = 93
             Caption = 'Notifications (overrides global parameters)'
-            TabOrder = 5
+            TabOrder = 6
             object LabelDeviceNotifyConnect: TLabel
               Left = 12
-              Top = 24
+              Top = 27
               Width = 48
               Height = 15
               Caption = 'Connect:'
             end
             object LabelDeviceNotifyDisconnect: TLabel
               Left = 12
-              Top = 60
+              Top = 62
               Width = 62
               Height = 15
               Caption = 'Disconnect:'
             end
             object LabelDeviceNotifyFailed: TLabel
-              Left = 153
-              Top = 24
+              Left = 164
+              Top = 27
               Width = 34
               Height = 15
               Caption = 'Failed:'
             end
             object LabelDeviceNotifyAuto: TLabel
-              Left = 153
-              Top = 60
+              Left = 164
+              Top = 63
               Width = 77
               Height = 15
               Caption = 'Auto-connect:'
@@ -1070,7 +1119,7 @@ object FormSettings: TFormSettings
             object ComboDeviceNotifyConnect: TComboBox
               Left = 80
               Top = 24
-              Width = 60
+              Width = 70
               Height = 23
               Style = csDropDownList
               TabOrder = 0
@@ -1079,10 +1128,10 @@ object FormSettings: TFormSettings
                 'None'
                 'Balloon')
             end
-            object ComboDeviceNotifyDisconnect: TComboBox
-              Left = 80
-              Top = 60
-              Width = 60
+            object ComboDeviceNotifyFailed: TComboBox
+              Left = 250
+              Top = 24
+              Width = 70
               Height = 23
               Style = csDropDownList
               TabOrder = 1
@@ -1091,10 +1140,10 @@ object FormSettings: TFormSettings
                 'None'
                 'Balloon')
             end
-            object ComboDeviceNotifyFailed: TComboBox
-              Left = 239
-              Top = 24
-              Width = 60
+            object ComboDeviceNotifyDisconnect: TComboBox
+              Left = 80
+              Top = 60
+              Width = 70
               Height = 23
               Style = csDropDownList
               TabOrder = 2
@@ -1104,9 +1153,9 @@ object FormSettings: TFormSettings
                 'Balloon')
             end
             object ComboDeviceNotifyAuto: TComboBox
-              Left = 239
+              Left = 250
               Top = 60
-              Width = 60
+              Width = 70
               Height = 23
               Style = csDropDownList
               TabOrder = 3
@@ -1115,14 +1164,6 @@ object FormSettings: TFormSettings
                 'None'
                 'Balloon')
             end
-          end
-          object ComboDeviceType: TComboBox
-            Left = 74
-            Top = 55
-            Width = 246
-            Height = 23
-            Style = csDropDownList
-            TabOrder = 6
           end
         end
       end
@@ -1139,7 +1180,7 @@ object FormSettings: TFormSettings
         TabOrder = 0
         object LabelLogFilename: TLabel
           Left = 12
-          Top = 57
+          Top = 60
           Width = 42
           Height = 15
           Caption = 'Log file:'

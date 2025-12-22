@@ -170,6 +170,12 @@ type
     UpDownIconSize: TUpDown;
     EditCornerRadius: TEdit;
     UpDownCornerRadius: TUpDown;
+    LabelBorderWidth: TLabel;
+    LabelPx6: TLabel;
+    LabelBorderColor: TLabel;
+    EditBorderWidth: TEdit;
+    UpDownBorderWidth: TUpDown;
+    ShapeBorderColor: TShape;
     ButtonResetLayout: TButton;
     GroupFontSizes: TGroupBox;
     LabelDeviceNameSize: TLabel;
@@ -223,7 +229,10 @@ type
     { Appearance tab events }
     procedure ShapeConnectedColorMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
+    procedure ShapeBorderColorMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
     procedure ButtonResetLayoutClick(Sender: TObject);
+    procedure EditCornerRadiusChange(Sender: TObject);
 
   private
     FPresenter: TSettingsPresenter;
@@ -438,6 +447,12 @@ begin
   EditStatusSize.OnChange := HandleSettingChanged;
   EditAddressSize.OnChange := HandleSettingChanged;
   EditIconFontSize.OnChange := HandleSettingChanged;
+  EditBorderWidth.OnChange := HandleSettingChanged;
+end;
+
+procedure TFormSettings.EditCornerRadiusChange(Sender: TObject);
+begin
+  HandleSettingChanged(Sender);
 end;
 
 { Hotkey tab events }
@@ -656,6 +671,17 @@ begin
   if ColorDialogConnected.Execute then
   begin
     ShapeConnectedColor.Brush.Color := ColorDialogConnected.Color;
+    FPresenter.MarkModified;
+  end;
+end;
+
+procedure TFormSettings.ShapeBorderColorMouseDown(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  ColorDialogConnected.Color := ShapeBorderColor.Brush.Color;
+  if ColorDialogConnected.Execute then
+  begin
+    ShapeBorderColor.Brush.Color := ColorDialogConnected.Color;
     FPresenter.MarkModified;
   end;
 end;
