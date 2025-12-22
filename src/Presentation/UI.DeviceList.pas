@@ -28,8 +28,7 @@ uses
   Vcl.StdCtrls,
   Vcl.Themes,
   Bluetooth.Types,
-  App.ConfigInterfaces,
-  App.Config;
+  App.ConfigInterfaces;
 
 type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
@@ -47,6 +46,15 @@ type
     FShowAddresses: Boolean;
     FOnDeviceClick: TDeviceClickEvent;
     FOnSelectionChanged: TNotifyEvent;
+
+    // Injected configuration interfaces
+    FLayoutConfig: ILayoutConfig;
+    FAppearanceConfig: IAppearanceConfig;
+    FDeviceConfigProvider: IDeviceConfigProvider;
+
+    function GetLayoutConfig: ILayoutConfig;
+    function GetAppearanceConfig: IAppearanceConfig;
+    function GetDeviceConfigProvider: IDeviceConfigProvider;
 
     procedure SetShowAddresses(AValue: Boolean);
 
@@ -100,6 +108,11 @@ type
     property OnDeviceClick: TDeviceClickEvent read FOnDeviceClick write FOnDeviceClick;
     property OnSelectionChanged: TNotifyEvent read FOnSelectionChanged write FOnSelectionChanged;
 
+    // Dependency injection properties (optional - uses Bootstrap fallback if not set)
+    property LayoutConfig: ILayoutConfig read GetLayoutConfig write FLayoutConfig;
+    property AppearanceConfig: IAppearanceConfig read GetAppearanceConfig write FAppearanceConfig;
+    property DeviceConfigProvider: IDeviceConfigProvider read GetDeviceConfigProvider write FDeviceConfigProvider;
+
   published
     property Align;
     property Anchors;
@@ -115,7 +128,8 @@ implementation
 
 uses
   System.Math,
-  System.DateUtils;
+  System.DateUtils,
+  App.Bootstrap;
 
 const
   // Font names used for rendering
@@ -161,6 +175,27 @@ begin
   DoubleBuffered := True;
   Width := DEFAULT_CONTROL_WIDTH;
   Height := DEFAULT_CONTROL_HEIGHT;
+end;
+
+function TDeviceListBox.GetLayoutConfig: ILayoutConfig;
+begin
+  if FLayoutConfig = nil then
+    FLayoutConfig := Bootstrap.LayoutConfig;
+  Result := FLayoutConfig;
+end;
+
+function TDeviceListBox.GetAppearanceConfig: IAppearanceConfig;
+begin
+  if FAppearanceConfig = nil then
+    FAppearanceConfig := Bootstrap.AppearanceConfig;
+  Result := FAppearanceConfig;
+end;
+
+function TDeviceListBox.GetDeviceConfigProvider: IDeviceConfigProvider;
+begin
+  if FDeviceConfigProvider = nil then
+    FDeviceConfigProvider := Bootstrap.DeviceConfigProvider;
+  Result := FDeviceConfigProvider;
 end;
 
 procedure TDeviceListBox.SetShowAddresses(AValue: Boolean);
@@ -243,7 +278,7 @@ begin
       Continue;
 
     // Skip hidden devices
-    DeviceConfig := Config.GetDeviceConfig(Device.AddressInt);
+    DeviceConfig := DeviceConfigProvider.GetDeviceConfig(Device.AddressInt);
     if DeviceConfig.Hidden then
       Continue;
 
@@ -261,8 +296,8 @@ begin
       LeftGroup, RightGroup: Integer;
       LeftName, RightName: string;
     begin
-      LeftConfig := Config.GetDeviceConfig(Left.AddressInt);
-      RightConfig := Config.GetDeviceConfig(Right.AddressInt);
+      LeftConfig := Self.DeviceConfigProvider.GetDeviceConfig(Left.AddressInt);
+      RightConfig := Self.DeviceConfigProvider.GetDeviceConfig(Right.AddressInt);
       LeftPinned := LeftConfig.Pinned;
       RightPinned := RightConfig.Pinned;
       LeftConnected := Left.IsConnected;
@@ -367,8 +402,8 @@ function TDeviceListBox.GetItemRect(AIndex: Integer): TRect;
 var
   ItemHeight, ItemMargin: Integer;
 begin
-  ItemHeight := Config.ItemHeight;
-  ItemMargin := Config.ItemMargin;
+  ItemHeight := LayoutConfig.ItemHeight;
+  ItemMargin := LayoutConfig.ItemMargin;
   Result.Left := ItemMargin;
   Result.Right := ClientWidth - ItemMargin;
   Result.Top := ItemMargin + AIndex * (ItemHeight + ItemMargin) - FScrollPos;
@@ -394,8 +429,8 @@ var
   TotalHeight, VisibleHeight: Integer;
   ItemHeight, ItemMargin: Integer;
 begin
-  ItemHeight := Config.ItemHeight;
-  ItemMargin := Config.ItemMargin;
+  ItemHeight := LayoutConfig.ItemHeight;
+  ItemMargin := LayoutConfig.ItemMargin;
   TotalHeight := FDevices.Count * (ItemHeight + ItemMargin) + ItemMargin;
   VisibleHeight := ClientHeight;
   FMaxScroll := Max(0, TotalHeight - VisibleHeight);
@@ -413,8 +448,8 @@ begin
   if not HandleAllocated then
     Exit;
 
-  ItemHeight := Config.ItemHeight;
-  ItemMargin := Config.ItemMargin;
+  ItemHeight := LayoutConfig.ItemHeight;
+  ItemMargin := LayoutConfig.ItemMargin;
   TotalHeight := FDevices.Count * (ItemHeight + ItemMargin) + ItemMargin;
 
   SI.cbSize := SizeOf(TScrollInfo);
@@ -447,8 +482,8 @@ begin
   if (AIndex < 0) or (AIndex >= FDevices.Count) then
     Exit;
 
-  ItemHeight := Config.ItemHeight;
-  ItemMargin := Config.ItemMargin;
+  ItemHeight := LayoutConfig.ItemHeight;
+  ItemMargin := LayoutConfig.ItemMargin;
   ItemTop := ItemMargin + AIndex * (ItemHeight + ItemMargin);
   ItemBottom := ItemTop + ItemHeight;
 
@@ -475,7 +510,7 @@ var
   ItemHeight: Integer;
 begin
   NewPos := FScrollPos;
-  ItemHeight := Config.ItemHeight;
+  ItemHeight := LayoutConfig.ItemHeight;
 
   case Message.ScrollCode of
     SB_LINEUP:
@@ -609,19 +644,19 @@ begin
   Style := TStyleManager.ActiveStyle;
 
   // Get layout settings from config
-  ItemPadding := Config.ItemPadding;
-  IconSize := Config.IconSize;
-  CornerRadius := Config.CornerRadius;
-  DeviceNameFontSize := Config.DeviceNameFontSize;
-  StatusFontSize := Config.StatusFontSize;
-  AddressFontSize := Config.AddressFontSize;
-  ShowDeviceIcons := Config.ShowDeviceIcons;
-  ShowLastSeen := Config.ShowLastSeen;
-  ItemBorderWidth := Config.ItemBorderWidth;
-  ItemBorderColor := TColor(Config.ItemBorderColor);
+  ItemPadding := LayoutConfig.ItemPadding;
+  IconSize := LayoutConfig.IconSize;
+  CornerRadius := LayoutConfig.CornerRadius;
+  DeviceNameFontSize := LayoutConfig.DeviceNameFontSize;
+  StatusFontSize := LayoutConfig.StatusFontSize;
+  AddressFontSize := LayoutConfig.AddressFontSize;
+  ShowDeviceIcons := AppearanceConfig.ShowDeviceIcons;
+  ShowLastSeen := AppearanceConfig.ShowLastSeen;
+  ItemBorderWidth := LayoutConfig.ItemBorderWidth;
+  ItemBorderColor := TColor(LayoutConfig.ItemBorderColor);
 
   // Get device-specific configuration
-  DeviceConfig := Config.GetDeviceConfig(ADevice.AddressInt);
+  DeviceConfig := DeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt);
 
   // Use alias if set, otherwise use device name
   if DeviceConfig.Alias <> '' then
@@ -744,7 +779,7 @@ begin
   if ADevice.IsConnected then
   begin
     StatusText := ADevice.ConnectionStateText;
-    ACanvas.Font.Color := TColor(Config.ConnectedColor);
+    ACanvas.Font.Color := TColor(AppearanceConfig.ConnectedColor);
   end
   else
   begin
@@ -757,7 +792,7 @@ begin
   // LastSeen (right-aligned)
   if ShowLastSeen then
   begin
-    if Config.LastSeenFormat = lsfRelative then
+    if AppearanceConfig.LastSeenFormat = lsfRelative then
       LastSeenText := FormatLastSeenRelative(DeviceConfig.LastSeen)
     else
       LastSeenText := FormatLastSeenAbsolute(DeviceConfig.LastSeen);
@@ -781,7 +816,7 @@ begin
 
   // Use icon font for device icons
   ACanvas.Font.Name := FONT_ICONS;
-  ACanvas.Font.Size := Config.IconFontSize;
+  ACanvas.Font.Size := LayoutConfig.IconFontSize;
   ACanvas.Font.Style := [];
   ACanvas.Font.Color := TStyleManager.ActiveStyle.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
