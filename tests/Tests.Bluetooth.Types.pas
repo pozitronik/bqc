@@ -189,6 +189,30 @@ type
     procedure EBluetoothDeviceError_IsBluetoothException;
   end;
 
+  /// <summary>
+  /// Test fixture for address conversion functions.
+  /// </summary>
+  [TestFixture]
+  TAddressConversionTests = class
+  public
+    [Test]
+    procedure UInt64ToBluetoothAddress_ZeroValue_ReturnsZeroBytes;
+    [Test]
+    procedure UInt64ToBluetoothAddress_SimpleValue_ReturnsCorrectBytes;
+    [Test]
+    procedure UInt64ToBluetoothAddress_FullValue_ReturnsCorrectBytes;
+    [Test]
+    procedure BluetoothAddressToUInt64_ZeroBytes_ReturnsZero;
+    [Test]
+    procedure BluetoothAddressToUInt64_SimpleValue_ReturnsCorrectValue;
+    [Test]
+    procedure BluetoothAddressToUInt64_FullValue_ReturnsCorrectValue;
+    [Test]
+    procedure RoundTrip_UInt64ToAddressAndBack_PreservesValue;
+    [Test]
+    procedure RoundTrip_AddressToUInt64AndBack_PreservesValue;
+  end;
+
 implementation
 
 uses
@@ -737,9 +761,125 @@ begin
   end;
 end;
 
+{ TAddressConversionTests }
+
+procedure TAddressConversionTests.UInt64ToBluetoothAddress_ZeroValue_ReturnsZeroBytes;
+var
+  Address: TBluetoothAddress;
+begin
+  Address := UInt64ToBluetoothAddress(0);
+
+  Assert.AreEqual(Byte(0), Address[0]);
+  Assert.AreEqual(Byte(0), Address[1]);
+  Assert.AreEqual(Byte(0), Address[2]);
+  Assert.AreEqual(Byte(0), Address[3]);
+  Assert.AreEqual(Byte(0), Address[4]);
+  Assert.AreEqual(Byte(0), Address[5]);
+end;
+
+procedure TAddressConversionTests.UInt64ToBluetoothAddress_SimpleValue_ReturnsCorrectBytes;
+var
+  Address: TBluetoothAddress;
+begin
+  // Value $0102030405 should result in bytes [05, 04, 03, 02, 01, 00] (little-endian)
+  Address := UInt64ToBluetoothAddress($0102030405);
+
+  Assert.AreEqual(Byte($05), Address[0]);
+  Assert.AreEqual(Byte($04), Address[1]);
+  Assert.AreEqual(Byte($03), Address[2]);
+  Assert.AreEqual(Byte($02), Address[3]);
+  Assert.AreEqual(Byte($01), Address[4]);
+  Assert.AreEqual(Byte($00), Address[5]);
+end;
+
+procedure TAddressConversionTests.UInt64ToBluetoothAddress_FullValue_ReturnsCorrectBytes;
+var
+  Address: TBluetoothAddress;
+begin
+  // Typical Bluetooth address: 58:18:62:01:5D:AE stored as $581862015DAE
+  Address := UInt64ToBluetoothAddress($581862015DAE);
+
+  Assert.AreEqual(Byte($AE), Address[0]);
+  Assert.AreEqual(Byte($5D), Address[1]);
+  Assert.AreEqual(Byte($01), Address[2]);
+  Assert.AreEqual(Byte($62), Address[3]);
+  Assert.AreEqual(Byte($18), Address[4]);
+  Assert.AreEqual(Byte($58), Address[5]);
+end;
+
+procedure TAddressConversionTests.BluetoothAddressToUInt64_ZeroBytes_ReturnsZero;
+var
+  Address: TBluetoothAddress;
+begin
+  FillChar(Address, SizeOf(Address), 0);
+  Assert.AreEqual(UInt64(0), BluetoothAddressToUInt64(Address));
+end;
+
+procedure TAddressConversionTests.BluetoothAddressToUInt64_SimpleValue_ReturnsCorrectValue;
+var
+  Address: TBluetoothAddress;
+begin
+  Address[0] := $05;
+  Address[1] := $04;
+  Address[2] := $03;
+  Address[3] := $02;
+  Address[4] := $01;
+  Address[5] := $00;
+
+  Assert.AreEqual(UInt64($0102030405), BluetoothAddressToUInt64(Address));
+end;
+
+procedure TAddressConversionTests.BluetoothAddressToUInt64_FullValue_ReturnsCorrectValue;
+var
+  Address: TBluetoothAddress;
+begin
+  Address[0] := $AE;
+  Address[1] := $5D;
+  Address[2] := $01;
+  Address[3] := $62;
+  Address[4] := $18;
+  Address[5] := $58;
+
+  Assert.AreEqual(UInt64($581862015DAE), BluetoothAddressToUInt64(Address));
+end;
+
+procedure TAddressConversionTests.RoundTrip_UInt64ToAddressAndBack_PreservesValue;
+var
+  Original: UInt64;
+  Address: TBluetoothAddress;
+  Converted: UInt64;
+begin
+  Original := $AABBCCDDEEFF;
+  Address := UInt64ToBluetoothAddress(Original);
+  Converted := BluetoothAddressToUInt64(Address);
+
+  Assert.AreEqual(Original, Converted);
+end;
+
+procedure TAddressConversionTests.RoundTrip_AddressToUInt64AndBack_PreservesValue;
+var
+  Original, Converted: TBluetoothAddress;
+  Value: UInt64;
+  I: Integer;
+begin
+  Original[0] := $11;
+  Original[1] := $22;
+  Original[2] := $33;
+  Original[3] := $44;
+  Original[4] := $55;
+  Original[5] := $66;
+
+  Value := BluetoothAddressToUInt64(Original);
+  Converted := UInt64ToBluetoothAddress(Value);
+
+  for I := 0 to 5 do
+    Assert.AreEqual(Original[I], Converted[I], Format('Byte %d mismatch', [I]));
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TDetermineDeviceTypeTests);
   TDUnitX.RegisterTestFixture(TBluetoothDeviceInfoTests);
   TDUnitX.RegisterTestFixture(TBluetoothExceptionTests);
+  TDUnitX.RegisterTestFixture(TAddressConversionTests);
 
 end.

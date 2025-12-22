@@ -239,6 +239,16 @@ type
 /// </summary>
 function DetermineDeviceType(AClassOfDevice: Cardinal): TBluetoothDeviceType;
 
+/// <summary>
+/// Converts a 64-bit integer address to TBluetoothAddress byte array (little-endian).
+/// </summary>
+function UInt64ToBluetoothAddress(AValue: UInt64): TBluetoothAddress;
+
+/// <summary>
+/// Converts a TBluetoothAddress byte array to 64-bit integer (little-endian).
+/// </summary>
+function BluetoothAddressToUInt64(const AAddress: TBluetoothAddress): UInt64;
+
 implementation
 
 { TBluetoothDeviceInfo }
@@ -413,6 +423,26 @@ begin
   else
     Result := btUnknown;
   end;
+end;
+
+function UInt64ToBluetoothAddress(AValue: UInt64): TBluetoothAddress;
+begin
+  Result[0] := Byte(AValue);
+  Result[1] := Byte(AValue shr 8);
+  Result[2] := Byte(AValue shr 16);
+  Result[3] := Byte(AValue shr 24);
+  Result[4] := Byte(AValue shr 32);
+  Result[5] := Byte(AValue shr 40);
+end;
+
+function BluetoothAddressToUInt64(const AAddress: TBluetoothAddress): UInt64;
+begin
+  Result := UInt64(AAddress[0]) or
+            (UInt64(AAddress[1]) shl 8) or
+            (UInt64(AAddress[2]) shl 16) or
+            (UInt64(AAddress[3]) shl 24) or
+            (UInt64(AAddress[4]) shl 32) or
+            (UInt64(AAddress[5]) shl 40);
 end;
 
 end.

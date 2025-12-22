@@ -951,19 +951,9 @@ function CreateTestDevice(
   ADeviceType: TBluetoothDeviceType;
   AConnectionState: TBluetoothConnectionState
 ): TBluetoothDeviceInfo;
-var
-  Address: TBluetoothAddress;
 begin
-  // Convert UInt64 to byte array (little-endian)
-  Address[0] := Byte(AAddressInt);
-  Address[1] := Byte(AAddressInt shr 8);
-  Address[2] := Byte(AAddressInt shr 16);
-  Address[3] := Byte(AAddressInt shr 24);
-  Address[4] := Byte(AAddressInt shr 32);
-  Address[5] := Byte(AAddressInt shr 40);
-
   Result := TBluetoothDeviceInfo.Create(
-    Address,
+    UInt64ToBluetoothAddress(AAddressInt),
     AAddressInt,
     AName,
     ADeviceType,
