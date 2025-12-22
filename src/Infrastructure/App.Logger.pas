@@ -16,6 +16,12 @@ uses
   System.Classes,
   System.SyncObjs;
 
+type
+  /// <summary>
+  /// Exception raised when logging fails.
+  /// </summary>
+  ELoggerError = class(Exception);
+
 /// <summary>
 /// Logs a message to the log file.
 /// </summary>
@@ -120,34 +126,38 @@ begin
 
   GLock.Enter;
   try
-    // Determine if we should create a new file or append
-    // On first log of session: create new if not append mode
-    // After first log: always append
-    CreateNew := (not GSessionStarted) and (not GAppendMode);
-
-    AssignFile(FileHandle, GLogFile);
     try
-      if CreateNew or (not FileExists(GLogFile)) then
-      begin
-        Rewrite(FileHandle);
-        // Write session header
-        WriteLn(FileHandle, '=== Bluetooth Quick Connect Log ===');
-        WriteLn(FileHandle, Format('=== Session started: %s ===', [
-          FormatDateTime('yyyy-mm-dd hh:nn:ss', Now)]));
-        WriteLn(FileHandle, '');
-      end
-      else
-        Append(FileHandle);
+      // Determine if we should create a new file or append
+      // On first log of session: create new if not append mode
+      // After first log: always append
+      CreateNew := (not GSessionStarted) and (not GAppendMode);
 
-      WriteLn(FileHandle, LogLine);
-      GSessionStarted := True;
-    finally
-      CloseFile(FileHandle);
+      AssignFile(FileHandle, GLogFile);
+      try
+        if CreateNew or (not FileExists(GLogFile)) then
+        begin
+          Rewrite(FileHandle);
+          // Write session header
+          WriteLn(FileHandle, '=== Bluetooth Quick Connect Log ===');
+          WriteLn(FileHandle, Format('=== Session started: %s ===', [
+            FormatDateTime('yyyy-mm-dd hh:nn:ss', Now)]));
+          WriteLn(FileHandle, '');
+        end
+        else
+          Append(FileHandle);
+
+        WriteLn(FileHandle, LogLine);
+        GSessionStarted := True;
+      finally
+        CloseFile(FileHandle);
+      end;
+    except
+      on E: Exception do
+        raise ELoggerError.CreateFmt('Failed to write to log file "%s": %s', [GLogFile, E.Message]);
     end;
-  except
-    // Silently ignore logging errors
+  finally
+    GLock.Leave;
   end;
-  GLock.Leave;
 end;
 
 procedure Log(const AFormat: string; const AArgs: array of const);
