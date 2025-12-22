@@ -126,7 +126,7 @@ uses
   ShellAPI,
   App.Logger,
   App.ConfigInterfaces,
-  App.Config,
+  App.Bootstrap,
   App.SettingsPresenter,
   UI.WindowPositioner,
   SettingsForm;
@@ -137,8 +137,8 @@ uses
 
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
-  // Load configuration early
-  Config;
+  // Load configuration early via Bootstrap
+  Bootstrap;
 
   Log('[MainForm] FormCreate: Starting');
 
@@ -151,7 +151,7 @@ begin
   ApplyWindowSize;
 
   // Apply window position (depends on size being set)
-  if Config.WindowMode = wmMenu then
+  if Bootstrap.GeneralConfig.WindowMode = wmMenu then
   begin
     // Menu mode: start hidden off-screen, position will be set on show
     Position := poDesigned;
@@ -167,15 +167,15 @@ begin
   end;
 
   // Apply OnTop setting
-  if Config.OnTop or (Config.WindowMode = wmMenu) then
+  if Bootstrap.GeneralConfig.OnTop or (Bootstrap.GeneralConfig.WindowMode = wmMenu) then
   begin
     FormStyle := fsStayOnTop;
     Log('[MainForm] FormCreate: OnTop enabled');
   end;
 
   // Load external VCL styles and apply configured theme
-  Theme.LoadStylesFromDirectory(Config.VsfDir);
-  Theme.SetStyle(Config.Theme);
+  Theme.LoadStylesFromDirectory(Bootstrap.AppearanceConfig.VsfDir);
+  Theme.SetStyle(Bootstrap.AppearanceConfig.Theme);
 
   // Subscribe to application deactivation
   Application.OnDeactivate := HandleApplicationDeactivate;
@@ -190,7 +190,7 @@ begin
   FTrayManager.OnExitRequest := HandleTrayExitRequest;
 
   // Apply configuration to device list
-  FDeviceList.ShowAddresses := Config.ShowAddresses;
+  FDeviceList.ShowAddresses := Bootstrap.AppearanceConfig.ShowAddresses;
 
   // Create and initialize presenter
   FPresenter := TMainPresenter.Create(Self);
@@ -199,13 +199,13 @@ begin
   // Create and register global hotkey
   FHotkeyManager := THotkeyManager.Create;
   FHotkeyManager.OnHotkeyTriggered := HandleHotkeyTriggered;
-  FHotkeyManager.Register(Handle, Config.Hotkey, Config.UseLowLevelHook);
+  FHotkeyManager.Register(Handle, Bootstrap.HotkeyConfig.Hotkey, Bootstrap.HotkeyConfig.UseLowLevelHook);
 
   // Hide from taskbar in Menu mode
   ApplyMenuModeTaskbarHide;
 
   // In Menu mode, start hidden
-  if Config.WindowMode = wmMenu then
+  if Bootstrap.GeneralConfig.WindowMode = wmMenu then
   begin
     Log('[MainForm] FormCreate: Menu mode, starting hidden');
     Application.ShowMainForm := False;
@@ -220,10 +220,10 @@ begin
   // Save window position and size (always save, applies when PositionMode=0)
   if WindowState = wsNormal then
   begin
-    Config.PositionX := Left;
-    Config.PositionY := Top;
-    Config.PositionW := Width;
-    Config.PositionH := Height;
+    Bootstrap.PositionConfig.PositionX := Left;
+    Bootstrap.PositionConfig.PositionY := Top;
+    Bootstrap.PositionConfig.PositionW := Width;
+    Bootstrap.PositionConfig.PositionH := Height;
     Log('[MainForm] FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d',
       [Left, Top, Width, Height]);
   end;
@@ -275,7 +275,7 @@ end;
 
 procedure TFormMain.ApplyWindowMode;
 begin
-  if Config.WindowMode = wmMenu then
+  if Bootstrap.GeneralConfig.WindowMode = wmMenu then
   begin
     BorderStyle := bsNone;
     BorderIcons := [];
@@ -293,7 +293,7 @@ procedure TFormMain.ApplyMenuModeTaskbarHide;
 var
   ExStyle: LONG_PTR;
 begin
-  if Config.WindowMode = wmMenu then
+  if Bootstrap.GeneralConfig.WindowMode = wmMenu then
   begin
     ExStyle := GetWindowLongPtr(Handle, GWL_EXSTYLE);
     ExStyle := ExStyle or WS_EX_TOOLWINDOW;
@@ -305,7 +305,7 @@ end;
 
 procedure TFormMain.ApplyWindowPosition;
 begin
-  TWindowPositioner.PositionWindow(Self, Config.PositionMode);
+  TWindowPositioner.PositionWindow(Self, Bootstrap.PositionConfig.PositionMode);
 end;
 
 procedure TFormMain.ApplyWindowSize;
@@ -313,23 +313,23 @@ var
   NewWidth, NewHeight: Integer;
 begin
   // Check if auto-sizing is requested (-1 means auto)
-  if (Config.PositionW < 0) or (Config.PositionH < 0) then
+  if (Bootstrap.PositionConfig.PositionW < 0) or (Bootstrap.PositionConfig.PositionH < 0) then
   begin
     CalculateAutoSize(NewWidth, NewHeight);
-    if Config.PositionW < 0 then
+    if Bootstrap.PositionConfig.PositionW < 0 then
       Width := NewWidth
     else
-      Width := Config.PositionW;
-    if Config.PositionH < 0 then
+      Width := Bootstrap.PositionConfig.PositionW;
+    if Bootstrap.PositionConfig.PositionH < 0 then
       Height := NewHeight
     else
-      Height := Config.PositionH;
+      Height := Bootstrap.PositionConfig.PositionH;
     Log('[MainForm] ApplyWindowSize: Auto-calculated W=%d, H=%d', [Width, Height]);
   end
-  else if (Config.PositionW > 0) and (Config.PositionH > 0) then
+  else if (Bootstrap.PositionConfig.PositionW > 0) and (Bootstrap.PositionConfig.PositionH > 0) then
   begin
-    Width := Config.PositionW;
-    Height := Config.PositionH;
+    Width := Bootstrap.PositionConfig.PositionW;
+    Height := Bootstrap.PositionConfig.PositionH;
     Log('[MainForm] ApplyWindowSize: Restored W=%d, H=%d', [Width, Height]);
   end;
   // else: use default form dimensions from DFM
@@ -359,19 +359,19 @@ begin
 
   // Re-register hotkey (unregister first, then register with new settings)
   FHotkeyManager.Unregister;
-  FHotkeyManager.Register(Handle, Config.Hotkey, Config.UseLowLevelHook);
-  Log('[MainForm] ApplyAllSettings: Hotkey re-registered: %s', [Config.Hotkey]);
+  FHotkeyManager.Register(Handle, Bootstrap.HotkeyConfig.Hotkey, Bootstrap.HotkeyConfig.UseLowLevelHook);
+  Log('[MainForm] ApplyAllSettings: Hotkey re-registered: %s', [Bootstrap.HotkeyConfig.Hotkey]);
 
   // Reload styles from directory (loads any new styles, skips already loaded)
-  Theme.LoadStylesFromDirectory(Config.VsfDir);
+  Theme.LoadStylesFromDirectory(Bootstrap.AppearanceConfig.VsfDir);
 
   // Apply theme
-  Theme.SetStyle(Config.Theme);
+  Theme.SetStyle(Bootstrap.AppearanceConfig.Theme);
   ApplyTheme;
-  Log('[MainForm] ApplyAllSettings: Theme applied: %s', [Config.Theme]);
+  Log('[MainForm] ApplyAllSettings: Theme applied: %s', [Bootstrap.AppearanceConfig.Theme]);
 
   // Apply window mode (border style and icons)
-  if Config.WindowMode = wmMenu then
+  if Bootstrap.GeneralConfig.WindowMode = wmMenu then
   begin
     BorderStyle := bsNone;
     BorderIcons := [];
@@ -387,7 +387,7 @@ begin
   // Apply taskbar visibility based on window mode
   // Must hide window before changing style, then show again to update taskbar
   ExStyle := GetWindowLongPtr(Handle, GWL_EXSTYLE);
-  if Config.WindowMode = wmMenu then
+  if Bootstrap.GeneralConfig.WindowMode = wmMenu then
   begin
     ShowWindow(Handle, SW_HIDE);
     ExStyle := ExStyle or WS_EX_TOOLWINDOW;
@@ -406,16 +406,16 @@ begin
   Log('[MainForm] ApplyAllSettings: Taskbar visibility updated');
 
   // Apply OnTop setting
-  if Config.OnTop or (Config.WindowMode = wmMenu) then
+  if Bootstrap.GeneralConfig.OnTop or (Bootstrap.GeneralConfig.WindowMode = wmMenu) then
     FormStyle := fsStayOnTop
   else
     FormStyle := fsNormal;
-  Log('[MainForm] ApplyAllSettings: OnTop=%s', [BoolToStr(Config.OnTop, True)]);
+  Log('[MainForm] ApplyAllSettings: OnTop=%s', [BoolToStr(Bootstrap.GeneralConfig.OnTop, True)]);
 
   // Apply ShowAddresses to device list
   if FDeviceList <> nil then
   begin
-    FDeviceList.ShowAddresses := Config.ShowAddresses;
+    FDeviceList.ShowAddresses := Bootstrap.AppearanceConfig.ShowAddresses;
     FDeviceList.Invalidate;
   end;
 
@@ -499,7 +499,7 @@ end;
 
 procedure TFormMain.HandleApplicationDeactivate(Sender: TObject);
 begin
-  if (Config.WindowMode = wmMenu) and Config.MenuHideOnFocusLoss and Visible then
+  if (Bootstrap.GeneralConfig.WindowMode = wmMenu) and Bootstrap.WindowConfig.MenuHideOnFocusLoss and Visible then
   begin
     Log('[MainForm] HandleApplicationDeactivate: Hiding to tray');
     HideView;
@@ -508,7 +508,7 @@ end;
 
 procedure TFormMain.FormDeactivate(Sender: TObject);
 begin
-  if (Config.WindowMode = wmMenu) and Config.MenuHideOnFocusLoss then
+  if (Bootstrap.GeneralConfig.WindowMode = wmMenu) and Bootstrap.WindowConfig.MenuHideOnFocusLoss then
   begin
     Log('[MainForm] FormDeactivate: Hiding to tray');
     HideView;
@@ -614,7 +614,7 @@ begin
   // Position window based on PositionMode
   // In Menu mode or for modes 1-3 (tray/cursor/center), always reposition
   // In Window mode with mode 0 (coordinates), use saved position
-  if (Config.WindowMode = wmMenu) or (Config.PositionMode <> pmCoordinates) then
+  if (Bootstrap.GeneralConfig.WindowMode = wmMenu) or (Bootstrap.PositionConfig.PositionMode <> pmCoordinates) then
     ApplyWindowPosition;
 
   Show;
@@ -663,7 +663,7 @@ procedure TFormMain.WMDpiChanged(var Msg: TMessage);
 begin
   inherited;
 
-  if (Config.WindowMode = wmMenu) and Visible then
+  if (Bootstrap.GeneralConfig.WindowMode = wmMenu) and Visible then
   begin
     Log('[MainForm] WMDpiChanged: Repositioning window');
     ApplyWindowPosition;
@@ -674,7 +674,7 @@ procedure TFormMain.WMSysCommand(var Msg: TWMSysCommand);
 begin
   if (Msg.CmdType and $FFF0) = SC_MINIMIZE then
   begin
-    if Config.MinimizeToTray then
+    if Bootstrap.WindowConfig.MinimizeToTray then
     begin
       Log('[MainForm] WMSysCommand: Minimizing to tray');
       HideView;

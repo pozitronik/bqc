@@ -20,8 +20,7 @@ uses
   Vcl.ComCtrls,
   Vcl.ExtCtrls,
   Vcl.Graphics,
-  App.ConfigInterfaces,
-  App.Config;
+  App.ConfigInterfaces;
 
 type
   /// <summary>
@@ -171,6 +170,8 @@ uses
   System.DateUtils,
   Vcl.Forms,
   App.Logger,
+  App.Config,
+  App.Bootstrap,
   UI.Theme,
   Bluetooth.Types;
 
@@ -423,10 +424,10 @@ begin
   FListDevices.Items.Clear;
   FDeviceAddresses.Clear;
 
-  Addresses := Config.GetConfiguredDeviceAddresses;
+  Addresses := Bootstrap.DeviceConfigProvider.GetConfiguredDeviceAddresses;
   for Address in Addresses do
   begin
-    DeviceConfig := Config.GetDeviceConfig(Address);
+    DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
     // Show device name with address: "DeviceName (XX:XX:XX:XX:XX:XX)"
     if DeviceConfig.Name <> '' then
       DisplayName := Format('%s (%s)', [DeviceConfig.Name, FormatAddress(Address)])
@@ -480,7 +481,7 @@ begin
   if (AIndex < 0) or (AIndex >= FDeviceAddresses.Count) then Exit;
 
   Address := FDeviceAddresses[AIndex];
-  DeviceConfig := Config.GetDeviceConfig(Address);
+  DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
 
   if FLabelDeviceAddressValue <> nil then
     FLabelDeviceAddressValue.Caption := FormatAddress(Address);
@@ -533,7 +534,7 @@ begin
     Exit;
 
   Address := FDeviceAddresses[AIndex];
-  DeviceConfig := Config.GetDeviceConfig(Address);
+  DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
 
   if FEditDeviceAlias <> nil then
     DeviceConfig.Alias := FEditDeviceAlias.Text;
@@ -567,7 +568,7 @@ begin
   if FComboDeviceNotifyAuto <> nil then
     DeviceConfig.Notifications.OnAutoConnect := FComboDeviceNotifyAuto.ItemIndex - 1;
 
-  Config.SetDeviceConfig(DeviceConfig);
+  Bootstrap.DeviceConfigProvider.SetDeviceConfig(DeviceConfig);
 end;
 
 procedure TSettingsPresenter.LoadSettings;
@@ -809,7 +810,7 @@ begin
       Config.ItemBorderColor := Integer(FShapeBorderColor.Brush.Color);
 
     // Save configuration to file
-    Config.Save;
+    Bootstrap.AppConfig.Save;
     FModified := False;
     Log('[SettingsPresenter] SaveSettings: Success');
 
@@ -876,7 +877,7 @@ begin
   if (AIndex >= 0) and (AIndex < FDeviceAddresses.Count) then
   begin
     Address := FDeviceAddresses[AIndex];
-    Config.RemoveDeviceConfig(Address);
+    Bootstrap.DeviceConfigProvider.RemoveDeviceConfig(Address);
     FSelectedDeviceIndex := -1;
     LoadDeviceList;
   end;
@@ -893,11 +894,11 @@ begin
   Log('[SettingsPresenter] OnResetDefaultsClicked');
   try
     // Delete config file
-    if FileExists(Config.ConfigPath) then
-      System.SysUtils.DeleteFile(Config.ConfigPath);
+    if FileExists(Bootstrap.AppConfig.ConfigPath) then
+      System.SysUtils.DeleteFile(Bootstrap.AppConfig.ConfigPath);
 
     // Reload defaults
-    Config.Load;
+    Bootstrap.AppConfig.Load;
     LoadSettings;
 
     FView.ShowInfo('Settings have been reset to defaults.');

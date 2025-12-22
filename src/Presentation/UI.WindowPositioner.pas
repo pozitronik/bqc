@@ -15,8 +15,7 @@ uses
   Winapi.Windows,
   System.SysUtils,
   Vcl.Forms,
-  App.ConfigInterfaces,
-  App.Config;
+  App.ConfigInterfaces;
 
 type
   /// <summary>
@@ -47,7 +46,8 @@ implementation
 
 uses
   Vcl.Controls,
-  App.Logger;
+  App.Logger,
+  App.Bootstrap;
 
 const
   // Windows Shell class name for taskbar
@@ -107,10 +107,10 @@ begin
     pmCoordinates:
       begin
         // Use saved coordinates from config
-        if (Config.PositionX >= 0) and (Config.PositionY >= 0) then
+        if (Bootstrap.PositionConfig.PositionX >= 0) and (Bootstrap.PositionConfig.PositionY >= 0) then
         begin
-          NewLeft := Config.PositionX;
-          NewTop := Config.PositionY;
+          NewLeft := Bootstrap.PositionConfig.PositionX;
+          NewTop := Bootstrap.PositionConfig.PositionY;
           Log('[WindowPositioner] Using saved coordinates X=%d, Y=%d', [NewLeft, NewTop]);
         end
         else

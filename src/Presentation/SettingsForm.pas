@@ -267,7 +267,7 @@ uses
   Vcl.FileCtrl,
   App.Logger,
   App.ConfigInterfaces,
-  App.Config;
+  App.Bootstrap;
 
 {$R *.dfm}
 
@@ -630,14 +630,14 @@ end;
 
 procedure TFormSettings.ButtonOpenConfigClick(Sender: TObject);
 begin
-  ShellExecute(0, 'open', PChar(Config.ConfigPath), nil, nil, SW_SHOWNORMAL);
+  ShellExecute(0, 'open', PChar(Bootstrap.AppConfig.ConfigPath), nil, nil, SW_SHOWNORMAL);
 end;
 
 procedure TFormSettings.ButtonOpenLogFileClick(Sender: TObject);
 var
   LogPath: string;
 begin
-  LogPath := Config.LogFilename;
+  LogPath := Bootstrap.LogConfig.LogFilename;
   if ExtractFilePath(LogPath) = '' then
     LogPath := ExtractFilePath(ParamStr(0)) + LogPath;
 

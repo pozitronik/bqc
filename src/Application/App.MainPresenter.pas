@@ -217,7 +217,7 @@ implementation
 uses
   App.Logger,
   App.ConfigInterfaces,
-  App.Config,
+  App.Bootstrap,
   Bluetooth.Service;
 
 { TMainPresenter }
@@ -341,11 +341,11 @@ begin
         I, FDevices[I].AddressInt, FDevices[I].Name, BoolToStr(FDevices[I].IsConnected, True)
       ]);
       // Register device with current timestamp
-      Config.RegisterDevice(FDevices[I].AddressInt, FDevices[I].Name, Now);
+      Bootstrap.DeviceConfigProvider.RegisterDevice(FDevices[I].AddressInt, FDevices[I].Name, Now);
     end;
 
     // Save config if any new devices were registered
-    Config.SaveIfModified;
+    Bootstrap.AppConfig.SaveIfModified;
 
     FView.ShowDevices(FDevices);
 
@@ -376,7 +376,7 @@ begin
   for I := 0 to High(FDevices) do
   begin
     Device := FDevices[I];
-    DeviceConfig := Config.GetDeviceConfig(Device.AddressInt);
+    DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Device.AddressInt);
 
     if not DeviceConfig.AutoConnect then
       Continue;
@@ -496,7 +496,7 @@ end;
 
 function TMainPresenter.GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
 begin
-  Result := Config.GetDeviceConfig(ADevice.AddressInt).Alias;
+  Result := Bootstrap.DeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt).Alias;
   if Result = '' then
     Result := ADevice.Name;
 end;
@@ -511,19 +511,19 @@ begin
   case ADevice.ConnectionState of
     csConnected:
       begin
-        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, neConnect);
+        NotifyMode := Bootstrap.DeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnect);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Connected', nfInfo);
       end;
     csDisconnected:
       begin
-        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, neDisconnect);
+        NotifyMode := Bootstrap.DeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neDisconnect);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Disconnected', nfInfo);
       end;
     csError:
       begin
-        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, neConnectFailed);
+        NotifyMode := Bootstrap.DeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnectFailed);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Connection failed', nfError);
       end;
@@ -583,8 +583,8 @@ begin
       end;
 
       // Update LastSeen timestamp in persistent config
-      Config.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
-      Config.SaveIfModified;
+      Bootstrap.DeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
+      Bootstrap.AppConfig.SaveIfModified;
 
       FView.ShowStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
       ShowDeviceNotification(LDevice);
@@ -666,7 +666,7 @@ begin
     FView.ShowStatus(Format('Connecting %s...', [ADevice.Name]));
 
   // In Menu mode, hide immediately after device click
-  if Config.WindowMode = wmMenu then
+  if Bootstrap.GeneralConfig.WindowMode = wmMenu then
   begin
     Log('[MainPresenter] OnDeviceClicked: Menu mode, hiding view');
     FView.HideView;
@@ -720,7 +720,7 @@ end;
 
 function TMainPresenter.CanClose: Boolean;
 begin
-  Result := not Config.CloseToTray;
+  Result := not Bootstrap.WindowConfig.CloseToTray;
 end;
 
 end.
