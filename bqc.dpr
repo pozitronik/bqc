@@ -19,6 +19,7 @@ uses
   App.Logger in 'src\Infrastructure\App.Logger.pas',
   App.ConfigInterfaces in 'src\Infrastructure\App.ConfigInterfaces.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',
+  App.Bootstrap in 'src\Infrastructure\App.Bootstrap.pas',
   App.Autostart in 'src\Infrastructure\App.Autostart.pas',
   UI.Theme in 'src\Presentation\UI.Theme.pas',
   UI.DeviceList in 'src\Presentation\UI.DeviceList.pas',
