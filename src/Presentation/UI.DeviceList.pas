@@ -20,8 +20,6 @@ uses
   System.SysUtils,
   System.Classes,
   System.Types,
-  System.Generics.Collections,
-  System.Generics.Defaults,
   Vcl.Controls,
   Vcl.Graphics,
   Vcl.Forms,
@@ -34,40 +32,80 @@ type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
 
   /// <summary>
+  /// Pre-processed display item for device list rendering.
+  /// Contains all data needed for display without further config lookups.
+  /// Created by presenter, consumed by view (Information Expert pattern).
+  /// </summary>
+  TDeviceDisplayItem = record
+    /// <summary>Original device data from Bluetooth service.</summary>
+    Device: TBluetoothDeviceInfo;
+
+    /// <summary>Display name (alias if set, otherwise device name).</summary>
+    DisplayName: string;
+
+    /// <summary>Whether device is pinned to top of list.</summary>
+    IsPinned: Boolean;
+
+    /// <summary>Effective device type (override or auto-detected).</summary>
+    EffectiveDeviceType: TBluetoothDeviceType;
+
+    /// <summary>Pre-formatted last seen text based on appearance config.</summary>
+    LastSeenText: string;
+
+    /// <summary>Raw last seen value for sorting.</summary>
+    LastSeen: TDateTime;
+
+    /// <summary>Sort group: 0=Pinned, 1=Connected (not pinned), 2=Disconnected.</summary>
+    SortGroup: Integer;
+
+    /// <summary>Creates a display item from device and config data.</summary>
+    class function Create(const ADevice: TBluetoothDeviceInfo;
+      const ADisplayName: string; AIsPinned: Boolean;
+      AEffectiveDeviceType: TBluetoothDeviceType;
+      const ALastSeenText: string; ALastSeen: TDateTime;
+      ASortGroup: Integer): TDeviceDisplayItem; static;
+  end;
+
+  TDeviceDisplayItemArray = TArray<TDeviceDisplayItem>;
+
+  TDeviceDisplayItemClickEvent = procedure(Sender: TObject;
+    const AItem: TDeviceDisplayItem) of object;
+
+  /// <summary>
   /// Custom device list control with owner-draw rendering.
+  /// Displays pre-processed TDeviceDisplayItem records.
   /// </summary>
   TDeviceListBox = class(TCustomControl)
   private
-    FDevices: TList<TBluetoothDeviceInfo>;
+    FDisplayItems: TDeviceDisplayItemArray;
     FHoverIndex: Integer;
     FSelectedIndex: Integer;
     FScrollPos: Integer;
     FMaxScroll: Integer;
     FShowAddresses: Boolean;
     FOnDeviceClick: TDeviceClickEvent;
+    FOnDisplayItemClick: TDeviceDisplayItemClickEvent;
     FOnSelectionChanged: TNotifyEvent;
 
-    // Injected configuration interfaces
+    // Injected configuration interfaces (for layout/appearance only)
     FLayoutConfig: ILayoutConfig;
     FAppearanceConfig: IAppearanceConfig;
-    FDeviceConfigProvider: IDeviceConfigProvider;
 
     function GetLayoutConfig: ILayoutConfig;
     function GetAppearanceConfig: IAppearanceConfig;
-    function GetDeviceConfigProvider: IDeviceConfigProvider;
 
     procedure SetShowAddresses(AValue: Boolean);
-
     procedure SetSelectedIndex(AValue: Integer);
     function GetDevice(AIndex: Integer): TBluetoothDeviceInfo;
     function GetDeviceCount: Integer;
+    function GetItemCount: Integer;
     function GetItemRect(AIndex: Integer): TRect;
     function ItemAtPos(X, Y: Integer): Integer;
     procedure UpdateScrollRange;
     procedure ScrollTo(APos: Integer);
 
-    procedure DrawDevice(ACanvas: TCanvas; const ARect: TRect;
-      const ADevice: TBluetoothDeviceInfo; AIsHover, AIsSelected: Boolean);
+    procedure DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
+      const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
     procedure DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
       ADeviceType: TBluetoothDeviceType);
     function GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Char;
@@ -95,10 +133,10 @@ type
     destructor Destroy; override;
 
     procedure Clear;
-    procedure AddDevice(const ADevice: TBluetoothDeviceInfo);
-    procedure UpdateDevice(const ADevice: TBluetoothDeviceInfo);
-    procedure SetDevices(const ADevices: TBluetoothDeviceInfoArray);
+    procedure SetDisplayItems(const AItems: TDeviceDisplayItemArray);
+    procedure UpdateDisplayItem(const AItem: TDeviceDisplayItem);
     function GetSelectedDevice: TBluetoothDeviceInfo;
+    function GetSelectedDisplayItem: TDeviceDisplayItem;
     procedure EnsureVisible(AIndex: Integer);
 
     property Devices[AIndex: Integer]: TBluetoothDeviceInfo read GetDevice;
@@ -106,12 +144,12 @@ type
     property SelectedIndex: Integer read FSelectedIndex write SetSelectedIndex;
     property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
     property OnDeviceClick: TDeviceClickEvent read FOnDeviceClick write FOnDeviceClick;
+    property OnDisplayItemClick: TDeviceDisplayItemClickEvent read FOnDisplayItemClick write FOnDisplayItemClick;
     property OnSelectionChanged: TNotifyEvent read FOnSelectionChanged write FOnSelectionChanged;
 
     // Dependency injection properties (optional - uses Bootstrap fallback if not set)
     property LayoutConfig: ILayoutConfig read GetLayoutConfig write FLayoutConfig;
     property AppearanceConfig: IAppearanceConfig read GetAppearanceConfig write FAppearanceConfig;
-    property DeviceConfigProvider: IDeviceConfigProvider read GetDeviceConfigProvider write FDeviceConfigProvider;
 
   published
     property Align;
@@ -128,7 +166,6 @@ implementation
 
 uses
   System.Math,
-  System.DateUtils,
   App.Bootstrap;
 
 const
@@ -158,12 +195,29 @@ const
   DEFAULT_CONTROL_WIDTH = 300;
   DEFAULT_CONTROL_HEIGHT = 400;
 
+{ TDeviceDisplayItem }
+
+class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
+  const ADisplayName: string; AIsPinned: Boolean;
+  AEffectiveDeviceType: TBluetoothDeviceType;
+  const ALastSeenText: string; ALastSeen: TDateTime;
+  ASortGroup: Integer): TDeviceDisplayItem;
+begin
+  Result.Device := ADevice;
+  Result.DisplayName := ADisplayName;
+  Result.IsPinned := AIsPinned;
+  Result.EffectiveDeviceType := AEffectiveDeviceType;
+  Result.LastSeenText := ALastSeenText;
+  Result.LastSeen := ALastSeen;
+  Result.SortGroup := ASortGroup;
+end;
+
 { TDeviceListBox }
 
 constructor TDeviceListBox.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FDevices := TList<TBluetoothDeviceInfo>.Create;
+  FDisplayItems := nil;
   FHoverIndex := -1;
   FSelectedIndex := -1;
   FScrollPos := 0;
@@ -191,13 +245,6 @@ begin
   Result := FAppearanceConfig;
 end;
 
-function TDeviceListBox.GetDeviceConfigProvider: IDeviceConfigProvider;
-begin
-  if FDeviceConfigProvider = nil then
-    FDeviceConfigProvider := Bootstrap.DeviceConfigProvider;
-  Result := FDeviceConfigProvider;
-end;
-
 procedure TDeviceListBox.SetShowAddresses(AValue: Boolean);
 begin
   if FShowAddresses <> AValue then
@@ -209,7 +256,6 @@ end;
 
 destructor TDeviceListBox.Destroy;
 begin
-  FDevices.Free;
   inherited Destroy;
 end;
 
@@ -227,7 +273,7 @@ end;
 
 procedure TDeviceListBox.Clear;
 begin
-  FDevices.Clear;
+  FDisplayItems := nil;
   FHoverIndex := -1;
   FSelectedIndex := -1;
   FScrollPos := 0;
@@ -235,157 +281,73 @@ begin
   Invalidate;
 end;
 
-procedure TDeviceListBox.AddDevice(const ADevice: TBluetoothDeviceInfo);
-begin
-  // Skip devices with empty names
-  if Trim(ADevice.Name) = '' then
-    Exit;
-
-  FDevices.Add(ADevice);
-  UpdateScrollRange;
-  Invalidate;
-end;
-
-procedure TDeviceListBox.UpdateDevice(const ADevice: TBluetoothDeviceInfo);
-var
-  I: Integer;
-begin
-  // Skip devices with empty names
-  if Trim(ADevice.Name) = '' then
-    Exit;
-
-  for I := 0 to FDevices.Count - 1 do
-  begin
-    if FDevices[I].AddressInt = ADevice.AddressInt then
-    begin
-      FDevices[I] := ADevice;
-      Invalidate;
-      Exit;
-    end;
-  end;
-end;
-
-procedure TDeviceListBox.SetDevices(const ADevices: TBluetoothDeviceInfoArray);
-var
-  Device: TBluetoothDeviceInfo;
-  DeviceConfig: TDeviceConfig;
-begin
-  FDevices.Clear;
-  for Device in ADevices do
-  begin
-    // Skip devices with empty names
-    if Trim(Device.Name) = '' then
-      Continue;
-
-    // Skip hidden devices
-    DeviceConfig := DeviceConfigProvider.GetDeviceConfig(Device.AddressInt);
-    if DeviceConfig.Hidden then
-      Continue;
-
-    FDevices.Add(Device);
-  end;
-
-  // Sort devices: Pinned -> Connected -> Disconnected
-  // Within each group: LastSeen (most recent first) -> Name -> MAC
-  FDevices.Sort(TComparer<TBluetoothDeviceInfo>.Construct(
-    function(const Left, Right: TBluetoothDeviceInfo): Integer
-    var
-      LeftConfig, RightConfig: TDeviceConfig;
-      LeftPinned, RightPinned: Boolean;
-      LeftConnected, RightConnected: Boolean;
-      LeftGroup, RightGroup: Integer;
-      LeftName, RightName: string;
-    begin
-      LeftConfig := Self.DeviceConfigProvider.GetDeviceConfig(Left.AddressInt);
-      RightConfig := Self.DeviceConfigProvider.GetDeviceConfig(Right.AddressInt);
-      LeftPinned := LeftConfig.Pinned;
-      RightPinned := RightConfig.Pinned;
-      LeftConnected := Left.IsConnected;
-      RightConnected := Right.IsConnected;
-
-      // Determine group: 0=Pinned, 1=Connected (not pinned), 2=Disconnected (not pinned)
-      if LeftPinned then
-        LeftGroup := 0
-      else if LeftConnected then
-        LeftGroup := 1
-      else
-        LeftGroup := 2;
-
-      if RightPinned then
-        RightGroup := 0
-      else if RightConnected then
-        RightGroup := 1
-      else
-        RightGroup := 2;
-
-      // Compare groups first
-      Result := LeftGroup - RightGroup;
-      if Result <> 0 then
-        Exit;
-
-      // Within same group, sort by LastSeen (most recent first)
-      if LeftConfig.LastSeen > RightConfig.LastSeen then
-        Result := -1
-      else if LeftConfig.LastSeen < RightConfig.LastSeen then
-        Result := 1
-      else
-      begin
-        // Same LastSeen, sort by display name (alias if set, otherwise original name)
-        if LeftConfig.Alias <> '' then
-          LeftName := LeftConfig.Alias
-        else
-          LeftName := Left.Name;
-        if RightConfig.Alias <> '' then
-          RightName := RightConfig.Alias
-        else
-          RightName := Right.Name;
-        Result := CompareText(LeftName, RightName);
-
-        // If names are also equal, sort by MAC address
-        if Result = 0 then
-        begin
-          if Left.AddressInt < Right.AddressInt then
-            Result := -1
-          else if Left.AddressInt > Right.AddressInt then
-            Result := 1;
-        end;
-      end;
-    end
-  ));
-
-  FHoverIndex := -1;
-  if FSelectedIndex >= FDevices.Count then
-    FSelectedIndex := -1;
-  FScrollPos := 0;
-  UpdateScrollRange;
-  Invalidate;
-end;
-
 function TDeviceListBox.GetDevice(AIndex: Integer): TBluetoothDeviceInfo;
 begin
-  if (AIndex >= 0) and (AIndex < FDevices.Count) then
-    Result := FDevices[AIndex]
+  if (AIndex >= 0) and (AIndex < Length(FDisplayItems)) then
+    Result := FDisplayItems[AIndex].Device
   else
     Result := Default(TBluetoothDeviceInfo);
 end;
 
 function TDeviceListBox.GetDeviceCount: Integer;
 begin
-  Result := FDevices.Count;
+  Result := Length(FDisplayItems);
 end;
 
 function TDeviceListBox.GetSelectedDevice: TBluetoothDeviceInfo;
 begin
-  if (FSelectedIndex >= 0) and (FSelectedIndex < FDevices.Count) then
-    Result := FDevices[FSelectedIndex]
+  if (FSelectedIndex >= 0) and (FSelectedIndex < Length(FDisplayItems)) then
+    Result := FDisplayItems[FSelectedIndex].Device
   else
     Result := Default(TBluetoothDeviceInfo);
 end;
 
-procedure TDeviceListBox.SetSelectedIndex(AValue: Integer);
+function TDeviceListBox.GetSelectedDisplayItem: TDeviceDisplayItem;
 begin
+  if (FSelectedIndex >= 0) and (FSelectedIndex < Length(FDisplayItems)) then
+    Result := FDisplayItems[FSelectedIndex]
+  else
+    Result := Default(TDeviceDisplayItem);
+end;
+
+function TDeviceListBox.GetItemCount: Integer;
+begin
+  Result := Length(FDisplayItems);
+end;
+
+procedure TDeviceListBox.SetDisplayItems(const AItems: TDeviceDisplayItemArray);
+begin
+  FDisplayItems := AItems;
+  FHoverIndex := -1;
+  if FSelectedIndex >= Length(FDisplayItems) then
+    FSelectedIndex := -1;
+  FScrollPos := 0;
+  UpdateScrollRange;
+  Invalidate;
+end;
+
+procedure TDeviceListBox.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
+var
+  I: Integer;
+begin
+  for I := 0 to High(FDisplayItems) do
+  begin
+    if FDisplayItems[I].Device.AddressInt = AItem.Device.AddressInt then
+    begin
+      FDisplayItems[I] := AItem;
+      Invalidate;
+      Exit;
+    end;
+  end;
+end;
+
+procedure TDeviceListBox.SetSelectedIndex(AValue: Integer);
+var
+  Count: Integer;
+begin
+  Count := GetItemCount;
   if AValue < -1 then AValue := -1;
-  if AValue >= FDevices.Count then AValue := FDevices.Count - 1;
+  if AValue >= Count then AValue := Count - 1;
 
   if FSelectedIndex <> AValue then
   begin
@@ -412,10 +374,11 @@ end;
 
 function TDeviceListBox.ItemAtPos(X, Y: Integer): Integer;
 var
-  I: Integer;
+  I, Count: Integer;
   R: TRect;
 begin
-  for I := 0 to FDevices.Count - 1 do
+  Count := GetItemCount;
+  for I := 0 to Count - 1 do
   begin
     R := GetItemRect(I);
     if PtInRect(R, Point(X, Y)) then
@@ -431,7 +394,7 @@ var
 begin
   ItemHeight := LayoutConfig.ItemHeight;
   ItemMargin := LayoutConfig.ItemMargin;
-  TotalHeight := FDevices.Count * (ItemHeight + ItemMargin) + ItemMargin;
+  TotalHeight := GetItemCount * (ItemHeight + ItemMargin) + ItemMargin;
   VisibleHeight := ClientHeight;
   FMaxScroll := Max(0, TotalHeight - VisibleHeight);
   if FScrollPos > FMaxScroll then
@@ -450,7 +413,7 @@ begin
 
   ItemHeight := LayoutConfig.ItemHeight;
   ItemMargin := LayoutConfig.ItemMargin;
-  TotalHeight := FDevices.Count * (ItemHeight + ItemMargin) + ItemMargin;
+  TotalHeight := GetItemCount * (ItemHeight + ItemMargin) + ItemMargin;
 
   SI.cbSize := SizeOf(TScrollInfo);
   SI.fMask := SIF_ALL;
@@ -479,7 +442,7 @@ var
   ItemTop, ItemBottom: Integer;
   ItemHeight, ItemMargin: Integer;
 begin
-  if (AIndex < 0) or (AIndex >= FDevices.Count) then
+  if (AIndex < 0) or (AIndex >= GetItemCount) then
     Exit;
 
   ItemHeight := LayoutConfig.ItemHeight;
@@ -544,7 +507,7 @@ end;
 
 procedure TDeviceListBox.Paint;
 var
-  I: Integer;
+  I, Count: Integer;
   R: TRect;
   IsHover, IsSelected: Boolean;
   Style: TCustomStyleServices;
@@ -556,7 +519,8 @@ begin
   Canvas.FillRect(ClientRect);
 
   // Draw items
-  for I := 0 to FDevices.Count - 1 do
+  Count := GetItemCount;
+  for I := 0 to Count - 1 do
   begin
     R := GetItemRect(I);
 
@@ -569,7 +533,7 @@ begin
     IsHover := (I = FHoverIndex);
     IsSelected := (I = FSelectedIndex);
 
-    DrawDevice(Canvas, R, FDevices[I], IsHover, IsSelected);
+    DrawDisplayItem(Canvas, R, FDisplayItems[I], IsHover, IsSelected);
   end;
 
   // Focus rectangle
@@ -585,56 +549,15 @@ begin
   end;
 end;
 
-function FormatLastSeenRelative(ALastSeen: TDateTime): string;
-var
-  Diff: TDateTime;
-  Days, Hours, Minutes: Integer;
-begin
-  if ALastSeen <= 0 then
-    Exit('Never');
-
-  Diff := Now - ALastSeen;
-  Days := Trunc(Diff);
-  Hours := HoursBetween(Now, ALastSeen);
-  Minutes := MinutesBetween(Now, ALastSeen);
-
-  if Minutes < 1 then
-    Result := 'Just now'
-  else if Minutes < 60 then
-    Result := Format('%d min ago', [Minutes])
-  else if Hours < 24 then
-    Result := Format('%d hr ago', [Hours])
-  else if Days = 1 then
-    Result := 'Yesterday'
-  else if Days < 7 then
-    Result := Format('%d days ago', [Days])
-  else if Days < 30 then
-    Result := Format('%d weeks ago', [Days div 7])
-  else if Days < 365 then
-    Result := Format('%d months ago', [Days div 30])
-  else
-    Result := Format('%d years ago', [Days div 365]);
-end;
-
-function FormatLastSeenAbsolute(ALastSeen: TDateTime): string;
-begin
-  if ALastSeen <= 0 then
-    Result := 'Never'
-  else
-    Result := FormatDateTime('yyyy-mm-dd hh:nn', ALastSeen);
-end;
-
-procedure TDeviceListBox.DrawDevice(ACanvas: TCanvas; const ARect: TRect;
-  const ADevice: TBluetoothDeviceInfo; AIsHover, AIsSelected: Boolean);
+procedure TDeviceListBox.DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
+  const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
 var
   BgColor: TColor;
   IconRect, TextRect: TRect;
-  StatusText, DisplayName, LastSeenText: string;
+  StatusText: string;
   NameLineTop, StatusLineTop: Integer;
   StatusLineHeight: Integer;
-  DeviceConfig: TDeviceConfig;
   Style: TCustomStyleServices;
-  EffectiveDeviceType: TBluetoothDeviceType;
   ItemPadding, IconSize, CornerRadius: Integer;
   DeviceNameFontSize, StatusFontSize, AddressFontSize: Integer;
   ShowDeviceIcons, ShowLastSeen: Boolean;
@@ -655,32 +578,13 @@ begin
   ItemBorderWidth := LayoutConfig.ItemBorderWidth;
   ItemBorderColor := TColor(LayoutConfig.ItemBorderColor);
 
-  // Get device-specific configuration
-  DeviceConfig := DeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt);
-
-  // Use alias if set, otherwise use device name
-  if DeviceConfig.Alias <> '' then
-    DisplayName := DeviceConfig.Alias
-  else
-    DisplayName := ADevice.Name;
-
   // Calculate status line height for bottom anchoring
   ACanvas.Font.Name := FONT_UI;
   ACanvas.Font.Size := StatusFontSize;
   StatusLineHeight := ACanvas.TextHeight('Ay');
 
-  // Simple anchored layout:
-  // - Top line anchored to top with padding
-  // - Bottom line anchored to bottom with padding
-  // No overlap detection - user controls layout via settings
   NameLineTop := ARect.Top + ItemPadding;
   StatusLineTop := ARect.Bottom - ItemPadding - StatusLineHeight;
-
-  // Determine effective device type: use override if set, otherwise auto-detected
-  if DeviceConfig.DeviceTypeOverride >= 0 then
-    EffectiveDeviceType := TBluetoothDeviceType(DeviceConfig.DeviceTypeOverride)
-  else
-    EffectiveDeviceType := ADevice.DeviceType;
 
   // Determine background color
   if AIsSelected then
@@ -712,19 +616,17 @@ begin
   if ShowDeviceIcons then
   begin
     IconRect.Left := ARect.Left + ItemPadding;
-    // Vertically center icon between the two text lines
     IconRect.Top := ARect.Top + ((ARect.Bottom - ARect.Top) - IconSize) div 2;
     IconRect.Right := IconRect.Left + IconSize;
     IconRect.Bottom := IconRect.Top + IconSize;
 
-    DrawDeviceIcon(ACanvas, IconRect, EffectiveDeviceType);
+    // Use pre-computed EffectiveDeviceType from display item
+    DrawDeviceIcon(ACanvas, IconRect, AItem.EffectiveDeviceType);
 
-    // Text area starts after icon
     TextRect.Left := IconRect.Right + ItemPadding;
   end
   else
   begin
-    // No icon - text starts at padding
     TextRect.Left := ARect.Left + ItemPadding;
   end;
 
@@ -742,8 +644,8 @@ begin
     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
 
-  // Draw pin indicator (aligned with top line)
-  if DeviceConfig.Pinned then
+  // Draw pin indicator using pre-computed IsPinned
+  if AItem.IsPinned then
   begin
     ACanvas.Font.Name := FONT_ICONS;
     ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
@@ -757,49 +659,43 @@ begin
       ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   end;
 
-  // Device name
-  ACanvas.TextOut(TextRect.Left, NameLineTop, DisplayName);
+  // Device name (pre-computed DisplayName)
+  ACanvas.TextOut(TextRect.Left, NameLineTop, AItem.DisplayName);
 
   // Address after device name if enabled
   if FShowAddresses then
   begin
-    var AddrLeft := TextRect.Left + ACanvas.TextWidth(DisplayName) + ADDRESS_SPACING;
-    var NameHeight := ACanvas.TextHeight('Ay');  // Get height before changing font
+    var AddrLeft := TextRect.Left + ACanvas.TextWidth(AItem.DisplayName) + ADDRESS_SPACING;
+    var NameHeight := ACanvas.TextHeight('Ay');
     ACanvas.Font.Size := AddressFontSize;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    // Align address baseline with device name
     var AddrOffset := (NameHeight - ACanvas.TextHeight('Ay')) div 2;
-    ACanvas.TextOut(AddrLeft, NameLineTop + AddrOffset, '[' + ADevice.AddressString + ']');
+    ACanvas.TextOut(AddrLeft, NameLineTop + AddrOffset, '[' + AItem.Device.AddressString + ']');
   end;
 
   // === BOTTOM LINE: Connection status (left), LastSeen (right) ===
   ACanvas.Font.Size := StatusFontSize;
 
   // Connection status (left-aligned)
-  if ADevice.IsConnected then
+  if AItem.Device.IsConnected then
   begin
-    StatusText := ADevice.ConnectionStateText;
+    StatusText := AItem.Device.ConnectionStateText;
     ACanvas.Font.Color := TColor(AppearanceConfig.ConnectedColor);
   end
   else
   begin
-    StatusText := ADevice.ConnectionStateText;
+    StatusText := AItem.Device.ConnectionStateText;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
   end;
 
   ACanvas.TextOut(TextRect.Left, StatusLineTop, StatusText);
 
-  // LastSeen (right-aligned)
+  // LastSeen (right-aligned) - use pre-formatted LastSeenText
   if ShowLastSeen then
   begin
-    if AppearanceConfig.LastSeenFormat = lsfRelative then
-      LastSeenText := FormatLastSeenRelative(DeviceConfig.LastSeen)
-    else
-      LastSeenText := FormatLastSeenAbsolute(DeviceConfig.LastSeen);
-
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    var LastSeenWidth := ACanvas.TextWidth(LastSeenText);
-    ACanvas.TextOut(TextRect.Right - LastSeenWidth, StatusLineTop, LastSeenText);
+    var LastSeenWidth := ACanvas.TextWidth(AItem.LastSeenText);
+    ACanvas.TextOut(TextRect.Right - LastSeenWidth, StatusLineTop, AItem.LastSeenText);
   end;
 
   ACanvas.Brush.Style := bsSolid;
@@ -891,52 +787,66 @@ begin
   if Button = mbLeft then
   begin
     Index := ItemAtPos(X, Y);
-    if (Index >= 0) and (Index = FSelectedIndex) and Assigned(FOnDeviceClick) then
-      FOnDeviceClick(Self, FDevices[Index]);
+    if (Index >= 0) and (Index = FSelectedIndex) then
+    begin
+      if Assigned(FOnDisplayItemClick) then
+        FOnDisplayItemClick(Self, FDisplayItems[Index])
+      else if Assigned(FOnDeviceClick) then
+        FOnDeviceClick(Self, FDisplayItems[Index].Device);
+    end;
   end;
 end;
 
 procedure TDeviceListBox.KeyDown(var Key: Word; Shift: TShiftState);
+var
+  Count: Integer;
 begin
   inherited;
+
+  Count := GetItemCount;
 
   case Key of
     VK_UP:
       begin
         if FSelectedIndex > 0 then
           SelectedIndex := FSelectedIndex - 1
-        else if (FSelectedIndex = -1) and (FDevices.Count > 0) then
+        else if (FSelectedIndex = -1) and (Count > 0) then
           SelectedIndex := 0;
         Key := 0;
       end;
 
     VK_DOWN:
       begin
-        if FSelectedIndex < FDevices.Count - 1 then
+        if FSelectedIndex < Count - 1 then
           SelectedIndex := FSelectedIndex + 1
-        else if (FSelectedIndex = -1) and (FDevices.Count > 0) then
+        else if (FSelectedIndex = -1) and (Count > 0) then
           SelectedIndex := 0;
         Key := 0;
       end;
 
     VK_HOME:
       begin
-        if FDevices.Count > 0 then
+        if Count > 0 then
           SelectedIndex := 0;
         Key := 0;
       end;
 
     VK_END:
       begin
-        if FDevices.Count > 0 then
-          SelectedIndex := FDevices.Count - 1;
+        if Count > 0 then
+          SelectedIndex := Count - 1;
         Key := 0;
       end;
 
     VK_RETURN, VK_SPACE:
       begin
-        if (FSelectedIndex >= 0) and Assigned(FOnDeviceClick) then
-          FOnDeviceClick(Self, FDevices[FSelectedIndex]);
+        if FSelectedIndex >= 0 then
+        begin
+          if Assigned(FOnDisplayItemClick) then
+            FOnDisplayItemClick(Self, FDisplayItems[FSelectedIndex])
+          else if Assigned(FOnDeviceClick) then
+            FOnDeviceClick(Self, FDisplayItems[FSelectedIndex].Device);
+        end;
         Key := 0;
       end;
   end;

@@ -88,9 +88,8 @@ type
     procedure HandleSettingsApplied(Sender: TObject);
 
     { IMainView implementation }
-    procedure ShowDevices(const ADevices: TBluetoothDeviceInfoArray);
-    procedure UpdateDevice(const ADevice: TBluetoothDeviceInfo);
-    procedure AddDevice(const ADevice: TBluetoothDeviceInfo);
+    procedure ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
+    procedure UpdateDisplayItem(const AItem: TDeviceDisplayItem);
     procedure ClearDevices;
     procedure SetToggleState(AEnabled: Boolean);
     procedure SetToggleEnabled(AEnabled: Boolean);
@@ -532,19 +531,14 @@ end;
 
 { IMainView implementation }
 
-procedure TFormMain.ShowDevices(const ADevices: TBluetoothDeviceInfoArray);
+procedure TFormMain.ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
 begin
-  FDeviceList.SetDevices(ADevices);
+  FDeviceList.SetDisplayItems(AItems);
 end;
 
-procedure TFormMain.UpdateDevice(const ADevice: TBluetoothDeviceInfo);
+procedure TFormMain.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
 begin
-  FDeviceList.UpdateDevice(ADevice);
-end;
-
-procedure TFormMain.AddDevice(const ADevice: TBluetoothDeviceInfo);
-begin
-  FDeviceList.AddDevice(ADevice);
+  FDeviceList.UpdateDisplayItem(AItem);
 end;
 
 procedure TFormMain.ClearDevices;

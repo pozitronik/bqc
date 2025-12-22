@@ -18,7 +18,9 @@ uses
   Vcl.ExtCtrls,
   Bluetooth.Types,
   Bluetooth.Interfaces,
-  Bluetooth.RadioControl;
+  Bluetooth.RadioControl,
+  UI.DeviceList,
+  UI.DeviceDisplayItemBuilder;
 
 type
   /// <summary>
@@ -34,19 +36,16 @@ type
   IMainView = interface
     ['{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}']
     /// <summary>
-    /// Displays the list of Bluetooth devices.
+    /// Displays pre-processed display items.
+    /// Receives ready-to-render items with all formatting and
+    /// sorting already applied by presenter.
     /// </summary>
-    procedure ShowDevices(const ADevices: TBluetoothDeviceInfoArray);
+    procedure ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
 
     /// <summary>
-    /// Updates a single device in the list.
+    /// Updates a single display item in the list.
     /// </summary>
-    procedure UpdateDevice(const ADevice: TBluetoothDeviceInfo);
-
-    /// <summary>
-    /// Adds a new device to the list.
-    /// </summary>
-    procedure AddDevice(const ADevice: TBluetoothDeviceInfo);
+    procedure UpdateDisplayItem(const AItem: TDeviceDisplayItem);
 
     /// <summary>
     /// Clears all devices from the list.
@@ -120,6 +119,8 @@ type
     FBluetoothService: IBluetoothService;
     FRadioWatcher: TBluetoothRadioWatcher;
     FDevices: TBluetoothDeviceInfoArray;
+    FDisplayItems: TDeviceDisplayItemArray;
+    FDisplayItemBuilder: TDeviceDisplayItemBuilder;
     FDelayedLoadTimer: TTimer;
     FUpdatingToggle: Boolean;
 
@@ -140,6 +141,7 @@ type
 
     function GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
     procedure ShowDeviceNotification(const ADevice: TBluetoothDeviceInfo);
+    procedure RefreshDisplayItems;
 
   public
     /// <summary>
@@ -229,6 +231,11 @@ begin
   FBluetoothService := nil;
   FRadioWatcher := nil;
   FDevices := nil;
+  FDisplayItems := nil;
+  FDisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
+    Bootstrap.DeviceConfigProvider,
+    Bootstrap.AppearanceConfig
+  );
   FDelayedLoadTimer := nil;
   FUpdatingToggle := False;
   Log('[MainPresenter] Created');
@@ -237,6 +244,7 @@ end;
 destructor TMainPresenter.Destroy;
 begin
   Shutdown;
+  FDisplayItemBuilder.Free;
   Log('[MainPresenter] Destroyed');
   inherited;
 end;
@@ -347,7 +355,8 @@ begin
     // Save config if any new devices were registered
     Bootstrap.AppConfig.SaveIfModified;
 
-    FView.ShowDevices(FDevices);
+    // Build display items and send to view
+    RefreshDisplayItems;
 
     if Length(FDevices) = 0 then
       FView.ShowStatus('No paired devices')
@@ -530,6 +539,12 @@ begin
   end;
 end;
 
+procedure TMainPresenter.RefreshDisplayItems;
+begin
+  FDisplayItems := FDisplayItemBuilder.BuildDisplayItems(FDevices);
+  FView.ShowDisplayItems(FDisplayItems);
+end;
+
 { Service event handlers }
 
 procedure TMainPresenter.HandleDeviceStateChanged(Sender: TObject;
@@ -570,21 +585,19 @@ begin
         end;
       end;
 
-      // Add if not found
+      // Add to local cache if not found
       if not Found then
       begin
         SetLength(FDevices, Length(FDevices) + 1);
         FDevices[High(FDevices)] := LDevice;
-        FView.AddDevice(LDevice);
-      end
-      else
-      begin
-        FView.UpdateDevice(LDevice);
       end;
 
       // Update LastSeen timestamp in persistent config
       Bootstrap.DeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
       Bootstrap.AppConfig.SaveIfModified;
+
+      // Rebuild display items (device may have moved groups due to state change)
+      RefreshDisplayItems;
 
       FView.ShowStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
       ShowDeviceNotification(LDevice);
