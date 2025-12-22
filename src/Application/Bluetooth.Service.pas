@@ -58,9 +58,13 @@ type
     FConnectionConfig: IConnectionConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
 
+    { Injected strategy factory }
+    FStrategyFactory: IConnectionStrategyFactory;
+
     function GetPollingConfig: IPollingConfig;
     function GetConnectionConfig: IConnectionConfig;
     function GetDeviceConfigProvider: IDeviceConfigProvider;
+    function GetStrategyFactory: IConnectionStrategyFactory;
 
     procedure CloseRadio;
     function ConvertToDeviceInfo(const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
@@ -118,6 +122,7 @@ type
     property PollingConfig: IPollingConfig read GetPollingConfig write FPollingConfig;
     property ConnectionConfig: IConnectionConfig read GetConnectionConfig write FConnectionConfig;
     property DeviceConfigProvider: IDeviceConfigProvider read GetDeviceConfigProvider write FDeviceConfigProvider;
+    property StrategyFactory: IConnectionStrategyFactory read GetStrategyFactory write FStrategyFactory;
   end;
 
 /// <summary>
@@ -162,6 +167,13 @@ begin
   if FDeviceConfigProvider = nil then
     FDeviceConfigProvider := Bootstrap.DeviceConfigProvider;
   Result := FDeviceConfigProvider;
+end;
+
+function TBluetoothService.GetStrategyFactory: IConnectionStrategyFactory;
+begin
+  if FStrategyFactory = nil then
+    FStrategyFactory := Bootstrap.ConnectionStrategyFactory;
+  Result := FStrategyFactory;
 end;
 
 constructor TBluetoothService.Create;
@@ -397,7 +409,7 @@ begin
   ]);
 
   // Get appropriate strategy for this device type
-  Strategy := TConnectionStrategyFactory.GetStrategy(ADevice.DeviceType);
+  Strategy := StrategyFactory.GetStrategy(ADevice.DeviceType);
   if Strategy = nil then
   begin
     DoError('No connection strategy found for device type', 0);

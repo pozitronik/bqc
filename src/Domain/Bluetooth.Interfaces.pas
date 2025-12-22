@@ -197,6 +197,40 @@ type
     function GetPriority: Integer;
   end;
 
+  /// <summary>
+  /// Factory interface for creating and managing connection strategies.
+  /// Enables dependency injection and testing with mock strategies.
+  /// </summary>
+  IConnectionStrategyFactory = interface
+    ['{B2C3D4E5-6666-7777-8888-99990000BBBB}']
+
+    /// <summary>
+    /// Gets the appropriate strategy for a device type.
+    /// Returns the highest priority strategy that can handle the device type.
+    /// </summary>
+    /// <param name="ADeviceType">The device type.</param>
+    /// <returns>Best matching strategy, or nil if none found.</returns>
+    function GetStrategy(ADeviceType: TBluetoothDeviceType): IConnectionStrategy;
+
+    /// <summary>
+    /// Registers a custom strategy.
+    /// </summary>
+    /// <param name="AStrategy">The strategy to register.</param>
+    procedure RegisterStrategy(AStrategy: IConnectionStrategy);
+
+    /// <summary>
+    /// Gets all registered strategies.
+    /// </summary>
+    /// <returns>Array of all strategies.</returns>
+    function GetAllStrategies: TArray<IConnectionStrategy>;
+
+    /// <summary>
+    /// Clears all registered strategies.
+    /// Useful for testing.
+    /// </summary>
+    procedure Clear;
+  end;
+
 implementation
 
 end.

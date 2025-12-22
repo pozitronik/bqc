@@ -67,29 +67,28 @@ type
 
   /// <summary>
   /// Factory for creating and managing connection strategies.
-  /// Implements Factory Pattern.
+  /// Implements Factory Pattern with instance-based design for DI.
   /// </summary>
-  TConnectionStrategyFactory = class
+  TConnectionStrategyFactory = class(TInterfacedObject, IConnectionStrategyFactory)
   private
-    class var FStrategies: TList<IConnectionStrategy>;
-    class procedure EnsureInitialized;
+    FStrategies: TList<IConnectionStrategy>;
+    procedure RegisterDefaultStrategies;
   public
-    class constructor Create;
-    class destructor Destroy;
+    constructor Create; overload;
+    constructor Create(ARegisterDefaults: Boolean); overload;
+    destructor Destroy; override;
 
-    /// <summary>
-    /// Gets the appropriate strategy for a device type.
-    /// </summary>
-    /// <param name="ADeviceType">The device type.</param>
-    /// <returns>Best matching strategy.</returns>
-    class function GetStrategy(ADeviceType: TBluetoothDeviceType): IConnectionStrategy;
-
-    /// <summary>
-    /// Registers a custom strategy.
-    /// </summary>
-    /// <param name="AStrategy">The strategy to register.</param>
-    class procedure RegisterStrategy(AStrategy: IConnectionStrategy);
+    // IConnectionStrategyFactory
+    function GetStrategy(ADeviceType: TBluetoothDeviceType): IConnectionStrategy;
+    procedure RegisterStrategy(AStrategy: IConnectionStrategy);
+    function GetAllStrategies: TArray<IConnectionStrategy>;
+    procedure Clear;
   end;
+
+  /// <summary>
+  /// Creates a default connection strategy factory with standard strategies.
+  /// </summary>
+function CreateConnectionStrategyFactory: IConnectionStrategyFactory;
 
 implementation
 
@@ -167,37 +166,39 @@ end;
 
 { TConnectionStrategyFactory }
 
-class constructor TConnectionStrategyFactory.Create;
+constructor TConnectionStrategyFactory.Create;
 begin
-  FStrategies := nil;
+  Create(True);
 end;
 
-class destructor TConnectionStrategyFactory.Destroy;
+constructor TConnectionStrategyFactory.Create(ARegisterDefaults: Boolean);
 begin
-  FreeAndNil(FStrategies);
+  inherited Create;
+  FStrategies := TList<IConnectionStrategy>.Create;
+  if ARegisterDefaults then
+    RegisterDefaultStrategies;
 end;
 
-class procedure TConnectionStrategyFactory.EnsureInitialized;
+destructor TConnectionStrategyFactory.Destroy;
 begin
-  if FStrategies = nil then
-  begin
-    FStrategies := TList<IConnectionStrategy>.Create;
-    // Register default strategies
-    FStrategies.Add(TAudioConnectionStrategy.Create);
-    FStrategies.Add(THIDConnectionStrategy.Create);
-    FStrategies.Add(TGenericConnectionStrategy.Create);
-  end;
+  FStrategies.Free;
+  inherited Destroy;
 end;
 
-class function TConnectionStrategyFactory.GetStrategy(
+procedure TConnectionStrategyFactory.RegisterDefaultStrategies;
+begin
+  FStrategies.Add(TAudioConnectionStrategy.Create);
+  FStrategies.Add(THIDConnectionStrategy.Create);
+  FStrategies.Add(TGenericConnectionStrategy.Create);
+end;
+
+function TConnectionStrategyFactory.GetStrategy(
   ADeviceType: TBluetoothDeviceType): IConnectionStrategy;
 var
   Strategy: IConnectionStrategy;
   BestStrategy: IConnectionStrategy;
   BestPriority: Integer;
 begin
-  EnsureInitialized;
-
   BestStrategy := nil;
   BestPriority := -1;
 
@@ -213,11 +214,25 @@ begin
   Result := BestStrategy;
 end;
 
-class procedure TConnectionStrategyFactory.RegisterStrategy(
+procedure TConnectionStrategyFactory.RegisterStrategy(
   AStrategy: IConnectionStrategy);
 begin
-  EnsureInitialized;
   FStrategies.Add(AStrategy);
+end;
+
+function TConnectionStrategyFactory.GetAllStrategies: TArray<IConnectionStrategy>;
+begin
+  Result := FStrategies.ToArray;
+end;
+
+procedure TConnectionStrategyFactory.Clear;
+begin
+  FStrategies.Clear;
+end;
+
+function CreateConnectionStrategyFactory: IConnectionStrategyFactory;
+begin
+  Result := TConnectionStrategyFactory.Create;
 end;
 
 end.

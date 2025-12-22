@@ -17,7 +17,8 @@ unit App.Bootstrap;
 interface
 
 uses
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  Bluetooth.Interfaces;
 
 type
   /// <summary>
@@ -30,6 +31,7 @@ type
     class function GetInstance: TAppBootstrap; static;
   private
     FConfig: TObject;  // Actually TAppConfig, but avoids circular reference
+    FStrategyFactory: IConnectionStrategyFactory;
     function GetConfig: TObject;
   public
     constructor Create;
@@ -62,6 +64,9 @@ type
     function ConnectionConfig: IConnectionConfig;
     function NotificationConfig: INotificationConfig;
     function DeviceConfigProvider: IDeviceConfigProvider;
+
+    // Service factories
+    function ConnectionStrategyFactory: IConnectionStrategyFactory;
   end;
 
 /// <summary>
@@ -74,7 +79,8 @@ implementation
 
 uses
   System.SysUtils,
-  App.Config;
+  App.Config,
+  Bluetooth.ConnectionStrategies;
 
 function Bootstrap: TAppBootstrap;
 begin
@@ -176,6 +182,13 @@ end;
 function TAppBootstrap.DeviceConfigProvider: IDeviceConfigProvider;
 begin
   Result := TAppConfig(GetConfig).AsDeviceConfigProvider;
+end;
+
+function TAppBootstrap.ConnectionStrategyFactory: IConnectionStrategyFactory;
+begin
+  if FStrategyFactory = nil then
+    FStrategyFactory := CreateConnectionStrategyFactory;
+  Result := FStrategyFactory;
 end;
 
 end.
