@@ -198,6 +198,79 @@ type
   end;
 
   /// <summary>
+  /// Event handler for device monitor state changes.
+  /// Reports device address and new connection state.
+  /// </summary>
+  TMonitorDeviceStateEvent = procedure(
+    Sender: TObject;
+    const ADeviceAddress: UInt64;
+    ANewState: TBluetoothConnectionState
+  ) of object;
+
+  /// <summary>
+  /// Event handler for device monitor errors.
+  /// </summary>
+  TMonitorErrorEvent = procedure(
+    Sender: TObject;
+    const AMessage: string;
+    AErrorCode: Cardinal
+  ) of object;
+
+  /// <summary>
+  /// Interface for monitoring device connection state changes.
+  /// Abstracts different monitoring mechanisms (watcher, polling).
+  /// </summary>
+  IDeviceMonitor = interface
+    ['{C3D4E5F6-7777-8888-9999-AAAA0000CCCC}']
+
+    /// <summary>
+    /// Starts monitoring for device state changes.
+    /// </summary>
+    /// <returns>True if monitoring started successfully.</returns>
+    function Start: Boolean;
+
+    /// <summary>
+    /// Stops monitoring.
+    /// </summary>
+    procedure Stop;
+
+    /// <summary>
+    /// Checks if the monitor is currently running.
+    /// </summary>
+    function IsRunning: Boolean;
+
+    /// <summary>
+    /// Gets/sets the handler for device state changes.
+    /// </summary>
+    function GetOnDeviceStateChanged: TMonitorDeviceStateEvent;
+    procedure SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
+    property OnDeviceStateChanged: TMonitorDeviceStateEvent
+      read GetOnDeviceStateChanged write SetOnDeviceStateChanged;
+
+    /// <summary>
+    /// Gets/sets the handler for errors.
+    /// </summary>
+    function GetOnError: TMonitorErrorEvent;
+    procedure SetOnError(AValue: TMonitorErrorEvent);
+    property OnError: TMonitorErrorEvent
+      read GetOnError write SetOnError;
+  end;
+
+  /// <summary>
+  /// Factory interface for creating device monitors.
+  /// Enables dependency injection and different monitoring strategies.
+  /// </summary>
+  IDeviceMonitorFactory = interface
+    ['{D4E5F6A7-8888-9999-AAAA-BBBB0000DDDD}']
+
+    /// <summary>
+    /// Creates a device monitor based on configuration.
+    /// </summary>
+    /// <returns>Configured device monitor instance.</returns>
+    function CreateMonitor: IDeviceMonitor;
+  end;
+
+  /// <summary>
   /// Factory interface for creating and managing connection strategies.
   /// Enables dependency injection and testing with mock strategies.
   /// </summary>
