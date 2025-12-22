@@ -149,6 +149,12 @@ begin
     Log('[Service] Create: Device monitor started successfully')
   else
     Log('[Service] Create: Device monitor failed to start');
+
+  // Initial device enumeration
+  FDeviceRepository.Refresh;
+  Log('[Service] Create: Initial device enumeration complete, %d devices found', [
+    FDeviceRepository.Count
+  ]);
 end;
 
 destructor TBluetoothService.Destroy;
