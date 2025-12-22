@@ -216,6 +216,7 @@ implementation
 
 uses
   App.Logger,
+  App.ConfigInterfaces,
   App.Config,
   Bluetooth.Service;
 

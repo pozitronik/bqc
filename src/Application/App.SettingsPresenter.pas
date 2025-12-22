@@ -20,6 +20,7 @@ uses
   Vcl.ComCtrls,
   Vcl.ExtCtrls,
   Vcl.Graphics,
+  App.ConfigInterfaces,
   App.Config;
 
 type

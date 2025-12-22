@@ -17,103 +17,10 @@ uses
   System.Classes,
   System.IniFiles,
   System.Win.Registry,
-  System.Generics.Collections;
+  System.Generics.Collections,
+  App.ConfigInterfaces;
 
 type
-  /// <summary>
-  /// Notification mode for events.
-  /// </summary>
-  TNotificationMode = (
-    nmNone,      // No notification
-    nmBalloon    // Balloon tip notification
-    // Future: nmToast for Windows 10+ toast notifications
-  );
-
-  /// <summary>
-  /// Window display mode.
-  /// </summary>
-  TWindowMode = (
-    wmMenu,    // Popup menu style, hides on focus loss (0)
-    wmWindow   // Normal window with title bar (1)
-  );
-
-  /// <summary>
-  /// Position mode for window/menu placement.
-  /// </summary>
-  TPositionMode = (
-    pmCoordinates,   // Use saved X,Y coordinates (0)
-    pmNearTray,      // Near system tray icon (1)
-    pmNearCursor,    // Near mouse cursor (2)
-    pmCenterScreen   // Center of active screen (3)
-  );
-
-  /// <summary>
-  /// Polling mode for device state detection.
-  /// </summary>
-  TPollingMode = (
-    pmDisabled,  // No polling, event watcher only (0)
-    pmFallback,  // Polling as backup if watcher fails (1)
-    pmPrimary    // Polling only, no event watcher (2)
-  );
-
-  /// <summary>
-  /// Last seen timestamp display format.
-  /// </summary>
-  TLastSeenFormat = (
-    lsfRelative,  // "2 hours ago", "Yesterday" (0)
-    lsfAbsolute   // "2024-12-21 15:30" (1)
-  );
-
-  /// <summary>
-  /// Notification event types.
-  /// Used to identify which event triggered a notification check.
-  /// </summary>
-  TNotificationEvent = (
-    neConnect,        // Device connected
-    neDisconnect,     // Device disconnected
-    neConnectFailed,  // Connection attempt failed
-    neAutoConnect     // Auto-connect triggered
-  );
-
-  /// <summary>
-  /// Per-device notification settings.
-  /// Value of -1 means use global default.
-  /// </summary>
-  TDeviceNotificationConfig = record
-    OnConnect: Integer;        // -1=Global, 0=None, 1=Balloon
-    OnDisconnect: Integer;     // -1=Global, 0=None, 1=Balloon
-    OnConnectFailed: Integer;  // -1=Global, 0=None, 1=Balloon
-    OnAutoConnect: Integer;    // -1=Global, 0=None, 1=Balloon
-
-    class function Default: TDeviceNotificationConfig; static;
-  end;
-
-  /// <summary>
-  /// Per-device configuration.
-  /// </summary>
-  TDeviceConfig = record
-    Address: UInt64;
-    /// <summary>Original device name from Windows.</summary>
-    Name: string;
-    /// <summary>User-defined alias (display name override).</summary>
-    Alias: string;
-    Pinned: Boolean;
-    Hidden: Boolean;
-    AutoConnect: Boolean;
-    /// <summary>Connection timeout in ms. -1 means use global default.</summary>
-    ConnectionTimeout: Integer;
-    /// <summary>Connection retry count. -1 means use global default.</summary>
-    ConnectionRetryCount: Integer;
-    /// <summary>Per-device notification settings.</summary>
-    Notifications: TDeviceNotificationConfig;
-    /// <summary>Device type override. -1 means use auto-detected type.</summary>
-    DeviceTypeOverride: Integer;
-    /// <summary>Last time the device was seen/discovered.</summary>
-    LastSeen: TDateTime;
-
-    class function Default(AAddress: UInt64): TDeviceConfig; static;
-  end;
-
   /// <summary>
   /// Application configuration manager.
   /// Singleton class that handles loading/saving settings from INI file.
@@ -586,33 +493,6 @@ begin
     GConfig.Load;
   end;
   Result := GConfig;
-end;
-
-{ TDeviceNotificationConfig }
-
-class function TDeviceNotificationConfig.Default: TDeviceNotificationConfig;
-begin
-  Result.OnConnect := -1;        // Use global default
-  Result.OnDisconnect := -1;     // Use global default
-  Result.OnConnectFailed := -1;  // Use global default
-  Result.OnAutoConnect := -1;    // Use global default
-end;
-
-{ TDeviceConfig }
-
-class function TDeviceConfig.Default(AAddress: UInt64): TDeviceConfig;
-begin
-  Result.Address := AAddress;
-  Result.Name := '';
-  Result.Alias := '';
-  Result.Pinned := False;
-  Result.Hidden := False;
-  Result.AutoConnect := False;
-  Result.ConnectionTimeout := -1;     // Use global default
-  Result.ConnectionRetryCount := -1;  // Use global default
-  Result.Notifications := TDeviceNotificationConfig.Default;
-  Result.DeviceTypeOverride := -1;    // Use auto-detected type
-  Result.LastSeen := 0;
 end;
 
 { TAppConfig }

@@ -28,6 +28,7 @@ uses
   Vcl.StdCtrls,
   Vcl.Themes,
   Bluetooth.Types,
+  App.ConfigInterfaces,
   App.Config;
 
 type

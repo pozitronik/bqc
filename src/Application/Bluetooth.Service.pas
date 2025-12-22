@@ -116,6 +116,7 @@ implementation
 uses
   System.DateUtils,
   Vcl.Forms,
+  App.ConfigInterfaces,
   App.Config;
 
 const

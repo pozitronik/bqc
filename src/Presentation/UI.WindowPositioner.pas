@@ -15,6 +15,7 @@ uses
   Winapi.Windows,
   System.SysUtils,
   Vcl.Forms,
+  App.ConfigInterfaces,
   App.Config;
 
 type

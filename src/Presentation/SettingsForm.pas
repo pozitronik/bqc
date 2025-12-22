@@ -266,6 +266,7 @@ uses
   ShellAPI,
   Vcl.FileCtrl,
   App.Logger,
+  App.ConfigInterfaces,
   App.Config;
 
 {$R *.dfm}

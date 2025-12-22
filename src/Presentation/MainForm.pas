@@ -125,6 +125,7 @@ uses
   Vcl.Themes,
   ShellAPI,
   App.Logger,
+  App.ConfigInterfaces,
   App.Config,
   App.SettingsPresenter,
   UI.WindowPositioner,
