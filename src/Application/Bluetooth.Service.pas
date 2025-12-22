@@ -61,11 +61,6 @@ type
     { Injected strategy factory }
     FStrategyFactory: IConnectionStrategyFactory;
 
-    function GetPollingConfig: IPollingConfig;
-    function GetConnectionConfig: IConnectionConfig;
-    function GetDeviceConfigProvider: IDeviceConfigProvider;
-    function GetStrategyFactory: IConnectionStrategyFactory;
-
     procedure CloseRadio;
     function ConvertToDeviceInfo(const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
     function ConvertSystemTimeToDateTime(const ASysTime: TSystemTime): TDateTime;
@@ -115,14 +110,19 @@ type
     procedure SetOnError(AValue: TBluetoothErrorEvent);
 
   public
-    constructor Create;
+    constructor Create(
+      APollingConfig: IPollingConfig;
+      AConnectionConfig: IConnectionConfig;
+      ADeviceConfigProvider: IDeviceConfigProvider;
+      AStrategyFactory: IConnectionStrategyFactory
+    );
     destructor Destroy; override;
 
-    { Dependency injection properties (optional - uses Bootstrap fallback if not set) }
-    property PollingConfig: IPollingConfig read GetPollingConfig write FPollingConfig;
-    property ConnectionConfig: IConnectionConfig read GetConnectionConfig write FConnectionConfig;
-    property DeviceConfigProvider: IDeviceConfigProvider read GetDeviceConfigProvider write FDeviceConfigProvider;
-    property StrategyFactory: IConnectionStrategyFactory read GetStrategyFactory write FStrategyFactory;
+    { Read-only access to injected dependencies }
+    property PollingConfig: IPollingConfig read FPollingConfig;
+    property ConnectionConfig: IConnectionConfig read FConnectionConfig;
+    property DeviceConfigProvider: IDeviceConfigProvider read FDeviceConfigProvider;
+    property StrategyFactory: IConnectionStrategyFactory read FStrategyFactory;
   end;
 
 /// <summary>
@@ -143,45 +143,34 @@ const
 
 function CreateBluetoothService: IBluetoothService;
 begin
-  Result := TBluetoothService.Create;
+  Result := TBluetoothService.Create(
+    Bootstrap.PollingConfig,
+    Bootstrap.ConnectionConfig,
+    Bootstrap.DeviceConfigProvider,
+    Bootstrap.ConnectionStrategyFactory
+  );
 end;
 
 { TBluetoothService }
 
-function TBluetoothService.GetPollingConfig: IPollingConfig;
-begin
-  if FPollingConfig = nil then
-    FPollingConfig := Bootstrap.PollingConfig;
-  Result := FPollingConfig;
-end;
-
-function TBluetoothService.GetConnectionConfig: IConnectionConfig;
-begin
-  if FConnectionConfig = nil then
-    FConnectionConfig := Bootstrap.ConnectionConfig;
-  Result := FConnectionConfig;
-end;
-
-function TBluetoothService.GetDeviceConfigProvider: IDeviceConfigProvider;
-begin
-  if FDeviceConfigProvider = nil then
-    FDeviceConfigProvider := Bootstrap.DeviceConfigProvider;
-  Result := FDeviceConfigProvider;
-end;
-
-function TBluetoothService.GetStrategyFactory: IConnectionStrategyFactory;
-begin
-  if FStrategyFactory = nil then
-    FStrategyFactory := Bootstrap.ConnectionStrategyFactory;
-  Result := FStrategyFactory;
-end;
-
-constructor TBluetoothService.Create;
+constructor TBluetoothService.Create(
+  APollingConfig: IPollingConfig;
+  AConnectionConfig: IConnectionConfig;
+  ADeviceConfigProvider: IDeviceConfigProvider;
+  AStrategyFactory: IConnectionStrategyFactory
+);
 begin
   inherited Create;
+
+  // Store injected dependencies
+  FPollingConfig := APollingConfig;
+  FConnectionConfig := AConnectionConfig;
+  FDeviceConfigProvider := ADeviceConfigProvider;
+  FStrategyFactory := AStrategyFactory;
+
   FRadioHandle := 0;
   FDeviceCache := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
-  FEventDebouncer := TDeviceEventDebouncer.Create(PollingConfig.EventDebounceMs);
+  FEventDebouncer := TDeviceEventDebouncer.Create(FPollingConfig.EventDebounceMs);
   FDeviceWatcher := nil;
   FDeviceWatcherStarted := False;
   FPollingEnabled := False;
@@ -189,7 +178,7 @@ begin
   FPollingTimerID := 0;
 
   // Choose monitoring method based on configuration
-  case PollingConfig.PollingMode of
+  case FPollingConfig.PollingMode of
     pmDisabled:
       begin
         // Use device watcher only, no polling fallback
@@ -205,7 +194,7 @@ begin
     pmPrimary:
       begin
         // Use polling as primary method
-        Log('[Service] Create: Using polling as primary (interval=%d ms)', [PollingConfig.PollingInterval]);
+        Log('[Service] Create: Using polling as primary (interval=%d ms)', [FPollingConfig.PollingInterval]);
         StartPollingFallback;
       end;
   end;
@@ -390,13 +379,13 @@ begin
   ErrorCode := ERROR_SUCCESS;
 
   // Get device-specific configuration
-  DeviceConfig := DeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt);
+  DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt);
 
   // Get retry count: device-specific if set, otherwise global
   if DeviceConfig.ConnectionRetryCount >= 0 then
     RetryCount := DeviceConfig.ConnectionRetryCount
   else
-    RetryCount := ConnectionConfig.ConnectionRetryCount;
+    RetryCount := FConnectionConfig.ConnectionRetryCount;
 
   // Bounds checking
   if RetryCount < 0 then
@@ -409,7 +398,7 @@ begin
   ]);
 
   // Get appropriate strategy for this device type
-  Strategy := StrategyFactory.GetStrategy(ADevice.DeviceType);
+  Strategy := FStrategyFactory.GetStrategy(ADevice.DeviceType);
   if Strategy = nil then
   begin
     DoError('No connection strategy found for device type', 0);
@@ -576,9 +565,9 @@ begin
     FDeviceWatcher := nil;
 
     // Fall back to polling if enabled in configuration (Fallback or Primary mode)
-    if PollingConfig.PollingMode <> pmDisabled then
+    if FPollingConfig.PollingMode <> pmDisabled then
     begin
-      Log('[Service] StartDeviceWatcher: Falling back to polling (interval=%d ms)', [PollingConfig.PollingInterval]);
+      Log('[Service] StartDeviceWatcher: Falling back to polling (interval=%d ms)', [FPollingConfig.PollingInterval]);
       StartPollingFallback;
     end;
   end;
@@ -788,7 +777,7 @@ begin
     Exit;
 
   // Get polling interval from configuration (with reasonable bounds)
-  Interval := PollingConfig.PollingInterval;
+  Interval := FPollingConfig.PollingInterval;
   if Interval < 500 then
     Interval := 500;  // Minimum 500ms
   if Interval > 30000 then
