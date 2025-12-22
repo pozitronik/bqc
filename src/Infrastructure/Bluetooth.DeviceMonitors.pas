@@ -511,8 +511,6 @@ end;
 
 function TFallbackMonitor.Start: Boolean;
 begin
-  Result := False;
-
   if IsRunning then
     Exit(True);
 

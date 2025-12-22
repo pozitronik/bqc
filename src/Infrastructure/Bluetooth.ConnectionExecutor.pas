@@ -82,6 +82,7 @@ var
   AnySuccess: Boolean;
   Attempt: Integer;
 begin
+  ErrorCode := ERROR_SUCCESS;
   Result := TConnectionResult.Fail(ERROR_INVALID_PARAMETER);
 
   // Validate inputs

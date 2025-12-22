@@ -18,10 +18,8 @@ interface
 uses
   System.SysUtils,
   System.Classes,
-  Winapi.Windows,
   Bluetooth.Types,
   Bluetooth.Interfaces,
-  Bluetooth.WinAPI,
   Bluetooth.ConnectionStrategies,
   App.Logger,
   App.ConfigInterfaces;
@@ -35,7 +33,6 @@ type
   private
     FOnDeviceStateChanged: TDeviceStateChangedEvent;
     FOnError: TBluetoothErrorEvent;
-    FRadioHandle: THandle;
 
     { Injected dependencies }
     FConnectionConfig: IConnectionConfig;
@@ -44,8 +41,8 @@ type
     FDeviceMonitor: IDeviceMonitor;
     FDeviceRepository: IDeviceRepository;
     FConnectionExecutor: IConnectionExecutor;
+    FAdapterQuery: IBluetoothAdapterQuery;
 
-    procedure CloseRadio;
     procedure DoDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
     procedure DoError(const AMessage: string; AErrorCode: Cardinal);
 
@@ -83,7 +80,8 @@ type
       AStrategyFactory: IConnectionStrategyFactory;
       ADeviceMonitor: IDeviceMonitor;
       ADeviceRepository: IDeviceRepository;
-      AConnectionExecutor: IConnectionExecutor
+      AConnectionExecutor: IConnectionExecutor;
+      AAdapterQuery: IBluetoothAdapterQuery
     );
     destructor Destroy; override;
 
@@ -94,6 +92,7 @@ type
     property DeviceMonitor: IDeviceMonitor read FDeviceMonitor;
     property DeviceRepository: IDeviceRepository read FDeviceRepository;
     property ConnectionExecutor: IConnectionExecutor read FConnectionExecutor;
+    property AdapterQuery: IBluetoothAdapterQuery read FAdapterQuery;
   end;
 
 /// <summary>
@@ -108,7 +107,8 @@ uses
   App.Bootstrap,
   Bluetooth.DeviceMonitors,
   Bluetooth.DeviceRepository,
-  Bluetooth.ConnectionExecutor;
+  Bluetooth.ConnectionExecutor,
+  Bluetooth.AdapterQuery;
 
 function CreateBluetoothService: IBluetoothService;
 var
@@ -121,7 +121,8 @@ begin
     Bootstrap.ConnectionStrategyFactory,
     MonitorFactory.CreateMonitor,
     CreateDeviceRepository,
-    CreateConnectionExecutor
+    CreateConnectionExecutor,
+    CreateAdapterQuery
   );
 end;
 
@@ -133,7 +134,8 @@ constructor TBluetoothService.Create(
   AStrategyFactory: IConnectionStrategyFactory;
   ADeviceMonitor: IDeviceMonitor;
   ADeviceRepository: IDeviceRepository;
-  AConnectionExecutor: IConnectionExecutor
+  AConnectionExecutor: IConnectionExecutor;
+  AAdapterQuery: IBluetoothAdapterQuery
 );
 begin
   inherited Create;
@@ -145,8 +147,7 @@ begin
   FDeviceMonitor := ADeviceMonitor;
   FDeviceRepository := ADeviceRepository;
   FConnectionExecutor := AConnectionExecutor;
-
-  FRadioHandle := 0;
+  FAdapterQuery := AAdapterQuery;
 
   // Configure and start device monitor
   FDeviceMonitor.OnDeviceStateChanged := HandleMonitorDeviceStateChanged;
@@ -168,35 +169,12 @@ destructor TBluetoothService.Destroy;
 begin
   if FDeviceMonitor <> nil then
     FDeviceMonitor.Stop;
-  CloseRadio;
   inherited Destroy;
 end;
 
-procedure TBluetoothService.CloseRadio;
-begin
-  if FRadioHandle <> 0 then
-  begin
-    CloseHandle(FRadioHandle);
-    FRadioHandle := 0;
-  end;
-end;
-
 function TBluetoothService.IsAdapterAvailable: Boolean;
-var
-  FindParams: BLUETOOTH_FIND_RADIO_PARAMS;
-  FindHandle: HBLUETOOTH_RADIO_FIND;
-  RadioHandle: THandle;
 begin
-  FindParams.dwSize := SizeOf(BLUETOOTH_FIND_RADIO_PARAMS);
-  FindHandle := BluetoothFindFirstRadio(@FindParams, RadioHandle);
-
-  Result := FindHandle <> 0;
-
-  if Result then
-  begin
-    CloseHandle(RadioHandle);
-    BluetoothFindRadioClose(FindHandle);
-  end;
+  Result := FAdapterQuery.IsAdapterAvailable;
 end;
 
 function TBluetoothService.GetPairedDevices: TBluetoothDeviceInfoArray;
