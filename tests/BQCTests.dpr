@@ -25,6 +25,9 @@ uses
   Tests.AdapterQuery in 'Tests.AdapterQuery.pas',
   Tests.DeviceConfigRepository in 'Tests.DeviceConfigRepository.pas',
   Tests.SettingsRepository in 'Tests.SettingsRepository.pas',
+  Tests.DeviceFormatter in 'Tests.DeviceFormatter.pas',
+  Tests.DeviceSorter in 'Tests.DeviceSorter.pas',
+  Tests.DeviceDisplayItemBuilder in 'Tests.DeviceDisplayItemBuilder.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
@@ -41,7 +44,11 @@ uses
   App.DeviceConfigRepository in '..\src\Infrastructure\App.DeviceConfigRepository.pas',
   App.Bootstrap in '..\src\Infrastructure\App.Bootstrap.pas',
   App.Logger in '..\src\Infrastructure\App.Logger.pas',
-  App.Autostart in '..\src\Infrastructure\App.Autostart.pas';
+  App.Autostart in '..\src\Infrastructure\App.Autostart.pas',
+  UI.DeviceList in '..\src\Presentation\UI.DeviceList.pas',
+  UI.DeviceFormatter in '..\src\Presentation\UI.DeviceFormatter.pas',
+  UI.DeviceSorter in '..\src\Presentation\UI.DeviceSorter.pas',
+  UI.DeviceDisplayItemBuilder in '..\src\Presentation\UI.DeviceDisplayItemBuilder.pas';
 
 
 {$IFNDEF TESTINSIGHT}

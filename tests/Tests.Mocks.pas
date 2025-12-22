@@ -309,6 +309,17 @@ type
     property GetAdapterNameCallCount: Integer read FGetAdapterNameCallCount;
   end;
 
+/// <summary>
+/// Creates a TBluetoothDeviceInfo with minimal parameters for testing.
+/// </summary>
+function CreateTestDevice(
+  AAddressInt: UInt64;
+  const AName: string;
+  ADeviceType: TBluetoothDeviceType;
+  AConnectionState: TBluetoothConnectionState
+): TBluetoothDeviceInfo;
+
+type
   /// <summary>
   /// Mock implementation of IConnectionStrategyFactory for testing.
   /// Allows injecting custom strategies for testing connection behavior.
@@ -930,6 +941,39 @@ function TMockAdapterQuery.GetAdapterName: string;
 begin
   Inc(FGetAdapterNameCallCount);
   Result := FAdapterName;
+end;
+
+{ Test Helper Functions }
+
+function CreateTestDevice(
+  AAddressInt: UInt64;
+  const AName: string;
+  ADeviceType: TBluetoothDeviceType;
+  AConnectionState: TBluetoothConnectionState
+): TBluetoothDeviceInfo;
+var
+  Address: TBluetoothAddress;
+begin
+  // Convert UInt64 to byte array (little-endian)
+  Address[0] := Byte(AAddressInt);
+  Address[1] := Byte(AAddressInt shr 8);
+  Address[2] := Byte(AAddressInt shr 16);
+  Address[3] := Byte(AAddressInt shr 24);
+  Address[4] := Byte(AAddressInt shr 32);
+  Address[5] := Byte(AAddressInt shr 40);
+
+  Result := TBluetoothDeviceInfo.Create(
+    Address,
+    AAddressInt,
+    AName,
+    ADeviceType,
+    AConnectionState,
+    True,   // IsPaired
+    False,  // IsAuthenticated
+    0,      // ClassOfDevice
+    0,      // LastSeen
+    0       // LastUsed
+  );
 end;
 
 end.
