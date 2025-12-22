@@ -193,6 +193,123 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IDeviceMonitor for testing.
+  /// </summary>
+  TMockDeviceMonitor = class(TInterfacedObject, IDeviceMonitor)
+  private
+    FRunning: Boolean;
+    FOnDeviceStateChanged: TMonitorDeviceStateEvent;
+    FOnError: TMonitorErrorEvent;
+    FStartResult: Boolean;
+    FStartCallCount: Integer;
+    FStopCallCount: Integer;
+    function GetOnDeviceStateChanged: TMonitorDeviceStateEvent;
+    procedure SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
+    function GetOnError: TMonitorErrorEvent;
+    procedure SetOnError(AValue: TMonitorErrorEvent);
+  public
+    constructor Create;
+
+    // IDeviceMonitor
+    function Start: Boolean;
+    procedure Stop;
+    function IsRunning: Boolean;
+
+    // Test helpers
+    procedure SimulateDeviceStateChanged(AAddress: UInt64; AState: TBluetoothConnectionState);
+    procedure SimulateError(const AMessage: string; AErrorCode: Cardinal);
+
+    property StartResult: Boolean read FStartResult write FStartResult;
+    property StartCallCount: Integer read FStartCallCount;
+    property StopCallCount: Integer read FStopCallCount;
+    property OnDeviceStateChanged: TMonitorDeviceStateEvent read GetOnDeviceStateChanged write SetOnDeviceStateChanged;
+    property OnError: TMonitorErrorEvent read GetOnError write SetOnError;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IDeviceRepository for testing.
+  /// </summary>
+  TMockDeviceRepository = class(TInterfacedObject, IDeviceRepository)
+  private
+    FDevices: TDictionary<UInt64, TBluetoothDeviceInfo>;
+    FOnListChanged: TDeviceListChangedEvent;
+    FRefreshCallCount: Integer;
+    function GetOnListChanged: TDeviceListChangedEvent;
+    procedure SetOnListChanged(AValue: TDeviceListChangedEvent);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    // IDeviceRepository
+    function GetAll: TBluetoothDeviceInfoArray;
+    function GetByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
+    function TryGetByAddress(AAddress: UInt64; out ADevice: TBluetoothDeviceInfo): Boolean;
+    function Contains(AAddress: UInt64): Boolean;
+    procedure AddOrUpdate(const ADevice: TBluetoothDeviceInfo);
+    function UpdateConnectionState(AAddress: UInt64;
+      AState: TBluetoothConnectionState): TBluetoothDeviceInfo;
+    procedure Remove(AAddress: UInt64);
+    procedure Clear;
+    procedure Refresh;
+    function GetCount: Integer;
+
+    property RefreshCallCount: Integer read FRefreshCallCount;
+    property Devices: TDictionary<UInt64, TBluetoothDeviceInfo> read FDevices;
+    property Count: Integer read GetCount;
+    property OnListChanged: TDeviceListChangedEvent read GetOnListChanged write SetOnListChanged;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IConnectionExecutor for testing.
+  /// </summary>
+  TMockConnectionExecutor = class(TInterfacedObject, IConnectionExecutor)
+  private
+    FExecuteResult: TConnectionResult;
+    FExecuteCallCount: Integer;
+    FLastDevice: TBluetoothDeviceInfo;
+    FLastEnable: Boolean;
+    FLastRetryCount: Integer;
+  public
+    constructor Create;
+
+    // IConnectionExecutor
+    function Execute(
+      const ADevice: TBluetoothDeviceInfo;
+      const AServiceGuids: TArray<TGUID>;
+      AEnable: Boolean;
+      ARetryCount: Integer
+    ): TConnectionResult;
+
+    property ExecuteResult: TConnectionResult read FExecuteResult write FExecuteResult;
+    property ExecuteCallCount: Integer read FExecuteCallCount;
+    property LastDevice: TBluetoothDeviceInfo read FLastDevice;
+    property LastEnable: Boolean read FLastEnable;
+    property LastRetryCount: Integer read FLastRetryCount;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IBluetoothAdapterQuery for testing.
+  /// </summary>
+  TMockAdapterQuery = class(TInterfacedObject, IBluetoothAdapterQuery)
+  private
+    FAdapterAvailable: Boolean;
+    FAdapterName: string;
+    FIsAdapterAvailableCallCount: Integer;
+    FGetAdapterNameCallCount: Integer;
+  public
+    constructor Create;
+
+    // IBluetoothAdapterQuery
+    function IsAdapterAvailable: Boolean;
+    function GetAdapterName: string;
+
+    property AdapterAvailable: Boolean read FAdapterAvailable write FAdapterAvailable;
+    property AdapterName: string read FAdapterName write FAdapterName;
+    property IsAdapterAvailableCallCount: Integer read FIsAdapterAvailableCallCount;
+    property GetAdapterNameCallCount: Integer read FGetAdapterNameCallCount;
+  end;
+
+  /// <summary>
   /// Mock implementation of IConnectionStrategyFactory for testing.
   /// Allows injecting custom strategies for testing connection behavior.
   /// </summary>
@@ -600,6 +717,219 @@ procedure TMockConnectionStrategyFactory.Clear;
 begin
   FStrategies.Clear;
   FGetStrategyCallCount := 0;
+end;
+
+{ TMockDeviceMonitor }
+
+constructor TMockDeviceMonitor.Create;
+begin
+  inherited Create;
+  FRunning := False;
+  FStartResult := True;
+  FStartCallCount := 0;
+  FStopCallCount := 0;
+end;
+
+function TMockDeviceMonitor.Start: Boolean;
+begin
+  Inc(FStartCallCount);
+  if FStartResult then
+    FRunning := True;
+  Result := FStartResult;
+end;
+
+procedure TMockDeviceMonitor.Stop;
+begin
+  Inc(FStopCallCount);
+  FRunning := False;
+end;
+
+function TMockDeviceMonitor.IsRunning: Boolean;
+begin
+  Result := FRunning;
+end;
+
+function TMockDeviceMonitor.GetOnDeviceStateChanged: TMonitorDeviceStateEvent;
+begin
+  Result := FOnDeviceStateChanged;
+end;
+
+procedure TMockDeviceMonitor.SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
+begin
+  FOnDeviceStateChanged := AValue;
+end;
+
+function TMockDeviceMonitor.GetOnError: TMonitorErrorEvent;
+begin
+  Result := FOnError;
+end;
+
+procedure TMockDeviceMonitor.SetOnError(AValue: TMonitorErrorEvent);
+begin
+  FOnError := AValue;
+end;
+
+procedure TMockDeviceMonitor.SimulateDeviceStateChanged(AAddress: UInt64;
+  AState: TBluetoothConnectionState);
+begin
+  if Assigned(FOnDeviceStateChanged) then
+    FOnDeviceStateChanged(Self, AAddress, AState);
+end;
+
+procedure TMockDeviceMonitor.SimulateError(const AMessage: string; AErrorCode: Cardinal);
+begin
+  if Assigned(FOnError) then
+    FOnError(Self, AMessage, AErrorCode);
+end;
+
+{ TMockDeviceRepository }
+
+constructor TMockDeviceRepository.Create;
+begin
+  inherited Create;
+  FDevices := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
+  FRefreshCallCount := 0;
+end;
+
+destructor TMockDeviceRepository.Destroy;
+begin
+  FDevices.Free;
+  inherited Destroy;
+end;
+
+function TMockDeviceRepository.GetAll: TBluetoothDeviceInfoArray;
+begin
+  Result := FDevices.Values.ToArray;
+end;
+
+function TMockDeviceRepository.GetByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
+begin
+  if not FDevices.TryGetValue(AAddress, Result) then
+    FillChar(Result, SizeOf(Result), 0);
+end;
+
+function TMockDeviceRepository.TryGetByAddress(AAddress: UInt64;
+  out ADevice: TBluetoothDeviceInfo): Boolean;
+begin
+  Result := FDevices.TryGetValue(AAddress, ADevice);
+end;
+
+function TMockDeviceRepository.Contains(AAddress: UInt64): Boolean;
+begin
+  Result := FDevices.ContainsKey(AAddress);
+end;
+
+procedure TMockDeviceRepository.AddOrUpdate(const ADevice: TBluetoothDeviceInfo);
+var
+  IsNew: Boolean;
+begin
+  IsNew := not FDevices.ContainsKey(ADevice.AddressInt);
+  FDevices.AddOrSetValue(ADevice.AddressInt, ADevice);
+  if IsNew and Assigned(FOnListChanged) then
+    FOnListChanged(Self);
+end;
+
+function TMockDeviceRepository.UpdateConnectionState(AAddress: UInt64;
+  AState: TBluetoothConnectionState): TBluetoothDeviceInfo;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  if FDevices.TryGetValue(AAddress, Device) then
+  begin
+    Result := Device.WithConnectionState(AState);
+    FDevices[AAddress] := Result;
+  end
+  else
+    FillChar(Result, SizeOf(Result), 0);
+end;
+
+procedure TMockDeviceRepository.Remove(AAddress: UInt64);
+var
+  Existed: Boolean;
+begin
+  Existed := FDevices.ContainsKey(AAddress);
+  FDevices.Remove(AAddress);
+  if Existed and Assigned(FOnListChanged) then
+    FOnListChanged(Self);
+end;
+
+procedure TMockDeviceRepository.Clear;
+var
+  HadDevices: Boolean;
+begin
+  HadDevices := FDevices.Count > 0;
+  FDevices.Clear;
+  if HadDevices and Assigned(FOnListChanged) then
+    FOnListChanged(Self);
+end;
+
+procedure TMockDeviceRepository.Refresh;
+begin
+  Inc(FRefreshCallCount);
+  // Mock refresh does nothing - test code adds devices directly
+end;
+
+function TMockDeviceRepository.GetCount: Integer;
+begin
+  Result := FDevices.Count;
+end;
+
+function TMockDeviceRepository.GetOnListChanged: TDeviceListChangedEvent;
+begin
+  Result := FOnListChanged;
+end;
+
+procedure TMockDeviceRepository.SetOnListChanged(AValue: TDeviceListChangedEvent);
+begin
+  FOnListChanged := AValue;
+end;
+
+{ TMockConnectionExecutor }
+
+constructor TMockConnectionExecutor.Create;
+begin
+  inherited Create;
+  FExecuteResult := TConnectionResult.Ok;
+  FExecuteCallCount := 0;
+  FLastEnable := False;
+  FLastRetryCount := 0;
+end;
+
+function TMockConnectionExecutor.Execute(
+  const ADevice: TBluetoothDeviceInfo;
+  const AServiceGuids: TArray<TGUID>;
+  AEnable: Boolean;
+  ARetryCount: Integer
+): TConnectionResult;
+begin
+  Inc(FExecuteCallCount);
+  FLastDevice := ADevice;
+  FLastEnable := AEnable;
+  FLastRetryCount := ARetryCount;
+  Result := FExecuteResult;
+end;
+
+{ TMockAdapterQuery }
+
+constructor TMockAdapterQuery.Create;
+begin
+  inherited Create;
+  FAdapterAvailable := True;
+  FAdapterName := 'Mock Bluetooth Adapter';
+  FIsAdapterAvailableCallCount := 0;
+  FGetAdapterNameCallCount := 0;
+end;
+
+function TMockAdapterQuery.IsAdapterAvailable: Boolean;
+begin
+  Inc(FIsAdapterAvailableCallCount);
+  Result := FAdapterAvailable;
+end;
+
+function TMockAdapterQuery.GetAdapterName: string;
+begin
+  Inc(FGetAdapterNameCallCount);
+  Result := FAdapterName;
 end;
 
 end.
