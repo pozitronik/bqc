@@ -510,19 +510,19 @@ begin
   case ADevice.ConnectionState of
     csConnected:
       begin
-        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, 'Connect');
+        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, neConnect);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Connected', nfInfo);
       end;
     csDisconnected:
       begin
-        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, 'Disconnect');
+        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, neDisconnect);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Disconnected', nfInfo);
       end;
     csError:
       begin
-        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, 'ConnectFailed');
+        NotifyMode := Config.GetEffectiveNotification(ADevice.AddressInt, neConnectFailed);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Connection failed', nfError);
       end;

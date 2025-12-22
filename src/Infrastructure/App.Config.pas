@@ -65,6 +65,17 @@ type
   );
 
   /// <summary>
+  /// Notification event types.
+  /// Used to identify which event triggered a notification check.
+  /// </summary>
+  TNotificationEvent = (
+    neConnect,        // Device connected
+    neDisconnect,     // Device disconnected
+    neConnectFailed,  // Connection attempt failed
+    neAutoConnect     // Auto-connect triggered
+  );
+
+  /// <summary>
   /// Per-device notification settings.
   /// Value of -1 means use global default.
   /// </summary>
@@ -348,7 +359,7 @@ type
     /// Gets effective notification mode for a device and event.
     /// Resolves per-device override or returns global default.
     /// </summary>
-    function GetEffectiveNotification(AAddress: UInt64; AEvent: string): TNotificationMode;
+    function GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
 
     /// <summary>
     /// Gets effective connection timeout for a device.
@@ -1359,7 +1370,7 @@ begin
   end;
 end;
 
-function TAppConfig.GetEffectiveNotification(AAddress: UInt64; AEvent: string): TNotificationMode;
+function TAppConfig.GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
 var
   DeviceConfig: TDeviceConfig;
   DeviceValue: Integer;
@@ -1368,15 +1379,18 @@ begin
   DeviceConfig := GetDeviceConfig(AAddress);
 
   // Get the per-device override value for this event
-  DeviceValue := -1;
-  if AEvent = 'Connect' then
-    DeviceValue := DeviceConfig.Notifications.OnConnect
-  else if AEvent = 'Disconnect' then
-    DeviceValue := DeviceConfig.Notifications.OnDisconnect
-  else if AEvent = 'ConnectFailed' then
-    DeviceValue := DeviceConfig.Notifications.OnConnectFailed
-  else if AEvent = 'AutoConnect' then
-    DeviceValue := DeviceConfig.Notifications.OnAutoConnect;
+  case AEvent of
+    neConnect:
+      DeviceValue := DeviceConfig.Notifications.OnConnect;
+    neDisconnect:
+      DeviceValue := DeviceConfig.Notifications.OnDisconnect;
+    neConnectFailed:
+      DeviceValue := DeviceConfig.Notifications.OnConnectFailed;
+    neAutoConnect:
+      DeviceValue := DeviceConfig.Notifications.OnAutoConnect;
+  else
+    DeviceValue := -1;
+  end;
 
   // If per-device value is set (>= 0), use it; otherwise use global
   if DeviceValue >= 0 then
@@ -1384,16 +1398,18 @@ begin
   else
   begin
     // Return global default
-    if AEvent = 'Connect' then
-      Result := FNotifyOnConnect
-    else if AEvent = 'Disconnect' then
-      Result := FNotifyOnDisconnect
-    else if AEvent = 'ConnectFailed' then
-      Result := FNotifyOnConnectFailed
-    else if AEvent = 'AutoConnect' then
-      Result := FNotifyOnAutoConnect
+    case AEvent of
+      neConnect:
+        Result := FNotifyOnConnect;
+      neDisconnect:
+        Result := FNotifyOnDisconnect;
+      neConnectFailed:
+        Result := FNotifyOnConnectFailed;
+      neAutoConnect:
+        Result := FNotifyOnAutoConnect;
     else
       Result := nmNone;
+    end;
   end;
 end;
 

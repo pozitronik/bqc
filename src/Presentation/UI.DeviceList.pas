@@ -116,6 +116,23 @@ uses
   System.Math,
   System.DateUtils;
 
+const
+  // Font names used for rendering
+  FONT_UI = 'Segoe UI';
+  FONT_ICONS = 'Segoe MDL2 Assets';
+
+  // Icon characters from Segoe MDL2 Assets
+  ICON_PIN = #$E718;
+  ICON_HEADPHONE = #$E7F6;
+  ICON_MICROPHONE = #$E720;
+  ICON_KEYBOARD = #$E765;
+  ICON_MOUSE = #$E962;
+  ICON_GAMEPAD = #$E7FC;
+  ICON_COMPUTER = #$E7F8;
+  ICON_PHONE = #$E8EA;
+  ICON_INPUT_DEVICE = #$E961;
+  ICON_BLUETOOTH = #$E702;
+
 { TDeviceListBox }
 
 constructor TDeviceListBox.Create(AOwner: TComponent);
@@ -602,7 +619,7 @@ begin
     DisplayName := ADevice.Name;
 
   // Calculate status line height for bottom anchoring
-  ACanvas.Font.Name := 'Segoe UI';
+  ACanvas.Font.Name := FONT_UI;
   ACanvas.Font.Size := StatusFontSize;
   StatusLineHeight := ACanvas.TextHeight('Ay');
 
@@ -670,7 +687,7 @@ begin
   TextRect.Bottom := ARect.Bottom;
 
   // === TOP LINE: Device name, address, pin icon ===
-  ACanvas.Font.Name := 'Segoe UI';
+  ACanvas.Font.Name := FONT_UI;
   ACanvas.Font.Size := DeviceNameFontSize;
   ACanvas.Font.Style := [];
   if AIsSelected then
@@ -682,11 +699,11 @@ begin
   // Draw pin indicator (aligned with top line)
   if DeviceConfig.Pinned then
   begin
-    ACanvas.Font.Name := 'Segoe MDL2 Assets';
+    ACanvas.Font.Name := FONT_ICONS;
     ACanvas.Font.Size := 10;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    ACanvas.TextOut(ARect.Right - ItemPadding - 12, NameLineTop, #$E718);  // Pin icon
-    ACanvas.Font.Name := 'Segoe UI';
+    ACanvas.TextOut(ARect.Right - ItemPadding - 12, NameLineTop, ICON_PIN);
+    ACanvas.Font.Name := FONT_UI;
     ACanvas.Font.Size := DeviceNameFontSize;
     if AIsSelected then
       ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
@@ -751,8 +768,8 @@ var
 begin
   IconChar := GetDeviceIconChar(ADeviceType);
 
-  // Use Segoe MDL2 Assets font for icons
-  ACanvas.Font.Name := 'Segoe MDL2 Assets';
+  // Use icon font for device icons
+  ACanvas.Font.Name := FONT_ICONS;
   ACanvas.Font.Size := Config.IconFontSize;
   ACanvas.Font.Style := [];
   ACanvas.Font.Color := TStyleManager.ActiveStyle.GetSystemColor(clWindowText);
@@ -765,7 +782,7 @@ begin
   ACanvas.TextOut(X, Y, IconChar);
 
   // Restore font
-  ACanvas.Font.Name := 'Segoe UI';
+  ACanvas.Font.Name := FONT_UI;
   ACanvas.Brush.Style := bsSolid;
 end;
 
@@ -773,16 +790,16 @@ function TDeviceListBox.GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Ch
 begin
   case ADeviceType of
     btAudioOutput,
-    btHeadset:      Result := #$E7F6;  // Headphone
-    btAudioInput:   Result := #$E720;  // Microphone
-    btKeyboard:     Result := #$E765;  // Keyboard
-    btMouse:        Result := #$E962;  // Mouse
-    btGamepad:      Result := #$E7FC;  // Gamepad
-    btComputer:     Result := #$E7F8;  // PC
-    btPhone:        Result := #$E8EA;  // Phone
-    btHID:          Result := #$E961;  // General Input Device
+    btHeadset:      Result := ICON_HEADPHONE;
+    btAudioInput:   Result := ICON_MICROPHONE;
+    btKeyboard:     Result := ICON_KEYBOARD;
+    btMouse:        Result := ICON_MOUSE;
+    btGamepad:      Result := ICON_GAMEPAD;
+    btComputer:     Result := ICON_COMPUTER;
+    btPhone:        Result := ICON_PHONE;
+    btHID:          Result := ICON_INPUT_DEVICE;
   else
-    Result := #$E702;  // Bluetooth
+    Result := ICON_BLUETOOTH;
   end;
 end;
 
