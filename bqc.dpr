@@ -29,6 +29,7 @@ uses
   App.Autostart in 'src\Infrastructure\App.Autostart.pas',
   UI.Theme in 'src\Presentation\UI.Theme.pas',
   UI.DeviceList in 'src\Presentation\UI.DeviceList.pas',
+  UI.ListGeometry in 'src\Presentation\UI.ListGeometry.pas',
   UI.DeviceFormatter in 'src\Presentation\UI.DeviceFormatter.pas',
   UI.DeviceSorter in 'src\Presentation\UI.DeviceSorter.pas',
   UI.DeviceDisplayItemBuilder in 'src\Presentation\UI.DeviceDisplayItemBuilder.pas',

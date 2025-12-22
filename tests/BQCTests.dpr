@@ -28,6 +28,7 @@ uses
   Tests.DeviceFormatter in 'Tests.DeviceFormatter.pas',
   Tests.DeviceSorter in 'Tests.DeviceSorter.pas',
   Tests.DeviceDisplayItemBuilder in 'Tests.DeviceDisplayItemBuilder.pas',
+  Tests.ListGeometry in 'Tests.ListGeometry.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
@@ -46,6 +47,7 @@ uses
   App.Logger in '..\src\Infrastructure\App.Logger.pas',
   App.Autostart in '..\src\Infrastructure\App.Autostart.pas',
   UI.DeviceList in '..\src\Presentation\UI.DeviceList.pas',
+  UI.ListGeometry in '..\src\Presentation\UI.ListGeometry.pas',
   UI.DeviceFormatter in '..\src\Presentation\UI.DeviceFormatter.pas',
   UI.DeviceSorter in '..\src\Presentation\UI.DeviceSorter.pas',
   UI.DeviceDisplayItemBuilder in '..\src\Presentation\UI.DeviceDisplayItemBuilder.pas';

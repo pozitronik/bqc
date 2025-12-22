@@ -166,7 +166,8 @@ implementation
 
 uses
   System.Math,
-  App.Bootstrap;
+  App.Bootstrap,
+  UI.ListGeometry;
 
 const
   // Font names used for rendering
@@ -361,44 +362,37 @@ begin
 end;
 
 function TDeviceListBox.GetItemRect(AIndex: Integer): TRect;
-var
-  ItemHeight, ItemMargin: Integer;
 begin
-  ItemHeight := LayoutConfig.ItemHeight;
-  ItemMargin := LayoutConfig.ItemMargin;
-  Result.Left := ItemMargin;
-  Result.Right := ClientWidth - ItemMargin;
-  Result.Top := ItemMargin + AIndex * (ItemHeight + ItemMargin) - FScrollPos;
-  Result.Bottom := Result.Top + ItemHeight;
+  Result := TListGeometry.GetItemRect(
+    AIndex,
+    LayoutConfig.ItemHeight,
+    LayoutConfig.ItemMargin,
+    ClientWidth,
+    FScrollPos
+  );
 end;
 
 function TDeviceListBox.ItemAtPos(X, Y: Integer): Integer;
-var
-  I, Count: Integer;
-  R: TRect;
 begin
-  Count := GetItemCount;
-  for I := 0 to Count - 1 do
-  begin
-    R := GetItemRect(I);
-    if PtInRect(R, Point(X, Y)) then
-      Exit(I);
-  end;
-  Result := -1;
+  Result := TListGeometry.ItemAtPos(
+    X, Y,
+    GetItemCount,
+    LayoutConfig.ItemHeight,
+    LayoutConfig.ItemMargin,
+    ClientWidth,
+    FScrollPos
+  );
 end;
 
 procedure TDeviceListBox.UpdateScrollRange;
-var
-  TotalHeight, VisibleHeight: Integer;
-  ItemHeight, ItemMargin: Integer;
 begin
-  ItemHeight := LayoutConfig.ItemHeight;
-  ItemMargin := LayoutConfig.ItemMargin;
-  TotalHeight := GetItemCount * (ItemHeight + ItemMargin) + ItemMargin;
-  VisibleHeight := ClientHeight;
-  FMaxScroll := Max(0, TotalHeight - VisibleHeight);
-  if FScrollPos > FMaxScroll then
-    FScrollPos := FMaxScroll;
+  FMaxScroll := TListGeometry.CalculateMaxScroll(
+    GetItemCount,
+    LayoutConfig.ItemHeight,
+    LayoutConfig.ItemMargin,
+    ClientHeight
+  );
+  FScrollPos := TListGeometry.ClampScrollPos(FScrollPos, FMaxScroll);
   UpdateScrollBar;
 end;
 
@@ -406,14 +400,15 @@ procedure TDeviceListBox.UpdateScrollBar;
 var
   SI: TScrollInfo;
   TotalHeight: Integer;
-  ItemHeight, ItemMargin: Integer;
 begin
   if not HandleAllocated then
     Exit;
 
-  ItemHeight := LayoutConfig.ItemHeight;
-  ItemMargin := LayoutConfig.ItemMargin;
-  TotalHeight := GetItemCount * (ItemHeight + ItemMargin) + ItemMargin;
+  TotalHeight := TListGeometry.CalculateTotalHeight(
+    GetItemCount,
+    LayoutConfig.ItemHeight,
+    LayoutConfig.ItemMargin
+  );
 
   SI.cbSize := SizeOf(TScrollInfo);
   SI.fMask := SIF_ALL;
@@ -439,21 +434,21 @@ end;
 
 procedure TDeviceListBox.EnsureVisible(AIndex: Integer);
 var
-  ItemTop, ItemBottom: Integer;
-  ItemHeight, ItemMargin: Integer;
+  NewScrollPos: Integer;
 begin
   if (AIndex < 0) or (AIndex >= GetItemCount) then
     Exit;
 
-  ItemHeight := LayoutConfig.ItemHeight;
-  ItemMargin := LayoutConfig.ItemMargin;
-  ItemTop := ItemMargin + AIndex * (ItemHeight + ItemMargin);
-  ItemBottom := ItemTop + ItemHeight;
+  NewScrollPos := TListGeometry.ScrollPosToMakeVisible(
+    AIndex,
+    FScrollPos,
+    LayoutConfig.ItemHeight,
+    LayoutConfig.ItemMargin,
+    ClientHeight
+  );
 
-  if ItemTop < FScrollPos then
-    ScrollTo(ItemTop - ItemMargin)
-  else if ItemBottom > FScrollPos + ClientHeight then
-    ScrollTo(ItemBottom - ClientHeight + ItemMargin);
+  if NewScrollPos <> FScrollPos then
+    ScrollTo(NewScrollPos);
 end;
 
 procedure TDeviceListBox.WMEraseBkgnd(var Message: TWMEraseBkgnd);
