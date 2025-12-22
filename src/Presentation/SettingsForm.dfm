@@ -216,12 +216,12 @@ object FormSettings: TFormSettings
         object LabelConnectedColor: TLabel
           Left = 274
           Top = 24
-          Width = 91
+          Width = 125
           Height = 15
-          Caption = 'Connected color:'
+          Caption = 'Connected status color:'
         end
         object ShapeConnectedColor: TShape
-          Left = 368
+          Left = 405
           Top = 22
           Width = 50
           Height = 21
@@ -764,6 +764,19 @@ object FormSettings: TFormSettings
           Width = 16
           Height = 15
           Caption = 'ms'
+        end
+        object LabelPollingModeHint: TLabel
+          Left = 250
+          Top = 24
+          Width = 130
+          Height = 15
+          Caption = 'Requires program restart'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBtnShadow
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentFont = False
         end
         object ComboPollingMode: TComboBox
           Left = 110

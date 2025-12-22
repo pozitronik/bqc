@@ -567,11 +567,12 @@ var
   BgColor: TColor;
   IconRect, TextRect: TRect;
   StatusText, DisplayName, LastSeenText: string;
-  TextTop: Integer;
+  NameLineTop, StatusLineTop: Integer;
+  NameLineHeight, StatusLineHeight, MinGap: Integer;
   DeviceConfig: TDeviceConfig;
   Style: TCustomStyleServices;
   EffectiveDeviceType: TBluetoothDeviceType;
-  ItemPadding, ItemHeight, IconSize, CornerRadius: Integer;
+  ItemPadding, IconSize, CornerRadius: Integer;
   DeviceNameFontSize, StatusFontSize, AddressFontSize: Integer;
   ShowDeviceIcons, ShowLastSeen: Boolean;
 begin
@@ -579,7 +580,6 @@ begin
 
   // Get layout settings from config
   ItemPadding := Config.ItemPadding;
-  ItemHeight := Config.ItemHeight;
   IconSize := Config.IconSize;
   CornerRadius := Config.CornerRadius;
   DeviceNameFontSize := Config.DeviceNameFontSize;
@@ -596,6 +596,27 @@ begin
     DisplayName := DeviceConfig.Alias
   else
     DisplayName := ADevice.Name;
+
+  // Pre-calculate text line heights for layout
+  ACanvas.Font.Name := 'Segoe UI';
+  ACanvas.Font.Size := DeviceNameFontSize;
+  NameLineHeight := ACanvas.TextHeight('Ay');
+
+  ACanvas.Font.Size := StatusFontSize;
+  StatusLineHeight := ACanvas.TextHeight('Ay');
+
+  // Calculate line positions to fill available height
+  // Name line at top with full padding, status line at bottom with reduced padding
+  MinGap := 4;
+  NameLineTop := ARect.Top + ItemPadding;
+  StatusLineTop := ARect.Bottom - (ItemPadding div 2) - StatusLineHeight;
+
+  // Check for overlap and adjust if needed
+  if NameLineTop + NameLineHeight + MinGap > StatusLineTop then
+  begin
+    // Tight space - position status right after name with minimum gap
+    StatusLineTop := NameLineTop + NameLineHeight + MinGap;
+  end;
 
   // Determine effective device type: use override if set, otherwise auto-detected
   if DeviceConfig.DeviceTypeOverride >= 0 then
@@ -621,7 +642,8 @@ begin
   if ShowDeviceIcons then
   begin
     IconRect.Left := ARect.Left + ItemPadding;
-    IconRect.Top := ARect.Top + (ItemHeight - IconSize) div 2;
+    // Vertically center icon between the two text lines
+    IconRect.Top := ARect.Top + ((ARect.Bottom - ARect.Top) - IconSize) div 2;
     IconRect.Right := IconRect.Left + IconSize;
     IconRect.Bottom := IconRect.Top + IconSize;
 
@@ -640,7 +662,7 @@ begin
   TextRect.Top := ARect.Top;
   TextRect.Bottom := ARect.Bottom;
 
-  // Device name (or alias if configured)
+  // === TOP LINE: Device name, address, pin icon ===
   ACanvas.Font.Name := 'Segoe UI';
   ACanvas.Font.Size := DeviceNameFontSize;
   ACanvas.Font.Style := [];
@@ -650,15 +672,13 @@ begin
     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
 
-  TextTop := ARect.Top + ItemPadding;
-
-  // Draw pin indicator in top-right corner for pinned devices
+  // Draw pin indicator (aligned with top line)
   if DeviceConfig.Pinned then
   begin
     ACanvas.Font.Name := 'Segoe MDL2 Assets';
     ACanvas.Font.Size := 10;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    ACanvas.TextOut(ARect.Right - ItemPadding - 12, ARect.Top + 6, #$E718);  // Pin icon
+    ACanvas.TextOut(ARect.Right - ItemPadding - 12, NameLineTop, #$E718);  // Pin icon
     ACanvas.Font.Name := 'Segoe UI';
     ACanvas.Font.Size := DeviceNameFontSize;
     if AIsSelected then
@@ -667,25 +687,27 @@ begin
       ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   end;
 
-  ACanvas.TextOut(TextRect.Left, TextTop, DisplayName);
+  // Device name
+  ACanvas.TextOut(TextRect.Left, NameLineTop, DisplayName);
 
-  // Show address after device name if enabled
+  // Address after device name if enabled
   if FShowAddresses then
   begin
-    // Calculate position while still using name font size
     var AddrLeft := TextRect.Left + ACanvas.TextWidth(DisplayName) + 8;
     ACanvas.Font.Size := AddressFontSize;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    ACanvas.TextOut(AddrLeft, TextTop + 3, '[' + ADevice.AddressString + ']');
-    // Restore font for subsequent drawing
-    ACanvas.Font.Size := DeviceNameFontSize;
+    // Align address baseline with device name
+    var AddrOffset := (NameLineHeight - ACanvas.TextHeight('Ay')) div 2;
+    ACanvas.TextOut(AddrLeft, NameLineTop + AddrOffset, '[' + ADevice.AddressString + ']');
   end;
 
-  // Status text
+  // === BOTTOM LINE: Connection status (left), LastSeen (right) ===
+  ACanvas.Font.Size := StatusFontSize;
+
+  // Connection status (left-aligned)
   if ADevice.IsConnected then
   begin
     StatusText := ADevice.ConnectionStateText;
-    // Use configurable connected color
     ACanvas.Font.Color := TColor(Config.ConnectedColor);
   end
   else
@@ -694,23 +716,19 @@ begin
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
   end;
 
-  ACanvas.Font.Size := StatusFontSize;
-  TextTop := TextTop + ACanvas.TextHeight('Ay') + 4;
-  ACanvas.TextOut(TextRect.Left, TextTop, StatusText);
+  ACanvas.TextOut(TextRect.Left, StatusLineTop, StatusText);
 
-  // Show LastSeen if enabled
+  // LastSeen (right-aligned)
   if ShowLastSeen then
   begin
-    // Format LastSeen based on config
     if Config.LastSeenFormat = lsfRelative then
       LastSeenText := FormatLastSeenRelative(DeviceConfig.LastSeen)
     else
       LastSeenText := FormatLastSeenAbsolute(DeviceConfig.LastSeen);
 
-    // Draw LastSeen after status text
-    var LastSeenLeft := TextRect.Left + ACanvas.TextWidth(StatusText) + 12;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    ACanvas.TextOut(LastSeenLeft, TextTop, LastSeenText);
+    var LastSeenWidth := ACanvas.TextWidth(LastSeenText);
+    ACanvas.TextOut(TextRect.Right - LastSeenWidth, StatusLineTop, LastSeenText);
   end;
 
   ACanvas.Brush.Style := bsSolid;

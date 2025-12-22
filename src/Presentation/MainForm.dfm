@@ -168,6 +168,7 @@ object FormMain: TFormMain
     Padding.Right = 10
     ParentBackground = False
     TabOrder = 0
+    ExplicitWidth = 274
     object TitleLabel: TLabel
       Left = 10
       Top = 0
@@ -196,7 +197,7 @@ object FormMain: TFormMain
       Padding.Top = 6
       Padding.Bottom = 6
       TabOrder = 0
-      ExplicitLeft = 89
+      ExplicitLeft = 212
       object BluetoothToggle: TToggleSwitch
         Left = 2
         Top = 6
@@ -212,7 +213,7 @@ object FormMain: TFormMain
         ThumbColor = clBtnText
         ThumbWidth = 20
         OnClick = HandleBluetoothToggle
-        ExplicitTop = 7
+        ExplicitHeight = 20
       end
     end
   end
@@ -233,6 +234,8 @@ object FormMain: TFormMain
     ParentBackground = False
     ParentFont = False
     TabOrder = 1
+    ExplicitTop = 299
+    ExplicitWidth = 274
     object WindowsSettingsLink: TLabel
       Left = 10
       Top = 0
@@ -252,7 +255,7 @@ object FormMain: TFormMain
       ExplicitHeight = 15
     end
     object StatusLabel: TLabel
-      Left = 170
+      Left = 176
       Top = 0
       Width = 80
       Height = 30
@@ -272,9 +275,9 @@ object FormMain: TFormMain
       ExplicitLeft = 168
     end
     object SettingsLabel: TLabel
-      Left = 250
+      Left = 256
       Top = 0
-      Width = 24
+      Width = 18
       Height = 30
       Cursor = crHandPoint
       Hint = 'Settings'
@@ -294,7 +297,8 @@ object FormMain: TFormMain
       Transparent = True
       Layout = tlCenter
       OnClick = HandleSettingsClick
-      ExplicitLeft = 254
+      ExplicitLeft = 250
+      ExplicitHeight = 17
     end
   end
   object DevicesPanel: TPanel
@@ -311,7 +315,7 @@ object FormMain: TFormMain
     Font.Style = []
     ParentFont = False
     TabOrder = 2
-    ExplicitLeft = -56
-    ExplicitTop = 39
+    ExplicitWidth = 274
+    ExplicitHeight = 266
   end
 end

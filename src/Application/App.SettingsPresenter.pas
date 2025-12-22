@@ -69,12 +69,15 @@ type
     // Tab: Connection
     FEditTimeout: TEdit;
     FEditRetryCount: TEdit;
+    FUpDownTimeout: TUpDown;
+    FUpDownRetryCount: TUpDown;
     FCheckNotifyOnConnect: TCheckBox;
     FCheckNotifyOnDisconnect: TCheckBox;
     FCheckNotifyOnConnectFailed: TCheckBox;
     FCheckNotifyOnAutoConnect: TCheckBox;
     FComboPollingMode: TComboBox;
     FEditPollingInterval: TEdit;
+    FUpDownPollingInterval: TUpDown;
 
     // Tab: Devices
     FListDevices: TListBox;
@@ -87,6 +90,8 @@ type
     FComboDeviceType: TComboBox;
     FEditDeviceTimeout: TEdit;
     FEditDeviceRetryCount: TEdit;
+    FUpDownDeviceTimeout: TUpDown;
+    FUpDownDeviceRetryCount: TUpDown;
     FComboDeviceNotifyConnect: TComboBox;
     FComboDeviceNotifyDisconnect: TComboBox;
     FComboDeviceNotifyFailed: TComboBox;
@@ -112,6 +117,16 @@ type
     FEditStatusSize: TEdit;
     FEditAddressSize: TEdit;
     FEditIconFontSize: TEdit;
+    // TUpDown controls for layout (need to set Position directly)
+    FUpDownItemHeight: TUpDown;
+    FUpDownItemPadding: TUpDown;
+    FUpDownItemMargin: TUpDown;
+    FUpDownIconSize: TUpDown;
+    FUpDownCornerRadius: TUpDown;
+    FUpDownDeviceNameSize: TUpDown;
+    FUpDownStatusSize: TUpDown;
+    FUpDownAddressSize: TUpDown;
+    FUpDownIconFontSize: TUpDown;
 
     procedure InitControlReferences;
     procedure LoadThemeList;
@@ -211,12 +226,15 @@ begin
   // Tab: Connection
   FEditTimeout := Form.FindComponent('EditTimeout') as TEdit;
   FEditRetryCount := Form.FindComponent('EditRetryCount') as TEdit;
+  FUpDownTimeout := Form.FindComponent('UpDownTimeout') as TUpDown;
+  FUpDownRetryCount := Form.FindComponent('UpDownRetryCount') as TUpDown;
   FCheckNotifyOnConnect := Form.FindComponent('CheckNotifyOnConnect') as TCheckBox;
   FCheckNotifyOnDisconnect := Form.FindComponent('CheckNotifyOnDisconnect') as TCheckBox;
   FCheckNotifyOnConnectFailed := Form.FindComponent('CheckNotifyOnConnectFailed') as TCheckBox;
   FCheckNotifyOnAutoConnect := Form.FindComponent('CheckNotifyOnAutoConnect') as TCheckBox;
   FComboPollingMode := Form.FindComponent('ComboPollingMode') as TComboBox;
   FEditPollingInterval := Form.FindComponent('EditPollingInterval') as TEdit;
+  FUpDownPollingInterval := Form.FindComponent('UpDownPollingInterval') as TUpDown;
 
   // Tab: Devices
   FListDevices := Form.FindComponent('ListDevices') as TListBox;
@@ -229,6 +247,8 @@ begin
   FComboDeviceType := Form.FindComponent('ComboDeviceType') as TComboBox;
   FEditDeviceTimeout := Form.FindComponent('EditDeviceTimeout') as TEdit;
   FEditDeviceRetryCount := Form.FindComponent('EditDeviceRetryCount') as TEdit;
+  FUpDownDeviceTimeout := Form.FindComponent('UpDownDeviceTimeout') as TUpDown;
+  FUpDownDeviceRetryCount := Form.FindComponent('UpDownDeviceRetryCount') as TUpDown;
   FComboDeviceNotifyConnect := Form.FindComponent('ComboDeviceNotifyConnect') as TComboBox;
   FComboDeviceNotifyDisconnect := Form.FindComponent('ComboDeviceNotifyDisconnect') as TComboBox;
   FComboDeviceNotifyFailed := Form.FindComponent('ComboDeviceNotifyFailed') as TComboBox;
@@ -254,6 +274,16 @@ begin
   FEditStatusSize := Form.FindComponent('EditStatusSize') as TEdit;
   FEditAddressSize := Form.FindComponent('EditAddressSize') as TEdit;
   FEditIconFontSize := Form.FindComponent('EditIconFontSize') as TEdit;
+  // TUpDown controls
+  FUpDownItemHeight := Form.FindComponent('UpDownItemHeight') as TUpDown;
+  FUpDownItemPadding := Form.FindComponent('UpDownItemPadding') as TUpDown;
+  FUpDownItemMargin := Form.FindComponent('UpDownItemMargin') as TUpDown;
+  FUpDownIconSize := Form.FindComponent('UpDownIconSize') as TUpDown;
+  FUpDownCornerRadius := Form.FindComponent('UpDownCornerRadius') as TUpDown;
+  FUpDownDeviceNameSize := Form.FindComponent('UpDownDeviceNameSize') as TUpDown;
+  FUpDownStatusSize := Form.FindComponent('UpDownStatusSize') as TUpDown;
+  FUpDownAddressSize := Form.FindComponent('UpDownAddressSize') as TUpDown;
+  FUpDownIconFontSize := Form.FindComponent('UpDownIconFontSize') as TUpDown;
 
   // Connect change handlers for dynamically found controls
   // (controls that may be added to form later)
@@ -389,9 +419,14 @@ begin
   // DeviceType combo: -1=Auto(0), 0=Unknown(1), 1=AudioOutput(2), etc.
   if FComboDeviceType <> nil then
     FComboDeviceType.ItemIndex := DeviceConfig.DeviceTypeOverride + 1;
-  if FEditDeviceTimeout <> nil then
+  // Use TUpDown.Position for spin controls (with Edit.Text fallback)
+  if FUpDownDeviceTimeout <> nil then
+    FUpDownDeviceTimeout.Position := DeviceConfig.ConnectionTimeout
+  else if FEditDeviceTimeout <> nil then
     FEditDeviceTimeout.Text := IntToStr(DeviceConfig.ConnectionTimeout);
-  if FEditDeviceRetryCount <> nil then
+  if FUpDownDeviceRetryCount <> nil then
+    FUpDownDeviceRetryCount.Position := DeviceConfig.ConnectionRetryCount
+  else if FEditDeviceRetryCount <> nil then
     FEditDeviceRetryCount.Text := IntToStr(DeviceConfig.ConnectionRetryCount);
 
   // Notification combos: -1=Default(0), 0=None(1), 1=Balloon(2)
@@ -410,7 +445,8 @@ var
   Address: UInt64;
   DeviceConfig: TDeviceConfig;
 begin
-  if (AIndex < 0) or (AIndex >= FDeviceAddresses.Count) then Exit;
+  if (AIndex < 0) or (AIndex >= FDeviceAddresses.Count) then
+    Exit;
 
   Address := FDeviceAddresses[AIndex];
   DeviceConfig := Config.GetDeviceConfig(Address);
@@ -426,9 +462,15 @@ begin
   // DeviceType combo: Index 0=Auto(-1), 1=Unknown(0), 2=AudioOutput(1), etc.
   if FComboDeviceType <> nil then
     DeviceConfig.DeviceTypeOverride := FComboDeviceType.ItemIndex - 1;
-  if FEditDeviceTimeout <> nil then
+  // Use TUpDown.Position for spin controls (with Edit.Text fallback)
+  if FUpDownDeviceTimeout <> nil then
+    DeviceConfig.ConnectionTimeout := FUpDownDeviceTimeout.Position
+  else if FEditDeviceTimeout <> nil then
     DeviceConfig.ConnectionTimeout := StrToIntDef(FEditDeviceTimeout.Text, -1);
-  if FEditDeviceRetryCount <> nil then
+
+  if FUpDownDeviceRetryCount <> nil then
+    DeviceConfig.ConnectionRetryCount := FUpDownDeviceRetryCount.Position
+  else if FEditDeviceRetryCount <> nil then
     DeviceConfig.ConnectionRetryCount := StrToIntDef(FEditDeviceRetryCount.Text, -1);
 
   // Notification combos: Index 0=Default(-1), 1=None(0), 2=Balloon(1)
@@ -485,11 +527,11 @@ begin
   if FCheckShowAddresses <> nil then
     FCheckShowAddresses.Checked := Config.ShowAddresses;
 
-  // Tab: Connection
-  if FEditTimeout <> nil then
-    FEditTimeout.Text := IntToStr(Config.ConnectionTimeout);
-  if FEditRetryCount <> nil then
-    FEditRetryCount.Text := IntToStr(Config.ConnectionRetryCount);
+  // Tab: Connection - use TUpDown.Position for spin controls
+  if FUpDownTimeout <> nil then
+    FUpDownTimeout.Position := Config.ConnectionTimeout;
+  if FUpDownRetryCount <> nil then
+    FUpDownRetryCount.Position := Config.ConnectionRetryCount;
   if FCheckNotifyOnConnect <> nil then
     FCheckNotifyOnConnect.Checked := Config.NotifyOnConnect = nmBalloon;
   if FCheckNotifyOnDisconnect <> nil then
@@ -500,8 +542,8 @@ begin
     FCheckNotifyOnAutoConnect.Checked := Config.NotifyOnAutoConnect = nmBalloon;
   if FComboPollingMode <> nil then
     FComboPollingMode.ItemIndex := Ord(Config.PollingMode);
-  if FEditPollingInterval <> nil then
-    FEditPollingInterval.Text := IntToStr(Config.PollingInterval);
+  if FUpDownPollingInterval <> nil then
+    FUpDownPollingInterval.Position := Config.PollingInterval;
 
   // Tab: Devices
   LoadDeviceList;
@@ -525,24 +567,25 @@ begin
     FRadioLastSeenAbsolute.Checked := Config.LastSeenFormat = lsfAbsolute;
   if FShapeConnectedColor <> nil then
     FShapeConnectedColor.Brush.Color := TColor(Config.ConnectedColor);
-  if FEditItemHeight <> nil then
-    FEditItemHeight.Text := IntToStr(Config.ItemHeight);
-  if FEditItemPadding <> nil then
-    FEditItemPadding.Text := IntToStr(Config.ItemPadding);
-  if FEditItemMargin <> nil then
-    FEditItemMargin.Text := IntToStr(Config.ItemMargin);
-  if FEditIconSize <> nil then
-    FEditIconSize.Text := IntToStr(Config.IconSize);
-  if FEditCornerRadius <> nil then
-    FEditCornerRadius.Text := IntToStr(Config.CornerRadius);
-  if FEditDeviceNameSize <> nil then
-    FEditDeviceNameSize.Text := IntToStr(Config.DeviceNameFontSize);
-  if FEditStatusSize <> nil then
-    FEditStatusSize.Text := IntToStr(Config.StatusFontSize);
-  if FEditAddressSize <> nil then
-    FEditAddressSize.Text := IntToStr(Config.AddressFontSize);
-  if FEditIconFontSize <> nil then
-    FEditIconFontSize.Text := IntToStr(Config.IconFontSize);
+  // Set TUpDown.Position directly - this automatically updates the associated Edit.Text
+  if FUpDownItemHeight <> nil then
+    FUpDownItemHeight.Position := Config.ItemHeight;
+  if FUpDownItemPadding <> nil then
+    FUpDownItemPadding.Position := Config.ItemPadding;
+  if FUpDownItemMargin <> nil then
+    FUpDownItemMargin.Position := Config.ItemMargin;
+  if FUpDownIconSize <> nil then
+    FUpDownIconSize.Position := Config.IconSize;
+  if FUpDownCornerRadius <> nil then
+    FUpDownCornerRadius.Position := Config.CornerRadius;
+  if FUpDownDeviceNameSize <> nil then
+    FUpDownDeviceNameSize.Position := Config.DeviceNameFontSize;
+  if FUpDownStatusSize <> nil then
+    FUpDownStatusSize.Position := Config.StatusFontSize;
+  if FUpDownAddressSize <> nil then
+    FUpDownAddressSize.Position := Config.AddressFontSize;
+  if FUpDownIconFontSize <> nil then
+    FUpDownIconFontSize.Position := Config.IconFontSize;
 
   FModified := False;
   Log('[SettingsPresenter] LoadSettings: Complete');
@@ -774,25 +817,25 @@ end;
 procedure TSettingsPresenter.OnResetLayoutClicked;
 begin
   Log('[SettingsPresenter] OnResetLayoutClicked');
-  // Reset layout settings to defaults
-  if FEditItemHeight <> nil then
-    FEditItemHeight.Text := '70';
-  if FEditItemPadding <> nil then
-    FEditItemPadding.Text := '12';
-  if FEditItemMargin <> nil then
-    FEditItemMargin.Text := '4';
-  if FEditIconSize <> nil then
-    FEditIconSize.Text := '32';
-  if FEditCornerRadius <> nil then
-    FEditCornerRadius.Text := '8';
-  if FEditDeviceNameSize <> nil then
-    FEditDeviceNameSize.Text := '11';
-  if FEditStatusSize <> nil then
-    FEditStatusSize.Text := '9';
-  if FEditAddressSize <> nil then
-    FEditAddressSize.Text := '8';
-  if FEditIconFontSize <> nil then
-    FEditIconFontSize.Text := '16';
+  // Reset layout settings to defaults using TUpDown.Position
+  if FUpDownItemHeight <> nil then
+    FUpDownItemHeight.Position := 70;
+  if FUpDownItemPadding <> nil then
+    FUpDownItemPadding.Position := 12;
+  if FUpDownItemMargin <> nil then
+    FUpDownItemMargin.Position := 4;
+  if FUpDownIconSize <> nil then
+    FUpDownIconSize.Position := 32;
+  if FUpDownCornerRadius <> nil then
+    FUpDownCornerRadius.Position := 8;
+  if FUpDownDeviceNameSize <> nil then
+    FUpDownDeviceNameSize.Position := 11;
+  if FUpDownStatusSize <> nil then
+    FUpDownStatusSize.Position := 9;
+  if FUpDownAddressSize <> nil then
+    FUpDownAddressSize.Position := 8;
+  if FUpDownIconFontSize <> nil then
+    FUpDownIconFontSize.Position := 16;
   if FShapeConnectedColor <> nil then
     FShapeConnectedColor.Brush.Color := TColor($00008000);  // Default green
   MarkModified;

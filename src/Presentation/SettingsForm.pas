@@ -185,6 +185,7 @@ type
     EditIconFontSize: TEdit;
     UpDownIconFontSize: TUpDown;
     CheckShowAddresses: TCheckBox;
+    LabelPollingModeHint: TLabel;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
