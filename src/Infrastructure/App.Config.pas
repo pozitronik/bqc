@@ -211,19 +211,6 @@ type
     function GetConfigPath: string;
     function GetModified: Boolean;
 
-    // IAppConfig - aggregate interface access
-    function AsGeneralConfig: IGeneralConfig;
-    function AsWindowConfig: IWindowConfig;
-    function AsPositionConfig: IPositionConfig;
-    function AsHotkeyConfig: IHotkeyConfig;
-    function AsPollingConfig: IPollingConfig;
-    function AsLogConfig: ILogConfig;
-    function AsAppearanceConfig: IAppearanceConfig;
-    function AsLayoutConfig: ILayoutConfig;
-    function AsConnectionConfig: IConnectionConfig;
-    function AsNotificationConfig: INotificationConfig;
-    function AsDeviceConfigProvider: IDeviceConfigProvider;
-
   public
     constructor Create;
     destructor Destroy; override;
@@ -363,6 +350,19 @@ type
     /// Resolves per-device override or returns global default.
     /// </summary>
     function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
+
+    // IAppConfig - aggregate interface access
+    function AsGeneralConfig: IGeneralConfig;
+    function AsWindowConfig: IWindowConfig;
+    function AsPositionConfig: IPositionConfig;
+    function AsHotkeyConfig: IHotkeyConfig;
+    function AsPollingConfig: IPollingConfig;
+    function AsLogConfig: ILogConfig;
+    function AsAppearanceConfig: IAppearanceConfig;
+    function AsLayoutConfig: ILayoutConfig;
+    function AsConnectionConfig: IConnectionConfig;
+    function AsNotificationConfig: INotificationConfig;
+    function AsDeviceConfigProvider: IDeviceConfigProvider;
 
     // Compatibility properties (map old names to new)
     property StayOnTop: Boolean read FOnTop write SetOnTop;
