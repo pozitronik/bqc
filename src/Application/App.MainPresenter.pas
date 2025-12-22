@@ -9,6 +9,42 @@
 
 unit App.MainPresenter;
 
+{ TODO: MainPresenter splitting analysis (2024-12)
+
+  This file was analyzed for potential splitting into focused presenters.
+  After analysis, the current monolithic structure was retained because:
+
+  1. ALREADY WELL-DELEGATED: The presenter properly delegates to:
+     - FBluetoothService for device operations
+     - FDisplayItemBuilder for building display items
+     - Bootstrap.* providers for configuration access
+     The presenter itself is a thin coordinator, not a "god class".
+
+  2. COHESIVE RESPONSIBILITIES: All methods relate to a single concern -
+     coordinating between IMainView and Bluetooth services. This is exactly
+     what a main presenter in MVP should do.
+
+  3. REASONABLE SIZE: 515 lines of implementation (excluding interface) is
+     acceptable for a main coordinator. Most methods are short and focused.
+
+  4. SPLITTING WOULD OVER-ENGINEER: Potential extractions would create
+     very small classes with minimal benefit:
+     - TRadioController: ~60 lines (SetRadioStateAsync, HandleRadioStateChanged)
+     - TNotificationService: ~30 lines (ShowDeviceNotification)
+     - TDeviceAutoConnector: ~25 lines (AutoConnectDevices)
+     This adds indirection without significant testability or maintainability gain.
+
+  When to reconsider this decision:
+  - If the file grows beyond ~1000 lines of implementation
+  - If new major features are added (e.g., device grouping, profiles)
+  - If testing requires mocking specific presenter behaviors
+  - If multiple views need to share subset of presenter logic
+
+  Potential future improvements:
+  - Extract IMainView interface to separate unit (App.MainViewInterfaces.pas)
+  - Consider command pattern for async operations if they grow complex
+  - Add presenter tests for state management logic }
+
 interface
 
 uses
