@@ -20,13 +20,10 @@ uses
   System.Classes,
   System.Generics.Collections,
   Winapi.Windows,
-  Winapi.Messages,
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.WinAPI,
   Bluetooth.ConnectionStrategies,
-  Bluetooth.DeviceWatcher,
-  Bluetooth.EventDebouncer,
   App.Logger,
   App.ConfigInterfaces;
 
@@ -42,24 +39,12 @@ type
     FOnError: TBluetoothErrorEvent;
     FRadioHandle: THandle;
     FDeviceCache: TDictionary<UInt64, TBluetoothDeviceInfo>;
-    FDeviceWatcher: TBluetoothDeviceWatcher;
-    FDeviceWatcherStarted: Boolean;
 
-    { Polling fallback - used when device watcher fails or as primary method }
-    FPollingEnabled: Boolean;
-    FPollingHandle: HWND;
-    FPollingTimerID: UINT_PTR;
-
-    { Event debouncing - filters duplicate events from multiple Windows sources }
-    FEventDebouncer: TDeviceEventDebouncer;
-
-    { Injected configuration interfaces }
-    FPollingConfig: IPollingConfig;
+    { Injected dependencies }
     FConnectionConfig: IConnectionConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
-
-    { Injected strategy factory }
     FStrategyFactory: IConnectionStrategyFactory;
+    FDeviceMonitor: IDeviceMonitor;
 
     procedure CloseRadio;
     function ConvertToDeviceInfo(const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
@@ -73,25 +58,13 @@ type
       AEnable: Boolean
     ): Boolean;
 
-    { Device watcher event handlers }
-    procedure HandleWatcherDeviceConnected(Sender: TObject;
-      const ADeviceAddress: UInt64; AConnected: Boolean);
-    procedure HandleWatcherDeviceDisconnected(Sender: TObject;
-      const ADeviceAddress: UInt64; AConnected: Boolean);
-    procedure HandleWatcherDeviceAttributeChanged(Sender: TObject;
-      const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
-    procedure HandleWatcherError(Sender: TObject;
-      const AMessage: string; AErrorCode: DWORD);
+    { Device monitor event handlers }
+    procedure HandleMonitorDeviceStateChanged(Sender: TObject;
+      const ADeviceAddress: UInt64; ANewState: TBluetoothConnectionState);
+    procedure HandleMonitorError(Sender: TObject;
+      const AMessage: string; AErrorCode: Cardinal);
 
     function RefreshDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
-    procedure StartDeviceWatcher;
-    procedure StopDeviceWatcher;
-
-    { Polling fallback methods }
-    procedure StartPollingFallback;
-    procedure StopPollingFallback;
-    procedure PollingWndProc(var Msg: TMessage);
-    procedure CheckDeviceStatesPolling;
 
   protected
     { IBluetoothService }
@@ -111,18 +84,18 @@ type
 
   public
     constructor Create(
-      APollingConfig: IPollingConfig;
       AConnectionConfig: IConnectionConfig;
       ADeviceConfigProvider: IDeviceConfigProvider;
-      AStrategyFactory: IConnectionStrategyFactory
+      AStrategyFactory: IConnectionStrategyFactory;
+      ADeviceMonitor: IDeviceMonitor
     );
     destructor Destroy; override;
 
     { Read-only access to injected dependencies }
-    property PollingConfig: IPollingConfig read FPollingConfig;
     property ConnectionConfig: IConnectionConfig read FConnectionConfig;
     property DeviceConfigProvider: IDeviceConfigProvider read FDeviceConfigProvider;
     property StrategyFactory: IConnectionStrategyFactory read FStrategyFactory;
+    property DeviceMonitor: IDeviceMonitor read FDeviceMonitor;
   end;
 
 /// <summary>
@@ -135,77 +108,57 @@ implementation
 
 uses
   System.DateUtils,
-  Vcl.Forms,
-  App.Bootstrap;
-
-const
-  POLLING_TIMER_ID = 1;
+  App.Bootstrap,
+  Bluetooth.DeviceMonitors;
 
 function CreateBluetoothService: IBluetoothService;
+var
+  MonitorFactory: IDeviceMonitorFactory;
 begin
+  MonitorFactory := TDeviceMonitorFactory.Create(Bootstrap.PollingConfig);
   Result := TBluetoothService.Create(
-    Bootstrap.PollingConfig,
     Bootstrap.ConnectionConfig,
     Bootstrap.DeviceConfigProvider,
-    Bootstrap.ConnectionStrategyFactory
+    Bootstrap.ConnectionStrategyFactory,
+    MonitorFactory.CreateMonitor
   );
 end;
 
 { TBluetoothService }
 
 constructor TBluetoothService.Create(
-  APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
   ADeviceConfigProvider: IDeviceConfigProvider;
-  AStrategyFactory: IConnectionStrategyFactory
+  AStrategyFactory: IConnectionStrategyFactory;
+  ADeviceMonitor: IDeviceMonitor
 );
 begin
   inherited Create;
 
   // Store injected dependencies
-  FPollingConfig := APollingConfig;
   FConnectionConfig := AConnectionConfig;
   FDeviceConfigProvider := ADeviceConfigProvider;
   FStrategyFactory := AStrategyFactory;
+  FDeviceMonitor := ADeviceMonitor;
 
   FRadioHandle := 0;
   FDeviceCache := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
-  FEventDebouncer := TDeviceEventDebouncer.Create(FPollingConfig.EventDebounceMs);
-  FDeviceWatcher := nil;
-  FDeviceWatcherStarted := False;
-  FPollingEnabled := False;
-  FPollingHandle := 0;
-  FPollingTimerID := 0;
 
-  // Choose monitoring method based on configuration
-  case FPollingConfig.PollingMode of
-    pmDisabled:
-      begin
-        // Use device watcher only, no polling fallback
-        Log('[Service] Create: Using device watcher only (polling disabled)');
-        StartDeviceWatcher;
-      end;
-    pmFallback:
-      begin
-        // Use device watcher with polling as fallback
-        Log('[Service] Create: Using device watcher with polling fallback');
-        StartDeviceWatcher;
-      end;
-    pmPrimary:
-      begin
-        // Use polling as primary method
-        Log('[Service] Create: Using polling as primary (interval=%d ms)', [FPollingConfig.PollingInterval]);
-        StartPollingFallback;
-      end;
-  end;
+  // Configure and start device monitor
+  FDeviceMonitor.OnDeviceStateChanged := HandleMonitorDeviceStateChanged;
+  FDeviceMonitor.OnError := HandleMonitorError;
+
+  if FDeviceMonitor.Start then
+    Log('[Service] Create: Device monitor started successfully')
+  else
+    Log('[Service] Create: Device monitor failed to start');
 end;
 
 destructor TBluetoothService.Destroy;
 begin
-  StopPollingFallback;
-  StopDeviceWatcher;
+  if FDeviceMonitor <> nil then
+    FDeviceMonitor.Stop;
   CloseRadio;
-  FEventDebouncer.Free;
   FDeviceCache.Free;
   inherited Destroy;
 end;
@@ -539,49 +492,45 @@ begin
   FOnError := AValue;
 end;
 
-{ Device Watcher Methods }
+{ Device Monitor Event Handlers }
 
-procedure TBluetoothService.StartDeviceWatcher;
+procedure TBluetoothService.HandleMonitorDeviceStateChanged(Sender: TObject;
+  const ADeviceAddress: UInt64; ANewState: TBluetoothConnectionState);
+var
+  Device: TBluetoothDeviceInfo;
+  UpdatedDevice: TBluetoothDeviceInfo;
 begin
-  if FDeviceWatcherStarted then
-    Exit;
+  Log('[Service] HandleMonitorDeviceStateChanged: Address=$%.12X, NewState=%d', [
+    ADeviceAddress, Ord(ANewState)
+  ]);
 
-  FDeviceWatcher := TBluetoothDeviceWatcher.Create;
-  FDeviceWatcher.OnDeviceConnected := HandleWatcherDeviceConnected;
-  FDeviceWatcher.OnDeviceDisconnected := HandleWatcherDeviceDisconnected;
-  FDeviceWatcher.OnDeviceAttributeChanged := HandleWatcherDeviceAttributeChanged;
-  FDeviceWatcher.OnError := HandleWatcherError;
-
-  if FDeviceWatcher.Start then
+  // Check if device is in cache
+  if FDeviceCache.TryGetValue(ADeviceAddress, Device) then
   begin
-    FDeviceWatcherStarted := True;
-    Log('[Service] StartDeviceWatcher: Device watcher started successfully');
+    // Update cached device with new state
+    UpdatedDevice := Device.WithConnectionState(ANewState);
+    FDeviceCache[ADeviceAddress] := UpdatedDevice;
+    DoDeviceStateChanged(UpdatedDevice);
   end
   else
   begin
-    // Watcher failed to start - error was already reported via OnError
-    Log('[Service] StartDeviceWatcher: Device watcher failed to start');
-    FDeviceWatcher.Free;
-    FDeviceWatcher := nil;
-
-    // Fall back to polling if enabled in configuration (Fallback or Primary mode)
-    if FPollingConfig.PollingMode <> pmDisabled then
+    // Device not in cache - try to get full info from Windows
+    Device := RefreshDeviceByAddress(ADeviceAddress);
+    if (Device.AddressInt <> 0) and Device.IsPaired then
     begin
-      Log('[Service] StartDeviceWatcher: Falling back to polling (interval=%d ms)', [FPollingConfig.PollingInterval]);
-      StartPollingFallback;
+      UpdatedDevice := Device.WithConnectionState(ANewState);
+      FDeviceCache.AddOrSetValue(ADeviceAddress, UpdatedDevice);
+      DoDeviceListChanged;
+      DoDeviceStateChanged(UpdatedDevice);
     end;
   end;
 end;
 
-procedure TBluetoothService.StopDeviceWatcher;
+procedure TBluetoothService.HandleMonitorError(Sender: TObject;
+  const AMessage: string; AErrorCode: Cardinal);
 begin
-  if FDeviceWatcher <> nil then
-  begin
-    FDeviceWatcher.Stop;
-    FDeviceWatcher.Free;
-    FDeviceWatcher := nil;
-  end;
-  FDeviceWatcherStarted := False;
+  Log('[Service] HandleMonitorError: %s (code %d)', [AMessage, AErrorCode]);
+  DoError(AMessage, AErrorCode);
 end;
 
 function TBluetoothService.RefreshDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
@@ -602,272 +551,6 @@ begin
   begin
     // Device not found - return empty record with just the address
     FillChar(Result, SizeOf(Result), 0);
-  end;
-end;
-
-procedure TBluetoothService.HandleWatcherDeviceConnected(Sender: TObject;
-  const ADeviceAddress: UInt64; AConnected: Boolean);
-var
-  Device: TBluetoothDeviceInfo;
-  UpdatedDevice: TBluetoothDeviceInfo;
-begin
-  Log('[Service] HandleWatcherDeviceConnected: Address=$%.12X', [ADeviceAddress]);
-
-  // Debounce: filter duplicate connect events
-  if not FEventDebouncer.ShouldProcess(ADeviceAddress, detConnect, csConnected) then
-    Exit;
-
-  // Refresh device info from Windows to get current state
-  Device := RefreshDeviceByAddress(ADeviceAddress);
-  Log('[Service] HandleWatcherDeviceConnected: RefreshDeviceByAddress returned AddressInt=$%.12X, Name="%s"', [
-    Device.AddressInt, Device.Name
-  ]);
-
-  if Device.AddressInt <> 0 then
-  begin
-    // Update cache
-    if FDeviceCache.ContainsKey(ADeviceAddress) then
-    begin
-      Log('[Service] HandleWatcherDeviceConnected: Found in FDeviceCache, updating to csConnected');
-      UpdatedDevice := FDeviceCache[ADeviceAddress].WithConnectionState(csConnected);
-      FDeviceCache[ADeviceAddress] := UpdatedDevice;
-      DoDeviceStateChanged(UpdatedDevice);
-    end
-    else if Device.IsPaired then
-    begin
-      // New paired device we haven't seen before
-      Log('[Service] HandleWatcherDeviceConnected: New paired device, adding to cache');
-      FDeviceCache.AddOrSetValue(ADeviceAddress, Device);
-      DoDeviceListChanged;
-      DoDeviceStateChanged(Device);
-    end;
-  end
-  else
-    Log('[Service] HandleWatcherDeviceConnected: RefreshDeviceByAddress returned invalid device');
-end;
-
-procedure TBluetoothService.HandleWatcherDeviceDisconnected(Sender: TObject;
-  const ADeviceAddress: UInt64; AConnected: Boolean);
-var
-  UpdatedDevice: TBluetoothDeviceInfo;
-  Device: TBluetoothDeviceInfo;
-begin
-  Log('[Service] HandleWatcherDeviceDisconnected: Address=$%.12X', [ADeviceAddress]);
-
-  // Debounce: filter duplicate disconnect events
-  if not FEventDebouncer.ShouldProcess(ADeviceAddress, detDisconnect, csDisconnected) then
-    Exit;
-
-  // Update cache with disconnected state
-  if FDeviceCache.ContainsKey(ADeviceAddress) then
-  begin
-    Log('[Service] HandleWatcherDeviceDisconnected: Found in FDeviceCache, updating to csDisconnected');
-    UpdatedDevice := FDeviceCache[ADeviceAddress].WithConnectionState(csDisconnected);
-    FDeviceCache[ADeviceAddress] := UpdatedDevice;
-    DoDeviceStateChanged(UpdatedDevice);
-  end
-  else
-  begin
-    Log('[Service] HandleWatcherDeviceDisconnected: Not in cache, trying RefreshDeviceByAddress');
-    // Device not in cache - try to refresh from Windows
-    Device := RefreshDeviceByAddress(ADeviceAddress);
-    if (Device.AddressInt <> 0) and (Device.Name <> '') and Device.IsPaired then
-    begin
-      Log('[Service] HandleWatcherDeviceDisconnected: Got paired device from Windows, Name="%s"', [Device.Name]);
-      UpdatedDevice := Device.WithConnectionState(csDisconnected);
-      FDeviceCache.AddOrSetValue(ADeviceAddress, UpdatedDevice);
-      DoDeviceListChanged;
-      DoDeviceStateChanged(UpdatedDevice);
-    end
-    else
-      Log('[Service] HandleWatcherDeviceDisconnected: Device not found, has no name, or not paired');
-  end;
-end;
-
-procedure TBluetoothService.HandleWatcherDeviceAttributeChanged(Sender: TObject;
-  const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
-var
-  Device: TBluetoothDeviceInfo;
-  CachedDevice: TBluetoothDeviceInfo;
-  Address: UInt64;
-  EventName: string;
-  ConnectionState: TBluetoothConnectionState;
-begin
-  Address := ADeviceInfo.Address.ullLong;
-
-  Log('[Service] HandleWatcherDeviceAttributeChanged: Address=$%.12X, Name="%s", Connected=%d, Remembered=%d', [
-    Address,
-    string(ADeviceInfo.szName),
-    Ord(ADeviceInfo.fConnected),
-    Ord(ADeviceInfo.fRemembered)
-  ]);
-
-  // Skip events with zero address (invalid)
-  if Address = 0 then
-  begin
-    Log('[Service] HandleWatcherDeviceAttributeChanged: Zero address, skipping');
-    Exit;
-  end;
-
-  // Debounce: filter duplicate attribute change events
-  if ADeviceInfo.fConnected then
-    ConnectionState := csConnected
-  else
-    ConnectionState := csDisconnected;
-  if not FEventDebouncer.ShouldProcess(Address, detAttributeChange, ConnectionState) then
-    Exit;
-
-  // Get name from event (may be empty)
-  EventName := Trim(string(ADeviceInfo.szName));
-
-  // Convert event data to our device info
-  Device := ConvertToDeviceInfo(ADeviceInfo);
-
-  // If event has empty name, the structure data is likely corrupted due to alignment issues.
-  // In this case, preserve both the cached name AND connection state.
-  if EventName = '' then
-  begin
-    Log('[Service] HandleWatcherDeviceAttributeChanged: Event has empty name (structure likely misaligned), checking cache');
-    if FDeviceCache.TryGetValue(Address, CachedDevice) then
-    begin
-      // Use cached device entirely since event data is unreliable
-      if CachedDevice.Name <> '' then
-      begin
-        Log('[Service] HandleWatcherDeviceAttributeChanged: Using cached device Name="%s", ConnectionState=%d', [
-          CachedDevice.Name, Ord(CachedDevice.ConnectionState)
-        ]);
-        // Keep the cached device as-is, don't update from unreliable event data
-        Exit;
-      end;
-    end;
-  end;
-
-  // Skip if we still have no valid name (likely spurious event)
-  if Device.Name = '' then
-  begin
-    Log('[Service] HandleWatcherDeviceAttributeChanged: No valid name after cache check, skipping');
-    Exit;
-  end;
-
-  Log('[Service] HandleWatcherDeviceAttributeChanged: Final device Name="%s", ConnectionState=%d', [
-    Device.Name, Ord(Device.ConnectionState)
-  ]);
-
-  // Update cache only for paired devices
-  if ADeviceInfo.fRemembered then
-  begin
-    FDeviceCache.AddOrSetValue(Address, Device);
-    DoDeviceStateChanged(Device);
-  end;
-end;
-
-procedure TBluetoothService.HandleWatcherError(Sender: TObject;
-  const AMessage: string; AErrorCode: DWORD);
-begin
-  DoError(AMessage, AErrorCode);
-end;
-
-{ Polling Fallback Methods }
-
-procedure TBluetoothService.StartPollingFallback;
-var
-  Interval: Cardinal;
-begin
-  if FPollingEnabled then
-    Exit;
-
-  // Get polling interval from configuration (with reasonable bounds)
-  Interval := FPollingConfig.PollingInterval;
-  if Interval < 500 then
-    Interval := 500;  // Minimum 500ms
-  if Interval > 30000 then
-    Interval := 30000;  // Maximum 30 seconds
-
-  // Create message-only window for timer
-  FPollingHandle := AllocateHWnd(PollingWndProc);
-  if FPollingHandle = 0 then
-  begin
-    DoError('Failed to create polling window', GetLastError);
-    Exit;
-  end;
-
-  // Start polling timer with configured interval
-  FPollingTimerID := SetTimer(FPollingHandle, POLLING_TIMER_ID, Interval, nil);
-  if FPollingTimerID = 0 then
-  begin
-    DeallocateHWnd(FPollingHandle);
-    FPollingHandle := 0;
-    DoError('Failed to start polling timer', GetLastError);
-    Exit;
-  end;
-
-  FPollingEnabled := True;
-  Log('[Service] StartPollingFallback: Polling started with interval %d ms', [Interval]);
-end;
-
-procedure TBluetoothService.StopPollingFallback;
-begin
-  if not FPollingEnabled then
-    Exit;
-
-  if FPollingTimerID <> 0 then
-  begin
-    KillTimer(FPollingHandle, POLLING_TIMER_ID);
-    FPollingTimerID := 0;
-  end;
-
-  if FPollingHandle <> 0 then
-  begin
-    DeallocateHWnd(FPollingHandle);
-    FPollingHandle := 0;
-  end;
-
-  FPollingEnabled := False;
-end;
-
-procedure TBluetoothService.PollingWndProc(var Msg: TMessage);
-begin
-  if (Msg.Msg = WM_TIMER) and (UINT_PTR(Msg.WParam) = POLLING_TIMER_ID) then
-    CheckDeviceStatesPolling
-  else
-    Msg.Result := DefWindowProc(FPollingHandle, Msg.Msg, Msg.WParam, Msg.LParam);
-end;
-
-procedure TBluetoothService.CheckDeviceStatesPolling;
-var
-  Addresses: TArray<UInt64>;
-  Address: UInt64;
-  CurrentDevice: TBluetoothDeviceInfo;
-  CachedDevice: TBluetoothDeviceInfo;
-  WasConnected, IsNowConnected: Boolean;
-begin
-  // Get snapshot of addresses to check (avoid modifying collection during iteration)
-  Addresses := FDeviceCache.Keys.ToArray;
-
-  // Check each cached device for state changes
-  for Address in Addresses do
-  begin
-    if not FDeviceCache.TryGetValue(Address, CachedDevice) then
-      Continue;
-
-    // Query current state from Windows
-    CurrentDevice := RefreshDeviceByAddress(Address);
-
-    if CurrentDevice.AddressInt = 0 then
-      Continue;  // Device not found
-
-    // Check if connection state changed
-    WasConnected := CachedDevice.IsConnected;
-    IsNowConnected := CurrentDevice.IsConnected;
-
-    if WasConnected <> IsNowConnected then
-    begin
-      // Update cache
-      FDeviceCache[Address] := CurrentDevice;
-
-      // Notify listeners
-      DoDeviceStateChanged(CurrentDevice);
-    end;
   end;
 end;
 
