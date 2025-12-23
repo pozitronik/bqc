@@ -32,9 +32,9 @@ type
   private
     FDevices: TDictionary<UInt64, TDeviceConfig>;
     FModified: Boolean;
-    FGlobalConfig: TObject;  // Reference to TAppConfig for effective values
+    FGlobalConfig: IAppConfig;  // Reference for effective values via interfaces
 
-    procedure SetGlobalConfig(AValue: TObject);
+    procedure SetGlobalConfig(AValue: IAppConfig);
 
   public
     constructor Create;
@@ -57,7 +57,7 @@ type
     function GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
     function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
 
-    property GlobalConfig: TObject read FGlobalConfig write SetGlobalConfig;
+    property GlobalConfig: IAppConfig read FGlobalConfig write SetGlobalConfig;
   end;
 
 const
@@ -87,8 +87,7 @@ function CreateDeviceConfigRepository: IDeviceConfigRepository;
 implementation
 
 uses
-  App.Logger,
-  App.Config;
+  App.Logger;
 
 function CreateDeviceConfigRepository: IDeviceConfigRepository;
 begin
@@ -111,7 +110,7 @@ begin
   inherited Destroy;
 end;
 
-procedure TDeviceConfigRepository.SetGlobalConfig(AValue: TObject);
+procedure TDeviceConfigRepository.SetGlobalConfig(AValue: IAppConfig);
 begin
   FGlobalConfig := AValue;
 end;
@@ -309,7 +308,7 @@ function TDeviceConfigRepository.GetEffectiveNotification(AAddress: UInt64;
 var
   DeviceConfig: TDeviceConfig;
   DeviceValue: Integer;
-  Cfg: TAppConfig;
+  NotifCfg: INotificationConfig;
 begin
   // Get per-device config if exists
   DeviceConfig := GetConfig(AAddress);
@@ -333,16 +332,16 @@ begin
     Result := TNotificationMode(DeviceValue)
   else if Assigned(FGlobalConfig) then
   begin
-    Cfg := TAppConfig(FGlobalConfig);
+    NotifCfg := FGlobalConfig.AsNotificationConfig;
     case AEvent of
       neConnect:
-        Result := Cfg.NotifyOnConnect;
+        Result := NotifCfg.NotifyOnConnect;
       neDisconnect:
-        Result := Cfg.NotifyOnDisconnect;
+        Result := NotifCfg.NotifyOnDisconnect;
       neConnectFailed:
-        Result := Cfg.NotifyOnConnectFailed;
+        Result := NotifCfg.NotifyOnConnectFailed;
       neAutoConnect:
-        Result := Cfg.NotifyOnAutoConnect;
+        Result := NotifCfg.NotifyOnAutoConnect;
     else
       Result := nmNone;
     end;
@@ -359,7 +358,7 @@ begin
   if DeviceConfig.ConnectionTimeout >= 0 then
     Result := DeviceConfig.ConnectionTimeout
   else if Assigned(FGlobalConfig) then
-    Result := TAppConfig(FGlobalConfig).ConnectionTimeout
+    Result := FGlobalConfig.AsConnectionConfig.ConnectionTimeout
   else
     Result := 10000;  // Default
 end;
@@ -372,7 +371,7 @@ begin
   if DeviceConfig.ConnectionRetryCount >= 0 then
     Result := DeviceConfig.ConnectionRetryCount
   else if Assigned(FGlobalConfig) then
-    Result := TAppConfig(FGlobalConfig).ConnectionRetryCount
+    Result := FGlobalConfig.AsConnectionConfig.ConnectionRetryCount
   else
     Result := 2;  // Default
 end;

@@ -457,7 +457,6 @@ uses
   System.Math,
   System.DateUtils,
   App.SettingsRepository,
-  App.DeviceConfigRepository,
   App.Bootstrap;
 
 /// <summary>
@@ -500,7 +499,7 @@ begin
   FDeviceRepository := ADeviceRepository;
   // Connect device repository to global config for effective value resolution
   if Assigned(FDeviceRepository) then
-    (FDeviceRepository as TDeviceConfigRepository).GlobalConfig := Self;
+    FDeviceRepository.SetGlobalConfig(Self);
 end;
 
 procedure TAppConfig.ClearModified;

@@ -17,6 +17,9 @@ unit App.ConfigInterfaces;
 interface
 
 type
+  // Forward declarations
+  IAppConfig = interface;
+
   /// <summary>
   /// Window display mode.
   /// </summary>
@@ -377,12 +380,12 @@ type
     /// <summary>
     /// Loads settings from storage into the config object.
     /// </summary>
-    procedure LoadSettings(AConfig: TObject);
+    procedure LoadSettings(AConfig: IAppConfig);
 
     /// <summary>
     /// Saves settings from the config object to storage.
     /// </summary>
-    procedure SaveSettings(AConfig: TObject);
+    procedure SaveSettings(AConfig: IAppConfig);
 
     /// <summary>
     /// Gets the path to the configuration file.
@@ -398,6 +401,11 @@ type
   /// </summary>
   IDeviceConfigRepository = interface
     ['{C2D3E4F5-3333-4444-5555-666677778888}']
+
+    /// <summary>
+    /// Sets reference to global app config for effective value resolution.
+    /// </summary>
+    procedure SetGlobalConfig(AConfig: IAppConfig);
 
     /// <summary>
     /// Gets configuration for a specific device.

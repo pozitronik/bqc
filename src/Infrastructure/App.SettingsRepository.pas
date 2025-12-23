@@ -33,15 +33,15 @@ type
     FConfigPath: string;
     FDeviceRepository: IDeviceConfigRepository;
 
-    procedure LoadAppSettings(AIni: TMemIniFile; AConfig: TObject);
-    procedure SaveAppSettings(AIni: TMemIniFile; AConfig: TObject);
-    procedure ValidateRanges(AConfig: TObject);
+    procedure LoadAppSettings(AIni: TMemIniFile; AConfig: IAppConfig);
+    procedure SaveAppSettings(AIni: TMemIniFile; AConfig: IAppConfig);
+    procedure ValidateRanges(AConfig: IAppConfig);
 
   public
     constructor Create(const AConfigPath: string; ADeviceRepository: IDeviceConfigRepository);
 
-    procedure LoadSettings(AConfig: TObject);
-    procedure SaveSettings(AConfig: TObject);
+    procedure LoadSettings(AConfig: IAppConfig);
+    procedure SaveSettings(AConfig: IAppConfig);
     function GetConfigPath: string;
   end;
 
@@ -170,18 +170,14 @@ begin
   Result := FConfigPath;
 end;
 
-procedure TIniSettingsRepository.LoadSettings(AConfig: TObject);
+procedure TIniSettingsRepository.LoadSettings(AConfig: IAppConfig);
 var
   Ini: TMemIniFile;
-  Cfg: TAppConfig;
 begin
-  Cfg := TAppConfig(AConfig);
-
   if not FileExists(FConfigPath) then
   begin
     // File doesn't exist - defaults already set, just save
     SaveSettings(AConfig);
-    Cfg.ClearModified;
     Exit;
   end;
 
@@ -193,107 +189,125 @@ begin
     // Load device-specific settings
     if Assigned(FDeviceRepository) then
       FDeviceRepository.LoadFrom(Ini);
-
-    Cfg.ClearModified;
   finally
     Ini.Free;
   end;
 end;
 
-procedure TIniSettingsRepository.LoadAppSettings(AIni: TMemIniFile; AConfig: TObject);
+procedure TIniSettingsRepository.LoadAppSettings(AIni: TMemIniFile; AConfig: IAppConfig);
 var
-  Cfg: TAppConfig;
+  GeneralCfg: IGeneralConfig;
+  WindowCfg: IWindowConfig;
+  PositionCfg: IPositionConfig;
+  HotkeyCfg: IHotkeyConfig;
+  PollingCfg: IPollingConfig;
+  LogCfg: ILogConfig;
+  AppearanceCfg: IAppearanceConfig;
+  LayoutCfg: ILayoutConfig;
+  ConnectionCfg: IConnectionConfig;
+  NotificationCfg: INotificationConfig;
 begin
-  Cfg := TAppConfig(AConfig);
+  GeneralCfg := AConfig.AsGeneralConfig;
+  WindowCfg := AConfig.AsWindowConfig;
+  PositionCfg := AConfig.AsPositionConfig;
+  HotkeyCfg := AConfig.AsHotkeyConfig;
+  PollingCfg := AConfig.AsPollingConfig;
+  LogCfg := AConfig.AsLogConfig;
+  AppearanceCfg := AConfig.AsAppearanceConfig;
+  LayoutCfg := AConfig.AsLayoutConfig;
+  ConnectionCfg := AConfig.AsConnectionConfig;
+  NotificationCfg := AConfig.AsNotificationConfig;
 
   // [General]
-  Cfg.WindowMode := TWindowMode(AIni.ReadInteger(SEC_GENERAL, KEY_WINDOW, Ord(DEF_WINDOW_MODE)));
-  Cfg.OnTop := AIni.ReadBool(SEC_GENERAL, KEY_ON_TOP, DEF_ON_TOP);
-  Cfg.Autostart := AIni.ReadBool(SEC_GENERAL, KEY_AUTOSTART, DEF_AUTOSTART);
+  GeneralCfg.WindowMode := TWindowMode(AIni.ReadInteger(SEC_GENERAL, KEY_WINDOW, Ord(DEF_WINDOW_MODE)));
+  GeneralCfg.OnTop := AIni.ReadBool(SEC_GENERAL, KEY_ON_TOP, DEF_ON_TOP);
+  GeneralCfg.Autostart := AIni.ReadBool(SEC_GENERAL, KEY_AUTOSTART, DEF_AUTOSTART);
 
   // [Window]
-  Cfg.MinimizeToTray := AIni.ReadBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, DEF_MINIMIZE_TO_TRAY);
-  Cfg.CloseToTray := AIni.ReadBool(SEC_WINDOW, KEY_CLOSE_TO_TRAY, DEF_CLOSE_TO_TRAY);
+  WindowCfg.MinimizeToTray := AIni.ReadBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, DEF_MINIMIZE_TO_TRAY);
+  WindowCfg.CloseToTray := AIni.ReadBool(SEC_WINDOW, KEY_CLOSE_TO_TRAY, DEF_CLOSE_TO_TRAY);
 
   // [Menu]
-  Cfg.MenuHideOnFocusLoss := AIni.ReadBool(SEC_MENU, KEY_HIDE_ON_FOCUS_LOSS, DEF_MENU_HIDE_ON_FOCUS_LOSS);
+  WindowCfg.MenuHideOnFocusLoss := AIni.ReadBool(SEC_MENU, KEY_HIDE_ON_FOCUS_LOSS, DEF_MENU_HIDE_ON_FOCUS_LOSS);
 
   // [Hotkey]
-  Cfg.Hotkey := AIni.ReadString(SEC_HOTKEY, KEY_GLOBAL_HOTKEY, DEF_HOTKEY);
-  Cfg.UseLowLevelHook := AIni.ReadBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, DEF_USE_LOW_LEVEL_HOOK);
+  HotkeyCfg.Hotkey := AIni.ReadString(SEC_HOTKEY, KEY_GLOBAL_HOTKEY, DEF_HOTKEY);
+  HotkeyCfg.UseLowLevelHook := AIni.ReadBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, DEF_USE_LOW_LEVEL_HOOK);
 
   // [Position]
-  Cfg.PositionMode := TPositionMode(AIni.ReadInteger(SEC_POSITION, KEY_MODE, Ord(DEF_POSITION_MODE)));
-  Cfg.PositionX := AIni.ReadInteger(SEC_POSITION, KEY_X, DEF_POSITION_X);
-  Cfg.PositionY := AIni.ReadInteger(SEC_POSITION, KEY_Y, DEF_POSITION_Y);
-  Cfg.PositionW := AIni.ReadInteger(SEC_POSITION, KEY_W, DEF_POSITION_W);
-  Cfg.PositionH := AIni.ReadInteger(SEC_POSITION, KEY_H, DEF_POSITION_H);
+  PositionCfg.PositionMode := TPositionMode(AIni.ReadInteger(SEC_POSITION, KEY_MODE, Ord(DEF_POSITION_MODE)));
+  PositionCfg.PositionX := AIni.ReadInteger(SEC_POSITION, KEY_X, DEF_POSITION_X);
+  PositionCfg.PositionY := AIni.ReadInteger(SEC_POSITION, KEY_Y, DEF_POSITION_Y);
+  PositionCfg.PositionW := AIni.ReadInteger(SEC_POSITION, KEY_W, DEF_POSITION_W);
+  PositionCfg.PositionH := AIni.ReadInteger(SEC_POSITION, KEY_H, DEF_POSITION_H);
 
   // [Polling]
-  Cfg.PollingMode := TPollingMode(AIni.ReadInteger(SEC_POLLING, KEY_MODE, Ord(DEF_POLLING_MODE)));
-  Cfg.PollingInterval := AIni.ReadInteger(SEC_POLLING, KEY_INTERVAL, DEF_POLLING_INTERVAL);
-  Cfg.EventDebounceMs := AIni.ReadInteger(SEC_POLLING, KEY_EVENT_DEBOUNCE_MS, DEF_EVENT_DEBOUNCE_MS);
+  PollingCfg.PollingMode := TPollingMode(AIni.ReadInteger(SEC_POLLING, KEY_MODE, Ord(DEF_POLLING_MODE)));
+  PollingCfg.PollingInterval := AIni.ReadInteger(SEC_POLLING, KEY_INTERVAL, DEF_POLLING_INTERVAL);
 
   // [Log]
-  Cfg.LogEnabled := AIni.ReadBool(SEC_LOG, KEY_ENABLED, DEF_LOG_ENABLED);
-  Cfg.LogFilename := AIni.ReadString(SEC_LOG, KEY_FILENAME, DEF_LOG_FILENAME);
-  Cfg.LogAppend := AIni.ReadBool(SEC_LOG, KEY_APPEND, DEF_LOG_APPEND);
+  LogCfg.LogEnabled := AIni.ReadBool(SEC_LOG, KEY_ENABLED, DEF_LOG_ENABLED);
+  LogCfg.LogFilename := AIni.ReadString(SEC_LOG, KEY_FILENAME, DEF_LOG_FILENAME);
+  LogCfg.LogAppend := AIni.ReadBool(SEC_LOG, KEY_APPEND, DEF_LOG_APPEND);
 
   // [Appearance]
-  Cfg.ShowAddresses := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, DEF_SHOW_ADDRESSES);
-  Cfg.Theme := AIni.ReadString(SEC_APPEARANCE, KEY_THEME, DEF_THEME);
-  Cfg.VsfDir := AIni.ReadString(SEC_APPEARANCE, KEY_VSF_DIR, DEF_VSF_DIR);
-  Cfg.ShowLastSeen := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_LAST_SEEN, DEF_SHOW_LAST_SEEN);
-  Cfg.LastSeenFormat := TLastSeenFormat(AIni.ReadInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(DEF_LAST_SEEN_FORMAT)));
-  Cfg.ShowDeviceIcons := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, DEF_SHOW_DEVICE_ICONS);
-  Cfg.ConnectedColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, DEF_CONNECTED_COLOR);
+  AppearanceCfg.ShowAddresses := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, DEF_SHOW_ADDRESSES);
+  AppearanceCfg.Theme := AIni.ReadString(SEC_APPEARANCE, KEY_THEME, DEF_THEME);
+  AppearanceCfg.VsfDir := AIni.ReadString(SEC_APPEARANCE, KEY_VSF_DIR, DEF_VSF_DIR);
+  AppearanceCfg.ShowLastSeen := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_LAST_SEEN, DEF_SHOW_LAST_SEEN);
+  AppearanceCfg.LastSeenFormat := TLastSeenFormat(AIni.ReadInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(DEF_LAST_SEEN_FORMAT)));
+  AppearanceCfg.ShowDeviceIcons := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, DEF_SHOW_DEVICE_ICONS);
+  AppearanceCfg.ConnectedColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, DEF_CONNECTED_COLOR);
 
   // [Layout]
-  Cfg.ItemHeight := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, DEF_ITEM_HEIGHT);
-  Cfg.ItemPadding := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_PADDING, DEF_ITEM_PADDING);
-  Cfg.ItemMargin := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_MARGIN, DEF_ITEM_MARGIN);
-  Cfg.IconSize := AIni.ReadInteger(SEC_LAYOUT, KEY_ICON_SIZE, DEF_ICON_SIZE);
-  Cfg.CornerRadius := AIni.ReadInteger(SEC_LAYOUT, KEY_CORNER_RADIUS, DEF_CORNER_RADIUS);
-  Cfg.DeviceNameFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_DEVICE_NAME_FONT_SIZE, DEF_DEVICE_NAME_FONT_SIZE);
-  Cfg.StatusFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_STATUS_FONT_SIZE, DEF_STATUS_FONT_SIZE);
-  Cfg.AddressFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_ADDRESS_FONT_SIZE, DEF_ADDRESS_FONT_SIZE);
-  Cfg.IconFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_ICON_FONT_SIZE, DEF_ICON_FONT_SIZE);
-  Cfg.ItemBorderWidth := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, DEF_ITEM_BORDER_WIDTH);
-  Cfg.ItemBorderColor := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, DEF_ITEM_BORDER_COLOR);
+  LayoutCfg.ItemHeight := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, DEF_ITEM_HEIGHT);
+  LayoutCfg.ItemPadding := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_PADDING, DEF_ITEM_PADDING);
+  LayoutCfg.ItemMargin := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_MARGIN, DEF_ITEM_MARGIN);
+  LayoutCfg.IconSize := AIni.ReadInteger(SEC_LAYOUT, KEY_ICON_SIZE, DEF_ICON_SIZE);
+  LayoutCfg.CornerRadius := AIni.ReadInteger(SEC_LAYOUT, KEY_CORNER_RADIUS, DEF_CORNER_RADIUS);
+  LayoutCfg.DeviceNameFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_DEVICE_NAME_FONT_SIZE, DEF_DEVICE_NAME_FONT_SIZE);
+  LayoutCfg.StatusFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_STATUS_FONT_SIZE, DEF_STATUS_FONT_SIZE);
+  LayoutCfg.AddressFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_ADDRESS_FONT_SIZE, DEF_ADDRESS_FONT_SIZE);
+  LayoutCfg.IconFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_ICON_FONT_SIZE, DEF_ICON_FONT_SIZE);
+  LayoutCfg.ItemBorderWidth := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, DEF_ITEM_BORDER_WIDTH);
+  LayoutCfg.ItemBorderColor := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, DEF_ITEM_BORDER_COLOR);
 
   // [Device] - global defaults
-  Cfg.ConnectionTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
-  Cfg.ConnectionRetryCount := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, DEF_CONNECTION_RETRY_COUNT);
-  Cfg.NotifyOnConnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(DEF_NOTIFY_ON_CONNECT)));
-  Cfg.NotifyOnDisconnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(DEF_NOTIFY_ON_DISCONNECT)));
-  Cfg.NotifyOnConnectFailed := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
-  Cfg.NotifyOnAutoConnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
+  ConnectionCfg.ConnectionTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
+  ConnectionCfg.ConnectionRetryCount := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, DEF_CONNECTION_RETRY_COUNT);
+  NotificationCfg.NotifyOnConnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(DEF_NOTIFY_ON_CONNECT)));
+  NotificationCfg.NotifyOnDisconnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(DEF_NOTIFY_ON_DISCONNECT)));
+  NotificationCfg.NotifyOnConnectFailed := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
+  NotificationCfg.NotifyOnAutoConnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
 end;
 
-procedure TIniSettingsRepository.ValidateRanges(AConfig: TObject);
+procedure TIniSettingsRepository.ValidateRanges(AConfig: IAppConfig);
 var
-  Cfg: TAppConfig;
+  PollingCfg: IPollingConfig;
+  LayoutCfg: ILayoutConfig;
+  ConnectionCfg: IConnectionConfig;
 begin
-  Cfg := TAppConfig(AConfig);
+  PollingCfg := AConfig.AsPollingConfig;
+  LayoutCfg := AConfig.AsLayoutConfig;
+  ConnectionCfg := AConfig.AsConnectionConfig;
 
   // Validate numeric values to ensure they're within acceptable ranges
-  Cfg.PollingInterval := EnsureRange(Cfg.PollingInterval, MIN_POLLING_INTERVAL, MAX_POLLING_INTERVAL);
-  Cfg.EventDebounceMs := EnsureRange(Cfg.EventDebounceMs, MIN_EVENT_DEBOUNCE_MS, MAX_EVENT_DEBOUNCE_MS);
-  Cfg.ItemHeight := EnsureRange(Cfg.ItemHeight, MIN_ITEM_HEIGHT, MAX_ITEM_HEIGHT);
-  Cfg.ItemPadding := EnsureRange(Cfg.ItemPadding, MIN_ITEM_PADDING, MAX_ITEM_PADDING);
-  Cfg.ItemMargin := EnsureRange(Cfg.ItemMargin, MIN_ITEM_MARGIN, MAX_ITEM_MARGIN);
-  Cfg.IconSize := EnsureRange(Cfg.IconSize, MIN_ICON_SIZE, MAX_ICON_SIZE);
-  Cfg.CornerRadius := EnsureRange(Cfg.CornerRadius, MIN_CORNER_RADIUS, MAX_CORNER_RADIUS);
-  Cfg.ItemBorderWidth := EnsureRange(Cfg.ItemBorderWidth, MIN_ITEM_BORDER_WIDTH, MAX_ITEM_BORDER_WIDTH);
-  Cfg.DeviceNameFontSize := EnsureRange(Cfg.DeviceNameFontSize, MIN_DEVICE_NAME_FONT_SIZE, MAX_DEVICE_NAME_FONT_SIZE);
-  Cfg.StatusFontSize := EnsureRange(Cfg.StatusFontSize, MIN_STATUS_FONT_SIZE, MAX_STATUS_FONT_SIZE);
-  Cfg.AddressFontSize := EnsureRange(Cfg.AddressFontSize, MIN_ADDRESS_FONT_SIZE, MAX_ADDRESS_FONT_SIZE);
-  Cfg.IconFontSize := EnsureRange(Cfg.IconFontSize, MIN_ICON_FONT_SIZE, MAX_ICON_FONT_SIZE);
-  Cfg.ConnectionTimeout := EnsureRange(Cfg.ConnectionTimeout, MIN_CONNECTION_TIMEOUT, MAX_CONNECTION_TIMEOUT);
-  Cfg.ConnectionRetryCount := EnsureRange(Cfg.ConnectionRetryCount, MIN_CONNECTION_RETRY_COUNT, MAX_CONNECTION_RETRY_COUNT);
+  PollingCfg.PollingInterval := EnsureRange(PollingCfg.PollingInterval, MIN_POLLING_INTERVAL, MAX_POLLING_INTERVAL);
+  LayoutCfg.ItemHeight := EnsureRange(LayoutCfg.ItemHeight, MIN_ITEM_HEIGHT, MAX_ITEM_HEIGHT);
+  LayoutCfg.ItemPadding := EnsureRange(LayoutCfg.ItemPadding, MIN_ITEM_PADDING, MAX_ITEM_PADDING);
+  LayoutCfg.ItemMargin := EnsureRange(LayoutCfg.ItemMargin, MIN_ITEM_MARGIN, MAX_ITEM_MARGIN);
+  LayoutCfg.IconSize := EnsureRange(LayoutCfg.IconSize, MIN_ICON_SIZE, MAX_ICON_SIZE);
+  LayoutCfg.CornerRadius := EnsureRange(LayoutCfg.CornerRadius, MIN_CORNER_RADIUS, MAX_CORNER_RADIUS);
+  LayoutCfg.ItemBorderWidth := EnsureRange(LayoutCfg.ItemBorderWidth, MIN_ITEM_BORDER_WIDTH, MAX_ITEM_BORDER_WIDTH);
+  LayoutCfg.DeviceNameFontSize := EnsureRange(LayoutCfg.DeviceNameFontSize, MIN_DEVICE_NAME_FONT_SIZE, MAX_DEVICE_NAME_FONT_SIZE);
+  LayoutCfg.StatusFontSize := EnsureRange(LayoutCfg.StatusFontSize, MIN_STATUS_FONT_SIZE, MAX_STATUS_FONT_SIZE);
+  LayoutCfg.AddressFontSize := EnsureRange(LayoutCfg.AddressFontSize, MIN_ADDRESS_FONT_SIZE, MAX_ADDRESS_FONT_SIZE);
+  LayoutCfg.IconFontSize := EnsureRange(LayoutCfg.IconFontSize, MIN_ICON_FONT_SIZE, MAX_ICON_FONT_SIZE);
+  ConnectionCfg.ConnectionTimeout := EnsureRange(ConnectionCfg.ConnectionTimeout, MIN_CONNECTION_TIMEOUT, MAX_CONNECTION_TIMEOUT);
+  ConnectionCfg.ConnectionRetryCount := EnsureRange(ConnectionCfg.ConnectionRetryCount, MIN_CONNECTION_RETRY_COUNT, MAX_CONNECTION_RETRY_COUNT);
 end;
 
-procedure TIniSettingsRepository.SaveSettings(AConfig: TObject);
+procedure TIniSettingsRepository.SaveSettings(AConfig: IAppConfig);
 var
   Ini: TMemIniFile;
 begin
@@ -306,80 +320,97 @@ begin
       FDeviceRepository.SaveTo(Ini);
 
     Ini.UpdateFile;
-    TAppConfig(AConfig).ClearModified;
   finally
     Ini.Free;
   end;
 end;
 
-procedure TIniSettingsRepository.SaveAppSettings(AIni: TMemIniFile; AConfig: TObject);
+procedure TIniSettingsRepository.SaveAppSettings(AIni: TMemIniFile; AConfig: IAppConfig);
 var
-  Cfg: TAppConfig;
+  GeneralCfg: IGeneralConfig;
+  WindowCfg: IWindowConfig;
+  PositionCfg: IPositionConfig;
+  HotkeyCfg: IHotkeyConfig;
+  PollingCfg: IPollingConfig;
+  LogCfg: ILogConfig;
+  AppearanceCfg: IAppearanceConfig;
+  LayoutCfg: ILayoutConfig;
+  ConnectionCfg: IConnectionConfig;
+  NotificationCfg: INotificationConfig;
 begin
-  Cfg := TAppConfig(AConfig);
+  GeneralCfg := AConfig.AsGeneralConfig;
+  WindowCfg := AConfig.AsWindowConfig;
+  PositionCfg := AConfig.AsPositionConfig;
+  HotkeyCfg := AConfig.AsHotkeyConfig;
+  PollingCfg := AConfig.AsPollingConfig;
+  LogCfg := AConfig.AsLogConfig;
+  AppearanceCfg := AConfig.AsAppearanceConfig;
+  LayoutCfg := AConfig.AsLayoutConfig;
+  ConnectionCfg := AConfig.AsConnectionConfig;
+  NotificationCfg := AConfig.AsNotificationConfig;
 
   // [General]
-  AIni.WriteInteger(SEC_GENERAL, KEY_WINDOW, Ord(Cfg.WindowMode));
-  AIni.WriteBool(SEC_GENERAL, KEY_ON_TOP, Cfg.OnTop);
-  AIni.WriteBool(SEC_GENERAL, KEY_AUTOSTART, Cfg.Autostart);
+  AIni.WriteInteger(SEC_GENERAL, KEY_WINDOW, Ord(GeneralCfg.WindowMode));
+  AIni.WriteBool(SEC_GENERAL, KEY_ON_TOP, GeneralCfg.OnTop);
+  AIni.WriteBool(SEC_GENERAL, KEY_AUTOSTART, GeneralCfg.Autostart);
 
   // [Window]
-  AIni.WriteBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, Cfg.MinimizeToTray);
-  AIni.WriteBool(SEC_WINDOW, KEY_CLOSE_TO_TRAY, Cfg.CloseToTray);
+  AIni.WriteBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, WindowCfg.MinimizeToTray);
+  AIni.WriteBool(SEC_WINDOW, KEY_CLOSE_TO_TRAY, WindowCfg.CloseToTray);
 
   // [Menu]
-  AIni.WriteBool(SEC_MENU, KEY_HIDE_ON_FOCUS_LOSS, Cfg.MenuHideOnFocusLoss);
+  AIni.WriteBool(SEC_MENU, KEY_HIDE_ON_FOCUS_LOSS, WindowCfg.MenuHideOnFocusLoss);
 
   // [Hotkey]
-  AIni.WriteString(SEC_HOTKEY, KEY_GLOBAL_HOTKEY, Cfg.Hotkey);
-  AIni.WriteBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, Cfg.UseLowLevelHook);
+  AIni.WriteString(SEC_HOTKEY, KEY_GLOBAL_HOTKEY, HotkeyCfg.Hotkey);
+  AIni.WriteBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, HotkeyCfg.UseLowLevelHook);
 
   // [Position]
-  AIni.WriteInteger(SEC_POSITION, KEY_MODE, Ord(Cfg.PositionMode));
-  AIni.WriteInteger(SEC_POSITION, KEY_X, Cfg.PositionX);
-  AIni.WriteInteger(SEC_POSITION, KEY_Y, Cfg.PositionY);
-  AIni.WriteInteger(SEC_POSITION, KEY_W, Cfg.PositionW);
-  AIni.WriteInteger(SEC_POSITION, KEY_H, Cfg.PositionH);
+  AIni.WriteInteger(SEC_POSITION, KEY_MODE, Ord(PositionCfg.PositionMode));
+  AIni.WriteInteger(SEC_POSITION, KEY_X, PositionCfg.PositionX);
+  AIni.WriteInteger(SEC_POSITION, KEY_Y, PositionCfg.PositionY);
+  AIni.WriteInteger(SEC_POSITION, KEY_W, PositionCfg.PositionW);
+  AIni.WriteInteger(SEC_POSITION, KEY_H, PositionCfg.PositionH);
 
   // [Polling]
-  AIni.WriteInteger(SEC_POLLING, KEY_MODE, Ord(Cfg.PollingMode));
-  AIni.WriteInteger(SEC_POLLING, KEY_INTERVAL, Cfg.PollingInterval);
-  AIni.WriteInteger(SEC_POLLING, KEY_EVENT_DEBOUNCE_MS, Cfg.EventDebounceMs);
+  AIni.WriteInteger(SEC_POLLING, KEY_MODE, Ord(PollingCfg.PollingMode));
+  AIni.WriteInteger(SEC_POLLING, KEY_INTERVAL, PollingCfg.PollingInterval);
+  AIni.WriteInteger(SEC_POLLING, KEY_EVENT_DEBOUNCE_MS, PollingCfg.EventDebounceMs);
 
   // [Log]
-  AIni.WriteBool(SEC_LOG, KEY_ENABLED, Cfg.LogEnabled);
-  AIni.WriteString(SEC_LOG, KEY_FILENAME, Cfg.LogFilename);
-  AIni.WriteBool(SEC_LOG, KEY_APPEND, Cfg.LogAppend);
+  AIni.WriteBool(SEC_LOG, KEY_ENABLED, LogCfg.LogEnabled);
+  AIni.WriteString(SEC_LOG, KEY_FILENAME, LogCfg.LogFilename);
+  AIni.WriteBool(SEC_LOG, KEY_APPEND, LogCfg.LogAppend);
 
   // [Appearance]
-  AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, Cfg.ShowAddresses);
-  AIni.WriteString(SEC_APPEARANCE, KEY_THEME, Cfg.Theme);
-  AIni.WriteString(SEC_APPEARANCE, KEY_VSF_DIR, Cfg.VsfDir);
-  AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_LAST_SEEN, Cfg.ShowLastSeen);
-  AIni.WriteInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(Cfg.LastSeenFormat));
-  AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, Cfg.ShowDeviceIcons);
-  AIni.WriteInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, Cfg.ConnectedColor);
+  AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, AppearanceCfg.ShowAddresses);
+  AIni.WriteString(SEC_APPEARANCE, KEY_THEME, AppearanceCfg.Theme);
+  AIni.WriteString(SEC_APPEARANCE, KEY_VSF_DIR, AppearanceCfg.VsfDir);
+  AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_LAST_SEEN, AppearanceCfg.ShowLastSeen);
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(AppearanceCfg.LastSeenFormat));
+  AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, AppearanceCfg.ShowDeviceIcons);
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, AppearanceCfg.ConnectedColor);
 
   // [Layout]
-  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, Cfg.ItemHeight);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_PADDING, Cfg.ItemPadding);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_MARGIN, Cfg.ItemMargin);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_ICON_SIZE, Cfg.IconSize);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_CORNER_RADIUS, Cfg.CornerRadius);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_DEVICE_NAME_FONT_SIZE, Cfg.DeviceNameFontSize);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_STATUS_FONT_SIZE, Cfg.StatusFontSize);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_ADDRESS_FONT_SIZE, Cfg.AddressFontSize);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_ICON_FONT_SIZE, Cfg.IconFontSize);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, Cfg.ItemBorderWidth);
-  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, Cfg.ItemBorderColor);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, LayoutCfg.ItemHeight);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_PADDING, LayoutCfg.ItemPadding);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_MARGIN, LayoutCfg.ItemMargin);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_ICON_SIZE, LayoutCfg.IconSize);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_CORNER_RADIUS, LayoutCfg.CornerRadius);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_DEVICE_NAME_FONT_SIZE, LayoutCfg.DeviceNameFontSize);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_STATUS_FONT_SIZE, LayoutCfg.StatusFontSize);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_ADDRESS_FONT_SIZE, LayoutCfg.AddressFontSize);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_ICON_FONT_SIZE, LayoutCfg.IconFontSize);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, LayoutCfg.ItemBorderWidth);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, LayoutCfg.ItemBorderColor);
 
   // [Device] - global defaults
-  AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, Cfg.ConnectionTimeout);
-  AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, Cfg.ConnectionRetryCount);
-  AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(Cfg.NotifyOnConnect));
-  AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(Cfg.NotifyOnDisconnect));
-  AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(Cfg.NotifyOnConnectFailed));
-  AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(Cfg.NotifyOnAutoConnect));
+  AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, ConnectionCfg.ConnectionTimeout);
+  AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, ConnectionCfg.ConnectionRetryCount);
+  AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(NotificationCfg.NotifyOnConnect));
+  AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(NotificationCfg.NotifyOnDisconnect));
+  AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(NotificationCfg.NotifyOnConnectFailed));
+  AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(NotificationCfg.NotifyOnAutoConnect));
 end;
 
 end.
