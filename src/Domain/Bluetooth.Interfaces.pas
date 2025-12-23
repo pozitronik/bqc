@@ -110,7 +110,8 @@ type
 
   /// <summary>
   /// Facade interface combining all Bluetooth operations.
-  /// Follows Interface Segregation Principle by extending smaller interfaces.
+  /// Note: TBluetoothService also implements IBluetoothDeviceEnumerator and
+  /// IBluetoothConnectionManager for clients that need only specific functionality.
   /// </summary>
   IBluetoothService = interface
     ['{A1B2C3D4-4444-5555-6666-777788889999}']

@@ -28,8 +28,10 @@ type
   /// <summary>
   /// Main Bluetooth service implementation.
   /// Facade pattern: Provides unified interface to Bluetooth subsystem.
+  /// Implements granular interfaces for ISP compliance.
   /// </summary>
-  TBluetoothService = class(TInterfacedObject, IBluetoothService)
+  TBluetoothService = class(TInterfacedObject, IBluetoothService,
+    IBluetoothDeviceEnumerator, IBluetoothConnectionManager)
   private
     FOnDeviceStateChanged: TDeviceStateChangedEvent;
     FOnError: TBluetoothErrorEvent;
@@ -58,10 +60,11 @@ type
       const AMessage: string; AErrorCode: Cardinal);
 
   protected
-    { IBluetoothService }
+    { IBluetoothService / IBluetoothDeviceEnumerator / IBluetoothConnectionManager }
     function IsAdapterAvailable: Boolean;
     function GetPairedDevices: TBluetoothDeviceInfoArray;
     function RefreshAllDevices: TBluetoothDeviceInfoArray;
+    function RefreshDeviceStatus(const ADevice: TBluetoothDeviceInfo): TBluetoothDeviceInfo;
     function Connect(const ADevice: TBluetoothDeviceInfo): Boolean;
     function Disconnect(const ADevice: TBluetoothDeviceInfo): Boolean;
     function ToggleConnection(const ADevice: TBluetoothDeviceInfo): Boolean;
@@ -186,6 +189,15 @@ function TBluetoothService.RefreshAllDevices: TBluetoothDeviceInfoArray;
 begin
   FDeviceRepository.Refresh;
   Result := FDeviceRepository.GetAll;
+end;
+
+function TBluetoothService.RefreshDeviceStatus(
+  const ADevice: TBluetoothDeviceInfo): TBluetoothDeviceInfo;
+begin
+  // Repository is kept up-to-date by the device monitor
+  // Return current cached state, or original if not found
+  if not FDeviceRepository.TryGetByAddress(ADevice.AddressInt, Result) then
+    Result := ADevice;
 end;
 
 function TBluetoothService.Connect(const ADevice: TBluetoothDeviceInfo): Boolean;
