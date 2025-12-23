@@ -30,10 +30,10 @@ type
     class var FInstance: TAppBootstrap;
     class function GetInstance: TAppBootstrap; static;
   private
-    FConfig: TObject;  // Actually TAppConfig, but avoids circular reference
+    FConfig: IAppConfig;
     FDeviceRepository: IDeviceConfigRepository;
     FStrategyFactory: IConnectionStrategyFactory;
-    function GetConfig: TObject;
+    function GetConfig: IAppConfig;
     procedure ApplySideEffects;
   public
     constructor Create;
@@ -106,7 +106,7 @@ end;
 
 destructor TAppBootstrap.Destroy;
 begin
-  FConfig.Free;
+  FConfig := nil;  // Release interface reference
   inherited Destroy;
 end;
 
@@ -123,7 +123,7 @@ begin
   Result := FInstance;
 end;
 
-function TAppBootstrap.GetConfig: TObject;
+function TAppBootstrap.GetConfig: IAppConfig;
 var
   Cfg: TAppConfig;
   SettingsRepo: ISettingsRepository;
@@ -131,7 +131,6 @@ begin
   if FConfig = nil then
   begin
     Cfg := TAppConfig.Create;
-    FConfig := Cfg;
 
     // Create device repository
     FDeviceRepository := CreateDeviceConfigRepository;
@@ -142,8 +141,11 @@ begin
     // Wire up repositories
     Cfg.SetRepositories(SettingsRepo, FDeviceRepository);
 
+    // Store as interface (must be done after setup to avoid premature release)
+    FConfig := Cfg;
+
     // Load configuration
-    Cfg.Load;
+    FConfig.Load;
 
     // Apply side effects after loading
     ApplySideEffects;
@@ -153,75 +155,77 @@ end;
 
 procedure TAppBootstrap.ApplySideEffects;
 var
-  Cfg: TAppConfig;
+  LogCfg: ILogConfig;
+  GeneralCfg: IGeneralConfig;
 begin
-  Cfg := TAppConfig(FConfig);
+  LogCfg := FConfig.AsLogConfig;
+  GeneralCfg := FConfig.AsGeneralConfig;
 
   // Initialize logger with settings from config
-  App.Logger.SetLoggingEnabled(Cfg.LogEnabled, Cfg.LogFilename, Cfg.LogAppend);
+  App.Logger.SetLoggingEnabled(LogCfg.LogEnabled, LogCfg.LogFilename, LogCfg.LogAppend);
 
   // Ensure autostart registry matches config setting
-  TAutostartManager.Apply(Cfg.Autostart);
+  TAutostartManager.Apply(GeneralCfg.Autostart);
 end;
 
 function TAppBootstrap.AppConfig: IAppConfig;
 begin
-  Result := TAppConfig(GetConfig);
+  Result := GetConfig;
 end;
 
 function TAppBootstrap.GeneralConfig: IGeneralConfig;
 begin
-  Result := TAppConfig(GetConfig).AsGeneralConfig;
+  Result := GetConfig.AsGeneralConfig;
 end;
 
 function TAppBootstrap.WindowConfig: IWindowConfig;
 begin
-  Result := TAppConfig(GetConfig).AsWindowConfig;
+  Result := GetConfig.AsWindowConfig;
 end;
 
 function TAppBootstrap.PositionConfig: IPositionConfig;
 begin
-  Result := TAppConfig(GetConfig).AsPositionConfig;
+  Result := GetConfig.AsPositionConfig;
 end;
 
 function TAppBootstrap.HotkeyConfig: IHotkeyConfig;
 begin
-  Result := TAppConfig(GetConfig).AsHotkeyConfig;
+  Result := GetConfig.AsHotkeyConfig;
 end;
 
 function TAppBootstrap.PollingConfig: IPollingConfig;
 begin
-  Result := TAppConfig(GetConfig).AsPollingConfig;
+  Result := GetConfig.AsPollingConfig;
 end;
 
 function TAppBootstrap.LogConfig: ILogConfig;
 begin
-  Result := TAppConfig(GetConfig).AsLogConfig;
+  Result := GetConfig.AsLogConfig;
 end;
 
 function TAppBootstrap.AppearanceConfig: IAppearanceConfig;
 begin
-  Result := TAppConfig(GetConfig).AsAppearanceConfig;
+  Result := GetConfig.AsAppearanceConfig;
 end;
 
 function TAppBootstrap.LayoutConfig: ILayoutConfig;
 begin
-  Result := TAppConfig(GetConfig).AsLayoutConfig;
+  Result := GetConfig.AsLayoutConfig;
 end;
 
 function TAppBootstrap.ConnectionConfig: IConnectionConfig;
 begin
-  Result := TAppConfig(GetConfig).AsConnectionConfig;
+  Result := GetConfig.AsConnectionConfig;
 end;
 
 function TAppBootstrap.NotificationConfig: INotificationConfig;
 begin
-  Result := TAppConfig(GetConfig).AsNotificationConfig;
+  Result := GetConfig.AsNotificationConfig;
 end;
 
 function TAppBootstrap.DeviceConfigProvider: IDeviceConfigProvider;
 begin
-  Result := TAppConfig(GetConfig).AsDeviceConfigProvider;
+  Result := GetConfig.AsDeviceConfigProvider;
 end;
 
 function TAppBootstrap.Logger: ILogger;

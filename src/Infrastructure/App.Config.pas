@@ -446,27 +446,12 @@ const
   // Appearance defaults
   DEF_CONNECTED_COLOR = $00008000;  // Dark green (BGR format)
 
-/// <summary>
-/// Returns the singleton configuration instance.
-/// </summary>
-function Config: TAppConfig;
-
 implementation
 
 uses
   System.Math,
   System.DateUtils,
-  App.SettingsRepository,
-  App.Bootstrap;
-
-/// <summary>
-/// Returns the configuration instance managed by Bootstrap.
-/// Deprecated: Use Bootstrap interface methods instead.
-/// </summary>
-function Config: TAppConfig;
-begin
-  Result := TAppConfig(Bootstrap.AppConfig);
-end;
+  App.SettingsRepository;
 
 { TAppConfig }
 
