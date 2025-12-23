@@ -20,20 +20,25 @@ uses
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.Service,
+  App.ConfigInterfaces,
   Tests.Mocks;
 
 type
   [TestFixture]
   TBluetoothServiceTests = class
   private
-    FService: TBluetoothService;
-    FConnectionConfig: TMockConnectionConfig;
-    FDeviceConfigProvider: TMockDeviceConfigProvider;
-    FStrategyFactory: TMockConnectionStrategyFactory;
-    FDeviceMonitor: TMockDeviceMonitor;
-    FDeviceRepository: TMockDeviceRepository;
-    FConnectionExecutor: TMockConnectionExecutor;
-    FAdapterQuery: TMockAdapterQuery;
+    FService: IBluetoothService;
+    FConnectionConfig: IConnectionConfig;
+    FDeviceConfigProvider: IDeviceConfigProvider;
+    FStrategyFactory: IConnectionStrategyFactory;
+    FDeviceMonitor: IDeviceMonitor;
+    FDeviceRepository: IDeviceRepository;
+    FConnectionExecutor: IConnectionExecutor;
+    FAdapterQuery: IBluetoothAdapterQuery;
+    // Keep object references for test setup
+    FMockDeviceRepository: TMockDeviceRepository;
+    FMockConnectionExecutor: TMockConnectionExecutor;
+    FMockStrategyFactory: TMockConnectionStrategyFactory;
   public
     [Setup]
     procedure Setup;
@@ -74,17 +79,25 @@ implementation
 { TBluetoothServiceTests }
 
 procedure TBluetoothServiceTests.Setup;
+var
+  Strategy: TMockConnectionStrategy;
 begin
   FConnectionConfig := TMockConnectionConfig.Create;
   FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
-  FStrategyFactory := TMockConnectionStrategyFactory.Create;
+  FMockStrategyFactory := TMockConnectionStrategyFactory.Create;
+  FStrategyFactory := FMockStrategyFactory;
   FDeviceMonitor := TMockDeviceMonitor.Create;
-  FDeviceRepository := TMockDeviceRepository.Create;
-  FConnectionExecutor := TMockConnectionExecutor.Create;
+  FMockDeviceRepository := TMockDeviceRepository.Create;
+  FDeviceRepository := FMockDeviceRepository;
+  FMockConnectionExecutor := TMockConnectionExecutor.Create;
+  FConnectionExecutor := FMockConnectionExecutor;
   FAdapterQuery := TMockAdapterQuery.Create;
 
-  // Register a default strategy
-  FStrategyFactory.RegisterStrategy(TMockConnectionStrategy.Create);
+  // Register a default strategy with service GUIDs
+  Strategy := TMockConnectionStrategy.Create;
+  Strategy.ServiceGuids := [StringToGUID('{00001108-0000-1000-8000-00805F9B34FB}')]; // Headset AG
+  Strategy.CanHandleResult := True;
+  FMockStrategyFactory.RegisterStrategy(Strategy);
 
   FService := TBluetoothService.Create(
     FConnectionConfig,
@@ -99,8 +112,18 @@ end;
 
 procedure TBluetoothServiceTests.TearDown;
 begin
-  FService.Free;
-  // Mocks are reference-counted, no need to free
+  // All interfaces are reference-counted, will be freed automatically
+  FService := nil;
+  FConnectionConfig := nil;
+  FDeviceConfigProvider := nil;
+  FStrategyFactory := nil;
+  FDeviceMonitor := nil;
+  FDeviceRepository := nil;
+  FConnectionExecutor := nil;
+  FAdapterQuery := nil;
+  FMockDeviceRepository := nil;
+  FMockConnectionExecutor := nil;
+  FMockStrategyFactory := nil;
 end;
 
 { Interface Segregation Tests }
@@ -140,8 +163,8 @@ begin
   // Arrange
   Device1 := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csConnected);
   Device2 := CreateTestDevice($AABBCCDDEEFF, 'Device2', btKeyboard, csDisconnected);
-  FDeviceRepository.AddOrUpdate(Device1);
-  FDeviceRepository.AddOrUpdate(Device2);
+  FMockDeviceRepository.AddOrUpdate(Device1);
+  FMockDeviceRepository.AddOrUpdate(Device2);
 
   Supports(FService, IBluetoothDeviceEnumerator, Enumerator);
 
@@ -175,7 +198,7 @@ begin
   // Arrange
   OriginalDevice := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
   UpdatedDevice := OriginalDevice.WithConnectionState(csConnected);
-  FDeviceRepository.AddOrUpdate(UpdatedDevice);
+  FMockDeviceRepository.AddOrUpdate(UpdatedDevice);
 
   Supports(FService, IBluetoothDeviceEnumerator, Enumerator);
 
@@ -217,7 +240,7 @@ var
 begin
   // Arrange
   Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
-  FConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
+  FMockConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
 
   Supports(FService, IBluetoothConnectionManager, ConnManager);
 
@@ -225,8 +248,8 @@ begin
   ConnManager.Connect(Device);
 
   // Assert
-  Assert.AreEqual(1, FConnectionExecutor.ExecuteCallCount, 'Should call executor once');
-  Assert.IsTrue(FConnectionExecutor.LastEnable, 'Should call with Enable=True');
+  Assert.AreEqual(1, FMockConnectionExecutor.ExecuteCallCount, 'Should call executor once');
+  Assert.IsTrue(FMockConnectionExecutor.LastEnable, 'Should call with Enable=True');
 end;
 
 procedure TBluetoothServiceTests.Disconnect_CallsConnectionExecutor;
@@ -236,7 +259,7 @@ var
 begin
   // Arrange
   Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csConnected);
-  FConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
+  FMockConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
 
   Supports(FService, IBluetoothConnectionManager, ConnManager);
 
@@ -244,8 +267,8 @@ begin
   ConnManager.Disconnect(Device);
 
   // Assert
-  Assert.AreEqual(1, FConnectionExecutor.ExecuteCallCount, 'Should call executor once');
-  Assert.IsFalse(FConnectionExecutor.LastEnable, 'Should call with Enable=False');
+  Assert.AreEqual(1, FMockConnectionExecutor.ExecuteCallCount, 'Should call executor once');
+  Assert.IsFalse(FMockConnectionExecutor.LastEnable, 'Should call with Enable=False');
 end;
 
 procedure TBluetoothServiceTests.ToggleConnection_ConnectedDevice_Disconnects;
@@ -255,7 +278,7 @@ var
 begin
   // Arrange
   Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csConnected);
-  FConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
+  FMockConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
 
   Supports(FService, IBluetoothConnectionManager, ConnManager);
 
@@ -263,7 +286,7 @@ begin
   ConnManager.ToggleConnection(Device);
 
   // Assert
-  Assert.IsFalse(FConnectionExecutor.LastEnable,
+  Assert.IsFalse(FMockConnectionExecutor.LastEnable,
     'Toggle on connected device should disconnect (Enable=False)');
 end;
 
@@ -274,7 +297,7 @@ var
 begin
   // Arrange
   Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
-  FConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
+  FMockConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
 
   Supports(FService, IBluetoothConnectionManager, ConnManager);
 
@@ -282,7 +305,7 @@ begin
   ConnManager.ToggleConnection(Device);
 
   // Assert
-  Assert.IsTrue(FConnectionExecutor.LastEnable,
+  Assert.IsTrue(FMockConnectionExecutor.LastEnable,
     'Toggle on disconnected device should connect (Enable=True)');
 end;
 
