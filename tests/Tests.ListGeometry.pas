@@ -100,6 +100,48 @@ type
     procedure IsItemVisible_CompletelyAbove_ReturnsFalse;
     [Test]
     procedure IsItemVisible_CompletelyBelow_ReturnsFalse;
+
+    { Edge Case Tests - Negative Indices }
+    [Test]
+    procedure GetItemRect_NegativeIndex_ReturnsNegativeTop;
+    [Test]
+    procedure GetItemTop_NegativeIndex_ReturnsNegativeValue;
+
+    { Edge Case Tests - Zero Dimensions }
+    [Test]
+    procedure GetItemRect_ZeroItemHeight_ReturnsZeroHeightRect;
+    [Test]
+    procedure GetItemRect_ZeroMargin_NoSpacing;
+    [Test]
+    procedure CalculateTotalHeight_ZeroItemHeight_ReturnsMarginOnly;
+    [Test]
+    procedure CalculateMaxScroll_ZeroClientHeight_ReturnsFullHeight;
+    [Test]
+    procedure ItemAtPos_ZeroClientWidth_NoHits;
+
+    { Edge Case Tests - Boundary Clicks }
+    [Test]
+    procedure ItemAtPos_ClickExactlyOnTopEdge_ReturnsItem;
+    [Test]
+    procedure ItemAtPos_ClickExactlyOnBottomEdge_ReturnsNegativeOne;
+    [Test]
+    procedure ItemAtPos_ClickExactlyOnLeftEdge_ReturnsItem;
+    [Test]
+    procedure ItemAtPos_ClickExactlyOnRightEdge_ReturnsNegativeOne;
+
+    { Edge Case Tests - Large Values }
+    [Test]
+    procedure GetItemRect_LargeIndex_CalculatesCorrectly;
+    [Test]
+    procedure ClampScrollPos_ZeroMaxScroll_AlwaysReturnsZero;
+    [Test]
+    procedure CalculateTotalHeight_NegativeItemCount_ReturnsMargin;
+
+    { Edge Case Tests - Single Item }
+    [Test]
+    procedure ScrollPosToMakeVisible_SingleItemList_Works;
+    [Test]
+    procedure ItemAtPos_SingleItem_ClickAbove_ReturnsNegativeOne;
   end;
 
 implementation
@@ -394,6 +436,176 @@ var
 begin
   R := Rect(10, CLIENT_HEIGHT + 10, 100, CLIENT_HEIGHT + 100);
   Assert.IsFalse(TListGeometry.IsItemVisible(R, CLIENT_HEIGHT));
+end;
+
+{ TListGeometryTests - Edge Cases: Negative Indices }
+
+procedure TListGeometryTests.GetItemRect_NegativeIndex_ReturnsNegativeTop;
+var
+  R: TRect;
+begin
+  // Negative index should calculate negative top position
+  R := TListGeometry.GetItemRect(-1, ITEM_HEIGHT, ITEM_MARGIN, CLIENT_WIDTH, 0);
+
+  // Top = ITEM_MARGIN + (-1) * (ITEM_HEIGHT + ITEM_MARGIN) = ITEM_MARGIN - ITEM_HEIGHT - ITEM_MARGIN = -ITEM_HEIGHT
+  Assert.AreEqual(-ITEM_HEIGHT, R.Top);
+  Assert.AreEqual(0, R.Bottom); // -ITEM_HEIGHT + ITEM_HEIGHT = 0
+end;
+
+procedure TListGeometryTests.GetItemTop_NegativeIndex_ReturnsNegativeValue;
+var
+  Top: Integer;
+begin
+  Top := TListGeometry.GetItemTop(-1, ITEM_HEIGHT, ITEM_MARGIN);
+  Assert.IsTrue(Top < 0, 'Negative index should produce negative top');
+end;
+
+{ TListGeometryTests - Edge Cases: Zero Dimensions }
+
+procedure TListGeometryTests.GetItemRect_ZeroItemHeight_ReturnsZeroHeightRect;
+var
+  R: TRect;
+begin
+  R := TListGeometry.GetItemRect(0, 0, ITEM_MARGIN, CLIENT_WIDTH, 0);
+
+  Assert.AreEqual(R.Top, R.Bottom, 'Zero height item should have equal top and bottom');
+  Assert.AreEqual(0, R.Height);
+end;
+
+procedure TListGeometryTests.GetItemRect_ZeroMargin_NoSpacing;
+var
+  R0, R1: TRect;
+begin
+  R0 := TListGeometry.GetItemRect(0, ITEM_HEIGHT, 0, CLIENT_WIDTH, 0);
+  R1 := TListGeometry.GetItemRect(1, ITEM_HEIGHT, 0, CLIENT_WIDTH, 0);
+
+  // With zero margin, items should be adjacent
+  Assert.AreEqual(0, R0.Left);
+  Assert.AreEqual(0, R0.Top);
+  Assert.AreEqual(R0.Bottom, R1.Top, 'Items should be adjacent with zero margin');
+end;
+
+procedure TListGeometryTests.CalculateTotalHeight_ZeroItemHeight_ReturnsMarginOnly;
+var
+  Height: Integer;
+begin
+  // 3 items with zero height: just margins
+  Height := TListGeometry.CalculateTotalHeight(3, 0, ITEM_MARGIN);
+  // Formula: 3 * (0 + ITEM_MARGIN) + ITEM_MARGIN = 4 * ITEM_MARGIN
+  Assert.AreEqual(4 * ITEM_MARGIN, Height);
+end;
+
+procedure TListGeometryTests.CalculateMaxScroll_ZeroClientHeight_ReturnsFullHeight;
+var
+  MaxScroll, TotalHeight: Integer;
+begin
+  TotalHeight := TListGeometry.CalculateTotalHeight(3, ITEM_HEIGHT, ITEM_MARGIN);
+  MaxScroll := TListGeometry.CalculateMaxScroll(3, ITEM_HEIGHT, ITEM_MARGIN, 0);
+
+  // With zero client height, max scroll should be total height
+  Assert.AreEqual(TotalHeight, MaxScroll);
+end;
+
+procedure TListGeometryTests.ItemAtPos_ZeroClientWidth_NoHits;
+var
+  Index: Integer;
+begin
+  // With zero client width, items have negative width (Left > Right)
+  Index := TListGeometry.ItemAtPos(0, ITEM_MARGIN + 10, 5, ITEM_HEIGHT, ITEM_MARGIN, 0, 0);
+  Assert.AreEqual(-1, Index, 'Should not hit any item with zero client width');
+end;
+
+{ TListGeometryTests - Edge Cases: Boundary Clicks }
+
+procedure TListGeometryTests.ItemAtPos_ClickExactlyOnTopEdge_ReturnsItem;
+var
+  Index: Integer;
+  TopEdge: Integer;
+begin
+  TopEdge := ITEM_MARGIN; // Top edge of first item
+  Index := TListGeometry.ItemAtPos(CLIENT_WIDTH div 2, TopEdge, 5, ITEM_HEIGHT, ITEM_MARGIN, CLIENT_WIDTH, 0);
+  Assert.AreEqual(0, Index, 'Click on top edge should hit the item');
+end;
+
+procedure TListGeometryTests.ItemAtPos_ClickExactlyOnBottomEdge_ReturnsNegativeOne;
+var
+  Index: Integer;
+  BottomEdge: Integer;
+begin
+  BottomEdge := ITEM_MARGIN + ITEM_HEIGHT; // Bottom edge of first item (exclusive)
+  Index := TListGeometry.ItemAtPos(CLIENT_WIDTH div 2, BottomEdge, 5, ITEM_HEIGHT, ITEM_MARGIN, CLIENT_WIDTH, 0);
+  Assert.AreEqual(-1, Index, 'Click on bottom edge should not hit (exclusive bound)');
+end;
+
+procedure TListGeometryTests.ItemAtPos_ClickExactlyOnLeftEdge_ReturnsItem;
+var
+  Index: Integer;
+begin
+  // Left edge is ITEM_MARGIN (inclusive)
+  Index := TListGeometry.ItemAtPos(ITEM_MARGIN, ITEM_MARGIN + 10, 5, ITEM_HEIGHT, ITEM_MARGIN, CLIENT_WIDTH, 0);
+  Assert.AreEqual(0, Index, 'Click on left edge should hit the item');
+end;
+
+procedure TListGeometryTests.ItemAtPos_ClickExactlyOnRightEdge_ReturnsNegativeOne;
+var
+  Index: Integer;
+  RightEdge: Integer;
+begin
+  RightEdge := CLIENT_WIDTH - ITEM_MARGIN; // Right edge (exclusive)
+  Index := TListGeometry.ItemAtPos(RightEdge, ITEM_MARGIN + 10, 5, ITEM_HEIGHT, ITEM_MARGIN, CLIENT_WIDTH, 0);
+  Assert.AreEqual(-1, Index, 'Click on right edge should not hit (exclusive bound)');
+end;
+
+{ TListGeometryTests - Edge Cases: Large Values }
+
+procedure TListGeometryTests.GetItemRect_LargeIndex_CalculatesCorrectly;
+var
+  R: TRect;
+  LargeIndex: Integer;
+  ExpectedTop: Integer;
+begin
+  LargeIndex := 1000;
+  R := TListGeometry.GetItemRect(LargeIndex, ITEM_HEIGHT, ITEM_MARGIN, CLIENT_WIDTH, 0);
+
+  ExpectedTop := ITEM_MARGIN + LargeIndex * (ITEM_HEIGHT + ITEM_MARGIN);
+  Assert.AreEqual(ExpectedTop, R.Top);
+  Assert.AreEqual(ExpectedTop + ITEM_HEIGHT, R.Bottom);
+end;
+
+procedure TListGeometryTests.ClampScrollPos_ZeroMaxScroll_AlwaysReturnsZero;
+begin
+  Assert.AreEqual(0, TListGeometry.ClampScrollPos(-100, 0));
+  Assert.AreEqual(0, TListGeometry.ClampScrollPos(0, 0));
+  Assert.AreEqual(0, TListGeometry.ClampScrollPos(100, 0));
+end;
+
+procedure TListGeometryTests.CalculateTotalHeight_NegativeItemCount_ReturnsMargin;
+var
+  Height: Integer;
+begin
+  // Negative item count should be treated like zero items
+  Height := TListGeometry.CalculateTotalHeight(-5, ITEM_HEIGHT, ITEM_MARGIN);
+  Assert.AreEqual(ITEM_MARGIN, Height);
+end;
+
+{ TListGeometryTests - Edge Cases: Single Item }
+
+procedure TListGeometryTests.ScrollPosToMakeVisible_SingleItemList_Works;
+var
+  NewScroll: Integer;
+begin
+  // Single item that fits in viewport
+  NewScroll := TListGeometry.ScrollPosToMakeVisible(0, 0, ITEM_HEIGHT, ITEM_MARGIN, CLIENT_HEIGHT);
+  Assert.AreEqual(0, NewScroll, 'Single visible item should not need scrolling');
+end;
+
+procedure TListGeometryTests.ItemAtPos_SingleItem_ClickAbove_ReturnsNegativeOne;
+var
+  Index: Integer;
+begin
+  // Click above the single item (in top margin area, but above item start)
+  Index := TListGeometry.ItemAtPos(CLIENT_WIDTH div 2, ITEM_MARGIN - 1, 1, ITEM_HEIGHT, ITEM_MARGIN, CLIENT_WIDTH, 0);
+  Assert.AreEqual(-1, Index, 'Click above single item should return -1');
 end;
 
 initialization
