@@ -162,7 +162,7 @@ var
   FindHandle: HBLUETOOTH_DEVICE_FIND;
   Device: TBluetoothDeviceInfo;
 begin
-  Log('[Repository] Refresh: Enumerating paired devices');
+  Log('Refresh: Enumerating paired devices', ClassName);
   FDevices.Clear;
 
   InitDeviceSearchParams(SearchParams, 0);
@@ -183,7 +183,7 @@ begin
     end;
   end;
 
-  Log('[Repository] Refresh: Found %d paired devices', [FDevices.Count]);
+  Log('Refresh: Found %d paired devices', [FDevices.Count], ClassName);
   DoListChanged;
 end;
 

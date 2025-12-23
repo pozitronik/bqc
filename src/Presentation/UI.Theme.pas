@@ -69,6 +69,8 @@ uses
   App.Logger;
 
 const
+  // Log source identifier
+  SRC = 'Theme';
   // Fallback style name when no styles are available
   FALLBACK_STYLE_NAME = 'Windows';
 
@@ -83,13 +85,13 @@ begin
   except
     on E: ECustomStyleException do
     begin
-      Log('[Theme] SafeGetStyleNames: Failed to discover styles: %s', [E.Message]);
+      Log('SafeGetStyleNames: Failed to discover styles: %s', [E.Message], SRC);
       // Return array with just the active style as fallback
       Result := [TStyleManager.ActiveStyle.Name];
     end;
     on E: Exception do
     begin
-      Log('[Theme] SafeGetStyleNames: Unexpected error: %s', [E.Message]);
+      Log('SafeGetStyleNames: Unexpected error: %s', [E.Message], SRC);
       Result := [];
     end;
   end;
@@ -169,11 +171,11 @@ begin
   else
     FullDir := ADirectory;
 
-  Log('[Theme] LoadStylesFromDirectory: "%s"', [FullDir]);
+  Log('LoadStylesFromDirectory: "%s"', [FullDir], ClassName);
 
   if not TDirectory.Exists(FullDir) then
   begin
-    Log('[Theme] LoadStylesFromDirectory: Directory does not exist');
+    Log('LoadStylesFromDirectory: Directory does not exist', ClassName);
     Exit;
   end;
 
@@ -181,7 +183,7 @@ begin
   RegisteredStyles := SafeGetStyleNames;
 
   Files := TDirectory.GetFiles(FullDir, '*.vsf');
-  Log('[Theme] LoadStylesFromDirectory: Found %d .vsf files', [Length(Files)]);
+  Log('LoadStylesFromDirectory: Found %d .vsf files', [Length(Files)], ClassName);
 
   LoadedCount := 0;
   for FilePath in Files do
@@ -195,20 +197,20 @@ begin
         if not IsStyleRegistered(StyleInfo.Name) then
         begin
           TStyleManager.LoadFromFile(FilePath);
-          Log('[Theme] LoadStylesFromDirectory: Loaded style "%s" from "%s"', [StyleInfo.Name, FileName]);
+          Log('LoadStylesFromDirectory: Loaded style "%s" from "%s"', [StyleInfo.Name, FileName], ClassName);
           Inc(LoadedCount);
         end;
       end
       else
-        Log('[Theme] LoadStylesFromDirectory: Invalid style file "%s"', [FileName]);
+        Log('LoadStylesFromDirectory: Invalid style file "%s"', [FileName], ClassName);
     except
       on E: Exception do
-        Log('[Theme] LoadStylesFromDirectory: Failed to load "%s": %s', [FileName, E.Message]);
+        Log('LoadStylesFromDirectory: Failed to load "%s": %s', [FileName, E.Message], ClassName);
     end;
   end;
 
-  Log('[Theme] LoadStylesFromDirectory: Loaded %d new styles, total available: %d',
-    [LoadedCount, Length(SafeGetStyleNames)]);
+  Log('LoadStylesFromDirectory: Loaded %d new styles, total available: %d',
+    [LoadedCount, Length(SafeGetStyleNames)], ClassName);
 end;
 
 function TThemeManager.GetAvailableStyles: TArray<string>;
@@ -225,14 +227,14 @@ begin
   begin
     TargetStyle := GetFirstAvailableStyle;
     if AStyleName <> '' then
-      Log('[Theme] SetStyle: Style "%s" not found, falling back to "%s"', [AStyleName, TargetStyle]);
+      Log('SetStyle: Style "%s" not found, falling back to "%s"', [AStyleName, TargetStyle], ClassName);
   end
   else
     TargetStyle := AStyleName;
 
   if TargetStyle = '' then
   begin
-    Log('[Theme] SetStyle: No styles available');
+    Log('SetStyle: No styles available', ClassName);
     Exit;
   end;
 
@@ -241,10 +243,10 @@ begin
     try
       TStyleManager.SetStyle(TargetStyle);
       FCurrentStyleName := TargetStyle;
-      Log('[Theme] SetStyle: Applied style "%s"', [TargetStyle]);
+      Log('SetStyle: Applied style "%s"', [TargetStyle], ClassName);
     except
       on E: Exception do
-        Log('[Theme] SetStyle: Failed to apply style "%s": %s', [TargetStyle, E.Message]);
+        Log('SetStyle: Failed to apply style "%s": %s', [TargetStyle, E.Message], ClassName);
     end;
   end;
 end;

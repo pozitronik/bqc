@@ -92,8 +92,8 @@ begin
   FormWidth := AForm.Width;
   FormHeight := AForm.Height;
 
-  Log('[WindowPositioner] PositionWindow: FormWidth=%d, FormHeight=%d, Mode=%d',
-    [FormWidth, FormHeight, Ord(APosition)]);
+  Log('PositionWindow: FormWidth=%d, FormHeight=%d, Mode=%d',
+    [FormWidth, FormHeight, Ord(APosition)], ClassName);
 
   // Get cursor position and find which monitor it's on
   GetCursorPos(CursorPos);
@@ -111,14 +111,14 @@ begin
         begin
           NewLeft := Bootstrap.PositionConfig.PositionX;
           NewTop := Bootstrap.PositionConfig.PositionY;
-          Log('[WindowPositioner] Using saved coordinates X=%d, Y=%d', [NewLeft, NewTop]);
+          Log('Using saved coordinates X=%d, Y=%d', [NewLeft, NewTop], ClassName);
         end
         else
         begin
           // Default: center on active monitor
           NewLeft := WorkArea.Left + (WorkArea.Width - FormWidth) div 2;
           NewTop := WorkArea.Top + (WorkArea.Height - FormHeight) div 2;
-          Log('[WindowPositioner] No saved coordinates, centering on screen');
+          Log('No saved coordinates, centering on screen', ClassName);
         end;
       end;
 
@@ -127,7 +127,7 @@ begin
         // Position popup above the cursor, centered horizontally
         NewLeft := CursorPos.X - (FormWidth div 2);
         NewTop := CursorPos.Y - FormHeight - WINDOW_EDGE_MARGIN;
-        Log('[WindowPositioner] Near cursor (%d, %d)', [CursorPos.X, CursorPos.Y]);
+        Log('Near cursor (%d, %d)', [CursorPos.X, CursorPos.Y], ClassName);
       end;
 
     pmNearTray:
@@ -135,9 +135,9 @@ begin
         // Find the actual taskbar/tray position
         if GetTaskbarRect(TrayRect) then
         begin
-          Log('[WindowPositioner] Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
+          Log('Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
             [TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom,
-             BoolToStr(IsTaskbarHorizontal(TrayRect), True)]);
+             BoolToStr(IsTaskbarHorizontal(TrayRect), True)], ClassName);
 
           // Get work area of monitor containing the taskbar
           Mon := Screen.MonitorFromRect(TrayRect);
@@ -152,14 +152,14 @@ begin
               // Taskbar at top - position popup below taskbar, near right edge
               NewLeft := TrayRect.Right - FormWidth - WINDOW_EDGE_MARGIN;
               NewTop := TrayRect.Bottom + WINDOW_EDGE_MARGIN;
-              Log('[WindowPositioner] Taskbar at TOP');
+              Log('Taskbar at TOP', ClassName);
             end
             else
             begin
               // Taskbar at bottom - position popup above taskbar, near right edge
               NewLeft := TrayRect.Right - FormWidth - WINDOW_EDGE_MARGIN;
               NewTop := TrayRect.Top - FormHeight - WINDOW_EDGE_MARGIN;
-              Log('[WindowPositioner] Taskbar at BOTTOM');
+              Log('Taskbar at BOTTOM', ClassName);
             end;
           end
           else
@@ -170,14 +170,14 @@ begin
               // Taskbar at left - position popup to the right of taskbar, near bottom
               NewLeft := TrayRect.Right + WINDOW_EDGE_MARGIN;
               NewTop := TrayRect.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
-              Log('[WindowPositioner] Taskbar at LEFT');
+              Log('Taskbar at LEFT', ClassName);
             end
             else
             begin
               // Taskbar at right - position popup to the left of taskbar, near bottom
               NewLeft := TrayRect.Left - FormWidth - WINDOW_EDGE_MARGIN;
               NewTop := TrayRect.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
-              Log('[WindowPositioner] Taskbar at RIGHT');
+              Log('Taskbar at RIGHT', ClassName);
             end;
           end;
         end
@@ -186,7 +186,7 @@ begin
           // Fallback: position at bottom-right of cursor's monitor work area
           NewLeft := WorkArea.Right - FormWidth - WINDOW_EDGE_MARGIN;
           NewTop := WorkArea.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
-          Log('[WindowPositioner] Near tray (fallback to bottom-right)');
+          Log('Near tray (fallback to bottom-right)', ClassName);
         end;
       end;
 
@@ -195,7 +195,7 @@ begin
         // Center on the monitor where cursor is
         NewLeft := WorkArea.Left + (WorkArea.Width - FormWidth) div 2;
         NewTop := WorkArea.Top + (WorkArea.Height - FormHeight) div 2;
-        Log('[WindowPositioner] Center screen');
+        Log('Center screen', ClassName);
       end;
 
   else
@@ -203,8 +203,8 @@ begin
     NewTop := AForm.Top;
   end;
 
-  Log('[WindowPositioner] Before bounds check: NewLeft=%d, NewTop=%d, WorkArea=(%d,%d,%d,%d)',
-    [NewLeft, NewTop, WorkArea.Left, WorkArea.Top, WorkArea.Right, WorkArea.Bottom]);
+  Log('Before bounds check: NewLeft=%d, NewTop=%d, WorkArea=(%d,%d,%d,%d)',
+    [NewLeft, NewTop, WorkArea.Left, WorkArea.Top, WorkArea.Right, WorkArea.Bottom], ClassName);
 
   // Ensure popup stays within work area
   if NewLeft < WorkArea.Left then
@@ -216,7 +216,7 @@ begin
   if NewTop + FormHeight > WorkArea.Bottom then
     NewTop := WorkArea.Bottom - FormHeight;
 
-  Log('[WindowPositioner] Final position: Left=%d, Top=%d', [NewLeft, NewTop]);
+  Log('Final position: Left=%d, Top=%d', [NewLeft, NewTop], ClassName);
 
   AForm.Left := NewLeft;
   AForm.Top := NewTop;

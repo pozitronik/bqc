@@ -67,6 +67,9 @@ type
     function NotificationConfig: INotificationConfig;
     function DeviceConfigProvider: IDeviceConfigProvider;
 
+    // Services
+    function Logger: ILogger;
+
     // Service factories
     function ConnectionStrategyFactory: IConnectionStrategyFactory;
   end;
@@ -219,6 +222,13 @@ end;
 function TAppBootstrap.DeviceConfigProvider: IDeviceConfigProvider;
 begin
   Result := TAppConfig(GetConfig).AsDeviceConfigProvider;
+end;
+
+function TAppBootstrap.Logger: ILogger;
+begin
+  // Ensure config is loaded (which configures logger)
+  GetConfig;
+  Result := App.Logger.Logger;
 end;
 
 function TAppBootstrap.ConnectionStrategyFactory: IConnectionStrategyFactory;

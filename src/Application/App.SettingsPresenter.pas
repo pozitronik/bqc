@@ -181,13 +181,13 @@ begin
   FModified := False;
   FDeviceAddresses := TList<UInt64>.Create;
   FSelectedDeviceIndex := -1;
-  Log('[SettingsPresenter] Created');
+  Log('Created', ClassName);
 end;
 
 destructor TSettingsPresenter.Destroy;
 begin
   FDeviceAddresses.Free;
-  Log('[SettingsPresenter] Destroyed');
+  Log('Destroyed', ClassName);
   inherited;
 end;
 
@@ -201,7 +201,7 @@ begin
   ViewObj := FView as TObject;
   if not (ViewObj is TForm) then
   begin
-    Log('[SettingsPresenter] InitControlReferences: Failed to get form reference');
+    Log('InitControlReferences: Failed to get form reference', ClassName);
     Exit;
   end;
   Form := TForm(ViewObj);
@@ -297,7 +297,7 @@ begin
     FComboDeviceType.Style := csDropDownList;
   end;
 
-  Log('[SettingsPresenter] InitControlReferences: Complete');
+  Log('InitControlReferences: Complete', ClassName);
 end;
 
 procedure TSettingsPresenter.InitUpDownLimits;
@@ -385,7 +385,7 @@ begin
     FUpDownDeviceRetryCount.Max := MAX_CONNECTION_RETRY_COUNT;
   end;
 
-  Log('[SettingsPresenter] InitUpDownLimits: Complete');
+  Log('InitUpDownLimits: Complete', ClassName);
 end;
 
 procedure TSettingsPresenter.LoadThemeList;
@@ -558,7 +558,7 @@ end;
 
 procedure TSettingsPresenter.LoadSettings;
 begin
-  Log('[SettingsPresenter] LoadSettings');
+  Log('LoadSettings', ClassName);
 
   InitControlReferences;
   InitUpDownLimits;
@@ -663,12 +663,12 @@ begin
     FShapeBorderColor.Brush.Color := TColor(TAppConfig(Bootstrap.AppConfig).ItemBorderColor);
 
   FModified := False;
-  Log('[SettingsPresenter] LoadSettings: Complete');
+  Log('LoadSettings: Complete', ClassName);
 end;
 
 function TSettingsPresenter.SaveSettings: Boolean;
 begin
-  Log('[SettingsPresenter] SaveSettings');
+  Log('SaveSettings', ClassName);
   Result := True;
   try
     // Save current device settings if any selected
@@ -797,7 +797,7 @@ begin
     // Save configuration to file
     Bootstrap.AppConfig.Save;
     FModified := False;
-    Log('[SettingsPresenter] SaveSettings: Success');
+    Log('SaveSettings: Success', ClassName);
 
     // Notify that settings were applied
     if Assigned(FOnSettingsApplied) then
@@ -805,7 +805,7 @@ begin
   except
     on E: Exception do
     begin
-      Log('[SettingsPresenter] SaveSettings: Error - %s', [E.Message]);
+      Log('SaveSettings: Error - %s', [E.Message], ClassName);
       FView.ShowError('Failed to save settings: ' + E.Message);
       Result := False;
     end;
@@ -814,27 +814,27 @@ end;
 
 procedure TSettingsPresenter.OnOKClicked;
 begin
-  Log('[SettingsPresenter] OnOKClicked');
+  Log('OnOKClicked', ClassName);
   if SaveSettings then
     FView.CloseWithOK;
 end;
 
 procedure TSettingsPresenter.OnCancelClicked;
 begin
-  Log('[SettingsPresenter] OnCancelClicked');
+  Log('OnCancelClicked', ClassName);
   FView.CloseWithCancel;
 end;
 
 procedure TSettingsPresenter.OnApplyClicked;
 begin
-  Log('[SettingsPresenter] OnApplyClicked');
+  Log('OnApplyClicked', ClassName);
   if SaveSettings then
     FView.SetApplyEnabled(False);
 end;
 
 procedure TSettingsPresenter.OnResetSizeClicked;
 begin
-  Log('[SettingsPresenter] OnResetSizeClicked');
+  Log('OnResetSizeClicked', ClassName);
   TAppConfig(Bootstrap.AppConfig).PositionW := -1;
   TAppConfig(Bootstrap.AppConfig).PositionH := -1;
   FView.ShowInfo('Window size will be reset to default on next application start.');
@@ -842,7 +842,7 @@ end;
 
 procedure TSettingsPresenter.OnResetPositionClicked;
 begin
-  Log('[SettingsPresenter] OnResetPositionClicked');
+  Log('OnResetPositionClicked', ClassName);
   TAppConfig(Bootstrap.AppConfig).PositionX := -1;
   TAppConfig(Bootstrap.AppConfig).PositionY := -1;
   FView.ShowInfo('Window position will be reset to default on next application start.');
@@ -850,7 +850,7 @@ end;
 
 procedure TSettingsPresenter.OnDeviceSelected(AIndex: Integer);
 begin
-  Log('[SettingsPresenter] OnDeviceSelected: Index=%d', [AIndex]);
+  Log('OnDeviceSelected: Index=%d', [AIndex], ClassName);
   LoadDeviceSettings(AIndex);
 end;
 
@@ -858,7 +858,7 @@ procedure TSettingsPresenter.OnForgetDeviceClicked(AIndex: Integer);
 var
   Address: UInt64;
 begin
-  Log('[SettingsPresenter] OnForgetDeviceClicked: Index=%d', [AIndex]);
+  Log('OnForgetDeviceClicked: Index=%d', [AIndex], ClassName);
   if (AIndex >= 0) and (AIndex < FDeviceAddresses.Count) then
   begin
     Address := FDeviceAddresses[AIndex];
@@ -870,13 +870,13 @@ end;
 
 procedure TSettingsPresenter.OnRefreshDevicesClicked;
 begin
-  Log('[SettingsPresenter] OnRefreshDevicesClicked');
+  Log('OnRefreshDevicesClicked', ClassName);
   LoadDeviceList;
 end;
 
 procedure TSettingsPresenter.OnResetDefaultsClicked;
 begin
-  Log('[SettingsPresenter] OnResetDefaultsClicked');
+  Log('OnResetDefaultsClicked', ClassName);
   try
     // Delete config file
     if FileExists(Bootstrap.AppConfig.ConfigPath) then
@@ -895,7 +895,7 @@ end;
 
 procedure TSettingsPresenter.OnResetLayoutClicked;
 begin
-  Log('[SettingsPresenter] OnResetLayoutClicked');
+  Log('OnResetLayoutClicked', ClassName);
   // Reset layout settings to defaults using TUpDown.Position
   if FUpDownItemHeight <> nil then
     FUpDownItemHeight.Position := DEF_ITEM_HEIGHT;

@@ -65,14 +65,14 @@ begin
         begin
           ExePath := ParamStr(0);
           Reg.WriteString(REG_APP_NAME, '"' + ExePath + '"');
-          Log('[Autostart] Enabled autostart, path="%s"', [ExePath]);
+          Log('Enabled autostart, path="%s"', [ExePath], ClassName);
         end
         else
         begin
           if Reg.ValueExists(REG_APP_NAME) then
           begin
             Reg.DeleteValue(REG_APP_NAME);
-            Log('[Autostart] Disabled autostart');
+            Log('Disabled autostart', ClassName);
           end;
         end;
       finally
@@ -80,7 +80,7 @@ begin
       end;
     end
     else
-      Log('[Autostart] Failed to open registry key');
+      Log('Failed to open registry key', ClassName);
   finally
     Reg.Free;
   end;

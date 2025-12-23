@@ -157,15 +157,15 @@ begin
   FDeviceMonitor.OnError := HandleMonitorError;
 
   if FDeviceMonitor.Start then
-    Log('[Service] Create: Device monitor started successfully')
+    Log('Create: Device monitor started successfully', ClassName)
   else
-    Log('[Service] Create: Device monitor failed to start');
+    Log('Create: Device monitor failed to start', ClassName);
 
   // Initial device enumeration
   FDeviceRepository.Refresh;
-  Log('[Service] Create: Initial device enumeration complete, %d devices found', [
+  Log('Create: Initial device enumeration complete, %d devices found', [
     FDeviceRepository.Count
-  ]);
+  ], ClassName);
 end;
 
 destructor TBluetoothService.Destroy;
@@ -242,9 +242,9 @@ begin
   else
     RetryCount := FConnectionConfig.ConnectionRetryCount;
 
-  Log('[Service] ConnectWithStrategy: Device=%s, RetryCount=%d (device-specific=%s)', [
+  Log('ConnectWithStrategy: Device=%s, RetryCount=%d (device-specific=%s)', [
     ADevice.Name, RetryCount, BoolToStr(DeviceConfig.ConnectionRetryCount >= 0, True)
-  ]);
+  ], ClassName);
 
   // Get appropriate strategy for this device type
   Strategy := FStrategyFactory.GetStrategy(ADevice.DeviceType);
@@ -295,12 +295,12 @@ end;
 procedure TBluetoothService.DoDeviceStateChanged(
   const ADevice: TBluetoothDeviceInfo);
 begin
-  Log('[Service] DoDeviceStateChanged: Address=$%.12X, Name="%s", ConnectionState=%d, Handler assigned=%s', [
+  Log('DoDeviceStateChanged: Address=$%.12X, Name="%s", ConnectionState=%d, Handler assigned=%s', [
     ADevice.AddressInt,
     ADevice.Name,
     Ord(ADevice.ConnectionState),
     BoolToStr(Assigned(FOnDeviceStateChanged), True)
-  ]);
+  ], ClassName);
   if Assigned(FOnDeviceStateChanged) then
     FOnDeviceStateChanged(Self, ADevice);
 end;
@@ -351,9 +351,9 @@ var
   Device: TBluetoothDeviceInfo;
   UpdatedDevice: TBluetoothDeviceInfo;
 begin
-  Log('[Service] HandleMonitorDeviceStateChanged: Address=$%.12X, NewState=%d', [
+  Log('HandleMonitorDeviceStateChanged: Address=$%.12X, NewState=%d', [
     ADeviceAddress, Ord(ANewState)
-  ]);
+  ], ClassName);
 
   // Check if device is in repository
   if FDeviceRepository.TryGetByAddress(ADeviceAddress, Device) then
@@ -379,7 +379,7 @@ end;
 procedure TBluetoothService.HandleMonitorError(Sender: TObject;
   const AMessage: string; AErrorCode: Cardinal);
 begin
-  Log('[Service] HandleMonitorError: %s (code %d)', [AMessage, AErrorCode]);
+  Log('HandleMonitorError: %s (code %d)', [AMessage, AErrorCode], ClassName);
   DoError(AMessage, AErrorCode);
 end;
 

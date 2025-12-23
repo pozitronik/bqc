@@ -1,7 +1,10 @@
 {*******************************************************}
 {                                                       }
 {       Bluetooth Quick Connect                         }
-{       Simple File Logger                              }
+{       Application Logger                              }
+{                                                       }
+{       Provides structured logging with source         }
+{       identification for debugging and diagnostics.   }
 {                                                       }
 {       Copyright (c) 2024                              }
 {                                                       }
@@ -14,7 +17,8 @@ interface
 uses
   System.SysUtils,
   System.Classes,
-  System.SyncObjs;
+  System.SyncObjs,
+  App.ConfigInterfaces;
 
 type
   /// <summary>
@@ -22,29 +26,79 @@ type
   /// </summary>
   ELoggerError = class(Exception);
 
+  /// <summary>
+  /// Logger implementation.
+  /// Thread-safe file-based logging with source identification.
+  /// </summary>
+  TLogger = class(TInterfacedObject, ILogger)
+  private
+    FLogFile: string;
+    FLock: TCriticalSection;
+    FEnabled: Boolean;
+    FAppendMode: Boolean;
+    FSessionStarted: Boolean;
+
+    procedure WriteToFile(const AMessage: string; const ASource: string);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    /// <summary>
+    /// Configures the logger.
+    /// </summary>
+    /// <param name="AEnabled">Enable or disable logging.</param>
+    /// <param name="AFilename">Log filename (relative to exe or absolute path).</param>
+    /// <param name="AAppend">If true, append to existing file; if false, create new file.</param>
+    procedure Configure(AEnabled: Boolean; const AFilename: string = 'bqc.log';
+      AAppend: Boolean = False);
+
+    { ILogger }
+    procedure Log(const AMessage: string; const ASource: string = '');
+    procedure LogFmt(const AFormat: string; const AArgs: array of const;
+      const ASource: string = '');
+    function IsEnabled: Boolean;
+  end;
+
+//------------------------------------------------------------------------------
+// Global convenience procedures (backward compatible + new signature)
+//------------------------------------------------------------------------------
+
 /// <summary>
-/// Logs a message to the log file.
+/// Logs a message with source identifier.
+/// </summary>
+procedure Log(const AMessage: string; const ASource: string); overload;
+
+/// <summary>
+/// Logs a message (legacy - no source).
 /// </summary>
 procedure Log(const AMessage: string); overload;
 
 /// <summary>
-/// Logs a formatted message to the log file.
+/// Logs a formatted message with source identifier.
+/// </summary>
+procedure Log(const AFormat: string; const AArgs: array of const;
+  const ASource: string); overload;
+
+/// <summary>
+/// Logs a formatted message (legacy - no source).
 /// </summary>
 procedure Log(const AFormat: string; const AArgs: array of const); overload;
 
 /// <summary>
 /// Enables or disables logging globally.
-/// When disabled, Log calls are no-ops.
 /// </summary>
-/// <param name="AEnabled">Enable or disable logging.</param>
-/// <param name="AFilename">Log filename (relative to exe or absolute path).</param>
-/// <param name="AAppend">If true, append to existing file; if false, create new file.</param>
-procedure SetLoggingEnabled(AEnabled: Boolean; const AFilename: string = 'bqc.log'; AAppend: Boolean = False);
+procedure SetLoggingEnabled(AEnabled: Boolean; const AFilename: string = 'bqc.log';
+  AAppend: Boolean = False);
 
 /// <summary>
 /// Returns true if logging is currently enabled.
 /// </summary>
 function IsLoggingEnabled: Boolean;
+
+/// <summary>
+/// Returns the global logger instance.
+/// </summary>
+function Logger: ILogger;
 
 implementation
 
@@ -52,89 +106,168 @@ uses
   Winapi.Windows;
 
 var
-  GLogFile: string;
-  GLock: TCriticalSection;
-  GInitialized: Boolean = False;
-  GLoggingEnabled: Boolean = True;  // Enabled by default for startup diagnostics
-  GAppendMode: Boolean = False;
-  GSessionStarted: Boolean = False;
+  GLogger: TLogger = nil;
+  GLoggerLock: TCriticalSection = nil;
 
-procedure InitLogger;
-var
-  ExePath: string;
+function GetLogger: TLogger;
 begin
-  if GInitialized then
-    Exit;
-
-  GLock := TCriticalSection.Create;
-  ExePath := ExtractFilePath(ParamStr(0));
-  GLogFile := ExePath + 'bqc.log';
-  GInitialized := True;
+  if GLogger = nil then
+  begin
+    GLoggerLock.Enter;
+    try
+      if GLogger = nil then
+        GLogger := TLogger.Create;
+    finally
+      GLoggerLock.Leave;
+    end;
+  end;
+  Result := GLogger;
 end;
 
-procedure SetLoggingEnabled(AEnabled: Boolean; const AFilename: string; AAppend: Boolean);
-var
-  ExePath: string;
+function Logger: ILogger;
 begin
-  if not GInitialized then
-    InitLogger;
+  Result := GetLogger;
+end;
 
-  GLoggingEnabled := AEnabled;
-  GAppendMode := AAppend;
+procedure Log(const AMessage: string; const ASource: string);
+begin
+  GetLogger.Log(AMessage, ASource);
+end;
 
-  // Resolve filename
-  if AFilename <> '' then
-  begin
-    if ExtractFilePath(AFilename) = '' then
-    begin
-      // Relative path - prepend exe directory
-      ExePath := ExtractFilePath(ParamStr(0));
-      GLogFile := ExePath + AFilename;
-    end
-    else
-      GLogFile := AFilename;
-  end;
+procedure Log(const AMessage: string);
+begin
+  GetLogger.Log(AMessage, '');
+end;
 
-  // Reset session flag when settings change
-  GSessionStarted := False;
+procedure Log(const AFormat: string; const AArgs: array of const;
+  const ASource: string);
+begin
+  GetLogger.LogFmt(AFormat, AArgs, ASource);
+end;
+
+procedure Log(const AFormat: string; const AArgs: array of const);
+begin
+  GetLogger.LogFmt(AFormat, AArgs, '');
+end;
+
+procedure SetLoggingEnabled(AEnabled: Boolean; const AFilename: string;
+  AAppend: Boolean);
+begin
+  GetLogger.Configure(AEnabled, AFilename, AAppend);
 end;
 
 function IsLoggingEnabled: Boolean;
 begin
-  Result := GLoggingEnabled;
+  Result := GetLogger.IsEnabled;
 end;
 
-procedure Log(const AMessage: string);
+{ TLogger }
+
+constructor TLogger.Create;
+var
+  ExePath: string;
+begin
+  inherited Create;
+  FLock := TCriticalSection.Create;
+  FEnabled := True;  // Enabled by default for startup diagnostics
+  FAppendMode := False;
+  FSessionStarted := False;
+
+  // Default log file next to executable
+  ExePath := ExtractFilePath(ParamStr(0));
+  FLogFile := ExePath + 'bqc.log';
+end;
+
+destructor TLogger.Destroy;
+begin
+  FLock.Free;
+  inherited Destroy;
+end;
+
+procedure TLogger.Configure(AEnabled: Boolean; const AFilename: string;
+  AAppend: Boolean);
+var
+  ExePath: string;
+begin
+  FLock.Enter;
+  try
+    FEnabled := AEnabled;
+    FAppendMode := AAppend;
+
+    // Resolve filename
+    if AFilename <> '' then
+    begin
+      if ExtractFilePath(AFilename) = '' then
+      begin
+        // Relative path - prepend exe directory
+        ExePath := ExtractFilePath(ParamStr(0));
+        FLogFile := ExePath + AFilename;
+      end
+      else
+        FLogFile := AFilename;
+    end;
+
+    // Reset session flag when settings change
+    FSessionStarted := False;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+function TLogger.IsEnabled: Boolean;
+begin
+  Result := FEnabled;
+end;
+
+procedure TLogger.Log(const AMessage: string; const ASource: string);
+begin
+  if not FEnabled then
+    Exit;
+
+  WriteToFile(AMessage, ASource);
+end;
+
+procedure TLogger.LogFmt(const AFormat: string; const AArgs: array of const;
+  const ASource: string);
+begin
+  if not FEnabled then
+    Exit;
+
+  WriteToFile(Format(AFormat, AArgs), ASource);
+end;
+
+procedure TLogger.WriteToFile(const AMessage: string; const ASource: string);
 var
   LogLine: string;
   FileHandle: TextFile;
   ThreadId: Cardinal;
   CreateNew: Boolean;
+  SourcePart: string;
 begin
-  if not GLoggingEnabled then
-    Exit;
-
-  if not GInitialized then
-    InitLogger;
-
   ThreadId := GetCurrentThreadId;
-  LogLine := Format('[%s] [TID:%d] %s', [
+
+  // Build source part
+  if ASource <> '' then
+    SourcePart := Format('[%s] ', [ASource])
+  else
+    SourcePart := '';
+
+  LogLine := Format('[%s] [TID:%d] %s%s', [
     FormatDateTime('yyyy-mm-dd hh:nn:ss.zzz', Now),
     ThreadId,
+    SourcePart,
     AMessage
   ]);
 
-  GLock.Enter;
+  FLock.Enter;
   try
     try
       // Determine if we should create a new file or append
-      // On first log of session: create new if not append mode
-      // After first log: always append
-      CreateNew := (not GSessionStarted) and (not GAppendMode);
+      CreateNew := (not FSessionStarted) and (not FAppendMode);
 
-      AssignFile(FileHandle, GLogFile);
+      AssignFile(FileHandle, FLogFile);
       try
-        if CreateNew or (not FileExists(GLogFile)) then
+        if CreateNew or (not FileExists(FLogFile)) then
         begin
           Rewrite(FileHandle);
           // Write session header
@@ -147,29 +280,25 @@ begin
           Append(FileHandle);
 
         WriteLn(FileHandle, LogLine);
-        GSessionStarted := True;
+        FSessionStarted := True;
       finally
         CloseFile(FileHandle);
       end;
     except
       on E: Exception do
-        raise ELoggerError.CreateFmt('Failed to write to log file "%s": %s', [GLogFile, E.Message]);
+        raise ELoggerError.CreateFmt('Failed to write to log file "%s": %s',
+          [FLogFile, E.Message]);
     end;
   finally
-    GLock.Leave;
+    FLock.Leave;
   end;
 end;
 
-procedure Log(const AFormat: string; const AArgs: array of const);
-begin
-  Log(Format(AFormat, AArgs));
-end;
-
 initialization
-  InitLogger;
+  GLoggerLock := TCriticalSection.Create;
 
 finalization
-  if GInitialized then
-    GLock.Free;
+  GLogger.Free;
+  GLoggerLock.Free;
 
 end.

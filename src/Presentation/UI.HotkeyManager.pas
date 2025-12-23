@@ -192,7 +192,7 @@ begin
   FHotkeyRegistered := False;
   FUsingLowLevelHook := False;
   FWindowHandle := 0;
-  Log('[HotkeyManager] Created with atom ID=%d', [FHotkeyId]);
+  Log('Created with atom ID=%d', [FHotkeyId], ClassName);
 end;
 
 destructor THotkeyManager.Destroy;
@@ -200,7 +200,7 @@ begin
   Unregister;
   if FHotkeyId <> 0 then
     GlobalDeleteAtom(FHotkeyId);
-  Log('[HotkeyManager] Destroyed');
+  Log('Destroyed', ClassName);
   inherited;
 end;
 
@@ -241,7 +241,7 @@ begin
       AModifiers := AModifiers or MOD_WIN
     else
     begin
-      Log('[HotkeyManager] ParseHotkeyString: Unknown modifier "%s"', [Part]);
+      Log('ParseHotkeyString: Unknown modifier "%s"', [Part], ClassName);
       Exit;
     end;
   end;
@@ -256,7 +256,7 @@ begin
       AVirtualKey := Ord(KeyPart[1])
     else
     begin
-      Log('[HotkeyManager] ParseHotkeyString: Unknown key "%s"', [KeyPart]);
+      Log('ParseHotkeyString: Unknown key "%s"', [KeyPart], ClassName);
       Exit;
     end;
   end
@@ -268,7 +268,7 @@ begin
       AVirtualKey := VK_F1 + I - 1
     else
     begin
-      Log('[HotkeyManager] ParseHotkeyString: Unknown function key "%s"', [KeyPart]);
+      Log('ParseHotkeyString: Unknown function key "%s"', [KeyPart], ClassName);
       Exit;
     end;
   end
@@ -304,19 +304,19 @@ begin
     AVirtualKey := VK_RIGHT
   else
   begin
-    Log('[HotkeyManager] ParseHotkeyString: Unknown key "%s"', [KeyPart]);
+    Log('ParseHotkeyString: Unknown key "%s"', [KeyPart], ClassName);
     Exit;
   end;
 
   // Need at least one modifier for global hotkeys
   if AModifiers = 0 then
   begin
-    Log('[HotkeyManager] ParseHotkeyString: No modifiers specified');
+    Log('ParseHotkeyString: No modifiers specified', ClassName);
     Exit;
   end;
 
   Result := True;
-  Log('[HotkeyManager] ParseHotkeyString: Parsed "%s" -> Modifiers=$%X, VK=$%X', [AHotkey, AModifiers, AVirtualKey]);
+  Log('ParseHotkeyString: Parsed "%s" -> Modifiers=$%X, VK=$%X', [AHotkey, AModifiers, AVirtualKey], ClassName);
 end;
 
 procedure THotkeyManager.Register(AWindowHandle: HWND; const AHotkey: string;
@@ -330,13 +330,13 @@ begin
 
   if Trim(AHotkey) = '' then
   begin
-    Log('[HotkeyManager] Register: No hotkey configured');
+    Log('Register: No hotkey configured', ClassName);
     Exit;
   end;
 
   if not ParseHotkeyString(AHotkey, Modifiers, VirtualKey) then
   begin
-    Log('[HotkeyManager] Register: Failed to parse hotkey "%s"', [AHotkey]);
+    Log('Register: Failed to parse hotkey "%s"', [AHotkey], ClassName);
     Exit;
   end;
 
@@ -355,11 +355,11 @@ begin
     begin
       FHotkeyRegistered := True;
       FUsingLowLevelHook := True;
-      Log('[HotkeyManager] Register: Installed low-level hook for "%s"', [AHotkey]);
+      Log('Register: Installed low-level hook for "%s"', [AHotkey], ClassName);
     end
     else
     begin
-      Log('[HotkeyManager] Register: Failed to install low-level hook (Error=%d)', [GetLastError]);
+      Log('Register: Failed to install low-level hook (Error=%d)', [GetLastError], ClassName);
     end;
   end
   else
@@ -370,11 +370,11 @@ begin
     begin
       FHotkeyRegistered := True;
       FUsingLowLevelHook := False;
-      Log('[HotkeyManager] Register: Registered hotkey "%s" (RegisterHotKey)', [AHotkey]);
+      Log('Register: Registered hotkey "%s" (RegisterHotKey)', [AHotkey], ClassName);
     end
     else
     begin
-      Log('[HotkeyManager] Register: Failed to register hotkey "%s" (Error=%d)', [AHotkey, GetLastError]);
+      Log('Register: Failed to register hotkey "%s" (Error=%d)', [AHotkey, GetLastError], ClassName);
     end;
   end;
 end;
@@ -393,7 +393,7 @@ begin
         GHotkeyModifiers := 0;
         GHotkeyVirtualKey := 0;
         GHotkeyFormHandle := 0;
-        Log('[HotkeyManager] Unregister: Uninstalled low-level hook');
+        Log('Unregister: Uninstalled low-level hook', ClassName);
       end;
     end
     else
@@ -401,7 +401,7 @@ begin
       // Unregister standard hotkey
       if FWindowHandle <> 0 then
         UnregisterHotKey(FWindowHandle, FHotkeyId);
-      Log('[HotkeyManager] Unregister: Unregistered hotkey (RegisterHotKey)');
+      Log('Unregister: Unregistered hotkey (RegisterHotKey)', ClassName);
     end;
     FHotkeyRegistered := False;
     FUsingLowLevelHook := False;
@@ -421,7 +421,7 @@ begin
   begin
     if AWParam = Cardinal(FHotkeyId) then
     begin
-      Log('[HotkeyManager] HandleWMHotkey: Hotkey triggered');
+      Log('HandleWMHotkey: Hotkey triggered', ClassName);
       DoHotkeyTriggered;
       Result := True;
     end;
@@ -432,7 +432,7 @@ procedure THotkeyManager.HandleHotkeyDetected;
 begin
   if FHotkeyRegistered and FUsingLowLevelHook then
   begin
-    Log('[HotkeyManager] HandleHotkeyDetected: Hotkey triggered via low-level hook');
+    Log('HandleHotkeyDetected: Hotkey triggered via low-level hook', ClassName);
     DoHotkeyTriggered;
   end;
 end;

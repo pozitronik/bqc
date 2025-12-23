@@ -88,7 +88,7 @@ begin
   // Validate inputs
   if Length(AServiceGuids) = 0 then
   begin
-    Log('[Executor] Execute: No service GUIDs provided');
+    Log('Execute: No service GUIDs provided', ClassName);
     Exit;
   end;
 
@@ -109,19 +109,19 @@ begin
   else
     ServiceFlag := BLUETOOTH_SERVICE_DISABLE;
 
-  Log('[Executor] Execute: Device=%s, Enable=%s, RetryCount=%d, GUIDs=%d', [
+  Log('Execute: Device=%s, Enable=%s, RetryCount=%d, GUIDs=%d', [
     ADevice.Name,
     BoolToStr(AEnable, True),
     ARetryCount,
     Length(AServiceGuids)
-  ]);
+  ], ClassName);
 
   // Try connection with retries
   for Attempt := 0 to ARetryCount do
   begin
     if Attempt > 0 then
     begin
-      Log('[Executor] Execute: Retry attempt %d of %d', [Attempt, ARetryCount]);
+      Log('Execute: Retry attempt %d of %d', [Attempt, ARetryCount], ClassName);
       Sleep(FRetryDelayMs);
     end;
 
@@ -144,14 +144,14 @@ begin
 
     if AnySuccess then
     begin
-      Log('[Executor] Execute: Success on attempt %d', [Attempt]);
+      Log('Execute: Success on attempt %d', [Attempt], ClassName);
       Result := TConnectionResult.Ok;
       Exit;
     end;
   end;
 
   // All attempts failed
-  Log('[Executor] Execute: All attempts failed, last error=%d', [ErrorCode]);
+  Log('Execute: All attempts failed, last error=%d', [ErrorCode], ClassName);
   Result := TConnectionResult.Fail(ErrorCode);
 end;
 

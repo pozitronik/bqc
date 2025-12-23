@@ -275,7 +275,7 @@ uses
 
 procedure TFormSettings.FormCreate(Sender: TObject);
 begin
-  Log('[SettingsForm] FormCreate');
+  Log('FormCreate', ClassName);
   FPresenter := TSettingsPresenter.Create(Self);
   FRecordingHotkey := False;
   KeyPreview := True;
@@ -283,13 +283,13 @@ end;
 
 procedure TFormSettings.FormDestroy(Sender: TObject);
 begin
-  Log('[SettingsForm] FormDestroy');
+  Log('FormDestroy', ClassName);
   FPresenter.Free;
 end;
 
 procedure TFormSettings.FormShow(Sender: TObject);
 begin
-  Log('[SettingsForm] FormShow');
+  Log('FormShow', ClassName);
   FPresenter.LoadSettings;
   UpdateWindowModeControls;
   ConnectChangeHandlers;

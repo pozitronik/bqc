@@ -153,7 +153,7 @@ begin
     DeviceConfig.LastSeen := ALastSeen;
     FDevices.Add(AAddress, DeviceConfig);
     FModified := True;
-    Log('[DeviceConfigRepo] RegisterDevice: New device registered: %s ($%.12X)', [AName, AAddress]);
+    Log('RegisterDevice: New device registered: %s ($%.12X)', [AName, AAddress], ClassName);
   end
   else
   begin
