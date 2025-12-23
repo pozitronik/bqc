@@ -49,7 +49,6 @@ interface
 uses
   System.SysUtils,
   System.Classes,
-  Winapi.Windows,
   Vcl.ExtCtrls,
   Bluetooth.Types,
   Bluetooth.Interfaces,

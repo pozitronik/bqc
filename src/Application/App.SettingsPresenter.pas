@@ -164,8 +164,6 @@ type
 implementation
 
 uses
-  Winapi.Windows,
-  System.IOUtils,
   System.DateUtils,
   Vcl.Forms,
   App.Logger,
