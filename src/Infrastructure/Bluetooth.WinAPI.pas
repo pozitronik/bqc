@@ -217,6 +217,49 @@ type
   end;
   PBTH_L2CAP_EVENT_INFO = ^BTH_L2CAP_EVENT_INFO;
 
+  // -------------------------------------------------------------------------
+  // BTH_DEVICE_INFO - Low-level device info from bthdef.h
+  // NOTE: This is DIFFERENT from BLUETOOTH_DEVICE_INFO (bluetoothapis.h)!
+  // BTH_DEVICE_INFO is used in BTH_RADIO_IN_RANGE notifications.
+  // -------------------------------------------------------------------------
+
+  /// <summary>
+  /// Device info flags for BTH_DEVICE_INFO.flags field.
+  /// </summary>
+const
+  BDIF_ADDRESS          = $00000001;
+  BDIF_COD              = $00000002;
+  BDIF_NAME             = $00000004;
+  BDIF_PAIRED           = $00000008;
+  BDIF_PERSONAL         = $00000010;
+  BDIF_CONNECTED        = $00000020;
+
+type
+  /// <summary>
+  /// Low-level Bluetooth device information (from bthdef.h).
+  /// Used in BTH_RADIO_IN_RANGE notifications.
+  /// NOTE: This is NOT the same as BLUETOOTH_DEVICE_INFO from bluetoothapis.h!
+  /// </summary>
+  BTH_DEVICE_INFO = record
+    /// <summary>
+    /// Combination of BDIF_* flags indicating which fields are valid.
+    /// </summary>
+    flags: ULONG;
+    /// <summary>
+    /// Bluetooth address (BTH_ADDR = ULONGLONG).
+    /// </summary>
+    address: UInt64;
+    /// <summary>
+    /// Class of Device (BTH_COD = ULONG).
+    /// </summary>
+    classOfDevice: ULONG;
+    /// <summary>
+    /// Device name in ANSI encoding (not Unicode!).
+    /// </summary>
+    name: array[0..BLUETOOTH_MAX_NAME_SIZE - 1] of AnsiChar;
+  end;
+  PBTH_DEVICE_INFO = ^BTH_DEVICE_INFO;
+
   /// <summary>
   /// Parameters for finding Bluetooth radios.
   /// </summary>
@@ -367,14 +410,15 @@ type
 
   /// <summary>
   /// Radio-in-range event information (device attribute changes).
+  /// Contains BTH_DEVICE_INFO (from bthdef.h), NOT BLUETOOTH_DEVICE_INFO!
   /// </summary>
   BTH_RADIO_IN_RANGE = record
     /// <summary>
-    /// Current device information.
+    /// Current device information (low-level BTH_DEVICE_INFO).
     /// </summary>
-    deviceInfo: BLUETOOTH_DEVICE_INFO;
+    deviceInfo: BTH_DEVICE_INFO;
     /// <summary>
-    /// Previous device flags (for comparison).
+    /// Previous device flags (for comparison with deviceInfo.flags).
     /// </summary>
     previousDeviceFlags: ULONG;
   end;

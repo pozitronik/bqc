@@ -20,6 +20,7 @@ uses
   System.SysUtils,
   System.Classes,
   Bluetooth.Types,
+  Bluetooth.WinAPI,
   App.Logger;
 
 type
@@ -162,48 +163,75 @@ type
       read FOnError write FOnError;
   end;
 
+/// <summary>
+/// Converts a low-level BTH_DEVICE_INFO (from bthdef.h) to domain TBluetoothDeviceInfo.
+/// NOTE: BTH_DEVICE_INFO is different from BLUETOOTH_DEVICE_INFO!
+/// - BTH_DEVICE_INFO: Used in BTH_RADIO_IN_RANGE notifications, has flags field,
+///   ANSI name, no timestamps
+/// - BLUETOOTH_DEVICE_INFO: Used with BluetoothFindFirstDevice, has bool fields,
+///   Unicode name, timestamps
+/// </summary>
+function ConvertBthDeviceInfoToDeviceInfo(const ABthInfo: BTH_DEVICE_INFO): TBluetoothDeviceInfo;
+
+/// <summary>
+/// Converts a Windows API BLUETOOTH_DEVICE_INFO to domain TBluetoothDeviceInfo.
+/// NOTE: Use this for BLUETOOTH_DEVICE_INFO from BluetoothFindFirstDevice etc.
+/// For BTH_RADIO_IN_RANGE events, use ConvertBthDeviceInfoToDeviceInfo instead.
+/// </summary>
+function ConvertToDeviceInfo(const AWinAPIInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
+
 implementation
 
 uses
-  Vcl.Forms,
-  Bluetooth.WinAPI;
+  Vcl.Forms;
 
 { Helper Functions }
 
-// TODO: Investigate BLUETOOTH_DEVICE_INFO structure alignment issue
-// ===================================================================
-// PROBLEM: "Invalid argument to date encode" exception in SystemTimeToDateTime
-// when processing BTH_RADIO_IN_RANGE events. The stLastSeen/stLastUsed fields
-// contain garbage data, suggesting structure misalignment.
-//
-// SYMPTOMS:
-// - Exception: EConvertError "Invalid argument to date encode"
-// - Call stack: ProcessRadioInRange -> ConvertToDeviceInfo -> SystemTimeToDateTime
-// - dwSize field shows 29063 (should be ~560 for BLUETOOTH_DEVICE_INFO)
-// - SYSTEMTIME fields contain garbage while boolean fields appear valid
-//
-// LIKELY ROOT CAUSES TO INVESTIGATE:
-// 1. BLUETOOTH_DEVICE_INFO record definition in Bluetooth.WinAPI.pas may not
-//    match Windows SDK structure (check {$ALIGN} directives, field order, sizes)
-// 2. BTH_RADIO_IN_RANGE structure layout may be incorrect
-// 3. Pointer arithmetic when extracting deviceInfo from DEV_BROADCAST_HANDLE
-// 4. Windows version differences in structure definitions
-//
-// INVESTIGATION STEPS:
-// 1. Compare Bluetooth.WinAPI.pas records against Windows SDK headers (bthdef.h)
-// 2. Verify packed/alignment settings match C structure layout
-// 3. Log raw bytes received and compare against expected structure layout
-// 4. Check if dwSize is being validated before use
-// 5. Test on different Windows versions (10 vs 11)
-//
-// TEMPORARY WORKAROUND (if needed): Add SYSTEMTIME validation before conversion
-// to prevent crash, but this masks the underlying data corruption issue.
-// ===================================================================
+/// <summary>
+/// Converts a low-level BTH_DEVICE_INFO (from bthdef.h) to domain TBluetoothDeviceInfo.
+/// NOTE: BTH_DEVICE_INFO is different from BLUETOOTH_DEVICE_INFO!
+/// - BTH_DEVICE_INFO: Used in BTH_RADIO_IN_RANGE notifications, has flags field,
+///   ANSI name, no timestamps
+/// - BLUETOOTH_DEVICE_INFO: Used with BluetoothFindFirstDevice, has bool fields,
+///   Unicode name, timestamps
+/// </summary>
+function ConvertBthDeviceInfoToDeviceInfo(const ABthInfo: BTH_DEVICE_INFO): TBluetoothDeviceInfo;
+var
+  Address: TBluetoothAddress;
+  ConnectionState: TBluetoothConnectionState;
+  DeviceName: string;
+begin
+  Address := UInt64ToBluetoothAddress(ABthInfo.address);
+
+  // Check BDIF_CONNECTED flag to determine connection state
+  if (ABthInfo.flags and BDIF_CONNECTED) <> 0 then
+    ConnectionState := csConnected
+  else
+    ConnectionState := csDisconnected;
+
+  // Convert ANSI name to string (BTH_DEVICE_INFO uses ANSI, not Unicode!)
+  DeviceName := string(AnsiString(ABthInfo.name));
+
+  Result := TBluetoothDeviceInfo.Create(
+    Address,
+    ABthInfo.address,
+    DeviceName,
+    DetermineDeviceType(ABthInfo.classOfDevice),
+    ConnectionState,
+    (ABthInfo.flags and BDIF_PAIRED) <> 0,     // fRemembered ~ BDIF_PAIRED
+    (ABthInfo.flags and BDIF_PAIRED) <> 0,     // fAuthenticated ~ BDIF_PAIRED
+    ABthInfo.classOfDevice,
+    0,  // LastSeen not available in BTH_DEVICE_INFO
+    0   // LastUsed not available in BTH_DEVICE_INFO
+  );
+end;
 
 /// <summary>
 /// Converts a Windows API BLUETOOTH_DEVICE_INFO to domain TBluetoothDeviceInfo.
 /// This conversion happens at the infrastructure boundary to keep domain
 /// types isolated from Windows API specifics.
+/// NOTE: Use this for BLUETOOTH_DEVICE_INFO from BluetoothFindFirstDevice etc.
+/// For BTH_RADIO_IN_RANGE events, use ConvertBthDeviceInfoToDeviceInfo instead.
 /// </summary>
 function ConvertToDeviceInfo(const AWinAPIInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
 var
@@ -541,26 +569,33 @@ procedure TBluetoothDeviceWatcher.ProcessRadioInRange(AEventInfo: Pointer);
 var
   EventInfo: PBTH_RADIO_IN_RANGE;
   DeviceInfo: TBluetoothDeviceInfo;
+  IsConnected, IsPaired: Boolean;
 begin
   EventInfo := PBTH_RADIO_IN_RANGE(AEventInfo);
-  Log('ProcessRadioInRange: Address=$%.12X, Name="%s", Connected=%d, Remembered=%d, PrevFlags=$%.8X', [
-    EventInfo^.deviceInfo.Address.ullLong,
-    string(EventInfo^.deviceInfo.szName),
-    Ord(EventInfo^.deviceInfo.fConnected),
-    Ord(EventInfo^.deviceInfo.fRemembered),
+
+  // BTH_DEVICE_INFO uses flags field, not bool fields like BLUETOOTH_DEVICE_INFO
+  IsConnected := (EventInfo^.deviceInfo.flags and BDIF_CONNECTED) <> 0;
+  IsPaired := (EventInfo^.deviceInfo.flags and BDIF_PAIRED) <> 0;
+
+  Log('ProcessRadioInRange: Address=$%.12X, Name="%s", Flags=$%.8X (Connected=%d, Paired=%d), PrevFlags=$%.8X', [
+    EventInfo^.deviceInfo.address,
+    string(AnsiString(EventInfo^.deviceInfo.name)),
+    EventInfo^.deviceInfo.flags,
+    Ord(IsConnected),
+    Ord(IsPaired),
     EventInfo^.previousDeviceFlags
   ], ClassName);
 
-  // Convert Windows API type to domain type at the boundary
-  DeviceInfo := ConvertToDeviceInfo(EventInfo^.deviceInfo);
+  // Convert low-level BTH_DEVICE_INFO to domain type at the boundary
+  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(EventInfo^.deviceInfo);
 
-  // RadioInRange provides full device info including connection state
+  // RadioInRange provides device info including connection state
   DoDeviceAttributeChanged(DeviceInfo);
 
-  // Also fire discovered event for newly discovered devices
-  if not EventInfo^.deviceInfo.fRemembered then
+  // Also fire discovered event for newly discovered devices (not paired)
+  if not IsPaired then
   begin
-    Log('ProcessRadioInRange: Device not remembered, firing OnDeviceDiscovered', ClassName);
+    Log('ProcessRadioInRange: Device not paired, firing OnDeviceDiscovered', ClassName);
     DoDeviceDiscovered(DeviceInfo);
   end;
 end;
