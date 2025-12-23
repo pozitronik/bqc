@@ -108,7 +108,7 @@ type
 
   /// <summary>
   /// General application settings.
-  /// Used by: MainForm, MainPresenter
+  /// Used by: MainForm, MainPresenter, SettingsPresenter
   /// </summary>
   IGeneralConfig = interface
     ['{A1B2C3D4-1111-1111-1111-000000000001}']
@@ -116,14 +116,18 @@ type
     function GetOnTop: Boolean;
     function GetAutostart: Boolean;
 
-    property WindowMode: TWindowMode read GetWindowMode;
-    property OnTop: Boolean read GetOnTop;
-    property Autostart: Boolean read GetAutostart;
+    procedure SetWindowMode(AValue: TWindowMode);
+    procedure SetOnTop(AValue: Boolean);
+    procedure SetAutostart(AValue: Boolean);
+
+    property WindowMode: TWindowMode read GetWindowMode write SetWindowMode;
+    property OnTop: Boolean read GetOnTop write SetOnTop;
+    property Autostart: Boolean read GetAutostart write SetAutostart;
   end;
 
   /// <summary>
   /// Window behavior settings.
-  /// Used by: MainForm
+  /// Used by: MainForm, SettingsPresenter
   /// </summary>
   IWindowConfig = interface
     ['{A1B2C3D4-1111-1111-1111-000000000002}']
@@ -131,14 +135,18 @@ type
     function GetCloseToTray: Boolean;
     function GetMenuHideOnFocusLoss: Boolean;
 
-    property MinimizeToTray: Boolean read GetMinimizeToTray;
-    property CloseToTray: Boolean read GetCloseToTray;
-    property MenuHideOnFocusLoss: Boolean read GetMenuHideOnFocusLoss;
+    procedure SetMinimizeToTray(AValue: Boolean);
+    procedure SetCloseToTray(AValue: Boolean);
+    procedure SetMenuHideOnFocusLoss(AValue: Boolean);
+
+    property MinimizeToTray: Boolean read GetMinimizeToTray write SetMinimizeToTray;
+    property CloseToTray: Boolean read GetCloseToTray write SetCloseToTray;
+    property MenuHideOnFocusLoss: Boolean read GetMenuHideOnFocusLoss write SetMenuHideOnFocusLoss;
   end;
 
   /// <summary>
   /// Window position settings.
-  /// Used by: UI.WindowPositioner
+  /// Used by: UI.WindowPositioner, SettingsPresenter
   /// </summary>
   IPositionConfig = interface
     ['{A1B2C3D4-1111-1111-1111-000000000003}']
@@ -148,12 +156,13 @@ type
     function GetPositionW: Integer;
     function GetPositionH: Integer;
 
+    procedure SetPositionMode(AValue: TPositionMode);
     procedure SetPositionX(AValue: Integer);
     procedure SetPositionY(AValue: Integer);
     procedure SetPositionW(AValue: Integer);
     procedure SetPositionH(AValue: Integer);
 
-    property PositionMode: TPositionMode read GetPositionMode;
+    property PositionMode: TPositionMode read GetPositionMode write SetPositionMode;
     property PositionX: Integer read GetPositionX write SetPositionX;
     property PositionY: Integer read GetPositionY write SetPositionY;
     property PositionW: Integer read GetPositionW write SetPositionW;
@@ -162,20 +171,23 @@ type
 
   /// <summary>
   /// Hotkey settings.
-  /// Used by: UI.HotkeyManager
+  /// Used by: UI.HotkeyManager, SettingsPresenter
   /// </summary>
   IHotkeyConfig = interface
     ['{A1B2C3D4-1111-1111-1111-000000000004}']
     function GetHotkey: string;
     function GetUseLowLevelHook: Boolean;
 
-    property Hotkey: string read GetHotkey;
-    property UseLowLevelHook: Boolean read GetUseLowLevelHook;
+    procedure SetHotkey(const AValue: string);
+    procedure SetUseLowLevelHook(AValue: Boolean);
+
+    property Hotkey: string read GetHotkey write SetHotkey;
+    property UseLowLevelHook: Boolean read GetUseLowLevelHook write SetUseLowLevelHook;
   end;
 
   /// <summary>
   /// Polling and event settings.
-  /// Used by: TBluetoothService
+  /// Used by: TBluetoothService, SettingsPresenter
   /// </summary>
   IPollingConfig = interface
     ['{A1B2C3D4-1111-1111-1111-000000000005}']
@@ -183,8 +195,11 @@ type
     function GetPollingInterval: Integer;
     function GetEventDebounceMs: Integer;
 
-    property PollingMode: TPollingMode read GetPollingMode;
-    property PollingInterval: Integer read GetPollingInterval;
+    procedure SetPollingMode(AValue: TPollingMode);
+    procedure SetPollingInterval(AValue: Integer);
+
+    property PollingMode: TPollingMode read GetPollingMode write SetPollingMode;
+    property PollingInterval: Integer read GetPollingInterval write SetPollingInterval;
     property EventDebounceMs: Integer read GetEventDebounceMs;
   end;
 
@@ -198,9 +213,13 @@ type
     function GetLogFilename: string;
     function GetLogAppend: Boolean;
 
-    property LogEnabled: Boolean read GetLogEnabled;
-    property LogFilename: string read GetLogFilename;
-    property LogAppend: Boolean read GetLogAppend;
+    procedure SetLogEnabled(AValue: Boolean);
+    procedure SetLogFilename(const AValue: string);
+    procedure SetLogAppend(AValue: Boolean);
+
+    property LogEnabled: Boolean read GetLogEnabled write SetLogEnabled;
+    property LogFilename: string read GetLogFilename write SetLogFilename;
+    property LogAppend: Boolean read GetLogAppend write SetLogAppend;
   end;
 
   /// <summary>
@@ -217,13 +236,21 @@ type
     function GetShowDeviceIcons: Boolean;
     function GetConnectedColor: Integer;
 
-    property ShowAddresses: Boolean read GetShowAddresses;
-    property Theme: string read GetTheme;
-    property VsfDir: string read GetVsfDir;
-    property ShowLastSeen: Boolean read GetShowLastSeen;
-    property LastSeenFormat: TLastSeenFormat read GetLastSeenFormat;
-    property ShowDeviceIcons: Boolean read GetShowDeviceIcons;
-    property ConnectedColor: Integer read GetConnectedColor;
+    procedure SetShowAddresses(AValue: Boolean);
+    procedure SetTheme(const AValue: string);
+    procedure SetVsfDir(const AValue: string);
+    procedure SetShowLastSeen(AValue: Boolean);
+    procedure SetLastSeenFormat(AValue: TLastSeenFormat);
+    procedure SetShowDeviceIcons(AValue: Boolean);
+    procedure SetConnectedColor(AValue: Integer);
+
+    property ShowAddresses: Boolean read GetShowAddresses write SetShowAddresses;
+    property Theme: string read GetTheme write SetTheme;
+    property VsfDir: string read GetVsfDir write SetVsfDir;
+    property ShowLastSeen: Boolean read GetShowLastSeen write SetShowLastSeen;
+    property LastSeenFormat: TLastSeenFormat read GetLastSeenFormat write SetLastSeenFormat;
+    property ShowDeviceIcons: Boolean read GetShowDeviceIcons write SetShowDeviceIcons;
+    property ConnectedColor: Integer read GetConnectedColor write SetConnectedColor;
   end;
 
   /// <summary>
@@ -244,17 +271,29 @@ type
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
 
-    property ItemHeight: Integer read GetItemHeight;
-    property ItemPadding: Integer read GetItemPadding;
-    property ItemMargin: Integer read GetItemMargin;
-    property IconSize: Integer read GetIconSize;
-    property CornerRadius: Integer read GetCornerRadius;
-    property DeviceNameFontSize: Integer read GetDeviceNameFontSize;
-    property StatusFontSize: Integer read GetStatusFontSize;
-    property AddressFontSize: Integer read GetAddressFontSize;
-    property IconFontSize: Integer read GetIconFontSize;
-    property ItemBorderWidth: Integer read GetItemBorderWidth;
-    property ItemBorderColor: Integer read GetItemBorderColor;
+    procedure SetItemHeight(AValue: Integer);
+    procedure SetItemPadding(AValue: Integer);
+    procedure SetItemMargin(AValue: Integer);
+    procedure SetIconSize(AValue: Integer);
+    procedure SetCornerRadius(AValue: Integer);
+    procedure SetDeviceNameFontSize(AValue: Integer);
+    procedure SetStatusFontSize(AValue: Integer);
+    procedure SetAddressFontSize(AValue: Integer);
+    procedure SetIconFontSize(AValue: Integer);
+    procedure SetItemBorderWidth(AValue: Integer);
+    procedure SetItemBorderColor(AValue: Integer);
+
+    property ItemHeight: Integer read GetItemHeight write SetItemHeight;
+    property ItemPadding: Integer read GetItemPadding write SetItemPadding;
+    property ItemMargin: Integer read GetItemMargin write SetItemMargin;
+    property IconSize: Integer read GetIconSize write SetIconSize;
+    property CornerRadius: Integer read GetCornerRadius write SetCornerRadius;
+    property DeviceNameFontSize: Integer read GetDeviceNameFontSize write SetDeviceNameFontSize;
+    property StatusFontSize: Integer read GetStatusFontSize write SetStatusFontSize;
+    property AddressFontSize: Integer read GetAddressFontSize write SetAddressFontSize;
+    property IconFontSize: Integer read GetIconFontSize write SetIconFontSize;
+    property ItemBorderWidth: Integer read GetItemBorderWidth write SetItemBorderWidth;
+    property ItemBorderColor: Integer read GetItemBorderColor write SetItemBorderColor;
   end;
 
   /// <summary>
@@ -266,8 +305,11 @@ type
     function GetConnectionTimeout: Integer;
     function GetConnectionRetryCount: Integer;
 
-    property ConnectionTimeout: Integer read GetConnectionTimeout;
-    property ConnectionRetryCount: Integer read GetConnectionRetryCount;
+    procedure SetConnectionTimeout(AValue: Integer);
+    procedure SetConnectionRetryCount(AValue: Integer);
+
+    property ConnectionTimeout: Integer read GetConnectionTimeout write SetConnectionTimeout;
+    property ConnectionRetryCount: Integer read GetConnectionRetryCount write SetConnectionRetryCount;
   end;
 
   /// <summary>
@@ -281,10 +323,15 @@ type
     function GetNotifyOnConnectFailed: TNotificationMode;
     function GetNotifyOnAutoConnect: TNotificationMode;
 
-    property NotifyOnConnect: TNotificationMode read GetNotifyOnConnect;
-    property NotifyOnDisconnect: TNotificationMode read GetNotifyOnDisconnect;
-    property NotifyOnConnectFailed: TNotificationMode read GetNotifyOnConnectFailed;
-    property NotifyOnAutoConnect: TNotificationMode read GetNotifyOnAutoConnect;
+    procedure SetNotifyOnConnect(AValue: TNotificationMode);
+    procedure SetNotifyOnDisconnect(AValue: TNotificationMode);
+    procedure SetNotifyOnConnectFailed(AValue: TNotificationMode);
+    procedure SetNotifyOnAutoConnect(AValue: TNotificationMode);
+
+    property NotifyOnConnect: TNotificationMode read GetNotifyOnConnect write SetNotifyOnConnect;
+    property NotifyOnDisconnect: TNotificationMode read GetNotifyOnDisconnect write SetNotifyOnDisconnect;
+    property NotifyOnConnectFailed: TNotificationMode read GetNotifyOnConnectFailed write SetNotifyOnConnectFailed;
+    property NotifyOnAutoConnect: TNotificationMode read GetNotifyOnAutoConnect write SetNotifyOnAutoConnect;
   end;
 
   /// <summary>

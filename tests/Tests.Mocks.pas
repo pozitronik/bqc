@@ -39,7 +39,7 @@ type
   public
     constructor Create;
 
-    // ILayoutConfig
+    // ILayoutConfig - getters
     function GetItemHeight: Integer;
     function GetItemPadding: Integer;
     function GetItemMargin: Integer;
@@ -51,6 +51,19 @@ type
     function GetIconFontSize: Integer;
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
+
+    // ILayoutConfig - setters
+    procedure SetItemHeight(AValue: Integer);
+    procedure SetItemPadding(AValue: Integer);
+    procedure SetItemMargin(AValue: Integer);
+    procedure SetIconSize(AValue: Integer);
+    procedure SetCornerRadius(AValue: Integer);
+    procedure SetDeviceNameFontSize(AValue: Integer);
+    procedure SetStatusFontSize(AValue: Integer);
+    procedure SetAddressFontSize(AValue: Integer);
+    procedure SetIconFontSize(AValue: Integer);
+    procedure SetItemBorderWidth(AValue: Integer);
+    procedure SetItemBorderColor(AValue: Integer);
 
     // Test setup properties
     property ItemHeight: Integer read FItemHeight write FItemHeight;
@@ -81,7 +94,7 @@ type
   public
     constructor Create;
 
-    // IAppearanceConfig
+    // IAppearanceConfig - getters
     function GetShowAddresses: Boolean;
     function GetTheme: string;
     function GetVsfDir: string;
@@ -89,6 +102,15 @@ type
     function GetLastSeenFormat: TLastSeenFormat;
     function GetShowDeviceIcons: Boolean;
     function GetConnectedColor: Integer;
+
+    // IAppearanceConfig - setters
+    procedure SetShowAddresses(AValue: Boolean);
+    procedure SetTheme(const AValue: string);
+    procedure SetVsfDir(const AValue: string);
+    procedure SetShowLastSeen(AValue: Boolean);
+    procedure SetLastSeenFormat(AValue: TLastSeenFormat);
+    procedure SetShowDeviceIcons(AValue: Boolean);
+    procedure SetConnectedColor(AValue: Integer);
 
     // Test setup properties
     property ShowAddresses: Boolean read FShowAddresses write FShowAddresses;
@@ -137,10 +159,14 @@ type
   public
     constructor Create;
 
-    // IPollingConfig
+    // IPollingConfig - getters
     function GetPollingMode: TPollingMode;
     function GetPollingInterval: Integer;
     function GetEventDebounceMs: Integer;
+
+    // IPollingConfig - setters
+    procedure SetPollingMode(AValue: TPollingMode);
+    procedure SetPollingInterval(AValue: Integer);
 
     // Test setup properties
     property PollingMode: TPollingMode read FPollingMode write FPollingMode;
@@ -158,9 +184,13 @@ type
   public
     constructor Create;
 
-    // IConnectionConfig
+    // IConnectionConfig - getters
     function GetConnectionTimeout: Integer;
     function GetConnectionRetryCount: Integer;
+
+    // IConnectionConfig - setters
+    procedure SetConnectionTimeout(AValue: Integer);
+    procedure SetConnectionRetryCount(AValue: Integer);
 
     // Test setup properties
     property ConnectionTimeout: Integer read FConnectionTimeout write FConnectionTimeout;
@@ -517,6 +547,61 @@ begin
   Result := FItemBorderColor;
 end;
 
+procedure TMockLayoutConfig.SetItemHeight(AValue: Integer);
+begin
+  FItemHeight := AValue;
+end;
+
+procedure TMockLayoutConfig.SetItemPadding(AValue: Integer);
+begin
+  FItemPadding := AValue;
+end;
+
+procedure TMockLayoutConfig.SetItemMargin(AValue: Integer);
+begin
+  FItemMargin := AValue;
+end;
+
+procedure TMockLayoutConfig.SetIconSize(AValue: Integer);
+begin
+  FIconSize := AValue;
+end;
+
+procedure TMockLayoutConfig.SetCornerRadius(AValue: Integer);
+begin
+  FCornerRadius := AValue;
+end;
+
+procedure TMockLayoutConfig.SetDeviceNameFontSize(AValue: Integer);
+begin
+  FDeviceNameFontSize := AValue;
+end;
+
+procedure TMockLayoutConfig.SetStatusFontSize(AValue: Integer);
+begin
+  FStatusFontSize := AValue;
+end;
+
+procedure TMockLayoutConfig.SetAddressFontSize(AValue: Integer);
+begin
+  FAddressFontSize := AValue;
+end;
+
+procedure TMockLayoutConfig.SetIconFontSize(AValue: Integer);
+begin
+  FIconFontSize := AValue;
+end;
+
+procedure TMockLayoutConfig.SetItemBorderWidth(AValue: Integer);
+begin
+  FItemBorderWidth := AValue;
+end;
+
+procedure TMockLayoutConfig.SetItemBorderColor(AValue: Integer);
+begin
+  FItemBorderColor := AValue;
+end;
+
 { TMockAppearanceConfig }
 
 constructor TMockAppearanceConfig.Create;
@@ -564,6 +649,41 @@ end;
 function TMockAppearanceConfig.GetConnectedColor: Integer;
 begin
   Result := FConnectedColor;
+end;
+
+procedure TMockAppearanceConfig.SetShowAddresses(AValue: Boolean);
+begin
+  FShowAddresses := AValue;
+end;
+
+procedure TMockAppearanceConfig.SetTheme(const AValue: string);
+begin
+  FTheme := AValue;
+end;
+
+procedure TMockAppearanceConfig.SetVsfDir(const AValue: string);
+begin
+  FVsfDir := AValue;
+end;
+
+procedure TMockAppearanceConfig.SetShowLastSeen(AValue: Boolean);
+begin
+  FShowLastSeen := AValue;
+end;
+
+procedure TMockAppearanceConfig.SetLastSeenFormat(AValue: TLastSeenFormat);
+begin
+  FLastSeenFormat := AValue;
+end;
+
+procedure TMockAppearanceConfig.SetShowDeviceIcons(AValue: Boolean);
+begin
+  FShowDeviceIcons := AValue;
+end;
+
+procedure TMockAppearanceConfig.SetConnectedColor(AValue: Integer);
+begin
+  FConnectedColor := AValue;
 end;
 
 { TMockDeviceConfigProvider }
@@ -698,6 +818,16 @@ begin
   Result := FEventDebounceMs;
 end;
 
+procedure TMockPollingConfig.SetPollingMode(AValue: TPollingMode);
+begin
+  FPollingMode := AValue;
+end;
+
+procedure TMockPollingConfig.SetPollingInterval(AValue: Integer);
+begin
+  FPollingInterval := AValue;
+end;
+
 { TMockConnectionConfig }
 
 constructor TMockConnectionConfig.Create;
@@ -715,6 +845,16 @@ end;
 function TMockConnectionConfig.GetConnectionRetryCount: Integer;
 begin
   Result := FConnectionRetryCount;
+end;
+
+procedure TMockConnectionConfig.SetConnectionTimeout(AValue: Integer);
+begin
+  FConnectionTimeout := AValue;
+end;
+
+procedure TMockConnectionConfig.SetConnectionRetryCount(AValue: Integer);
+begin
+  FConnectionRetryCount := AValue;
 end;
 
 { TMockConnectionStrategy }
