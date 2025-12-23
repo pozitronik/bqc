@@ -19,7 +19,7 @@ uses
   Winapi.Messages,
   System.SysUtils,
   System.Classes,
-  Bluetooth.WinAPI,
+  Bluetooth.Types,
   App.Logger;
 
 type
@@ -34,18 +34,20 @@ type
 
   /// <summary>
   /// Event type for device attribute changes (including connection state).
+  /// Uses domain type TBluetoothDeviceInfo instead of Windows API types.
   /// </summary>
   TDeviceAttributeChangedEvent = procedure(
     Sender: TObject;
-    const ADeviceInfo: BLUETOOTH_DEVICE_INFO
+    const ADeviceInfo: TBluetoothDeviceInfo
   ) of object;
 
   /// <summary>
   /// Event type for device discovery (radio in range).
+  /// Uses domain type TBluetoothDeviceInfo instead of Windows API types.
   /// </summary>
   TDeviceDiscoveredEvent = procedure(
     Sender: TObject;
-    const ADeviceInfo: BLUETOOTH_DEVICE_INFO
+    const ADeviceInfo: TBluetoothDeviceInfo
   ) of object;
 
   /// <summary>
@@ -73,7 +75,7 @@ type
   private
     FWindowHandle: HWND;
     FRadioHandle: THandle;
-    FNotifyHandle: HDEVNOTIFY;
+    FNotifyHandle: THandle;  // HDEVNOTIFY - handle from RegisterDeviceNotification
     FIsRunning: Boolean;
 
     FOnDeviceConnected: TDeviceConnectionEvent;
@@ -85,11 +87,11 @@ type
 
     procedure WndProc(var Msg: TMessage);
     procedure HandleDeviceChange(wParam: WPARAM; lParam: LPARAM);
-    procedure ProcessCustomEvent(const ABroadcast: PDEV_BROADCAST_HANDLE);
-    procedure ProcessHciEvent(const AEventInfo: PBTH_HCI_EVENT_INFO);
-    procedure ProcessL2CapEvent(const AEventInfo: PBTH_L2CAP_EVENT_INFO);
-    procedure ProcessRadioInRange(const AEventInfo: PBTH_RADIO_IN_RANGE);
-    procedure ProcessRadioOutOfRange(const AAddress: PBLUETOOTH_ADDRESS);
+    procedure ProcessCustomEvent(ABroadcast: Pointer);
+    procedure ProcessHciEvent(AEventInfo: Pointer);
+    procedure ProcessL2CapEvent(AEventInfo: Pointer);
+    procedure ProcessRadioInRange(AEventInfo: Pointer);
+    procedure ProcessRadioOutOfRange(AAddress: Pointer);
 
     function OpenBluetoothRadio: Boolean;
     procedure CloseBluetoothRadio;
@@ -98,8 +100,8 @@ type
 
     procedure DoDeviceConnected(const ADeviceAddress: UInt64);
     procedure DoDeviceDisconnected(const ADeviceAddress: UInt64);
-    procedure DoDeviceAttributeChanged(const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
-    procedure DoDeviceDiscovered(const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
+    procedure DoDeviceAttributeChanged(const ADeviceInfo: TBluetoothDeviceInfo);
+    procedure DoDeviceDiscovered(const ADeviceInfo: TBluetoothDeviceInfo);
     procedure DoDeviceOutOfRange(const ADeviceAddress: UInt64);
     procedure DoError(const AMessage: string; AErrorCode: DWORD);
 
@@ -163,7 +165,61 @@ type
 implementation
 
 uses
-  Vcl.Forms;
+  Vcl.Forms,
+  Bluetooth.WinAPI;
+
+{ Helper Functions }
+
+/// <summary>
+/// Converts a Windows API BLUETOOTH_DEVICE_INFO to domain TBluetoothDeviceInfo.
+/// This conversion happens at the infrastructure boundary to keep domain
+/// types isolated from Windows API specifics.
+/// </summary>
+function ConvertToDeviceInfo(const AWinAPIInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
+var
+  Address: TBluetoothAddress;
+  ConnectionState: TBluetoothConnectionState;
+  LastSeen, LastUsed: TDateTime;
+begin
+  Address := UInt64ToBluetoothAddress(AWinAPIInfo.Address.ullLong);
+
+  if AWinAPIInfo.fConnected then
+    ConnectionState := csConnected
+  else
+    ConnectionState := csDisconnected;
+
+  // Convert SYSTEMTIME to TDateTime (0 means unknown)
+  try
+    if (AWinAPIInfo.stLastSeen.wYear > 0) then
+      LastSeen := SystemTimeToDateTime(AWinAPIInfo.stLastSeen)
+    else
+      LastSeen := 0;
+  except
+    LastSeen := 0;
+  end;
+
+  try
+    if (AWinAPIInfo.stLastUsed.wYear > 0) then
+      LastUsed := SystemTimeToDateTime(AWinAPIInfo.stLastUsed)
+    else
+      LastUsed := 0;
+  except
+    LastUsed := 0;
+  end;
+
+  Result := TBluetoothDeviceInfo.Create(
+    Address,
+    AWinAPIInfo.Address.ullLong,
+    string(AWinAPIInfo.szName),
+    DetermineDeviceType(AWinAPIInfo.ulClassOfDevice),
+    ConnectionState,
+    AWinAPIInfo.fRemembered,
+    AWinAPIInfo.fAuthenticated,
+    AWinAPIInfo.ulClassOfDevice,
+    LastSeen,
+    LastUsed
+  );
+end;
 
 { TBluetoothDeviceWatcher }
 
@@ -360,65 +416,70 @@ begin
   ProcessCustomEvent(BroadcastHandle);
 end;
 
-procedure TBluetoothDeviceWatcher.ProcessCustomEvent(const ABroadcast: PDEV_BROADCAST_HANDLE);
+procedure TBluetoothDeviceWatcher.ProcessCustomEvent(ABroadcast: Pointer);
+var
+  Broadcast: PDEV_BROADCAST_HANDLE;
 begin
+  Broadcast := PDEV_BROADCAST_HANDLE(ABroadcast);
   // Check which Bluetooth event type this is
-  if IsEqualGUID(ABroadcast^.dbch_eventguid, GUID_BLUETOOTH_HCI_EVENT) then
+  if IsEqualGUID(Broadcast^.dbch_eventguid, GUID_BLUETOOTH_HCI_EVENT) then
   begin
     Log('[DeviceWatcher] ProcessCustomEvent: GUID_BLUETOOTH_HCI_EVENT');
     // ACL-level connect/disconnect
-    ProcessHciEvent(PBTH_HCI_EVENT_INFO(@ABroadcast^.dbch_data[0]));
+    ProcessHciEvent(@Broadcast^.dbch_data[0]);
   end
-  else if IsEqualGUID(ABroadcast^.dbch_eventguid, GUID_BLUETOOTH_L2CAP_EVENT) then
+  else if IsEqualGUID(Broadcast^.dbch_eventguid, GUID_BLUETOOTH_L2CAP_EVENT) then
   begin
     Log('[DeviceWatcher] ProcessCustomEvent: GUID_BLUETOOTH_L2CAP_EVENT');
     // L2CAP channel establish/terminate
-    ProcessL2CapEvent(PBTH_L2CAP_EVENT_INFO(@ABroadcast^.dbch_data[0]));
+    ProcessL2CapEvent(@Broadcast^.dbch_data[0]);
   end
-  else if IsEqualGUID(ABroadcast^.dbch_eventguid, GUID_BLUETOOTH_RADIO_IN_RANGE) then
+  else if IsEqualGUID(Broadcast^.dbch_eventguid, GUID_BLUETOOTH_RADIO_IN_RANGE) then
   begin
     Log('[DeviceWatcher] ProcessCustomEvent: GUID_BLUETOOTH_RADIO_IN_RANGE');
     // Device attributes changed or device discovered
-    ProcessRadioInRange(PBTH_RADIO_IN_RANGE(@ABroadcast^.dbch_data[0]));
+    ProcessRadioInRange(@Broadcast^.dbch_data[0]);
   end
-  else if IsEqualGUID(ABroadcast^.dbch_eventguid, GUID_BLUETOOTH_RADIO_OUT_OF_RANGE) then
+  else if IsEqualGUID(Broadcast^.dbch_eventguid, GUID_BLUETOOTH_RADIO_OUT_OF_RANGE) then
   begin
     Log('[DeviceWatcher] ProcessCustomEvent: GUID_BLUETOOTH_RADIO_OUT_OF_RANGE');
     // Device went out of range
-    ProcessRadioOutOfRange(PBLUETOOTH_ADDRESS(@ABroadcast^.dbch_data[0]));
+    ProcessRadioOutOfRange(@Broadcast^.dbch_data[0]);
   end
   else
   begin
     Log('[DeviceWatcher] ProcessCustomEvent: Unknown GUID {%.8X-%.4X-%.4X-%.2X%.2X-%.2X%.2X%.2X%.2X%.2X%.2X}', [
-      ABroadcast^.dbch_eventguid.D1,
-      ABroadcast^.dbch_eventguid.D2,
-      ABroadcast^.dbch_eventguid.D3,
-      ABroadcast^.dbch_eventguid.D4[0],
-      ABroadcast^.dbch_eventguid.D4[1],
-      ABroadcast^.dbch_eventguid.D4[2],
-      ABroadcast^.dbch_eventguid.D4[3],
-      ABroadcast^.dbch_eventguid.D4[4],
-      ABroadcast^.dbch_eventguid.D4[5],
-      ABroadcast^.dbch_eventguid.D4[6],
-      ABroadcast^.dbch_eventguid.D4[7]
+      Broadcast^.dbch_eventguid.D1,
+      Broadcast^.dbch_eventguid.D2,
+      Broadcast^.dbch_eventguid.D3,
+      Broadcast^.dbch_eventguid.D4[0],
+      Broadcast^.dbch_eventguid.D4[1],
+      Broadcast^.dbch_eventguid.D4[2],
+      Broadcast^.dbch_eventguid.D4[3],
+      Broadcast^.dbch_eventguid.D4[4],
+      Broadcast^.dbch_eventguid.D4[5],
+      Broadcast^.dbch_eventguid.D4[6],
+      Broadcast^.dbch_eventguid.D4[7]
     ]);
   end;
 end;
 
-procedure TBluetoothDeviceWatcher.ProcessHciEvent(const AEventInfo: PBTH_HCI_EVENT_INFO);
+procedure TBluetoothDeviceWatcher.ProcessHciEvent(AEventInfo: Pointer);
 var
+  EventInfo: PBTH_HCI_EVENT_INFO;
   DeviceAddress: UInt64;
 begin
+  EventInfo := PBTH_HCI_EVENT_INFO(AEventInfo);
   // bthAddress is UInt64 (BTH_ADDR), not BLUETOOTH_ADDRESS record
-  DeviceAddress := AEventInfo^.bthAddress;
+  DeviceAddress := EventInfo^.bthAddress;
 
   Log('[DeviceWatcher] ProcessHciEvent: Address=$%.12X, ConnectionType=%d, Connected=%d', [
     DeviceAddress,
-    AEventInfo^.connectionType,
-    AEventInfo^.connected
+    EventInfo^.connectionType,
+    EventInfo^.connected
   ]);
 
-  if AEventInfo^.connected <> 0 then
+  if EventInfo^.connected <> 0 then
   begin
     Log('[DeviceWatcher] ProcessHciEvent: Firing OnDeviceConnected');
     DoDeviceConnected(DeviceAddress);
@@ -430,44 +491,57 @@ begin
   end;
 end;
 
-procedure TBluetoothDeviceWatcher.ProcessL2CapEvent(const AEventInfo: PBTH_L2CAP_EVENT_INFO);
+procedure TBluetoothDeviceWatcher.ProcessL2CapEvent(AEventInfo: Pointer);
+var
+  EventInfo: PBTH_L2CAP_EVENT_INFO;
 begin
+  EventInfo := PBTH_L2CAP_EVENT_INFO(AEventInfo);
   Log('[DeviceWatcher] ProcessL2CapEvent: Address=$%.12X, PSM=%d, Connected=%d, Initiated=%d', [
-    AEventInfo^.bthAddress,
-    AEventInfo^.psm,
-    AEventInfo^.connected,
-    AEventInfo^.initiated
+    EventInfo^.bthAddress,
+    EventInfo^.psm,
+    EventInfo^.connected,
+    EventInfo^.initiated
   ]);
   // L2CAP events are lower-level and less useful for UI updates.
   // For now, we don't process these - HCI events and RadioInRange are more relevant.
   // This could be extended in the future if needed.
 end;
 
-procedure TBluetoothDeviceWatcher.ProcessRadioInRange(const AEventInfo: PBTH_RADIO_IN_RANGE);
+procedure TBluetoothDeviceWatcher.ProcessRadioInRange(AEventInfo: Pointer);
+var
+  EventInfo: PBTH_RADIO_IN_RANGE;
+  DeviceInfo: TBluetoothDeviceInfo;
 begin
+  EventInfo := PBTH_RADIO_IN_RANGE(AEventInfo);
   Log('[DeviceWatcher] ProcessRadioInRange: Address=$%.12X, Name="%s", Connected=%d, Remembered=%d, PrevFlags=$%.8X', [
-    AEventInfo^.deviceInfo.Address.ullLong,
-    string(AEventInfo^.deviceInfo.szName),
-    Ord(AEventInfo^.deviceInfo.fConnected),
-    Ord(AEventInfo^.deviceInfo.fRemembered),
-    AEventInfo^.previousDeviceFlags
+    EventInfo^.deviceInfo.Address.ullLong,
+    string(EventInfo^.deviceInfo.szName),
+    Ord(EventInfo^.deviceInfo.fConnected),
+    Ord(EventInfo^.deviceInfo.fRemembered),
+    EventInfo^.previousDeviceFlags
   ]);
 
+  // Convert Windows API type to domain type at the boundary
+  DeviceInfo := ConvertToDeviceInfo(EventInfo^.deviceInfo);
+
   // RadioInRange provides full device info including connection state
-  DoDeviceAttributeChanged(AEventInfo^.deviceInfo);
+  DoDeviceAttributeChanged(DeviceInfo);
 
   // Also fire discovered event for newly discovered devices
-  if not AEventInfo^.deviceInfo.fRemembered then
+  if not EventInfo^.deviceInfo.fRemembered then
   begin
     Log('[DeviceWatcher] ProcessRadioInRange: Device not remembered, firing OnDeviceDiscovered');
-    DoDeviceDiscovered(AEventInfo^.deviceInfo);
+    DoDeviceDiscovered(DeviceInfo);
   end;
 end;
 
-procedure TBluetoothDeviceWatcher.ProcessRadioOutOfRange(const AAddress: PBLUETOOTH_ADDRESS);
+procedure TBluetoothDeviceWatcher.ProcessRadioOutOfRange(AAddress: Pointer);
+var
+  Address: PBLUETOOTH_ADDRESS;
 begin
-  Log('[DeviceWatcher] ProcessRadioOutOfRange: Address=$%.12X', [AAddress^.ullLong]);
-  DoDeviceOutOfRange(AAddress^.ullLong);
+  Address := PBLUETOOTH_ADDRESS(AAddress);
+  Log('[DeviceWatcher] ProcessRadioOutOfRange: Address=$%.12X', [Address^.ullLong]);
+  DoDeviceOutOfRange(Address^.ullLong);
 end;
 
 procedure TBluetoothDeviceWatcher.DoDeviceConnected(const ADeviceAddress: UInt64);
@@ -491,10 +565,10 @@ begin
 end;
 
 procedure TBluetoothDeviceWatcher.DoDeviceAttributeChanged(
-  const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
+  const ADeviceInfo: TBluetoothDeviceInfo);
 begin
   Log('[DeviceWatcher] DoDeviceAttributeChanged: Address=$%.12X, Handler assigned=%s', [
-    ADeviceInfo.Address.ullLong,
+    ADeviceInfo.AddressInt,
     BoolToStr(Assigned(FOnDeviceAttributeChanged), True)
   ]);
   if Assigned(FOnDeviceAttributeChanged) then
@@ -502,10 +576,10 @@ begin
 end;
 
 procedure TBluetoothDeviceWatcher.DoDeviceDiscovered(
-  const ADeviceInfo: BLUETOOTH_DEVICE_INFO);
+  const ADeviceInfo: TBluetoothDeviceInfo);
 begin
   Log('[DeviceWatcher] DoDeviceDiscovered: Address=$%.12X, Handler assigned=%s', [
-    ADeviceInfo.Address.ullLong,
+    ADeviceInfo.AddressInt,
     BoolToStr(Assigned(FOnDeviceDiscovered), True)
   ]);
   if Assigned(FOnDeviceDiscovered) then
