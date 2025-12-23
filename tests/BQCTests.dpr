@@ -32,6 +32,7 @@ uses
   Tests.BluetoothService in 'Tests.BluetoothService.pas',
   Tests.Logger in 'Tests.Logger.pas',
   Tests.SettingsPresenter in 'Tests.SettingsPresenter.pas',
+  Tests.WinAPI in 'Tests.WinAPI.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
