@@ -16,28 +16,164 @@ uses
   System.Classes,
   System.UITypes,
   System.Generics.Collections,
-  Vcl.StdCtrls,
-  Vcl.ComCtrls,
-  Vcl.ExtCtrls,
-  Vcl.Graphics,
   App.ConfigInterfaces;
 
 type
+  //----------------------------------------------------------------------------
+  // View Settings Records - Data transfer objects for view communication
+  //----------------------------------------------------------------------------
+
+  /// <summary>
+  /// General window and behavior settings.
+  /// </summary>
+  TGeneralViewSettings = record
+    WindowMode: TWindowMode;
+    OnTop: Boolean;
+    MinimizeToTray: Boolean;
+    CloseToTray: Boolean;
+    HideOnFocusLoss: Boolean;
+    Autostart: Boolean;
+    PositionMode: TPositionMode;
+  end;
+
+  /// <summary>
+  /// Hotkey configuration settings.
+  /// </summary>
+  THotkeyViewSettings = record
+    Hotkey: string;
+    UseLowLevelHook: Boolean;
+  end;
+
+  /// <summary>
+  /// Visual appearance settings.
+  /// </summary>
+  TAppearanceViewSettings = record
+    Theme: string;
+    VsfDir: string;
+    ShowAddresses: Boolean;
+    ShowDeviceIcons: Boolean;
+    ShowLastSeen: Boolean;
+    LastSeenRelative: Boolean;
+    ConnectedColor: TColor;
+  end;
+
+  /// <summary>
+  /// Layout dimension and font size settings.
+  /// </summary>
+  TLayoutViewSettings = record
+    ItemHeight: Integer;
+    ItemPadding: Integer;
+    ItemMargin: Integer;
+    IconSize: Integer;
+    CornerRadius: Integer;
+    BorderWidth: Integer;
+    BorderColor: TColor;
+    DeviceNameFontSize: Integer;
+    StatusFontSize: Integer;
+    AddressFontSize: Integer;
+    IconFontSize: Integer;
+  end;
+
+  /// <summary>
+  /// Connection and polling settings.
+  /// </summary>
+  TConnectionViewSettings = record
+    Timeout: Integer;
+    RetryCount: Integer;
+    PollingMode: TPollingMode;
+    PollingInterval: Integer;
+    NotifyOnConnect: Boolean;
+    NotifyOnDisconnect: Boolean;
+    NotifyOnConnectFailed: Boolean;
+    NotifyOnAutoConnect: Boolean;
+  end;
+
+  /// <summary>
+  /// Logging configuration settings.
+  /// </summary>
+  TLoggingViewSettings = record
+    Enabled: Boolean;
+    Filename: string;
+    Append: Boolean;
+  end;
+
+  /// <summary>
+  /// Per-device configuration settings.
+  /// </summary>
+  TDeviceViewSettings = record
+    Alias: string;
+    DeviceTypeIndex: Integer;
+    Pinned: Boolean;
+    Hidden: Boolean;
+    AutoConnect: Boolean;
+    Timeout: Integer;
+    RetryCount: Integer;
+    NotifyConnectIndex: Integer;
+    NotifyDisconnectIndex: Integer;
+    NotifyFailedIndex: Integer;
+    NotifyAutoIndex: Integer;
+  end;
+
+  //----------------------------------------------------------------------------
+  // ISettingsView - Interface for the settings view
+  //----------------------------------------------------------------------------
+
   /// <summary>
   /// Interface for the settings view (implemented by SettingsForm).
+  /// Provides data access through grouped settings records.
   /// </summary>
   ISettingsView = interface
     ['{B2C3D4E5-F6A7-8901-BCDE-F23456789012}']
+    // Dialog control
     procedure CloseWithOK;
     procedure CloseWithCancel;
     procedure ShowError(const AMessage: string);
     procedure ShowInfo(const AMessage: string);
     procedure SetApplyEnabled(AEnabled: Boolean);
+
+    // General settings
+    function GetGeneralSettings: TGeneralViewSettings;
+    procedure SetGeneralSettings(const ASettings: TGeneralViewSettings);
+
+    // Hotkey settings
+    function GetHotkeySettings: THotkeyViewSettings;
+    procedure SetHotkeySettings(const ASettings: THotkeyViewSettings);
+
+    // Appearance settings
+    function GetAppearanceSettings: TAppearanceViewSettings;
+    procedure SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
+
+    // Layout settings
+    function GetLayoutSettings: TLayoutViewSettings;
+    procedure SetLayoutSettings(const ASettings: TLayoutViewSettings);
+
+    // Connection settings
+    function GetConnectionSettings: TConnectionViewSettings;
+    procedure SetConnectionSettings(const ASettings: TConnectionViewSettings);
+
+    // Logging settings
+    function GetLoggingSettings: TLoggingViewSettings;
+    procedure SetLoggingSettings(const ASettings: TLoggingViewSettings);
+
+    // Theme list management
+    procedure PopulateThemeList(const ACurrentTheme: string);
+
+    // Device list management
+    procedure PopulateDeviceList(const AItems: TArray<string>);
+    function GetSelectedDeviceIndex: Integer;
+    procedure SetSelectedDeviceIndex(AIndex: Integer);
+    function GetDeviceSettings: TDeviceViewSettings;
+    procedure SetDeviceSettings(const ASettings: TDeviceViewSettings);
+    procedure ClearDeviceSettings;
   end;
+
+  //----------------------------------------------------------------------------
+  // TSettingsPresenter - Settings dialog presenter
+  //----------------------------------------------------------------------------
 
   /// <summary>
   /// Presenter for the Settings dialog.
-  /// Handles loading and saving configuration.
+  /// Handles loading and saving configuration through the ISettingsView interface.
   /// </summary>
   TSettingsPresenter = class
   private
@@ -47,92 +183,6 @@ type
     FSelectedDeviceIndex: Integer;
     FOnSettingsApplied: TNotifyEvent;
 
-    // Control references (set during LoadSettings)
-    // Tab: General
-    FComboWindowMode: TComboBox;
-    FCheckOnTop: TCheckBox;
-    FCheckMinimizeToTray: TCheckBox;
-    FCheckCloseToTray: TCheckBox;
-    FCheckHideOnFocusLoss: TCheckBox;
-    FCheckAutostart: TCheckBox;
-
-    // Tab: Hotkey & Position
-    FEditHotkey: TEdit;
-    FCheckUseLowLevelHook: TCheckBox;
-    FComboPositionMode: TComboBox;
-
-    // Tab: Appearance
-    FComboTheme: TComboBox;
-    FEditVsfDir: TEdit;
-    FCheckShowAddresses: TCheckBox;
-
-    // Tab: Connection
-    FEditTimeout: TEdit;
-    FEditRetryCount: TEdit;
-    FUpDownTimeout: TUpDown;
-    FUpDownRetryCount: TUpDown;
-    FCheckNotifyOnConnect: TCheckBox;
-    FCheckNotifyOnDisconnect: TCheckBox;
-    FCheckNotifyOnConnectFailed: TCheckBox;
-    FCheckNotifyOnAutoConnect: TCheckBox;
-    FComboPollingMode: TComboBox;
-    FEditPollingInterval: TEdit;
-    FUpDownPollingInterval: TUpDown;
-
-    // Tab: Devices
-    FListDevices: TListBox;
-    FLabelDeviceAddressValue: TLabel;
-    FLabelDeviceLastSeenValue: TLabel;
-    FEditDeviceAlias: TEdit;
-    FCheckDevicePinned: TCheckBox;
-    FCheckDeviceHidden: TCheckBox;
-    FCheckDeviceAutoConnect: TCheckBox;
-    FComboDeviceType: TComboBox;
-    FEditDeviceTimeout: TEdit;
-    FEditDeviceRetryCount: TEdit;
-    FUpDownDeviceTimeout: TUpDown;
-    FUpDownDeviceRetryCount: TUpDown;
-    FComboDeviceNotifyConnect: TComboBox;
-    FComboDeviceNotifyDisconnect: TComboBox;
-    FComboDeviceNotifyFailed: TComboBox;
-    FComboDeviceNotifyAuto: TComboBox;
-
-    // Tab: Advanced
-    FCheckLogEnabled: TCheckBox;
-    FEditLogFilename: TEdit;
-    FCheckLogAppend: TCheckBox;
-
-    // Tab: Appearance (new)
-    FCheckShowDeviceIcons: TCheckBox;
-    FCheckShowLastSeen: TCheckBox;
-    FRadioLastSeenRelative: TRadioButton;
-    FRadioLastSeenAbsolute: TRadioButton;
-    FShapeConnectedColor: TShape;
-    FEditItemHeight: TEdit;
-    FEditItemPadding: TEdit;
-    FEditItemMargin: TEdit;
-    FEditIconSize: TEdit;
-    FEditCornerRadius: TEdit;
-    FEditDeviceNameSize: TEdit;
-    FEditStatusSize: TEdit;
-    FEditAddressSize: TEdit;
-    FEditIconFontSize: TEdit;
-    // TUpDown controls for layout (need to set Position directly)
-    FUpDownItemHeight: TUpDown;
-    FUpDownItemPadding: TUpDown;
-    FUpDownItemMargin: TUpDown;
-    FUpDownIconSize: TUpDown;
-    FUpDownCornerRadius: TUpDown;
-    FUpDownDeviceNameSize: TUpDown;
-    FUpDownStatusSize: TUpDown;
-    FUpDownAddressSize: TUpDown;
-    FUpDownIconFontSize: TUpDown;
-    FUpDownBorderWidth: TUpDown;
-    FShapeBorderColor: TShape;
-
-    procedure InitControlReferences;
-    procedure InitUpDownLimits;
-    procedure LoadThemeList;
     procedure LoadDeviceList;
     procedure LoadDeviceSettings(AIndex: Integer);
     procedure SaveDeviceSettings(AIndex: Integer);
@@ -164,12 +214,9 @@ type
 implementation
 
 uses
-  System.DateUtils,
-  Vcl.Forms,
   App.Logger,
   App.Config,
   App.Bootstrap,
-  UI.Theme,
   Bluetooth.Types;
 
 { TSettingsPresenter }
@@ -191,264 +238,46 @@ begin
   inherited;
 end;
 
-procedure TSettingsPresenter.InitControlReferences;
-var
-  Form: TForm;
-  ViewObj: TObject;
-  I: Integer;
-begin
-  // Get the form from the interface (cast to TObject works in Delphi XE2+)
-  ViewObj := FView as TObject;
-  if not (ViewObj is TForm) then
-  begin
-    Log('InitControlReferences: Failed to get form reference', ClassName);
-    Exit;
-  end;
-  Form := TForm(ViewObj);
-
-  // Tab: General
-  FComboWindowMode := Form.FindComponent('ComboWindowMode') as TComboBox;
-  FCheckOnTop := Form.FindComponent('CheckOnTop') as TCheckBox;
-  FCheckMinimizeToTray := Form.FindComponent('CheckMinimizeToTray') as TCheckBox;
-  FCheckCloseToTray := Form.FindComponent('CheckCloseToTray') as TCheckBox;
-  FCheckHideOnFocusLoss := Form.FindComponent('CheckHideOnFocusLoss') as TCheckBox;
-  FCheckAutostart := Form.FindComponent('CheckAutostart') as TCheckBox;
-
-  // Tab: Hotkey & Position
-  FEditHotkey := Form.FindComponent('EditHotkey') as TEdit;
-  FCheckUseLowLevelHook := Form.FindComponent('CheckUseLowLevelHook') as TCheckBox;
-  FComboPositionMode := Form.FindComponent('ComboPositionMode') as TComboBox;
-
-  // Tab: Appearance
-  FComboTheme := Form.FindComponent('ComboTheme') as TComboBox;
-  FEditVsfDir := Form.FindComponent('EditVsfDir') as TEdit;
-  FCheckShowAddresses := Form.FindComponent('CheckShowAddresses') as TCheckBox;
-
-  // Tab: Connection
-  FEditTimeout := Form.FindComponent('EditTimeout') as TEdit;
-  FEditRetryCount := Form.FindComponent('EditRetryCount') as TEdit;
-  FUpDownTimeout := Form.FindComponent('UpDownTimeout') as TUpDown;
-  FUpDownRetryCount := Form.FindComponent('UpDownRetryCount') as TUpDown;
-  FCheckNotifyOnConnect := Form.FindComponent('CheckNotifyOnConnect') as TCheckBox;
-  FCheckNotifyOnDisconnect := Form.FindComponent('CheckNotifyOnDisconnect') as TCheckBox;
-  FCheckNotifyOnConnectFailed := Form.FindComponent('CheckNotifyOnConnectFailed') as TCheckBox;
-  FCheckNotifyOnAutoConnect := Form.FindComponent('CheckNotifyOnAutoConnect') as TCheckBox;
-  FComboPollingMode := Form.FindComponent('ComboPollingMode') as TComboBox;
-  FEditPollingInterval := Form.FindComponent('EditPollingInterval') as TEdit;
-  FUpDownPollingInterval := Form.FindComponent('UpDownPollingInterval') as TUpDown;
-
-  // Tab: Devices
-  FListDevices := Form.FindComponent('ListDevices') as TListBox;
-  FLabelDeviceAddressValue := Form.FindComponent('LabelDeviceAddressValue') as TLabel;
-  FLabelDeviceLastSeenValue := Form.FindComponent('LabelDeviceLastSeenValue') as TLabel;
-  FEditDeviceAlias := Form.FindComponent('EditDeviceAlias') as TEdit;
-  FCheckDevicePinned := Form.FindComponent('CheckDevicePinned') as TCheckBox;
-  FCheckDeviceHidden := Form.FindComponent('CheckDeviceHidden') as TCheckBox;
-  FCheckDeviceAutoConnect := Form.FindComponent('CheckDeviceAutoConnect') as TCheckBox;
-  FComboDeviceType := Form.FindComponent('ComboDeviceType') as TComboBox;
-  FEditDeviceTimeout := Form.FindComponent('EditDeviceTimeout') as TEdit;
-  FEditDeviceRetryCount := Form.FindComponent('EditDeviceRetryCount') as TEdit;
-  FUpDownDeviceTimeout := Form.FindComponent('UpDownDeviceTimeout') as TUpDown;
-  FUpDownDeviceRetryCount := Form.FindComponent('UpDownDeviceRetryCount') as TUpDown;
-  FComboDeviceNotifyConnect := Form.FindComponent('ComboDeviceNotifyConnect') as TComboBox;
-  FComboDeviceNotifyDisconnect := Form.FindComponent('ComboDeviceNotifyDisconnect') as TComboBox;
-  FComboDeviceNotifyFailed := Form.FindComponent('ComboDeviceNotifyFailed') as TComboBox;
-  FComboDeviceNotifyAuto := Form.FindComponent('ComboDeviceNotifyAuto') as TComboBox;
-
-  // Tab: Advanced
-  FCheckLogEnabled := Form.FindComponent('CheckLogEnabled') as TCheckBox;
-  FEditLogFilename := Form.FindComponent('EditLogFilename') as TEdit;
-  FCheckLogAppend := Form.FindComponent('CheckLogAppend') as TCheckBox;
-
-  // Tab: Appearance (new)
-  FCheckShowDeviceIcons := Form.FindComponent('CheckShowDeviceIcons') as TCheckBox;
-  FCheckShowLastSeen := Form.FindComponent('CheckShowLastSeen') as TCheckBox;
-  FRadioLastSeenRelative := Form.FindComponent('RadioLastSeenRelative') as TRadioButton;
-  FRadioLastSeenAbsolute := Form.FindComponent('RadioLastSeenAbsolute') as TRadioButton;
-  FShapeConnectedColor := Form.FindComponent('ShapeConnectedColor') as TShape;
-  FEditItemHeight := Form.FindComponent('EditItemHeight') as TEdit;
-  FEditItemPadding := Form.FindComponent('EditItemPadding') as TEdit;
-  FEditItemMargin := Form.FindComponent('EditItemMargin') as TEdit;
-  FEditIconSize := Form.FindComponent('EditIconSize') as TEdit;
-  FEditCornerRadius := Form.FindComponent('EditCornerRadius') as TEdit;
-  FEditDeviceNameSize := Form.FindComponent('EditDeviceNameSize') as TEdit;
-  FEditStatusSize := Form.FindComponent('EditStatusSize') as TEdit;
-  FEditAddressSize := Form.FindComponent('EditAddressSize') as TEdit;
-  FEditIconFontSize := Form.FindComponent('EditIconFontSize') as TEdit;
-  // TUpDown controls
-  FUpDownItemHeight := Form.FindComponent('UpDownItemHeight') as TUpDown;
-  FUpDownItemPadding := Form.FindComponent('UpDownItemPadding') as TUpDown;
-  FUpDownItemMargin := Form.FindComponent('UpDownItemMargin') as TUpDown;
-  FUpDownIconSize := Form.FindComponent('UpDownIconSize') as TUpDown;
-  FUpDownCornerRadius := Form.FindComponent('UpDownCornerRadius') as TUpDown;
-  FUpDownDeviceNameSize := Form.FindComponent('UpDownDeviceNameSize') as TUpDown;
-  FUpDownStatusSize := Form.FindComponent('UpDownStatusSize') as TUpDown;
-  FUpDownAddressSize := Form.FindComponent('UpDownAddressSize') as TUpDown;
-  FUpDownIconFontSize := Form.FindComponent('UpDownIconFontSize') as TUpDown;
-  FUpDownBorderWidth := Form.FindComponent('UpDownBorderWidth') as TUpDown;
-  FShapeBorderColor := Form.FindComponent('ShapeBorderColor') as TShape;
-
-  // Populate device type combo from DeviceTypeNames array
-  if FComboDeviceType <> nil then
-  begin
-    FComboDeviceType.Items.Clear;
-    for I := Low(DeviceTypeNames) to High(DeviceTypeNames) do
-      FComboDeviceType.Items.Add(DeviceTypeNames[I]);
-    FComboDeviceType.Style := csDropDownList;
-  end;
-
-  Log('InitControlReferences: Complete', ClassName);
-end;
-
-procedure TSettingsPresenter.InitUpDownLimits;
-begin
-  // Layout limits
-  if FUpDownItemHeight <> nil then
-  begin
-    FUpDownItemHeight.Min := MIN_ITEM_HEIGHT;
-    FUpDownItemHeight.Max := MAX_ITEM_HEIGHT;
-  end;
-  if FUpDownItemPadding <> nil then
-  begin
-    FUpDownItemPadding.Min := MIN_ITEM_PADDING;
-    FUpDownItemPadding.Max := MAX_ITEM_PADDING;
-  end;
-  if FUpDownItemMargin <> nil then
-  begin
-    FUpDownItemMargin.Min := MIN_ITEM_MARGIN;
-    FUpDownItemMargin.Max := MAX_ITEM_MARGIN;
-  end;
-  if FUpDownIconSize <> nil then
-  begin
-    FUpDownIconSize.Min := MIN_ICON_SIZE;
-    FUpDownIconSize.Max := MAX_ICON_SIZE;
-  end;
-  if FUpDownCornerRadius <> nil then
-  begin
-    FUpDownCornerRadius.Min := MIN_CORNER_RADIUS;
-    FUpDownCornerRadius.Max := MAX_CORNER_RADIUS;
-  end;
-  if FUpDownBorderWidth <> nil then
-  begin
-    FUpDownBorderWidth.Min := MIN_ITEM_BORDER_WIDTH;
-    FUpDownBorderWidth.Max := MAX_ITEM_BORDER_WIDTH;
-  end;
-
-  // Font size limits
-  if FUpDownDeviceNameSize <> nil then
-  begin
-    FUpDownDeviceNameSize.Min := MIN_DEVICE_NAME_FONT_SIZE;
-    FUpDownDeviceNameSize.Max := MAX_DEVICE_NAME_FONT_SIZE;
-  end;
-  if FUpDownStatusSize <> nil then
-  begin
-    FUpDownStatusSize.Min := MIN_STATUS_FONT_SIZE;
-    FUpDownStatusSize.Max := MAX_STATUS_FONT_SIZE;
-  end;
-  if FUpDownAddressSize <> nil then
-  begin
-    FUpDownAddressSize.Min := MIN_ADDRESS_FONT_SIZE;
-    FUpDownAddressSize.Max := MAX_ADDRESS_FONT_SIZE;
-  end;
-  if FUpDownIconFontSize <> nil then
-  begin
-    FUpDownIconFontSize.Min := MIN_ICON_FONT_SIZE;
-    FUpDownIconFontSize.Max := MAX_ICON_FONT_SIZE;
-  end;
-
-  // Connection limits
-  if FUpDownTimeout <> nil then
-  begin
-    FUpDownTimeout.Min := MIN_CONNECTION_TIMEOUT;
-    FUpDownTimeout.Max := MAX_CONNECTION_TIMEOUT;
-  end;
-  if FUpDownRetryCount <> nil then
-  begin
-    FUpDownRetryCount.Min := MIN_CONNECTION_RETRY_COUNT;
-    FUpDownRetryCount.Max := MAX_CONNECTION_RETRY_COUNT;
-  end;
-  if FUpDownPollingInterval <> nil then
-  begin
-    FUpDownPollingInterval.Min := MIN_POLLING_INTERVAL;
-    FUpDownPollingInterval.Max := MAX_POLLING_INTERVAL;
-  end;
-
-  // Per-device connection limits (allow -1 for "use global")
-  if FUpDownDeviceTimeout <> nil then
-  begin
-    FUpDownDeviceTimeout.Min := -1;
-    FUpDownDeviceTimeout.Max := MAX_CONNECTION_TIMEOUT;
-  end;
-  if FUpDownDeviceRetryCount <> nil then
-  begin
-    FUpDownDeviceRetryCount.Min := -1;
-    FUpDownDeviceRetryCount.Max := MAX_CONNECTION_RETRY_COUNT;
-  end;
-
-  Log('InitUpDownLimits: Complete', ClassName);
-end;
-
-procedure TSettingsPresenter.LoadThemeList;
-var
-  Styles: TArray<string>;
-  StyleName: string;
-begin
-  if FComboTheme = nil then Exit;
-
-  FComboTheme.Items.Clear;
-
-  // Add all available styles (embedded + loaded from VsfDir)
-  Styles := Theme.GetAvailableStyles;
-  for StyleName in Styles do
-    FComboTheme.Items.Add(StyleName);
-
-  // Select current theme
-  if (TAppConfig(Bootstrap.AppConfig).Theme <> '') and (FComboTheme.Items.IndexOf(TAppConfig(Bootstrap.AppConfig).Theme) >= 0) then
-    FComboTheme.ItemIndex := FComboTheme.Items.IndexOf(TAppConfig(Bootstrap.AppConfig).Theme)
-  else if FComboTheme.Items.Count > 0 then
-    FComboTheme.ItemIndex := 0; // First available
-end;
-
 procedure TSettingsPresenter.LoadDeviceList;
 var
   Addresses: TArray<UInt64>;
   Address: UInt64;
   DeviceConfig: TDeviceConfig;
   DisplayName: string;
+  Items: TArray<string>;
+  I: Integer;
 begin
-  if FListDevices = nil then Exit;
-
-  FListDevices.Items.Clear;
   FDeviceAddresses.Clear;
+  SetLength(Items, 0);
 
   Addresses := Bootstrap.DeviceConfigProvider.GetConfiguredDeviceAddresses;
+  SetLength(Items, Length(Addresses));
+
+  I := 0;
   for Address in Addresses do
   begin
     DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
-    // Show device name with address: "DeviceName (XX:XX:XX:XX:XX:XX)"
     if DeviceConfig.Name <> '' then
       DisplayName := Format('%s (%s)', [DeviceConfig.Name, FormatAddressAsMAC(Address)])
     else
-      // Edge case: device not yet discovered, show address only
       DisplayName := FormatAddressAsMAC(Address);
 
-    FListDevices.Items.Add(DisplayName);
+    Items[I] := DisplayName;
     FDeviceAddresses.Add(Address);
+    Inc(I);
   end;
 
-  if FListDevices.Items.Count > 0 then
+  FView.PopulateDeviceList(Items);
+
+  if Length(Items) > 0 then
   begin
-    FListDevices.ItemIndex := 0;
+    FView.SetSelectedDeviceIndex(0);
     LoadDeviceSettings(0);
   end
   else
   begin
     FSelectedDeviceIndex := -1;
-    // Clear device settings panel
-    if FLabelDeviceAddressValue <> nil then
-      FLabelDeviceAddressValue.Caption := '';
-    if FEditDeviceAlias <> nil then
-      FEditDeviceAlias.Text := '';
+    FView.ClearDeviceSettings;
   end;
 end;
 
@@ -456,6 +285,7 @@ procedure TSettingsPresenter.LoadDeviceSettings(AIndex: Integer);
 var
   Address: UInt64;
   DeviceConfig: TDeviceConfig;
+  Settings: TDeviceViewSettings;
 begin
   // Save previous device settings if any
   if (FSelectedDeviceIndex >= 0) and (FSelectedDeviceIndex < FDeviceAddresses.Count) then
@@ -468,205 +298,138 @@ begin
   Address := FDeviceAddresses[AIndex];
   DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
 
-  if FLabelDeviceAddressValue <> nil then
-    FLabelDeviceAddressValue.Caption := FormatAddressAsMAC(Address);
-  // Display LastSeen timestamp
-  if FLabelDeviceLastSeenValue <> nil then
-  begin
-    if DeviceConfig.LastSeen > 0 then
-      FLabelDeviceLastSeenValue.Caption := DateTimeToStr(DeviceConfig.LastSeen)
-    else
-      FLabelDeviceLastSeenValue.Caption := 'Never';
-  end;
-  if FEditDeviceAlias <> nil then
-    FEditDeviceAlias.Text := DeviceConfig.Alias;
-  if FCheckDevicePinned <> nil then
-    FCheckDevicePinned.Checked := DeviceConfig.Pinned;
-  if FCheckDeviceHidden <> nil then
-    FCheckDeviceHidden.Checked := DeviceConfig.Hidden;
-  if FCheckDeviceAutoConnect <> nil then
-    FCheckDeviceAutoConnect.Checked := DeviceConfig.AutoConnect;
-  // DeviceType combo: -1=Auto(0), 0=Unknown(1), 1=AudioOutput(2), etc.
-  if FComboDeviceType <> nil then
-    FComboDeviceType.ItemIndex := DeviceConfig.DeviceTypeOverride + 1;
-  // Use TUpDown.Position for spin controls (with Edit.Text fallback)
-  if FUpDownDeviceTimeout <> nil then
-    FUpDownDeviceTimeout.Position := DeviceConfig.ConnectionTimeout
-  else if FEditDeviceTimeout <> nil then
-    FEditDeviceTimeout.Text := IntToStr(DeviceConfig.ConnectionTimeout);
-  if FUpDownDeviceRetryCount <> nil then
-    FUpDownDeviceRetryCount.Position := DeviceConfig.ConnectionRetryCount
-  else if FEditDeviceRetryCount <> nil then
-    FEditDeviceRetryCount.Text := IntToStr(DeviceConfig.ConnectionRetryCount);
+  Settings.Alias := DeviceConfig.Alias;
+  Settings.DeviceTypeIndex := DeviceConfig.DeviceTypeOverride + 1;
+  Settings.Pinned := DeviceConfig.Pinned;
+  Settings.Hidden := DeviceConfig.Hidden;
+  Settings.AutoConnect := DeviceConfig.AutoConnect;
+  Settings.Timeout := DeviceConfig.ConnectionTimeout;
+  Settings.RetryCount := DeviceConfig.ConnectionRetryCount;
+  Settings.NotifyConnectIndex := DeviceConfig.Notifications.OnConnect + 1;
+  Settings.NotifyDisconnectIndex := DeviceConfig.Notifications.OnDisconnect + 1;
+  Settings.NotifyFailedIndex := DeviceConfig.Notifications.OnConnectFailed + 1;
+  Settings.NotifyAutoIndex := DeviceConfig.Notifications.OnAutoConnect + 1;
 
-  // Notification combos: -1=Default(0), 0=None(1), 1=Balloon(2)
-  if FComboDeviceNotifyConnect <> nil then
-    FComboDeviceNotifyConnect.ItemIndex := DeviceConfig.Notifications.OnConnect + 1;
-  if FComboDeviceNotifyDisconnect <> nil then
-    FComboDeviceNotifyDisconnect.ItemIndex := DeviceConfig.Notifications.OnDisconnect + 1;
-  if FComboDeviceNotifyFailed <> nil then
-    FComboDeviceNotifyFailed.ItemIndex := DeviceConfig.Notifications.OnConnectFailed + 1;
-  if FComboDeviceNotifyAuto <> nil then
-    FComboDeviceNotifyAuto.ItemIndex := DeviceConfig.Notifications.OnAutoConnect + 1;
+  FView.SetDeviceSettings(Settings);
 end;
 
 procedure TSettingsPresenter.SaveDeviceSettings(AIndex: Integer);
 var
   Address: UInt64;
   DeviceConfig: TDeviceConfig;
+  Settings: TDeviceViewSettings;
 begin
   if (AIndex < 0) or (AIndex >= FDeviceAddresses.Count) then
     Exit;
 
   Address := FDeviceAddresses[AIndex];
   DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
+  Settings := FView.GetDeviceSettings;
 
-  if FEditDeviceAlias <> nil then
-    DeviceConfig.Alias := FEditDeviceAlias.Text;
-  if FCheckDevicePinned <> nil then
-    DeviceConfig.Pinned := FCheckDevicePinned.Checked;
-  if FCheckDeviceHidden <> nil then
-    DeviceConfig.Hidden := FCheckDeviceHidden.Checked;
-  if FCheckDeviceAutoConnect <> nil then
-    DeviceConfig.AutoConnect := FCheckDeviceAutoConnect.Checked;
-  // DeviceType combo: Index 0=Auto(-1), 1=Unknown(0), 2=AudioOutput(1), etc.
-  if FComboDeviceType <> nil then
-    DeviceConfig.DeviceTypeOverride := FComboDeviceType.ItemIndex - 1;
-  // Use TUpDown.Position for spin controls (with Edit.Text fallback)
-  if FUpDownDeviceTimeout <> nil then
-    DeviceConfig.ConnectionTimeout := FUpDownDeviceTimeout.Position
-  else if FEditDeviceTimeout <> nil then
-    DeviceConfig.ConnectionTimeout := StrToIntDef(FEditDeviceTimeout.Text, -1);
-
-  if FUpDownDeviceRetryCount <> nil then
-    DeviceConfig.ConnectionRetryCount := FUpDownDeviceRetryCount.Position
-  else if FEditDeviceRetryCount <> nil then
-    DeviceConfig.ConnectionRetryCount := StrToIntDef(FEditDeviceRetryCount.Text, -1);
-
-  // Notification combos: Index 0=Default(-1), 1=None(0), 2=Balloon(1)
-  if FComboDeviceNotifyConnect <> nil then
-    DeviceConfig.Notifications.OnConnect := FComboDeviceNotifyConnect.ItemIndex - 1;
-  if FComboDeviceNotifyDisconnect <> nil then
-    DeviceConfig.Notifications.OnDisconnect := FComboDeviceNotifyDisconnect.ItemIndex - 1;
-  if FComboDeviceNotifyFailed <> nil then
-    DeviceConfig.Notifications.OnConnectFailed := FComboDeviceNotifyFailed.ItemIndex - 1;
-  if FComboDeviceNotifyAuto <> nil then
-    DeviceConfig.Notifications.OnAutoConnect := FComboDeviceNotifyAuto.ItemIndex - 1;
+  DeviceConfig.Alias := Settings.Alias;
+  DeviceConfig.DeviceTypeOverride := Settings.DeviceTypeIndex - 1;
+  DeviceConfig.Pinned := Settings.Pinned;
+  DeviceConfig.Hidden := Settings.Hidden;
+  DeviceConfig.AutoConnect := Settings.AutoConnect;
+  DeviceConfig.ConnectionTimeout := Settings.Timeout;
+  DeviceConfig.ConnectionRetryCount := Settings.RetryCount;
+  DeviceConfig.Notifications.OnConnect := Settings.NotifyConnectIndex - 1;
+  DeviceConfig.Notifications.OnDisconnect := Settings.NotifyDisconnectIndex - 1;
+  DeviceConfig.Notifications.OnConnectFailed := Settings.NotifyFailedIndex - 1;
+  DeviceConfig.Notifications.OnAutoConnect := Settings.NotifyAutoIndex - 1;
 
   Bootstrap.DeviceConfigProvider.SetDeviceConfig(DeviceConfig);
 end;
 
 procedure TSettingsPresenter.LoadSettings;
+var
+  Cfg: TAppConfig;
+  General: TGeneralViewSettings;
+  Hotkey: THotkeyViewSettings;
+  Appearance: TAppearanceViewSettings;
+  Layout: TLayoutViewSettings;
+  Connection: TConnectionViewSettings;
+  Logging: TLoggingViewSettings;
 begin
   Log('LoadSettings', ClassName);
 
-  InitControlReferences;
-  InitUpDownLimits;
+  Cfg := TAppConfig(Bootstrap.AppConfig);
 
-  // Tab: General
-  // ComboBox: 0 = Window mode, 1 = Menu mode
-  if FComboWindowMode <> nil then
-  begin
-    if TAppConfig(Bootstrap.AppConfig).WindowMode = wmWindow then
-      FComboWindowMode.ItemIndex := 0
-    else
-      FComboWindowMode.ItemIndex := 1;
-  end;
-  if FCheckOnTop <> nil then
-    FCheckOnTop.Checked := TAppConfig(Bootstrap.AppConfig).OnTop;
-  if FCheckMinimizeToTray <> nil then
-    FCheckMinimizeToTray.Checked := TAppConfig(Bootstrap.AppConfig).MinimizeToTray;
-  if FCheckCloseToTray <> nil then
-    FCheckCloseToTray.Checked := TAppConfig(Bootstrap.AppConfig).CloseToTray;
-  if FCheckHideOnFocusLoss <> nil then
-    FCheckHideOnFocusLoss.Checked := TAppConfig(Bootstrap.AppConfig).MenuHideOnFocusLoss;
-  if FCheckAutostart <> nil then
-    FCheckAutostart.Checked := TAppConfig(Bootstrap.AppConfig).Autostart;
+  // General settings
+  General.WindowMode := Cfg.WindowMode;
+  General.OnTop := Cfg.OnTop;
+  General.MinimizeToTray := Cfg.MinimizeToTray;
+  General.CloseToTray := Cfg.CloseToTray;
+  General.HideOnFocusLoss := Cfg.MenuHideOnFocusLoss;
+  General.Autostart := Cfg.Autostart;
+  General.PositionMode := Cfg.PositionMode;
+  FView.SetGeneralSettings(General);
 
-  // Tab: Hotkey & Position
-  if FEditHotkey <> nil then
-    FEditHotkey.Text := TAppConfig(Bootstrap.AppConfig).Hotkey;
-  if FCheckUseLowLevelHook <> nil then
-    FCheckUseLowLevelHook.Checked := TAppConfig(Bootstrap.AppConfig).UseLowLevelHook;
-  if FComboPositionMode <> nil then
-    FComboPositionMode.ItemIndex := Ord(TAppConfig(Bootstrap.AppConfig).PositionMode);
+  // Hotkey settings
+  Hotkey.Hotkey := Cfg.Hotkey;
+  Hotkey.UseLowLevelHook := Cfg.UseLowLevelHook;
+  FView.SetHotkeySettings(Hotkey);
 
-  // Tab: Appearance
-  if FEditVsfDir <> nil then
-    FEditVsfDir.Text := TAppConfig(Bootstrap.AppConfig).VsfDir;
-  LoadThemeList;
-  if FCheckShowAddresses <> nil then
-    FCheckShowAddresses.Checked := TAppConfig(Bootstrap.AppConfig).ShowAddresses;
+  // Theme list (view gets available styles from TThemeManager)
+  FView.PopulateThemeList(Cfg.Theme);
 
-  // Tab: Connection - use TUpDown.Position for spin controls
-  if FUpDownTimeout <> nil then
-    FUpDownTimeout.Position := TAppConfig(Bootstrap.AppConfig).ConnectionTimeout;
-  if FUpDownRetryCount <> nil then
-    FUpDownRetryCount.Position := TAppConfig(Bootstrap.AppConfig).ConnectionRetryCount;
-  if FCheckNotifyOnConnect <> nil then
-    FCheckNotifyOnConnect.Checked := TAppConfig(Bootstrap.AppConfig).NotifyOnConnect = nmBalloon;
-  if FCheckNotifyOnDisconnect <> nil then
-    FCheckNotifyOnDisconnect.Checked := TAppConfig(Bootstrap.AppConfig).NotifyOnDisconnect = nmBalloon;
-  if FCheckNotifyOnConnectFailed <> nil then
-    FCheckNotifyOnConnectFailed.Checked := TAppConfig(Bootstrap.AppConfig).NotifyOnConnectFailed = nmBalloon;
-  if FCheckNotifyOnAutoConnect <> nil then
-    FCheckNotifyOnAutoConnect.Checked := TAppConfig(Bootstrap.AppConfig).NotifyOnAutoConnect = nmBalloon;
-  if FComboPollingMode <> nil then
-    FComboPollingMode.ItemIndex := Ord(TAppConfig(Bootstrap.AppConfig).PollingMode);
-  if FUpDownPollingInterval <> nil then
-    FUpDownPollingInterval.Position := TAppConfig(Bootstrap.AppConfig).PollingInterval;
+  // Appearance settings
+  Appearance.Theme := Cfg.Theme;
+  Appearance.VsfDir := Cfg.VsfDir;
+  Appearance.ShowAddresses := Cfg.ShowAddresses;
+  Appearance.ShowDeviceIcons := Cfg.ShowDeviceIcons;
+  Appearance.ShowLastSeen := Cfg.ShowLastSeen;
+  Appearance.LastSeenRelative := Cfg.LastSeenFormat = lsfRelative;
+  Appearance.ConnectedColor := TColor(Cfg.ConnectedColor);
+  FView.SetAppearanceSettings(Appearance);
 
-  // Tab: Devices
+  // Layout settings
+  Layout.ItemHeight := Cfg.ItemHeight;
+  Layout.ItemPadding := Cfg.ItemPadding;
+  Layout.ItemMargin := Cfg.ItemMargin;
+  Layout.IconSize := Cfg.IconSize;
+  Layout.CornerRadius := Cfg.CornerRadius;
+  Layout.BorderWidth := Cfg.ItemBorderWidth;
+  Layout.BorderColor := TColor(Cfg.ItemBorderColor);
+  Layout.DeviceNameFontSize := Cfg.DeviceNameFontSize;
+  Layout.StatusFontSize := Cfg.StatusFontSize;
+  Layout.AddressFontSize := Cfg.AddressFontSize;
+  Layout.IconFontSize := Cfg.IconFontSize;
+  FView.SetLayoutSettings(Layout);
+
+  // Connection settings
+  Connection.Timeout := Cfg.ConnectionTimeout;
+  Connection.RetryCount := Cfg.ConnectionRetryCount;
+  Connection.PollingMode := Cfg.PollingMode;
+  Connection.PollingInterval := Cfg.PollingInterval;
+  Connection.NotifyOnConnect := Cfg.NotifyOnConnect = nmBalloon;
+  Connection.NotifyOnDisconnect := Cfg.NotifyOnDisconnect = nmBalloon;
+  Connection.NotifyOnConnectFailed := Cfg.NotifyOnConnectFailed = nmBalloon;
+  Connection.NotifyOnAutoConnect := Cfg.NotifyOnAutoConnect = nmBalloon;
+  FView.SetConnectionSettings(Connection);
+
+  // Logging settings
+  Logging.Enabled := Cfg.LogEnabled;
+  Logging.Filename := Cfg.LogFilename;
+  Logging.Append := Cfg.LogAppend;
+  FView.SetLoggingSettings(Logging);
+
+  // Device list
   LoadDeviceList;
-
-  // Tab: Advanced
-  if FCheckLogEnabled <> nil then
-    FCheckLogEnabled.Checked := TAppConfig(Bootstrap.AppConfig).LogEnabled;
-  if FEditLogFilename <> nil then
-    FEditLogFilename.Text := TAppConfig(Bootstrap.AppConfig).LogFilename;
-  if FCheckLogAppend <> nil then
-    FCheckLogAppend.Checked := TAppConfig(Bootstrap.AppConfig).LogAppend;
-
-  // Tab: Appearance (new)
-  if FCheckShowDeviceIcons <> nil then
-    FCheckShowDeviceIcons.Checked := TAppConfig(Bootstrap.AppConfig).ShowDeviceIcons;
-  if FCheckShowLastSeen <> nil then
-    FCheckShowLastSeen.Checked := TAppConfig(Bootstrap.AppConfig).ShowLastSeen;
-  if FRadioLastSeenRelative <> nil then
-    FRadioLastSeenRelative.Checked := TAppConfig(Bootstrap.AppConfig).LastSeenFormat = lsfRelative;
-  if FRadioLastSeenAbsolute <> nil then
-    FRadioLastSeenAbsolute.Checked := TAppConfig(Bootstrap.AppConfig).LastSeenFormat = lsfAbsolute;
-  if FShapeConnectedColor <> nil then
-    FShapeConnectedColor.Brush.Color := TColor(TAppConfig(Bootstrap.AppConfig).ConnectedColor);
-  // Set TUpDown.Position directly - this automatically updates the associated Edit.Text
-  if FUpDownItemHeight <> nil then
-    FUpDownItemHeight.Position := TAppConfig(Bootstrap.AppConfig).ItemHeight;
-  if FUpDownItemPadding <> nil then
-    FUpDownItemPadding.Position := TAppConfig(Bootstrap.AppConfig).ItemPadding;
-  if FUpDownItemMargin <> nil then
-    FUpDownItemMargin.Position := TAppConfig(Bootstrap.AppConfig).ItemMargin;
-  if FUpDownIconSize <> nil then
-    FUpDownIconSize.Position := TAppConfig(Bootstrap.AppConfig).IconSize;
-  if FUpDownCornerRadius <> nil then
-    FUpDownCornerRadius.Position := TAppConfig(Bootstrap.AppConfig).CornerRadius;
-  if FUpDownDeviceNameSize <> nil then
-    FUpDownDeviceNameSize.Position := TAppConfig(Bootstrap.AppConfig).DeviceNameFontSize;
-  if FUpDownStatusSize <> nil then
-    FUpDownStatusSize.Position := TAppConfig(Bootstrap.AppConfig).StatusFontSize;
-  if FUpDownAddressSize <> nil then
-    FUpDownAddressSize.Position := TAppConfig(Bootstrap.AppConfig).AddressFontSize;
-  if FUpDownIconFontSize <> nil then
-    FUpDownIconFontSize.Position := TAppConfig(Bootstrap.AppConfig).IconFontSize;
-  if FUpDownBorderWidth <> nil then
-    FUpDownBorderWidth.Position := TAppConfig(Bootstrap.AppConfig).ItemBorderWidth;
-  if FShapeBorderColor <> nil then
-    FShapeBorderColor.Brush.Color := TColor(TAppConfig(Bootstrap.AppConfig).ItemBorderColor);
 
   FModified := False;
   Log('LoadSettings: Complete', ClassName);
 end;
 
 function TSettingsPresenter.SaveSettings: Boolean;
+var
+  Cfg: TAppConfig;
+  General: TGeneralViewSettings;
+  Hotkey: THotkeyViewSettings;
+  Appearance: TAppearanceViewSettings;
+  Layout: TLayoutViewSettings;
+  Connection: TConnectionViewSettings;
+  Logging: TLoggingViewSettings;
 begin
   Log('SaveSettings', ClassName);
   Result := True;
@@ -675,124 +438,78 @@ begin
     if (FSelectedDeviceIndex >= 0) and (FSelectedDeviceIndex < FDeviceAddresses.Count) then
       SaveDeviceSettings(FSelectedDeviceIndex);
 
-    // Tab: General
-    // ComboBox: 0 = Window mode, 1 = Menu mode
-    if FComboWindowMode <> nil then
-    begin
-      if FComboWindowMode.ItemIndex = 0 then
-        TAppConfig(Bootstrap.AppConfig).WindowMode := wmWindow
-      else
-        TAppConfig(Bootstrap.AppConfig).WindowMode := wmMenu;
-    end;
-    if FCheckOnTop <> nil then
-      TAppConfig(Bootstrap.AppConfig).OnTop := FCheckOnTop.Checked;
-    if FCheckMinimizeToTray <> nil then
-      TAppConfig(Bootstrap.AppConfig).MinimizeToTray := FCheckMinimizeToTray.Checked;
-    if FCheckCloseToTray <> nil then
-      TAppConfig(Bootstrap.AppConfig).CloseToTray := FCheckCloseToTray.Checked;
-    if FCheckHideOnFocusLoss <> nil then
-      TAppConfig(Bootstrap.AppConfig).MenuHideOnFocusLoss := FCheckHideOnFocusLoss.Checked;
-    if FCheckAutostart <> nil then
-      TAppConfig(Bootstrap.AppConfig).Autostart := FCheckAutostart.Checked;
+    Cfg := TAppConfig(Bootstrap.AppConfig);
 
-    // Tab: Hotkey & Position
-    if FEditHotkey <> nil then
-      TAppConfig(Bootstrap.AppConfig).Hotkey := FEditHotkey.Text;
-    if FCheckUseLowLevelHook <> nil then
-      TAppConfig(Bootstrap.AppConfig).UseLowLevelHook := FCheckUseLowLevelHook.Checked;
-    if FComboPositionMode <> nil then
-      TAppConfig(Bootstrap.AppConfig).PositionMode := TPositionMode(FComboPositionMode.ItemIndex);
+    // General settings
+    General := FView.GetGeneralSettings;
+    Cfg.WindowMode := General.WindowMode;
+    Cfg.OnTop := General.OnTop;
+    Cfg.MinimizeToTray := General.MinimizeToTray;
+    Cfg.CloseToTray := General.CloseToTray;
+    Cfg.MenuHideOnFocusLoss := General.HideOnFocusLoss;
+    Cfg.Autostart := General.Autostart;
+    Cfg.PositionMode := General.PositionMode;
 
-    // Tab: Appearance
-    if FComboTheme <> nil then
-      TAppConfig(Bootstrap.AppConfig).Theme := FComboTheme.Text;
-    if FEditVsfDir <> nil then
-      TAppConfig(Bootstrap.AppConfig).VsfDir := FEditVsfDir.Text;
-    if FCheckShowAddresses <> nil then
-      TAppConfig(Bootstrap.AppConfig).ShowAddresses := FCheckShowAddresses.Checked;
+    // Hotkey settings
+    Hotkey := FView.GetHotkeySettings;
+    Cfg.Hotkey := Hotkey.Hotkey;
+    Cfg.UseLowLevelHook := Hotkey.UseLowLevelHook;
 
-    // Tab: Connection
-    if FEditTimeout <> nil then
-      TAppConfig(Bootstrap.AppConfig).ConnectionTimeout := StrToIntDef(FEditTimeout.Text, 10000);
-    if FEditRetryCount <> nil then
-      TAppConfig(Bootstrap.AppConfig).ConnectionRetryCount := StrToIntDef(FEditRetryCount.Text, 2);
-    if FCheckNotifyOnConnect <> nil then
-    begin
-      if FCheckNotifyOnConnect.Checked then
-        TAppConfig(Bootstrap.AppConfig).NotifyOnConnect := nmBalloon
-      else
-        TAppConfig(Bootstrap.AppConfig).NotifyOnConnect := nmNone;
-    end;
-    if FCheckNotifyOnDisconnect <> nil then
-    begin
-      if FCheckNotifyOnDisconnect.Checked then
-        TAppConfig(Bootstrap.AppConfig).NotifyOnDisconnect := nmBalloon
-      else
-        TAppConfig(Bootstrap.AppConfig).NotifyOnDisconnect := nmNone;
-    end;
-    if FCheckNotifyOnConnectFailed <> nil then
-    begin
-      if FCheckNotifyOnConnectFailed.Checked then
-        TAppConfig(Bootstrap.AppConfig).NotifyOnConnectFailed := nmBalloon
-      else
-        TAppConfig(Bootstrap.AppConfig).NotifyOnConnectFailed := nmNone;
-    end;
-    if FCheckNotifyOnAutoConnect <> nil then
-    begin
-      if FCheckNotifyOnAutoConnect.Checked then
-        TAppConfig(Bootstrap.AppConfig).NotifyOnAutoConnect := nmBalloon
-      else
-        TAppConfig(Bootstrap.AppConfig).NotifyOnAutoConnect := nmNone;
-    end;
-    if FComboPollingMode <> nil then
-      TAppConfig(Bootstrap.AppConfig).PollingMode := TPollingMode(FComboPollingMode.ItemIndex);
-    if FEditPollingInterval <> nil then
-      TAppConfig(Bootstrap.AppConfig).PollingInterval := StrToIntDef(FEditPollingInterval.Text, 2000);
+    // Appearance settings
+    Appearance := FView.GetAppearanceSettings;
+    Cfg.Theme := Appearance.Theme;
+    Cfg.VsfDir := Appearance.VsfDir;
+    Cfg.ShowAddresses := Appearance.ShowAddresses;
+    Cfg.ShowDeviceIcons := Appearance.ShowDeviceIcons;
+    Cfg.ShowLastSeen := Appearance.ShowLastSeen;
+    if Appearance.LastSeenRelative then
+      Cfg.LastSeenFormat := lsfRelative
+    else
+      Cfg.LastSeenFormat := lsfAbsolute;
+    Cfg.ConnectedColor := Integer(Appearance.ConnectedColor);
 
-    // Tab: Advanced
-    if FCheckLogEnabled <> nil then
-      TAppConfig(Bootstrap.AppConfig).LogEnabled := FCheckLogEnabled.Checked;
-    if FEditLogFilename <> nil then
-      TAppConfig(Bootstrap.AppConfig).LogFilename := FEditLogFilename.Text;
-    if FCheckLogAppend <> nil then
-      TAppConfig(Bootstrap.AppConfig).LogAppend := FCheckLogAppend.Checked;
+    // Layout settings
+    Layout := FView.GetLayoutSettings;
+    Cfg.ItemHeight := Layout.ItemHeight;
+    Cfg.ItemPadding := Layout.ItemPadding;
+    Cfg.ItemMargin := Layout.ItemMargin;
+    Cfg.IconSize := Layout.IconSize;
+    Cfg.CornerRadius := Layout.CornerRadius;
+    Cfg.ItemBorderWidth := Layout.BorderWidth;
+    Cfg.ItemBorderColor := Integer(Layout.BorderColor);
+    Cfg.DeviceNameFontSize := Layout.DeviceNameFontSize;
+    Cfg.StatusFontSize := Layout.StatusFontSize;
+    Cfg.AddressFontSize := Layout.AddressFontSize;
+    Cfg.IconFontSize := Layout.IconFontSize;
 
-    // Tab: Appearance (new)
-    if FCheckShowDeviceIcons <> nil then
-      TAppConfig(Bootstrap.AppConfig).ShowDeviceIcons := FCheckShowDeviceIcons.Checked;
-    if FCheckShowLastSeen <> nil then
-      TAppConfig(Bootstrap.AppConfig).ShowLastSeen := FCheckShowLastSeen.Checked;
-    if FRadioLastSeenRelative <> nil then
-    begin
-      if FRadioLastSeenRelative.Checked then
-        TAppConfig(Bootstrap.AppConfig).LastSeenFormat := lsfRelative
-      else
-        TAppConfig(Bootstrap.AppConfig).LastSeenFormat := lsfAbsolute;
-    end;
-    if FShapeConnectedColor <> nil then
-      TAppConfig(Bootstrap.AppConfig).ConnectedColor := Integer(FShapeConnectedColor.Brush.Color);
-    if FEditItemHeight <> nil then
-      TAppConfig(Bootstrap.AppConfig).ItemHeight := StrToIntDef(FEditItemHeight.Text, 70);
-    if FEditItemPadding <> nil then
-      TAppConfig(Bootstrap.AppConfig).ItemPadding := StrToIntDef(FEditItemPadding.Text, 12);
-    if FEditItemMargin <> nil then
-      TAppConfig(Bootstrap.AppConfig).ItemMargin := StrToIntDef(FEditItemMargin.Text, 4);
-    if FEditIconSize <> nil then
-      TAppConfig(Bootstrap.AppConfig).IconSize := StrToIntDef(FEditIconSize.Text, 32);
-    if FEditCornerRadius <> nil then
-      TAppConfig(Bootstrap.AppConfig).CornerRadius := StrToIntDef(FEditCornerRadius.Text, 8);
-    if FEditDeviceNameSize <> nil then
-      TAppConfig(Bootstrap.AppConfig).DeviceNameFontSize := StrToIntDef(FEditDeviceNameSize.Text, 11);
-    if FEditStatusSize <> nil then
-      TAppConfig(Bootstrap.AppConfig).StatusFontSize := StrToIntDef(FEditStatusSize.Text, 9);
-    if FEditAddressSize <> nil then
-      TAppConfig(Bootstrap.AppConfig).AddressFontSize := StrToIntDef(FEditAddressSize.Text, 8);
-    if FEditIconFontSize <> nil then
-      TAppConfig(Bootstrap.AppConfig).IconFontSize := StrToIntDef(FEditIconFontSize.Text, 16);
-    if FUpDownBorderWidth <> nil then
-      TAppConfig(Bootstrap.AppConfig).ItemBorderWidth := FUpDownBorderWidth.Position;
-    if FShapeBorderColor <> nil then
-      TAppConfig(Bootstrap.AppConfig).ItemBorderColor := Integer(FShapeBorderColor.Brush.Color);
+    // Connection settings
+    Connection := FView.GetConnectionSettings;
+    Cfg.ConnectionTimeout := Connection.Timeout;
+    Cfg.ConnectionRetryCount := Connection.RetryCount;
+    Cfg.PollingMode := Connection.PollingMode;
+    Cfg.PollingInterval := Connection.PollingInterval;
+    if Connection.NotifyOnConnect then
+      Cfg.NotifyOnConnect := nmBalloon
+    else
+      Cfg.NotifyOnConnect := nmNone;
+    if Connection.NotifyOnDisconnect then
+      Cfg.NotifyOnDisconnect := nmBalloon
+    else
+      Cfg.NotifyOnDisconnect := nmNone;
+    if Connection.NotifyOnConnectFailed then
+      Cfg.NotifyOnConnectFailed := nmBalloon
+    else
+      Cfg.NotifyOnConnectFailed := nmNone;
+    if Connection.NotifyOnAutoConnect then
+      Cfg.NotifyOnAutoConnect := nmBalloon
+    else
+      Cfg.NotifyOnAutoConnect := nmNone;
+
+    // Logging settings
+    Logging := FView.GetLoggingSettings;
+    Cfg.LogEnabled := Logging.Enabled;
+    Cfg.LogFilename := Logging.Filename;
+    Cfg.LogAppend := Logging.Append;
 
     // Save configuration to file
     Bootstrap.AppConfig.Save;
@@ -894,33 +611,31 @@ begin
 end;
 
 procedure TSettingsPresenter.OnResetLayoutClicked;
+var
+  Layout: TLayoutViewSettings;
+  Appearance: TAppearanceViewSettings;
 begin
   Log('OnResetLayoutClicked', ClassName);
-  // Reset layout settings to defaults using TUpDown.Position
-  if FUpDownItemHeight <> nil then
-    FUpDownItemHeight.Position := DEF_ITEM_HEIGHT;
-  if FUpDownItemPadding <> nil then
-    FUpDownItemPadding.Position := DEF_ITEM_PADDING;
-  if FUpDownItemMargin <> nil then
-    FUpDownItemMargin.Position := DEF_ITEM_MARGIN;
-  if FUpDownIconSize <> nil then
-    FUpDownIconSize.Position := DEF_ICON_SIZE;
-  if FUpDownCornerRadius <> nil then
-    FUpDownCornerRadius.Position := DEF_CORNER_RADIUS;
-  if FUpDownDeviceNameSize <> nil then
-    FUpDownDeviceNameSize.Position := DEF_DEVICE_NAME_FONT_SIZE;
-  if FUpDownStatusSize <> nil then
-    FUpDownStatusSize.Position := DEF_STATUS_FONT_SIZE;
-  if FUpDownAddressSize <> nil then
-    FUpDownAddressSize.Position := DEF_ADDRESS_FONT_SIZE;
-  if FUpDownIconFontSize <> nil then
-    FUpDownIconFontSize.Position := DEF_ICON_FONT_SIZE;
-  if FUpDownBorderWidth <> nil then
-    FUpDownBorderWidth.Position := DEF_ITEM_BORDER_WIDTH;
-  if FShapeBorderColor <> nil then
-    FShapeBorderColor.Brush.Color := TColor(DEF_ITEM_BORDER_COLOR);
-  if FShapeConnectedColor <> nil then
-    FShapeConnectedColor.Brush.Color := TColor(DEF_CONNECTED_COLOR);
+
+  // Reset layout settings to defaults
+  Layout.ItemHeight := DEF_ITEM_HEIGHT;
+  Layout.ItemPadding := DEF_ITEM_PADDING;
+  Layout.ItemMargin := DEF_ITEM_MARGIN;
+  Layout.IconSize := DEF_ICON_SIZE;
+  Layout.CornerRadius := DEF_CORNER_RADIUS;
+  Layout.BorderWidth := DEF_ITEM_BORDER_WIDTH;
+  Layout.BorderColor := TColor(DEF_ITEM_BORDER_COLOR);
+  Layout.DeviceNameFontSize := DEF_DEVICE_NAME_FONT_SIZE;
+  Layout.StatusFontSize := DEF_STATUS_FONT_SIZE;
+  Layout.AddressFontSize := DEF_ADDRESS_FONT_SIZE;
+  Layout.IconFontSize := DEF_ICON_FONT_SIZE;
+  FView.SetLayoutSettings(Layout);
+
+  // Reset connected color (in appearance settings)
+  Appearance := FView.GetAppearanceSettings;
+  Appearance.ConnectedColor := TColor(DEF_CONNECTED_COLOR);
+  FView.SetAppearanceSettings(Appearance);
+
   MarkModified;
 end;
 
