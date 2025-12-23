@@ -8,105 +8,57 @@
 {*******************************************************}
 
 /// <summary>
-/// Defines layer-specific configuration interfaces for dependency injection.
-/// Each interface represents a focused set of configuration concerns,
-/// following the Interface Segregation Principle (ISP).
+/// Central configuration interfaces unit.
+/// Re-exports types from domain-specific units for backwards compatibility.
+/// New code should consider using specific units directly:
+///   - App.ConfigEnums: TWindowMode, TPositionMode, TPollingMode, etc.
+///   - App.DeviceConfigTypes: TDeviceConfig, TDeviceNotificationConfig
+///   - App.LayoutConfigIntf: ILayoutConfig
+///   - App.AppearanceConfigIntf: IAppearanceConfig
+///   - App.ConnectionConfigIntf: IConnectionConfig, IPollingConfig
+///   - App.NotificationConfigIntf: INotificationConfig
+///   - App.LogConfigIntf: ILogConfig, ILogger
 /// </summary>
 unit App.ConfigInterfaces;
 
 interface
 
+uses
+  App.ConfigEnums,
+  App.DeviceConfigTypes,
+  App.LayoutConfigIntf,
+  App.AppearanceConfigIntf,
+  App.ConnectionConfigIntf,
+  App.NotificationConfigIntf,
+  App.LogConfigIntf;
+
 type
-  // Forward declarations
+  // Re-export enums for backwards compatibility
+  TWindowMode = App.ConfigEnums.TWindowMode;
+  TPositionMode = App.ConfigEnums.TPositionMode;
+  TPollingMode = App.ConfigEnums.TPollingMode;
+  TLastSeenFormat = App.ConfigEnums.TLastSeenFormat;
+  TNotificationMode = App.ConfigEnums.TNotificationMode;
+  TNotificationEvent = App.ConfigEnums.TNotificationEvent;
+
+  // Re-export device config types for backwards compatibility
+  TDeviceNotificationConfig = App.DeviceConfigTypes.TDeviceNotificationConfig;
+  TDeviceConfig = App.DeviceConfigTypes.TDeviceConfig;
+
+  // Re-export interfaces for backwards compatibility
+  ILayoutConfig = App.LayoutConfigIntf.ILayoutConfig;
+  IAppearanceConfig = App.AppearanceConfigIntf.IAppearanceConfig;
+  IConnectionConfig = App.ConnectionConfigIntf.IConnectionConfig;
+  IPollingConfig = App.ConnectionConfigIntf.IPollingConfig;
+  INotificationConfig = App.NotificationConfigIntf.INotificationConfig;
+  ILogConfig = App.LogConfigIntf.ILogConfig;
+  ILogger = App.LogConfigIntf.ILogger;
+
+  // Forward declaration for IAppConfig (used by ISettingsRepository and IDeviceConfigRepository)
   IAppConfig = interface;
 
-  /// <summary>
-  /// Window display mode.
-  /// </summary>
-  TWindowMode = (
-    wmMenu,    // Popup menu style, hides on focus loss (0)
-    wmWindow   // Normal window with title bar (1)
-  );
-
-  /// <summary>
-  /// Position mode for window/menu placement.
-  /// </summary>
-  TPositionMode = (
-    pmCoordinates,   // Use saved X,Y coordinates (0)
-    pmNearTray,      // Near system tray icon (1)
-    pmNearCursor,    // Near mouse cursor (2)
-    pmCenterScreen   // Center of active screen (3)
-  );
-
-  /// <summary>
-  /// Polling mode for device state detection.
-  /// </summary>
-  TPollingMode = (
-    pmDisabled,  // No polling, event watcher only (0)
-    pmFallback,  // Polling as backup if watcher fails (1)
-    pmPrimary    // Polling only, no event watcher (2)
-  );
-
-  /// <summary>
-  /// Last seen timestamp display format.
-  /// </summary>
-  TLastSeenFormat = (
-    lsfRelative,  // "2 hours ago", "Yesterday" (0)
-    lsfAbsolute   // "2024-12-21 15:30" (1)
-  );
-
-  /// <summary>
-  /// Notification mode for events.
-  /// </summary>
-  TNotificationMode = (
-    nmNone,      // No notification
-    nmBalloon    // Balloon tip notification
-  );
-
-  /// <summary>
-  /// Notification event types.
-  /// </summary>
-  TNotificationEvent = (
-    neConnect,        // Device connected
-    neDisconnect,     // Device disconnected
-    neConnectFailed,  // Connection attempt failed
-    neAutoConnect     // Auto-connect triggered
-  );
-
-  /// <summary>
-  /// Per-device notification settings.
-  /// Value of -1 means use global default.
-  /// </summary>
-  TDeviceNotificationConfig = record
-    OnConnect: Integer;        // -1=Global, 0=None, 1=Balloon
-    OnDisconnect: Integer;     // -1=Global, 0=None, 1=Balloon
-    OnConnectFailed: Integer;  // -1=Global, 0=None, 1=Balloon
-    OnAutoConnect: Integer;    // -1=Global, 0=None, 1=Balloon
-
-    class function Default: TDeviceNotificationConfig; static;
-  end;
-
-  /// <summary>
-  /// Per-device configuration.
-  /// </summary>
-  TDeviceConfig = record
-    Address: UInt64;
-    Name: string;
-    Alias: string;
-    Pinned: Boolean;
-    Hidden: Boolean;
-    AutoConnect: Boolean;
-    ConnectionTimeout: Integer;
-    ConnectionRetryCount: Integer;
-    Notifications: TDeviceNotificationConfig;
-    DeviceTypeOverride: Integer;
-    LastSeen: TDateTime;
-
-    class function Default(AAddress: UInt64): TDeviceConfig; static;
-  end;
-
   //--------------------------------------------------------------------------
-  // Layer-specific configuration interfaces
+  // Configuration interfaces that remain in this unit
   //--------------------------------------------------------------------------
 
   /// <summary>
@@ -189,155 +141,6 @@ type
   end;
 
   /// <summary>
-  /// Polling and event settings.
-  /// Used by: TBluetoothService, SettingsPresenter
-  /// </summary>
-  IPollingConfig = interface
-    ['{A1B2C3D4-1111-1111-1111-000000000005}']
-    function GetPollingMode: TPollingMode;
-    function GetPollingInterval: Integer;
-    function GetEventDebounceMs: Integer;
-
-    procedure SetPollingMode(AValue: TPollingMode);
-    procedure SetPollingInterval(AValue: Integer);
-
-    property PollingMode: TPollingMode read GetPollingMode write SetPollingMode;
-    property PollingInterval: Integer read GetPollingInterval write SetPollingInterval;
-    property EventDebounceMs: Integer read GetEventDebounceMs;
-  end;
-
-  /// <summary>
-  /// Logging settings.
-  /// Used by: App.Logger (indirectly via TAppConfig)
-  /// </summary>
-  ILogConfig = interface
-    ['{A1B2C3D4-1111-1111-1111-000000000006}']
-    function GetLogEnabled: Boolean;
-    function GetLogFilename: string;
-    function GetLogAppend: Boolean;
-
-    procedure SetLogEnabled(AValue: Boolean);
-    procedure SetLogFilename(const AValue: string);
-    procedure SetLogAppend(AValue: Boolean);
-
-    property LogEnabled: Boolean read GetLogEnabled write SetLogEnabled;
-    property LogFilename: string read GetLogFilename write SetLogFilename;
-    property LogAppend: Boolean read GetLogAppend write SetLogAppend;
-  end;
-
-  /// <summary>
-  /// Appearance settings (theme, colors, display options).
-  /// Used by: UI.Theme, TDeviceListBox
-  /// </summary>
-  IAppearanceConfig = interface
-    ['{A1B2C3D4-1111-1111-1111-000000000007}']
-    function GetShowAddresses: Boolean;
-    function GetTheme: string;
-    function GetVsfDir: string;
-    function GetShowLastSeen: Boolean;
-    function GetLastSeenFormat: TLastSeenFormat;
-    function GetShowDeviceIcons: Boolean;
-    function GetConnectedColor: Integer;
-
-    procedure SetShowAddresses(AValue: Boolean);
-    procedure SetTheme(const AValue: string);
-    procedure SetVsfDir(const AValue: string);
-    procedure SetShowLastSeen(AValue: Boolean);
-    procedure SetLastSeenFormat(AValue: TLastSeenFormat);
-    procedure SetShowDeviceIcons(AValue: Boolean);
-    procedure SetConnectedColor(AValue: Integer);
-
-    property ShowAddresses: Boolean read GetShowAddresses write SetShowAddresses;
-    property Theme: string read GetTheme write SetTheme;
-    property VsfDir: string read GetVsfDir write SetVsfDir;
-    property ShowLastSeen: Boolean read GetShowLastSeen write SetShowLastSeen;
-    property LastSeenFormat: TLastSeenFormat read GetLastSeenFormat write SetLastSeenFormat;
-    property ShowDeviceIcons: Boolean read GetShowDeviceIcons write SetShowDeviceIcons;
-    property ConnectedColor: Integer read GetConnectedColor write SetConnectedColor;
-  end;
-
-  /// <summary>
-  /// Layout settings (dimensions, fonts, spacing).
-  /// Used by: TDeviceListBox
-  /// </summary>
-  ILayoutConfig = interface
-    ['{A1B2C3D4-1111-1111-1111-000000000008}']
-    function GetItemHeight: Integer;
-    function GetItemPadding: Integer;
-    function GetItemMargin: Integer;
-    function GetIconSize: Integer;
-    function GetCornerRadius: Integer;
-    function GetDeviceNameFontSize: Integer;
-    function GetStatusFontSize: Integer;
-    function GetAddressFontSize: Integer;
-    function GetIconFontSize: Integer;
-    function GetItemBorderWidth: Integer;
-    function GetItemBorderColor: Integer;
-
-    procedure SetItemHeight(AValue: Integer);
-    procedure SetItemPadding(AValue: Integer);
-    procedure SetItemMargin(AValue: Integer);
-    procedure SetIconSize(AValue: Integer);
-    procedure SetCornerRadius(AValue: Integer);
-    procedure SetDeviceNameFontSize(AValue: Integer);
-    procedure SetStatusFontSize(AValue: Integer);
-    procedure SetAddressFontSize(AValue: Integer);
-    procedure SetIconFontSize(AValue: Integer);
-    procedure SetItemBorderWidth(AValue: Integer);
-    procedure SetItemBorderColor(AValue: Integer);
-
-    property ItemHeight: Integer read GetItemHeight write SetItemHeight;
-    property ItemPadding: Integer read GetItemPadding write SetItemPadding;
-    property ItemMargin: Integer read GetItemMargin write SetItemMargin;
-    property IconSize: Integer read GetIconSize write SetIconSize;
-    property CornerRadius: Integer read GetCornerRadius write SetCornerRadius;
-    property DeviceNameFontSize: Integer read GetDeviceNameFontSize write SetDeviceNameFontSize;
-    property StatusFontSize: Integer read GetStatusFontSize write SetStatusFontSize;
-    property AddressFontSize: Integer read GetAddressFontSize write SetAddressFontSize;
-    property IconFontSize: Integer read GetIconFontSize write SetIconFontSize;
-    property ItemBorderWidth: Integer read GetItemBorderWidth write SetItemBorderWidth;
-    property ItemBorderColor: Integer read GetItemBorderColor write SetItemBorderColor;
-  end;
-
-  /// <summary>
-  /// Global connection settings (defaults).
-  /// Used by: TBluetoothService, connection strategies
-  /// </summary>
-  IConnectionConfig = interface
-    ['{A1B2C3D4-1111-1111-1111-000000000009}']
-    function GetConnectionTimeout: Integer;
-    function GetConnectionRetryCount: Integer;
-
-    procedure SetConnectionTimeout(AValue: Integer);
-    procedure SetConnectionRetryCount(AValue: Integer);
-
-    property ConnectionTimeout: Integer read GetConnectionTimeout write SetConnectionTimeout;
-    property ConnectionRetryCount: Integer read GetConnectionRetryCount write SetConnectionRetryCount;
-  end;
-
-  /// <summary>
-  /// Global notification settings (defaults).
-  /// Used by: TMainPresenter
-  /// </summary>
-  INotificationConfig = interface
-    ['{A1B2C3D4-1111-1111-1111-00000000000A}']
-    function GetNotifyOnConnect: TNotificationMode;
-    function GetNotifyOnDisconnect: TNotificationMode;
-    function GetNotifyOnConnectFailed: TNotificationMode;
-    function GetNotifyOnAutoConnect: TNotificationMode;
-
-    procedure SetNotifyOnConnect(AValue: TNotificationMode);
-    procedure SetNotifyOnDisconnect(AValue: TNotificationMode);
-    procedure SetNotifyOnConnectFailed(AValue: TNotificationMode);
-    procedure SetNotifyOnAutoConnect(AValue: TNotificationMode);
-
-    property NotifyOnConnect: TNotificationMode read GetNotifyOnConnect write SetNotifyOnConnect;
-    property NotifyOnDisconnect: TNotificationMode read GetNotifyOnDisconnect write SetNotifyOnDisconnect;
-    property NotifyOnConnectFailed: TNotificationMode read GetNotifyOnConnectFailed write SetNotifyOnConnectFailed;
-    property NotifyOnAutoConnect: TNotificationMode read GetNotifyOnAutoConnect write SetNotifyOnAutoConnect;
-  end;
-
-  /// <summary>
   /// Per-device configuration provider.
   /// Used by: TDeviceListBox, TMainPresenter, TBluetoothService
   /// </summary>
@@ -367,7 +170,7 @@ type
   end;
 
   //--------------------------------------------------------------------------
-  // Repository Interfaces (for persistence separation)
+  // Repository Interfaces
   //--------------------------------------------------------------------------
 
   /// <summary>
@@ -476,37 +279,8 @@ type
   end;
 
   //--------------------------------------------------------------------------
-  // Logger interface
+  // Aggregate Configuration Interface
   //--------------------------------------------------------------------------
-
-  /// <summary>
-  /// Interface for application logging.
-  /// Provides structured logging with source identification.
-  /// </summary>
-  ILogger = interface
-    ['{A1B2C3D4-1111-1111-1111-00000000000D}']
-
-    /// <summary>
-    /// Logs a message with optional source identifier.
-    /// </summary>
-    /// <param name="AMessage">The message to log.</param>
-    /// <param name="ASource">Source identifier (e.g., 'MainForm', 'Service').</param>
-    procedure Log(const AMessage: string; const ASource: string = '');
-
-    /// <summary>
-    /// Logs a formatted message with optional source identifier.
-    /// </summary>
-    /// <param name="AFormat">Format string.</param>
-    /// <param name="AArgs">Format arguments.</param>
-    /// <param name="ASource">Source identifier.</param>
-    procedure LogFmt(const AFormat: string; const AArgs: array of const;
-      const ASource: string = '');
-
-    /// <summary>
-    /// Returns true if logging is currently enabled.
-    /// </summary>
-    function IsEnabled: Boolean;
-  end;
 
   /// <summary>
   /// Full configuration interface for settings forms and persistence.
@@ -539,32 +313,5 @@ type
   end;
 
 implementation
-
-{ TDeviceNotificationConfig }
-
-class function TDeviceNotificationConfig.Default: TDeviceNotificationConfig;
-begin
-  Result.OnConnect := -1;
-  Result.OnDisconnect := -1;
-  Result.OnConnectFailed := -1;
-  Result.OnAutoConnect := -1;
-end;
-
-{ TDeviceConfig }
-
-class function TDeviceConfig.Default(AAddress: UInt64): TDeviceConfig;
-begin
-  Result.Address := AAddress;
-  Result.Name := '';
-  Result.Alias := '';
-  Result.Pinned := False;
-  Result.Hidden := False;
-  Result.AutoConnect := False;
-  Result.ConnectionTimeout := -1;
-  Result.ConnectionRetryCount := -1;
-  Result.Notifications := TDeviceNotificationConfig.Default;
-  Result.DeviceTypeOverride := -1;
-  Result.LastSeen := 0;
-end;
 
 end.
