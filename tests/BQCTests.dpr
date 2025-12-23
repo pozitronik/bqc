@@ -30,6 +30,7 @@ uses
   Tests.DeviceDisplayItemBuilder in 'Tests.DeviceDisplayItemBuilder.pas',
   Tests.ListGeometry in 'Tests.ListGeometry.pas',
   Tests.BluetoothService in 'Tests.BluetoothService.pas',
+  Tests.Logger in 'Tests.Logger.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
