@@ -560,9 +560,15 @@ end;
 
 procedure TLoggerTests.ILogger_LogMethod_Works;
 var
+  Logger: TLogger;
   LoggerIntf: ILogger;
 begin
-  LoggerIntf := FLogger;
+  // Create separate instance - interface will manage lifetime
+  Logger := TLogger.Create;
+  Logger.Configure(True, FTestLogFile, False);
+  LoggerIntf := Logger;
+  // Don't free Logger - interface now owns it
+
   LoggerIntf.Log('Interface log', 'IntfTest');
 
   Assert.Contains(ReadLogFile, 'Interface log');
@@ -571,9 +577,15 @@ end;
 
 procedure TLoggerTests.ILogger_LogFmtMethod_Works;
 var
+  Logger: TLogger;
   LoggerIntf: ILogger;
 begin
-  LoggerIntf := FLogger;
+  // Create separate instance - interface will manage lifetime
+  Logger := TLogger.Create;
+  Logger.Configure(True, FTestLogFile, False);
+  LoggerIntf := Logger;
+  // Don't free Logger - interface now owns it
+
   LoggerIntf.LogFmt('Value=%d', [99], 'IntfFmt');
 
   Assert.Contains(ReadLogFile, 'Value=99');
@@ -664,19 +676,35 @@ end;
 procedure TLoggerTests.Log_InvalidPath_RaisesELoggerError;
 var
   InvalidLogger: TLogger;
+  ExceptionRaised: Boolean;
+  ExceptionClass: string;
+  ExceptionMsg: string;
 begin
   InvalidLogger := TLogger.Create;
   try
-    // Use an invalid path (non-existent drive on Windows)
-    InvalidLogger.Configure(True, 'Z:\nonexistent\path\file.log', False);
+    // Use an invalid UNC path that cannot exist
+    InvalidLogger.Configure(True, '\\?\InvalidPath\file.log', False);
 
-    Assert.WillRaise(
-      procedure
+    ExceptionRaised := False;
+    ExceptionClass := '';
+    ExceptionMsg := '';
+    try
+      InvalidLogger.Log('Test', 'Src');
+    except
+      on E: Exception do
       begin
-        InvalidLogger.Log('Test', 'Src');
-      end,
-      ELoggerError
-    );
+        ExceptionRaised := True;
+        ExceptionClass := E.ClassName;
+        ExceptionMsg := E.Message;
+      end;
+    end;
+
+    Assert.IsTrue(ExceptionRaised,
+      Format('Expected exception for invalid path. Got class=%s msg=%s',
+        [ExceptionClass, ExceptionMsg]));
+
+    Assert.AreEqual('ELoggerError', ExceptionClass,
+      Format('Expected ELoggerError but got %s: %s', [ExceptionClass, ExceptionMsg]));
   finally
     InvalidLogger.Free;
   end;
