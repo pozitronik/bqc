@@ -15,6 +15,7 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   App.ConfigInterfaces,
+  App.SettingsPresenter,
   Bluetooth.Types,
   Bluetooth.Interfaces;
 
@@ -318,6 +319,101 @@ function CreateTestDevice(
   ADeviceType: TBluetoothDeviceType;
   AConnectionState: TBluetoothConnectionState
 ): TBluetoothDeviceInfo;
+
+type
+  /// <summary>
+  /// Mock implementation of ISettingsView for testing TSettingsPresenter.
+  /// Records all calls made by the presenter for verification.
+  /// </summary>
+  TMockSettingsView = class(TInterfacedObject, ISettingsView)
+  private
+    // Stored settings
+    FGeneralSettings: TGeneralViewSettings;
+    FHotkeySettings: THotkeyViewSettings;
+    FAppearanceSettings: TAppearanceViewSettings;
+    FLayoutSettings: TLayoutViewSettings;
+    FConnectionSettings: TConnectionViewSettings;
+    FLoggingSettings: TLoggingViewSettings;
+    FDeviceSettings: TDeviceViewSettings;
+    FSelectedDeviceIndex: Integer;
+    FDeviceListItems: TArray<string>;
+    FCurrentTheme: string;
+
+    // Call tracking
+    FCloseWithOKCalled: Boolean;
+    FCloseWithCancelCalled: Boolean;
+    FApplyEnabled: Boolean;
+    FLastErrorMessage: string;
+    FLastInfoMessage: string;
+    FSetGeneralCount: Integer;
+    FSetHotkeyCount: Integer;
+    FSetAppearanceCount: Integer;
+    FSetLayoutCount: Integer;
+    FSetConnectionCount: Integer;
+    FSetLoggingCount: Integer;
+    FSetDeviceCount: Integer;
+    FClearDeviceCount: Integer;
+  public
+    constructor Create;
+
+    // ISettingsView - Dialog control
+    procedure CloseWithOK;
+    procedure CloseWithCancel;
+    procedure ShowError(const AMessage: string);
+    procedure ShowInfo(const AMessage: string);
+    procedure SetApplyEnabled(AEnabled: Boolean);
+
+    // ISettingsView - Settings access
+    function GetGeneralSettings: TGeneralViewSettings;
+    procedure SetGeneralSettings(const ASettings: TGeneralViewSettings);
+    function GetHotkeySettings: THotkeyViewSettings;
+    procedure SetHotkeySettings(const ASettings: THotkeyViewSettings);
+    function GetAppearanceSettings: TAppearanceViewSettings;
+    procedure SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
+    function GetLayoutSettings: TLayoutViewSettings;
+    procedure SetLayoutSettings(const ASettings: TLayoutViewSettings);
+    function GetConnectionSettings: TConnectionViewSettings;
+    procedure SetConnectionSettings(const ASettings: TConnectionViewSettings);
+    function GetLoggingSettings: TLoggingViewSettings;
+    procedure SetLoggingSettings(const ASettings: TLoggingViewSettings);
+
+    // ISettingsView - Theme management
+    procedure PopulateThemeList(const ACurrentTheme: string);
+
+    // ISettingsView - Device management
+    procedure PopulateDeviceList(const AItems: TArray<string>);
+    function GetSelectedDeviceIndex: Integer;
+    procedure SetSelectedDeviceIndex(AIndex: Integer);
+    function GetDeviceSettings: TDeviceViewSettings;
+    procedure SetDeviceSettings(const ASettings: TDeviceViewSettings);
+    procedure ClearDeviceSettings;
+
+    // Test verification properties
+    property CloseWithOKCalled: Boolean read FCloseWithOKCalled;
+    property CloseWithCancelCalled: Boolean read FCloseWithCancelCalled;
+    property ApplyEnabled: Boolean read FApplyEnabled;
+    property LastErrorMessage: string read FLastErrorMessage;
+    property LastInfoMessage: string read FLastInfoMessage;
+    property SetGeneralCount: Integer read FSetGeneralCount;
+    property SetHotkeyCount: Integer read FSetHotkeyCount;
+    property SetAppearanceCount: Integer read FSetAppearanceCount;
+    property SetLayoutCount: Integer read FSetLayoutCount;
+    property SetConnectionCount: Integer read FSetConnectionCount;
+    property SetLoggingCount: Integer read FSetLoggingCount;
+    property SetDeviceCount: Integer read FSetDeviceCount;
+    property ClearDeviceCount: Integer read FClearDeviceCount;
+
+    // Direct access for test setup
+    property GeneralSettings: TGeneralViewSettings read FGeneralSettings write FGeneralSettings;
+    property HotkeySettings: THotkeyViewSettings read FHotkeySettings write FHotkeySettings;
+    property AppearanceSettings: TAppearanceViewSettings read FAppearanceSettings write FAppearanceSettings;
+    property LayoutSettings: TLayoutViewSettings read FLayoutSettings write FLayoutSettings;
+    property ConnectionSettings: TConnectionViewSettings read FConnectionSettings write FConnectionSettings;
+    property LoggingSettings: TLoggingViewSettings read FLoggingSettings write FLoggingSettings;
+    property DeviceSettings: TDeviceViewSettings read FDeviceSettings write FDeviceSettings;
+    property DeviceListItems: TArray<string> read FDeviceListItems;
+    property CurrentTheme: string read FCurrentTheme;
+  end;
 
 type
   /// <summary>
@@ -964,6 +1060,154 @@ begin
     0,      // LastSeen
     0       // LastUsed
   );
+end;
+
+{ TMockSettingsView }
+
+constructor TMockSettingsView.Create;
+begin
+  inherited Create;
+  FSelectedDeviceIndex := -1;
+  FCloseWithOKCalled := False;
+  FCloseWithCancelCalled := False;
+  FApplyEnabled := False;
+  FSetGeneralCount := 0;
+  FSetHotkeyCount := 0;
+  FSetAppearanceCount := 0;
+  FSetLayoutCount := 0;
+  FSetConnectionCount := 0;
+  FSetLoggingCount := 0;
+  FSetDeviceCount := 0;
+  FClearDeviceCount := 0;
+end;
+
+procedure TMockSettingsView.CloseWithOK;
+begin
+  FCloseWithOKCalled := True;
+end;
+
+procedure TMockSettingsView.CloseWithCancel;
+begin
+  FCloseWithCancelCalled := True;
+end;
+
+procedure TMockSettingsView.ShowError(const AMessage: string);
+begin
+  FLastErrorMessage := AMessage;
+end;
+
+procedure TMockSettingsView.ShowInfo(const AMessage: string);
+begin
+  FLastInfoMessage := AMessage;
+end;
+
+procedure TMockSettingsView.SetApplyEnabled(AEnabled: Boolean);
+begin
+  FApplyEnabled := AEnabled;
+end;
+
+function TMockSettingsView.GetGeneralSettings: TGeneralViewSettings;
+begin
+  Result := FGeneralSettings;
+end;
+
+procedure TMockSettingsView.SetGeneralSettings(const ASettings: TGeneralViewSettings);
+begin
+  FGeneralSettings := ASettings;
+  Inc(FSetGeneralCount);
+end;
+
+function TMockSettingsView.GetHotkeySettings: THotkeyViewSettings;
+begin
+  Result := FHotkeySettings;
+end;
+
+procedure TMockSettingsView.SetHotkeySettings(const ASettings: THotkeyViewSettings);
+begin
+  FHotkeySettings := ASettings;
+  Inc(FSetHotkeyCount);
+end;
+
+function TMockSettingsView.GetAppearanceSettings: TAppearanceViewSettings;
+begin
+  Result := FAppearanceSettings;
+end;
+
+procedure TMockSettingsView.SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
+begin
+  FAppearanceSettings := ASettings;
+  Inc(FSetAppearanceCount);
+end;
+
+function TMockSettingsView.GetLayoutSettings: TLayoutViewSettings;
+begin
+  Result := FLayoutSettings;
+end;
+
+procedure TMockSettingsView.SetLayoutSettings(const ASettings: TLayoutViewSettings);
+begin
+  FLayoutSettings := ASettings;
+  Inc(FSetLayoutCount);
+end;
+
+function TMockSettingsView.GetConnectionSettings: TConnectionViewSettings;
+begin
+  Result := FConnectionSettings;
+end;
+
+procedure TMockSettingsView.SetConnectionSettings(const ASettings: TConnectionViewSettings);
+begin
+  FConnectionSettings := ASettings;
+  Inc(FSetConnectionCount);
+end;
+
+function TMockSettingsView.GetLoggingSettings: TLoggingViewSettings;
+begin
+  Result := FLoggingSettings;
+end;
+
+procedure TMockSettingsView.SetLoggingSettings(const ASettings: TLoggingViewSettings);
+begin
+  FLoggingSettings := ASettings;
+  Inc(FSetLoggingCount);
+end;
+
+procedure TMockSettingsView.PopulateThemeList(const ACurrentTheme: string);
+begin
+  // Mock doesn't fetch actual themes - just stores the current theme
+  FCurrentTheme := ACurrentTheme;
+end;
+
+procedure TMockSettingsView.PopulateDeviceList(const AItems: TArray<string>);
+begin
+  FDeviceListItems := AItems;
+end;
+
+function TMockSettingsView.GetSelectedDeviceIndex: Integer;
+begin
+  Result := FSelectedDeviceIndex;
+end;
+
+procedure TMockSettingsView.SetSelectedDeviceIndex(AIndex: Integer);
+begin
+  FSelectedDeviceIndex := AIndex;
+end;
+
+function TMockSettingsView.GetDeviceSettings: TDeviceViewSettings;
+begin
+  Result := FDeviceSettings;
+end;
+
+procedure TMockSettingsView.SetDeviceSettings(const ASettings: TDeviceViewSettings);
+begin
+  FDeviceSettings := ASettings;
+  Inc(FSetDeviceCount);
+end;
+
+procedure TMockSettingsView.ClearDeviceSettings;
+begin
+  FillChar(FDeviceSettings, SizeOf(FDeviceSettings), 0);
+  Inc(FClearDeviceCount);
 end;
 
 end.
