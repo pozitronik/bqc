@@ -136,7 +136,6 @@ type
     procedure LoadDeviceList;
     procedure LoadDeviceSettings(AIndex: Integer);
     procedure SaveDeviceSettings(AIndex: Integer);
-    function FormatAddress(AAddress: UInt64): string;
 
   public
     constructor Create(AView: ISettingsView);
@@ -430,10 +429,10 @@ begin
     DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
     // Show device name with address: "DeviceName (XX:XX:XX:XX:XX:XX)"
     if DeviceConfig.Name <> '' then
-      DisplayName := Format('%s (%s)', [DeviceConfig.Name, FormatAddress(Address)])
+      DisplayName := Format('%s (%s)', [DeviceConfig.Name, FormatAddressAsMAC(Address)])
     else
       // Edge case: device not yet discovered, show address only
-      DisplayName := FormatAddress(Address);
+      DisplayName := FormatAddressAsMAC(Address);
 
     FListDevices.Items.Add(DisplayName);
     FDeviceAddresses.Add(Address);
@@ -455,11 +454,6 @@ begin
   end;
 end;
 
-function TSettingsPresenter.FormatAddress(AAddress: UInt64): string;
-begin
-  Result := FormatAddressAsMAC(AAddress);
-end;
-
 procedure TSettingsPresenter.LoadDeviceSettings(AIndex: Integer);
 var
   Address: UInt64;
@@ -477,7 +471,7 @@ begin
   DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
 
   if FLabelDeviceAddressValue <> nil then
-    FLabelDeviceAddressValue.Caption := FormatAddress(Address);
+    FLabelDeviceAddressValue.Caption := FormatAddressAsMAC(Address);
   // Display LastSeen timestamp
   if FLabelDeviceLastSeenValue <> nil then
   begin
