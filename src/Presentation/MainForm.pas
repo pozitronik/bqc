@@ -21,6 +21,7 @@ uses
   UI.DeviceList,
   UI.TrayManager,
   UI.HotkeyManager,
+  App.MainViewInterfaces,
   App.MainPresenter, Vcl.Buttons, System.ImageList, Vcl.ImgList;
 
 const

@@ -12,6 +12,7 @@ uses
   Bluetooth.ConnectionStrategies in 'src\Application\Bluetooth.ConnectionStrategies.pas',
   Bluetooth.EventDebouncer in 'src\Application\Bluetooth.EventDebouncer.pas',
   Bluetooth.Service in 'src\Application\Bluetooth.Service.pas',
+  App.MainViewInterfaces in 'src\Application\App.MainViewInterfaces.pas',
   App.MainPresenter in 'src\Application\App.MainPresenter.pas',
   App.SettingsPresenter in 'src\Application\App.SettingsPresenter.pas',
   Bluetooth.RadioControl in 'src\Infrastructure\Bluetooth.RadioControl.pas',
