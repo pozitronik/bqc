@@ -170,6 +170,36 @@ uses
 
 { Helper Functions }
 
+// TODO: Investigate BLUETOOTH_DEVICE_INFO structure alignment issue
+// ===================================================================
+// PROBLEM: "Invalid argument to date encode" exception in SystemTimeToDateTime
+// when processing BTH_RADIO_IN_RANGE events. The stLastSeen/stLastUsed fields
+// contain garbage data, suggesting structure misalignment.
+//
+// SYMPTOMS:
+// - Exception: EConvertError "Invalid argument to date encode"
+// - Call stack: ProcessRadioInRange -> ConvertToDeviceInfo -> SystemTimeToDateTime
+// - dwSize field shows 29063 (should be ~560 for BLUETOOTH_DEVICE_INFO)
+// - SYSTEMTIME fields contain garbage while boolean fields appear valid
+//
+// LIKELY ROOT CAUSES TO INVESTIGATE:
+// 1. BLUETOOTH_DEVICE_INFO record definition in Bluetooth.WinAPI.pas may not
+//    match Windows SDK structure (check {$ALIGN} directives, field order, sizes)
+// 2. BTH_RADIO_IN_RANGE structure layout may be incorrect
+// 3. Pointer arithmetic when extracting deviceInfo from DEV_BROADCAST_HANDLE
+// 4. Windows version differences in structure definitions
+//
+// INVESTIGATION STEPS:
+// 1. Compare Bluetooth.WinAPI.pas records against Windows SDK headers (bthdef.h)
+// 2. Verify packed/alignment settings match C structure layout
+// 3. Log raw bytes received and compare against expected structure layout
+// 4. Check if dwSize is being validated before use
+// 5. Test on different Windows versions (10 vs 11)
+//
+// TEMPORARY WORKAROUND (if needed): Add SYSTEMTIME validation before conversion
+// to prevent crash, but this masks the underlying data corruption issue.
+// ===================================================================
+
 /// <summary>
 /// Converts a Windows API BLUETOOTH_DEVICE_INFO to domain TBluetoothDeviceInfo.
 /// This conversion happens at the infrastructure boundary to keep domain
