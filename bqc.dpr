@@ -30,6 +30,7 @@ uses
   App.NotificationConfigIntf in 'src\Infrastructure\App.NotificationConfigIntf.pas',
   App.LogConfigIntf in 'src\Infrastructure\App.LogConfigIntf.pas',
   App.ConfigInterfaces in 'src\Infrastructure\App.ConfigInterfaces.pas',
+  App.ConfigSections in 'src\Infrastructure\App.ConfigSections.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',
   App.SettingsRepository in 'src\Infrastructure\App.SettingsRepository.pas',
   App.DeviceConfigRepository in 'src\Infrastructure\App.DeviceConfigRepository.pas',

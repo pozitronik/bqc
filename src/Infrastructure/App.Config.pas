@@ -19,13 +19,14 @@ uses
   System.Win.Registry,
   System.Generics.Collections,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.ConfigSections;
 
 type
   /// <summary>
   /// Application configuration manager.
   /// Handles loading/saving settings from INI file.
-  /// Implements layer-specific configuration interfaces for dependency injection.
+  /// Implements layer-specific configuration interfaces via composition.
   /// Uses reference counting for automatic memory management.
   /// </summary>
   TAppConfig = class(TObject,
@@ -54,136 +55,73 @@ type
     FDeviceRepository: IDeviceConfigRepository;
     FSettingsRepository: ISettingsRepository;
 
-    // [General]
-    FWindowMode: TWindowMode;
-    FOnTop: Boolean;
-    FAutostart: Boolean;
+    // Composed configuration sections
+    FGeneralSection: TGeneralConfigSection;
+    FWindowSection: TWindowConfigSection;
+    FPositionSection: TPositionConfigSection;
+    FHotkeySection: THotkeyConfigSection;
+    FPollingSection: TPollingConfigSection;
+    FLogSection: TLogConfigSection;
+    FAppearanceSection: TAppearanceConfigSection;
+    FLayoutSection: TLayoutConfigSection;
+    FConnectionSection: TConnectionConfigSection;
+    FNotificationSection: TNotificationConfigSection;
 
-    // [Window]
-    FMinimizeToTray: Boolean;
-    FCloseToTray: Boolean;
+    procedure MarkModified;
+    procedure CreateSections;
 
-    // [Menu]
-    FMenuHideOnFocusLoss: Boolean;
-
-    // [Hotkey]
-    FHotkey: string;
-    FUseLowLevelHook: Boolean;
-
-    // [Position]
-    FPositionMode: TPositionMode;
-    FPositionX: Integer;
-    FPositionY: Integer;
-    FPositionW: Integer;
-    FPositionH: Integer;
-
-    // [Polling]
-    FPollingMode: TPollingMode;
-    FPollingInterval: Integer;
-    FEventDebounceMs: Integer;
-
-    // [Log]
-    FLogEnabled: Boolean;
-    FLogFilename: string;
-    FLogAppend: Boolean;
-
-    // [Appearance]
-    FShowAddresses: Boolean;
-    FTheme: string;
-    FVsfDir: string;
-    FShowLastSeen: Boolean;
-    FLastSeenFormat: TLastSeenFormat;
-    FShowDeviceIcons: Boolean;
-    FConnectedColor: Integer;
-
-    // [Layout]
-    FItemHeight: Integer;
-    FItemPadding: Integer;
-    FItemMargin: Integer;
-    FIconSize: Integer;
-    FCornerRadius: Integer;
-    FDeviceNameFontSize: Integer;
-    FStatusFontSize: Integer;
-    FAddressFontSize: Integer;
-    FIconFontSize: Integer;
-    FItemBorderWidth: Integer;
-    FItemBorderColor: Integer;
-
-    // [Device] - global defaults
-    FConnectionTimeout: Integer;
-    FConnectionRetryCount: Integer;
-    FNotifyOnConnect: TNotificationMode;
-    FNotifyOnDisconnect: TNotificationMode;
-    FNotifyOnConnectFailed: TNotificationMode;
-    FNotifyOnAutoConnect: TNotificationMode;
-
-    procedure SetDefaults;
-
-    // Property setters with modification tracking
-    procedure SetWindowMode(AValue: TWindowMode);
-    procedure SetOnTop(AValue: Boolean);
-    procedure SetAutostart(AValue: Boolean);
-    procedure SetMinimizeToTray(AValue: Boolean);
-    procedure SetCloseToTray(AValue: Boolean);
-    procedure SetMenuHideOnFocusLoss(AValue: Boolean);
-    procedure SetHotkey(const AValue: string);
-    procedure SetUseLowLevelHook(AValue: Boolean);
-    procedure SetPositionMode(AValue: TPositionMode);
-    procedure SetPositionX(AValue: Integer);
-    procedure SetPositionY(AValue: Integer);
-    procedure SetPositionW(AValue: Integer);
-    procedure SetPositionH(AValue: Integer);
-    procedure SetPollingMode(AValue: TPollingMode);
-    procedure SetPollingInterval(AValue: Integer);
-    procedure SetEventDebounceMs(AValue: Integer);
-    procedure SetLogEnabled(AValue: Boolean);
-    procedure SetLogFilename(const AValue: string);
-    procedure SetLogAppend(AValue: Boolean);
-    procedure SetShowAddresses(AValue: Boolean);
-    procedure SetTheme(const AValue: string);
-    procedure SetVsfDir(const AValue: string);
-    procedure SetShowLastSeen(AValue: Boolean);
-    procedure SetLastSeenFormat(AValue: TLastSeenFormat);
-    procedure SetShowDeviceIcons(AValue: Boolean);
-    procedure SetConnectedColor(AValue: Integer);
-    procedure SetItemHeight(AValue: Integer);
-    procedure SetItemPadding(AValue: Integer);
-    procedure SetItemMargin(AValue: Integer);
-    procedure SetIconSize(AValue: Integer);
-    procedure SetCornerRadius(AValue: Integer);
-    procedure SetDeviceNameFontSize(AValue: Integer);
-    procedure SetStatusFontSize(AValue: Integer);
-    procedure SetAddressFontSize(AValue: Integer);
-    procedure SetIconFontSize(AValue: Integer);
-    procedure SetItemBorderWidth(AValue: Integer);
-    procedure SetItemBorderColor(AValue: Integer);
-    procedure SetConnectionTimeout(AValue: Integer);
-    procedure SetConnectionRetryCount(AValue: Integer);
-    procedure SetNotifyOnConnect(AValue: TNotificationMode);
-    procedure SetNotifyOnDisconnect(AValue: TNotificationMode);
-    procedure SetNotifyOnConnectFailed(AValue: TNotificationMode);
-    procedure SetNotifyOnAutoConnect(AValue: TNotificationMode);
-
-    // Interface getter methods
+    // Delegate getters to sections for interface implementation
+    // IGeneralConfig
     function GetWindowMode: TWindowMode;
     function GetOnTop: Boolean;
     function GetAutostart: Boolean;
+    procedure SetWindowMode(AValue: TWindowMode);
+    procedure SetOnTop(AValue: Boolean);
+    procedure SetAutostart(AValue: Boolean);
+
+    // IWindowConfig
     function GetMinimizeToTray: Boolean;
     function GetCloseToTray: Boolean;
     function GetMenuHideOnFocusLoss: Boolean;
+    procedure SetMinimizeToTray(AValue: Boolean);
+    procedure SetCloseToTray(AValue: Boolean);
+    procedure SetMenuHideOnFocusLoss(AValue: Boolean);
+
+    // IPositionConfig
     function GetPositionMode: TPositionMode;
     function GetPositionX: Integer;
     function GetPositionY: Integer;
     function GetPositionW: Integer;
     function GetPositionH: Integer;
+    procedure SetPositionMode(AValue: TPositionMode);
+    procedure SetPositionX(AValue: Integer);
+    procedure SetPositionY(AValue: Integer);
+    procedure SetPositionW(AValue: Integer);
+    procedure SetPositionH(AValue: Integer);
+
+    // IHotkeyConfig
     function GetHotkey: string;
     function GetUseLowLevelHook: Boolean;
+    procedure SetHotkey(const AValue: string);
+    procedure SetUseLowLevelHook(AValue: Boolean);
+
+    // IPollingConfig
     function GetPollingMode: TPollingMode;
     function GetPollingInterval: Integer;
     function GetEventDebounceMs: Integer;
+    procedure SetPollingMode(AValue: TPollingMode);
+    procedure SetPollingInterval(AValue: Integer);
+    procedure SetEventDebounceMs(AValue: Integer);
+
+    // ILogConfig
     function GetLogEnabled: Boolean;
     function GetLogFilename: string;
     function GetLogAppend: Boolean;
+    procedure SetLogEnabled(AValue: Boolean);
+    procedure SetLogFilename(const AValue: string);
+    procedure SetLogAppend(AValue: Boolean);
+
+    // IAppearanceConfig
     function GetShowAddresses: Boolean;
     function GetTheme: string;
     function GetVsfDir: string;
@@ -191,6 +129,15 @@ type
     function GetLastSeenFormat: TLastSeenFormat;
     function GetShowDeviceIcons: Boolean;
     function GetConnectedColor: Integer;
+    procedure SetShowAddresses(AValue: Boolean);
+    procedure SetTheme(const AValue: string);
+    procedure SetVsfDir(const AValue: string);
+    procedure SetShowLastSeen(AValue: Boolean);
+    procedure SetLastSeenFormat(AValue: TLastSeenFormat);
+    procedure SetShowDeviceIcons(AValue: Boolean);
+    procedure SetConnectedColor(AValue: Integer);
+
+    // ILayoutConfig
     function GetItemHeight: Integer;
     function GetItemPadding: Integer;
     function GetItemMargin: Integer;
@@ -202,12 +149,33 @@ type
     function GetIconFontSize: Integer;
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
+    procedure SetItemHeight(AValue: Integer);
+    procedure SetItemPadding(AValue: Integer);
+    procedure SetItemMargin(AValue: Integer);
+    procedure SetIconSize(AValue: Integer);
+    procedure SetCornerRadius(AValue: Integer);
+    procedure SetDeviceNameFontSize(AValue: Integer);
+    procedure SetStatusFontSize(AValue: Integer);
+    procedure SetAddressFontSize(AValue: Integer);
+    procedure SetIconFontSize(AValue: Integer);
+    procedure SetItemBorderWidth(AValue: Integer);
+    procedure SetItemBorderColor(AValue: Integer);
+
+    // IConnectionConfig
     function GetConnectionTimeout: Integer;
     function GetConnectionRetryCount: Integer;
+    procedure SetConnectionTimeout(AValue: Integer);
+    procedure SetConnectionRetryCount(AValue: Integer);
+
+    // INotificationConfig
     function GetNotifyOnConnect: TNotificationMode;
     function GetNotifyOnDisconnect: TNotificationMode;
     function GetNotifyOnConnectFailed: TNotificationMode;
     function GetNotifyOnAutoConnect: TNotificationMode;
+    procedure SetNotifyOnConnect(AValue: TNotificationMode);
+    procedure SetNotifyOnDisconnect(AValue: TNotificationMode);
+    procedure SetNotifyOnConnectFailed(AValue: TNotificationMode);
+    procedure SetNotifyOnAutoConnect(AValue: TNotificationMode);
 
     // IAppConfig getters
     function GetConfigPath: string;
@@ -286,68 +254,68 @@ type
     /// </summary>
     property Modified: Boolean read FModified;
 
-    // [General]
-    property WindowMode: TWindowMode read FWindowMode write SetWindowMode;
-    property OnTop: Boolean read FOnTop write SetOnTop;
-    property Autostart: Boolean read FAutostart write SetAutostart;
+    // [General] - delegated to FGeneralSection
+    property WindowMode: TWindowMode read GetWindowMode write SetWindowMode;
+    property OnTop: Boolean read GetOnTop write SetOnTop;
+    property Autostart: Boolean read GetAutostart write SetAutostart;
 
-    // [Window]
-    property MinimizeToTray: Boolean read FMinimizeToTray write SetMinimizeToTray;
-    property CloseToTray: Boolean read FCloseToTray write SetCloseToTray;
+    // [Window] - delegated to FWindowSection
+    property MinimizeToTray: Boolean read GetMinimizeToTray write SetMinimizeToTray;
+    property CloseToTray: Boolean read GetCloseToTray write SetCloseToTray;
 
-    // [Menu]
-    property MenuHideOnFocusLoss: Boolean read FMenuHideOnFocusLoss write SetMenuHideOnFocusLoss;
+    // [Menu] - delegated to FWindowSection
+    property MenuHideOnFocusLoss: Boolean read GetMenuHideOnFocusLoss write SetMenuHideOnFocusLoss;
 
-    // [Hotkey]
-    property Hotkey: string read FHotkey write SetHotkey;
-    property UseLowLevelHook: Boolean read FUseLowLevelHook write SetUseLowLevelHook;
+    // [Hotkey] - delegated to FHotkeySection
+    property Hotkey: string read GetHotkey write SetHotkey;
+    property UseLowLevelHook: Boolean read GetUseLowLevelHook write SetUseLowLevelHook;
 
-    // [Position]
-    property PositionMode: TPositionMode read FPositionMode write SetPositionMode;
-    property PositionX: Integer read FPositionX write SetPositionX;
-    property PositionY: Integer read FPositionY write SetPositionY;
-    property PositionW: Integer read FPositionW write SetPositionW;
-    property PositionH: Integer read FPositionH write SetPositionH;
+    // [Position] - delegated to FPositionSection
+    property PositionMode: TPositionMode read GetPositionMode write SetPositionMode;
+    property PositionX: Integer read GetPositionX write SetPositionX;
+    property PositionY: Integer read GetPositionY write SetPositionY;
+    property PositionW: Integer read GetPositionW write SetPositionW;
+    property PositionH: Integer read GetPositionH write SetPositionH;
 
-    // [Polling]
-    property PollingMode: TPollingMode read FPollingMode write SetPollingMode;
-    property PollingInterval: Integer read FPollingInterval write SetPollingInterval;
-    property EventDebounceMs: Integer read FEventDebounceMs write SetEventDebounceMs;
+    // [Polling] - delegated to FPollingSection
+    property PollingMode: TPollingMode read GetPollingMode write SetPollingMode;
+    property PollingInterval: Integer read GetPollingInterval write SetPollingInterval;
+    property EventDebounceMs: Integer read GetEventDebounceMs write SetEventDebounceMs;
 
-    // [Log]
-    property LogEnabled: Boolean read FLogEnabled write SetLogEnabled;
-    property LogFilename: string read FLogFilename write SetLogFilename;
-    property LogAppend: Boolean read FLogAppend write SetLogAppend;
+    // [Log] - delegated to FLogSection
+    property LogEnabled: Boolean read GetLogEnabled write SetLogEnabled;
+    property LogFilename: string read GetLogFilename write SetLogFilename;
+    property LogAppend: Boolean read GetLogAppend write SetLogAppend;
 
-    // [Appearance]
-    property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
-    property Theme: string read FTheme write SetTheme;
-    property VsfDir: string read FVsfDir write SetVsfDir;
-    property ShowLastSeen: Boolean read FShowLastSeen write SetShowLastSeen;
-    property LastSeenFormat: TLastSeenFormat read FLastSeenFormat write SetLastSeenFormat;
-    property ShowDeviceIcons: Boolean read FShowDeviceIcons write SetShowDeviceIcons;
-    property ConnectedColor: Integer read FConnectedColor write SetConnectedColor;
+    // [Appearance] - delegated to FAppearanceSection
+    property ShowAddresses: Boolean read GetShowAddresses write SetShowAddresses;
+    property Theme: string read GetTheme write SetTheme;
+    property VsfDir: string read GetVsfDir write SetVsfDir;
+    property ShowLastSeen: Boolean read GetShowLastSeen write SetShowLastSeen;
+    property LastSeenFormat: TLastSeenFormat read GetLastSeenFormat write SetLastSeenFormat;
+    property ShowDeviceIcons: Boolean read GetShowDeviceIcons write SetShowDeviceIcons;
+    property ConnectedColor: Integer read GetConnectedColor write SetConnectedColor;
 
-    // [Layout]
-    property ItemHeight: Integer read FItemHeight write SetItemHeight;
-    property ItemPadding: Integer read FItemPadding write SetItemPadding;
-    property ItemMargin: Integer read FItemMargin write SetItemMargin;
-    property IconSize: Integer read FIconSize write SetIconSize;
-    property CornerRadius: Integer read FCornerRadius write SetCornerRadius;
-    property DeviceNameFontSize: Integer read FDeviceNameFontSize write SetDeviceNameFontSize;
-    property StatusFontSize: Integer read FStatusFontSize write SetStatusFontSize;
-    property AddressFontSize: Integer read FAddressFontSize write SetAddressFontSize;
-    property IconFontSize: Integer read FIconFontSize write SetIconFontSize;
-    property ItemBorderWidth: Integer read FItemBorderWidth write SetItemBorderWidth;
-    property ItemBorderColor: Integer read FItemBorderColor write SetItemBorderColor;
+    // [Layout] - delegated to FLayoutSection
+    property ItemHeight: Integer read GetItemHeight write SetItemHeight;
+    property ItemPadding: Integer read GetItemPadding write SetItemPadding;
+    property ItemMargin: Integer read GetItemMargin write SetItemMargin;
+    property IconSize: Integer read GetIconSize write SetIconSize;
+    property CornerRadius: Integer read GetCornerRadius write SetCornerRadius;
+    property DeviceNameFontSize: Integer read GetDeviceNameFontSize write SetDeviceNameFontSize;
+    property StatusFontSize: Integer read GetStatusFontSize write SetStatusFontSize;
+    property AddressFontSize: Integer read GetAddressFontSize write SetAddressFontSize;
+    property IconFontSize: Integer read GetIconFontSize write SetIconFontSize;
+    property ItemBorderWidth: Integer read GetItemBorderWidth write SetItemBorderWidth;
+    property ItemBorderColor: Integer read GetItemBorderColor write SetItemBorderColor;
 
-    // [Device] - global defaults
-    property ConnectionTimeout: Integer read FConnectionTimeout write SetConnectionTimeout;
-    property ConnectionRetryCount: Integer read FConnectionRetryCount write SetConnectionRetryCount;
-    property NotifyOnConnect: TNotificationMode read FNotifyOnConnect write SetNotifyOnConnect;
-    property NotifyOnDisconnect: TNotificationMode read FNotifyOnDisconnect write SetNotifyOnDisconnect;
-    property NotifyOnConnectFailed: TNotificationMode read FNotifyOnConnectFailed write SetNotifyOnConnectFailed;
-    property NotifyOnAutoConnect: TNotificationMode read FNotifyOnAutoConnect write SetNotifyOnAutoConnect;
+    // [Device] - delegated to FConnectionSection and FNotificationSection
+    property ConnectionTimeout: Integer read GetConnectionTimeout write SetConnectionTimeout;
+    property ConnectionRetryCount: Integer read GetConnectionRetryCount write SetConnectionRetryCount;
+    property NotifyOnConnect: TNotificationMode read GetNotifyOnConnect write SetNotifyOnConnect;
+    property NotifyOnDisconnect: TNotificationMode read GetNotifyOnDisconnect write SetNotifyOnDisconnect;
+    property NotifyOnConnectFailed: TNotificationMode read GetNotifyOnConnectFailed write SetNotifyOnConnectFailed;
+    property NotifyOnAutoConnect: TNotificationMode read GetNotifyOnAutoConnect write SetNotifyOnAutoConnect;
 
     /// <summary>
     /// Gets effective notification mode for a device and event.
@@ -381,7 +349,7 @@ type
     function AsDeviceConfigProvider: IDeviceConfigProvider;
 
     // Compatibility properties (map old names to new)
-    property StayOnTop: Boolean read FOnTop write SetOnTop;
+    property StayOnTop: Boolean read GetOnTop write SetOnTop;
   end;
 
 const
@@ -468,7 +436,26 @@ begin
   ExePath := ExtractFilePath(ParamStr(0));
   FConfigPath := ExePath + 'bqc.ini';
 
-  SetDefaults;
+  // Create composed sections with shared modification callback
+  CreateSections;
+end;
+
+procedure TAppConfig.CreateSections;
+var
+  Notifier: TModifiedNotifier;
+begin
+  Notifier := MarkModified;
+
+  FGeneralSection := TGeneralConfigSection.Create(Notifier);
+  FWindowSection := TWindowConfigSection.Create(Notifier);
+  FPositionSection := TPositionConfigSection.Create(Notifier);
+  FHotkeySection := THotkeyConfigSection.Create(Notifier);
+  FPollingSection := TPollingConfigSection.Create(Notifier);
+  FLogSection := TLogConfigSection.Create(Notifier);
+  FAppearanceSection := TAppearanceConfigSection.Create(Notifier);
+  FLayoutSection := TLayoutConfigSection.Create(Notifier);
+  FConnectionSection := TConnectionConfigSection.Create(Notifier);
+  FNotificationSection := TNotificationConfigSection.Create(Notifier);
 end;
 
 destructor TAppConfig.Destroy;
@@ -479,8 +466,25 @@ begin
     // Repositories are interface-based, released automatically
     FSettingsRepository := nil;
     FDeviceRepository := nil;
+
+    // Free composed sections
+    FNotificationSection.Free;
+    FConnectionSection.Free;
+    FLayoutSection.Free;
+    FAppearanceSection.Free;
+    FLogSection.Free;
+    FPollingSection.Free;
+    FHotkeySection.Free;
+    FPositionSection.Free;
+    FWindowSection.Free;
+    FGeneralSection.Free;
   end;
   inherited Destroy;
+end;
+
+procedure TAppConfig.MarkModified;
+begin
+  FModified := True;
 end;
 
 procedure TAppConfig.SetRepositories(ASettingsRepository: ISettingsRepository;
@@ -495,74 +499,6 @@ begin
   FModified := False;
   if Assigned(FDeviceRepository) then
     FDeviceRepository.ClearModified;
-end;
-
-procedure TAppConfig.SetDefaults;
-begin
-  // [General]
-  FWindowMode := App.SettingsRepository.DEF_WINDOW_MODE;
-  FOnTop := App.SettingsRepository.DEF_ON_TOP;
-  FAutostart := App.SettingsRepository.DEF_AUTOSTART;
-
-  // [Window]
-  FMinimizeToTray := App.SettingsRepository.DEF_MINIMIZE_TO_TRAY;
-  FCloseToTray := App.SettingsRepository.DEF_CLOSE_TO_TRAY;
-
-  // [Menu]
-  FMenuHideOnFocusLoss := App.SettingsRepository.DEF_MENU_HIDE_ON_FOCUS_LOSS;
-
-  // [Hotkey]
-  FHotkey := App.SettingsRepository.DEF_HOTKEY;
-  FUseLowLevelHook := App.SettingsRepository.DEF_USE_LOW_LEVEL_HOOK;
-
-  // [Position]
-  FPositionMode := App.SettingsRepository.DEF_POSITION_MODE;
-  FPositionX := App.SettingsRepository.DEF_POSITION_X;
-  FPositionY := App.SettingsRepository.DEF_POSITION_Y;
-  FPositionW := App.SettingsRepository.DEF_POSITION_W;
-  FPositionH := App.SettingsRepository.DEF_POSITION_H;
-
-  // [Polling]
-  FPollingMode := App.SettingsRepository.DEF_POLLING_MODE;
-  FPollingInterval := DEF_POLLING_INTERVAL;
-  FEventDebounceMs := DEF_EVENT_DEBOUNCE_MS;
-
-  // [Log]
-  FLogEnabled := App.SettingsRepository.DEF_LOG_ENABLED;
-  FLogFilename := App.SettingsRepository.DEF_LOG_FILENAME;
-  FLogAppend := App.SettingsRepository.DEF_LOG_APPEND;
-
-  // [Appearance]
-  FShowAddresses := App.SettingsRepository.DEF_SHOW_ADDRESSES;
-  FTheme := App.SettingsRepository.DEF_THEME;
-  FVsfDir := App.SettingsRepository.DEF_VSF_DIR;
-  FShowLastSeen := App.SettingsRepository.DEF_SHOW_LAST_SEEN;
-  FLastSeenFormat := App.SettingsRepository.DEF_LAST_SEEN_FORMAT;
-  FShowDeviceIcons := App.SettingsRepository.DEF_SHOW_DEVICE_ICONS;
-  FConnectedColor := DEF_CONNECTED_COLOR;
-
-  // [Layout]
-  FItemHeight := DEF_ITEM_HEIGHT;
-  FItemPadding := DEF_ITEM_PADDING;
-  FItemMargin := DEF_ITEM_MARGIN;
-  FIconSize := DEF_ICON_SIZE;
-  FCornerRadius := DEF_CORNER_RADIUS;
-  FDeviceNameFontSize := DEF_DEVICE_NAME_FONT_SIZE;
-  FStatusFontSize := DEF_STATUS_FONT_SIZE;
-  FAddressFontSize := DEF_ADDRESS_FONT_SIZE;
-  FIconFontSize := DEF_ICON_FONT_SIZE;
-  FItemBorderWidth := DEF_ITEM_BORDER_WIDTH;
-  FItemBorderColor := DEF_ITEM_BORDER_COLOR;
-
-  // [Device]
-  FConnectionTimeout := DEF_CONNECTION_TIMEOUT;
-  FConnectionRetryCount := DEF_CONNECTION_RETRY_COUNT;
-  FNotifyOnConnect := App.SettingsRepository.DEF_NOTIFY_ON_CONNECT;
-  FNotifyOnDisconnect := App.SettingsRepository.DEF_NOTIFY_ON_DISCONNECT;
-  FNotifyOnConnectFailed := App.SettingsRepository.DEF_NOTIFY_ON_CONNECT_FAILED;
-  FNotifyOnAutoConnect := App.SettingsRepository.DEF_NOTIFY_ON_AUTO_CONNECT;
-
-  FModified := False;
 end;
 
 procedure TAppConfig.Load;
@@ -626,396 +562,457 @@ begin
     Result := nil;
 end;
 
-// Property setters with modification tracking
+// IGeneralConfig - delegate to FGeneralSection
+
+function TAppConfig.GetWindowMode: TWindowMode;
+begin
+  Result := FGeneralSection.WindowMode;
+end;
 
 procedure TAppConfig.SetWindowMode(AValue: TWindowMode);
 begin
-  if FWindowMode <> AValue then
-  begin
-    FWindowMode := AValue;
-    FModified := True;
-  end;
+  FGeneralSection.WindowMode := AValue;
+end;
+
+function TAppConfig.GetOnTop: Boolean;
+begin
+  Result := FGeneralSection.OnTop;
 end;
 
 procedure TAppConfig.SetOnTop(AValue: Boolean);
 begin
-  if FOnTop <> AValue then
-  begin
-    FOnTop := AValue;
-    FModified := True;
-  end;
+  FGeneralSection.OnTop := AValue;
+end;
+
+function TAppConfig.GetAutostart: Boolean;
+begin
+  Result := FGeneralSection.Autostart;
 end;
 
 procedure TAppConfig.SetAutostart(AValue: Boolean);
 begin
-  if FAutostart <> AValue then
-  begin
-    FAutostart := AValue;
-    FModified := True;
-    // Note: Side effect (registry update) is handled by Bootstrap.ApplySideEffects
-  end;
+  FGeneralSection.Autostart := AValue;
+end;
+
+// IWindowConfig - delegate to FWindowSection
+
+function TAppConfig.GetMinimizeToTray: Boolean;
+begin
+  Result := FWindowSection.MinimizeToTray;
 end;
 
 procedure TAppConfig.SetMinimizeToTray(AValue: Boolean);
 begin
-  if FMinimizeToTray <> AValue then
-  begin
-    FMinimizeToTray := AValue;
-    FModified := True;
-  end;
+  FWindowSection.MinimizeToTray := AValue;
+end;
+
+function TAppConfig.GetCloseToTray: Boolean;
+begin
+  Result := FWindowSection.CloseToTray;
 end;
 
 procedure TAppConfig.SetCloseToTray(AValue: Boolean);
 begin
-  if FCloseToTray <> AValue then
-  begin
-    FCloseToTray := AValue;
-    FModified := True;
-  end;
+  FWindowSection.CloseToTray := AValue;
+end;
+
+function TAppConfig.GetMenuHideOnFocusLoss: Boolean;
+begin
+  Result := FWindowSection.MenuHideOnFocusLoss;
 end;
 
 procedure TAppConfig.SetMenuHideOnFocusLoss(AValue: Boolean);
 begin
-  if FMenuHideOnFocusLoss <> AValue then
-  begin
-    FMenuHideOnFocusLoss := AValue;
-    FModified := True;
-  end;
+  FWindowSection.MenuHideOnFocusLoss := AValue;
 end;
 
-procedure TAppConfig.SetHotkey(const AValue: string);
-begin
-  if FHotkey <> AValue then
-  begin
-    FHotkey := AValue;
-    FModified := True;
-  end;
-end;
+// IPositionConfig - delegate to FPositionSection
 
-procedure TAppConfig.SetUseLowLevelHook(AValue: Boolean);
+function TAppConfig.GetPositionMode: TPositionMode;
 begin
-  if FUseLowLevelHook <> AValue then
-  begin
-    FUseLowLevelHook := AValue;
-    FModified := True;
-  end;
+  Result := FPositionSection.PositionMode;
 end;
 
 procedure TAppConfig.SetPositionMode(AValue: TPositionMode);
 begin
-  if FPositionMode <> AValue then
-  begin
-    FPositionMode := AValue;
-    FModified := True;
-  end;
+  FPositionSection.PositionMode := AValue;
+end;
+
+function TAppConfig.GetPositionX: Integer;
+begin
+  Result := FPositionSection.PositionX;
 end;
 
 procedure TAppConfig.SetPositionX(AValue: Integer);
 begin
-  if FPositionX <> AValue then
-  begin
-    FPositionX := AValue;
-    FModified := True;
-  end;
+  FPositionSection.PositionX := AValue;
+end;
+
+function TAppConfig.GetPositionY: Integer;
+begin
+  Result := FPositionSection.PositionY;
 end;
 
 procedure TAppConfig.SetPositionY(AValue: Integer);
 begin
-  if FPositionY <> AValue then
-  begin
-    FPositionY := AValue;
-    FModified := True;
-  end;
+  FPositionSection.PositionY := AValue;
+end;
+
+function TAppConfig.GetPositionW: Integer;
+begin
+  Result := FPositionSection.PositionW;
 end;
 
 procedure TAppConfig.SetPositionW(AValue: Integer);
 begin
-  if FPositionW <> AValue then
-  begin
-    FPositionW := AValue;
-    FModified := True;
-  end;
+  FPositionSection.PositionW := AValue;
+end;
+
+function TAppConfig.GetPositionH: Integer;
+begin
+  Result := FPositionSection.PositionH;
 end;
 
 procedure TAppConfig.SetPositionH(AValue: Integer);
 begin
-  if FPositionH <> AValue then
-  begin
-    FPositionH := AValue;
-    FModified := True;
-  end;
+  FPositionSection.PositionH := AValue;
+end;
+
+// IHotkeyConfig - delegate to FHotkeySection
+
+function TAppConfig.GetHotkey: string;
+begin
+  Result := FHotkeySection.Hotkey;
+end;
+
+procedure TAppConfig.SetHotkey(const AValue: string);
+begin
+  FHotkeySection.Hotkey := AValue;
+end;
+
+function TAppConfig.GetUseLowLevelHook: Boolean;
+begin
+  Result := FHotkeySection.UseLowLevelHook;
+end;
+
+procedure TAppConfig.SetUseLowLevelHook(AValue: Boolean);
+begin
+  FHotkeySection.UseLowLevelHook := AValue;
+end;
+
+// IPollingConfig - delegate to FPollingSection
+
+function TAppConfig.GetPollingMode: TPollingMode;
+begin
+  Result := FPollingSection.PollingMode;
 end;
 
 procedure TAppConfig.SetPollingMode(AValue: TPollingMode);
 begin
-  if FPollingMode <> AValue then
-  begin
-    FPollingMode := AValue;
-    FModified := True;
-  end;
+  FPollingSection.PollingMode := AValue;
+end;
+
+function TAppConfig.GetPollingInterval: Integer;
+begin
+  Result := FPollingSection.PollingInterval;
 end;
 
 procedure TAppConfig.SetPollingInterval(AValue: Integer);
 begin
-  if FPollingInterval <> AValue then
-  begin
-    FPollingInterval := AValue;
-    FModified := True;
-  end;
+  FPollingSection.PollingInterval := AValue;
+end;
+
+function TAppConfig.GetEventDebounceMs: Integer;
+begin
+  Result := FPollingSection.EventDebounceMs;
 end;
 
 procedure TAppConfig.SetEventDebounceMs(AValue: Integer);
 begin
-  if FEventDebounceMs <> AValue then
-  begin
-    FEventDebounceMs := AValue;
-    FModified := True;
-  end;
+  FPollingSection.EventDebounceMs := AValue;
+end;
+
+// ILogConfig - delegate to FLogSection
+
+function TAppConfig.GetLogEnabled: Boolean;
+begin
+  Result := FLogSection.LogEnabled;
 end;
 
 procedure TAppConfig.SetLogEnabled(AValue: Boolean);
 begin
-  if FLogEnabled <> AValue then
-  begin
-    FLogEnabled := AValue;
-    FModified := True;
-    // Note: Side effect (logger update) is handled by Bootstrap.ApplySideEffects
-  end;
+  FLogSection.LogEnabled := AValue;
+end;
+
+function TAppConfig.GetLogFilename: string;
+begin
+  Result := FLogSection.LogFilename;
 end;
 
 procedure TAppConfig.SetLogFilename(const AValue: string);
 begin
-  if FLogFilename <> AValue then
-  begin
-    FLogFilename := AValue;
-    FModified := True;
-  end;
+  FLogSection.LogFilename := AValue;
+end;
+
+function TAppConfig.GetLogAppend: Boolean;
+begin
+  Result := FLogSection.LogAppend;
 end;
 
 procedure TAppConfig.SetLogAppend(AValue: Boolean);
 begin
-  if FLogAppend <> AValue then
-  begin
-    FLogAppend := AValue;
-    FModified := True;
-  end;
+  FLogSection.LogAppend := AValue;
+end;
+
+// IAppearanceConfig - delegate to FAppearanceSection
+
+function TAppConfig.GetShowAddresses: Boolean;
+begin
+  Result := FAppearanceSection.ShowAddresses;
 end;
 
 procedure TAppConfig.SetShowAddresses(AValue: Boolean);
 begin
-  if FShowAddresses <> AValue then
-  begin
-    FShowAddresses := AValue;
-    FModified := True;
-  end;
+  FAppearanceSection.ShowAddresses := AValue;
+end;
+
+function TAppConfig.GetTheme: string;
+begin
+  Result := FAppearanceSection.Theme;
 end;
 
 procedure TAppConfig.SetTheme(const AValue: string);
 begin
-  if FTheme <> AValue then
-  begin
-    FTheme := AValue;
-    FModified := True;
-  end;
+  FAppearanceSection.Theme := AValue;
+end;
+
+function TAppConfig.GetVsfDir: string;
+begin
+  Result := FAppearanceSection.VsfDir;
 end;
 
 procedure TAppConfig.SetVsfDir(const AValue: string);
 begin
-  if FVsfDir <> AValue then
-  begin
-    FVsfDir := AValue;
-    FModified := True;
-  end;
+  FAppearanceSection.VsfDir := AValue;
+end;
+
+function TAppConfig.GetShowLastSeen: Boolean;
+begin
+  Result := FAppearanceSection.ShowLastSeen;
 end;
 
 procedure TAppConfig.SetShowLastSeen(AValue: Boolean);
 begin
-  if FShowLastSeen <> AValue then
-  begin
-    FShowLastSeen := AValue;
-    FModified := True;
-  end;
+  FAppearanceSection.ShowLastSeen := AValue;
+end;
+
+function TAppConfig.GetLastSeenFormat: TLastSeenFormat;
+begin
+  Result := FAppearanceSection.LastSeenFormat;
 end;
 
 procedure TAppConfig.SetLastSeenFormat(AValue: TLastSeenFormat);
 begin
-  if FLastSeenFormat <> AValue then
-  begin
-    FLastSeenFormat := AValue;
-    FModified := True;
-  end;
+  FAppearanceSection.LastSeenFormat := AValue;
+end;
+
+function TAppConfig.GetShowDeviceIcons: Boolean;
+begin
+  Result := FAppearanceSection.ShowDeviceIcons;
 end;
 
 procedure TAppConfig.SetShowDeviceIcons(AValue: Boolean);
 begin
-  if FShowDeviceIcons <> AValue then
-  begin
-    FShowDeviceIcons := AValue;
-    FModified := True;
-  end;
+  FAppearanceSection.ShowDeviceIcons := AValue;
+end;
+
+function TAppConfig.GetConnectedColor: Integer;
+begin
+  Result := FAppearanceSection.ConnectedColor;
 end;
 
 procedure TAppConfig.SetConnectedColor(AValue: Integer);
 begin
-  if FConnectedColor <> AValue then
-  begin
-    FConnectedColor := AValue;
-    FModified := True;
-  end;
+  FAppearanceSection.ConnectedColor := AValue;
+end;
+
+// ILayoutConfig - delegate to FLayoutSection
+
+function TAppConfig.GetItemHeight: Integer;
+begin
+  Result := FLayoutSection.ItemHeight;
 end;
 
 procedure TAppConfig.SetItemHeight(AValue: Integer);
 begin
-  if FItemHeight <> AValue then
-  begin
-    FItemHeight := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.ItemHeight := AValue;
+end;
+
+function TAppConfig.GetItemPadding: Integer;
+begin
+  Result := FLayoutSection.ItemPadding;
 end;
 
 procedure TAppConfig.SetItemPadding(AValue: Integer);
 begin
-  if FItemPadding <> AValue then
-  begin
-    FItemPadding := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.ItemPadding := AValue;
+end;
+
+function TAppConfig.GetItemMargin: Integer;
+begin
+  Result := FLayoutSection.ItemMargin;
 end;
 
 procedure TAppConfig.SetItemMargin(AValue: Integer);
 begin
-  if FItemMargin <> AValue then
-  begin
-    FItemMargin := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.ItemMargin := AValue;
+end;
+
+function TAppConfig.GetIconSize: Integer;
+begin
+  Result := FLayoutSection.IconSize;
 end;
 
 procedure TAppConfig.SetIconSize(AValue: Integer);
 begin
-  if FIconSize <> AValue then
-  begin
-    FIconSize := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.IconSize := AValue;
+end;
+
+function TAppConfig.GetCornerRadius: Integer;
+begin
+  Result := FLayoutSection.CornerRadius;
 end;
 
 procedure TAppConfig.SetCornerRadius(AValue: Integer);
 begin
-  if FCornerRadius <> AValue then
-  begin
-    FCornerRadius := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.CornerRadius := AValue;
+end;
+
+function TAppConfig.GetDeviceNameFontSize: Integer;
+begin
+  Result := FLayoutSection.DeviceNameFontSize;
 end;
 
 procedure TAppConfig.SetDeviceNameFontSize(AValue: Integer);
 begin
-  if FDeviceNameFontSize <> AValue then
-  begin
-    FDeviceNameFontSize := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.DeviceNameFontSize := AValue;
+end;
+
+function TAppConfig.GetStatusFontSize: Integer;
+begin
+  Result := FLayoutSection.StatusFontSize;
 end;
 
 procedure TAppConfig.SetStatusFontSize(AValue: Integer);
 begin
-  if FStatusFontSize <> AValue then
-  begin
-    FStatusFontSize := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.StatusFontSize := AValue;
+end;
+
+function TAppConfig.GetAddressFontSize: Integer;
+begin
+  Result := FLayoutSection.AddressFontSize;
 end;
 
 procedure TAppConfig.SetAddressFontSize(AValue: Integer);
 begin
-  if FAddressFontSize <> AValue then
-  begin
-    FAddressFontSize := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.AddressFontSize := AValue;
+end;
+
+function TAppConfig.GetIconFontSize: Integer;
+begin
+  Result := FLayoutSection.IconFontSize;
 end;
 
 procedure TAppConfig.SetIconFontSize(AValue: Integer);
 begin
-  if FIconFontSize <> AValue then
-  begin
-    FIconFontSize := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.IconFontSize := AValue;
+end;
+
+function TAppConfig.GetItemBorderWidth: Integer;
+begin
+  Result := FLayoutSection.ItemBorderWidth;
 end;
 
 procedure TAppConfig.SetItemBorderWidth(AValue: Integer);
 begin
-  if FItemBorderWidth <> AValue then
-  begin
-    FItemBorderWidth := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.ItemBorderWidth := AValue;
+end;
+
+function TAppConfig.GetItemBorderColor: Integer;
+begin
+  Result := FLayoutSection.ItemBorderColor;
 end;
 
 procedure TAppConfig.SetItemBorderColor(AValue: Integer);
 begin
-  if FItemBorderColor <> AValue then
-  begin
-    FItemBorderColor := AValue;
-    FModified := True;
-  end;
+  FLayoutSection.ItemBorderColor := AValue;
+end;
+
+// IConnectionConfig - delegate to FConnectionSection
+
+function TAppConfig.GetConnectionTimeout: Integer;
+begin
+  Result := FConnectionSection.ConnectionTimeout;
 end;
 
 procedure TAppConfig.SetConnectionTimeout(AValue: Integer);
 begin
-  if FConnectionTimeout <> AValue then
-  begin
-    FConnectionTimeout := AValue;
-    FModified := True;
-  end;
+  FConnectionSection.ConnectionTimeout := AValue;
+end;
+
+function TAppConfig.GetConnectionRetryCount: Integer;
+begin
+  Result := FConnectionSection.ConnectionRetryCount;
 end;
 
 procedure TAppConfig.SetConnectionRetryCount(AValue: Integer);
 begin
-  if FConnectionRetryCount <> AValue then
-  begin
-    FConnectionRetryCount := AValue;
-    FModified := True;
-  end;
+  FConnectionSection.ConnectionRetryCount := AValue;
+end;
+
+// INotificationConfig - delegate to FNotificationSection
+
+function TAppConfig.GetNotifyOnConnect: TNotificationMode;
+begin
+  Result := FNotificationSection.NotifyOnConnect;
 end;
 
 procedure TAppConfig.SetNotifyOnConnect(AValue: TNotificationMode);
 begin
-  if FNotifyOnConnect <> AValue then
-  begin
-    FNotifyOnConnect := AValue;
-    FModified := True;
-  end;
+  FNotificationSection.NotifyOnConnect := AValue;
+end;
+
+function TAppConfig.GetNotifyOnDisconnect: TNotificationMode;
+begin
+  Result := FNotificationSection.NotifyOnDisconnect;
 end;
 
 procedure TAppConfig.SetNotifyOnDisconnect(AValue: TNotificationMode);
 begin
-  if FNotifyOnDisconnect <> AValue then
-  begin
-    FNotifyOnDisconnect := AValue;
-    FModified := True;
-  end;
+  FNotificationSection.NotifyOnDisconnect := AValue;
+end;
+
+function TAppConfig.GetNotifyOnConnectFailed: TNotificationMode;
+begin
+  Result := FNotificationSection.NotifyOnConnectFailed;
 end;
 
 procedure TAppConfig.SetNotifyOnConnectFailed(AValue: TNotificationMode);
 begin
-  if FNotifyOnConnectFailed <> AValue then
-  begin
-    FNotifyOnConnectFailed := AValue;
-    FModified := True;
-  end;
+  FNotificationSection.NotifyOnConnectFailed := AValue;
+end;
+
+function TAppConfig.GetNotifyOnAutoConnect: TNotificationMode;
+begin
+  Result := FNotificationSection.NotifyOnAutoConnect;
 end;
 
 procedure TAppConfig.SetNotifyOnAutoConnect(AValue: TNotificationMode);
 begin
-  if FNotifyOnAutoConnect <> AValue then
-  begin
-    FNotifyOnAutoConnect := AValue;
-    FModified := True;
-  end;
+  FNotificationSection.NotifyOnAutoConnect := AValue;
 end;
+
+// Effective value resolution (resolves per-device overrides)
 
 function TAppConfig.GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
 var
@@ -1044,16 +1041,16 @@ begin
     Result := TNotificationMode(DeviceValue)
   else
   begin
-    // Return global default
+    // Return global default from section
     case AEvent of
       neConnect:
-        Result := FNotifyOnConnect;
+        Result := FNotificationSection.NotifyOnConnect;
       neDisconnect:
-        Result := FNotifyOnDisconnect;
+        Result := FNotificationSection.NotifyOnDisconnect;
       neConnectFailed:
-        Result := FNotifyOnConnectFailed;
+        Result := FNotificationSection.NotifyOnConnectFailed;
       neAutoConnect:
-        Result := FNotifyOnAutoConnect;
+        Result := FNotificationSection.NotifyOnAutoConnect;
     else
       Result := nmNone;
     end;
@@ -1068,7 +1065,7 @@ begin
   if DeviceConfig.ConnectionTimeout >= 0 then
     Result := DeviceConfig.ConnectionTimeout
   else
-    Result := FConnectionTimeout;
+    Result := FConnectionSection.ConnectionTimeout;
 end;
 
 function TAppConfig.GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
@@ -1079,10 +1076,10 @@ begin
   if DeviceConfig.ConnectionRetryCount >= 0 then
     Result := DeviceConfig.ConnectionRetryCount
   else
-    Result := FConnectionRetryCount;
+    Result := FConnectionSection.ConnectionRetryCount;
 end;
 
-// IInterface implementation - manual for singleton (no reference counting)
+// IInterface implementation with reference counting
 
 function TAppConfig.QueryInterface(const IID: TGUID; out Obj): HResult;
 begin
@@ -1104,222 +1101,7 @@ begin
     Destroy;
 end;
 
-// Interface getter implementations
-
-function TAppConfig.GetWindowMode: TWindowMode;
-begin
-  Result := FWindowMode;
-end;
-
-function TAppConfig.GetOnTop: Boolean;
-begin
-  Result := FOnTop;
-end;
-
-function TAppConfig.GetAutostart: Boolean;
-begin
-  Result := FAutostart;
-end;
-
-function TAppConfig.GetMinimizeToTray: Boolean;
-begin
-  Result := FMinimizeToTray;
-end;
-
-function TAppConfig.GetCloseToTray: Boolean;
-begin
-  Result := FCloseToTray;
-end;
-
-function TAppConfig.GetMenuHideOnFocusLoss: Boolean;
-begin
-  Result := FMenuHideOnFocusLoss;
-end;
-
-function TAppConfig.GetPositionMode: TPositionMode;
-begin
-  Result := FPositionMode;
-end;
-
-function TAppConfig.GetPositionX: Integer;
-begin
-  Result := FPositionX;
-end;
-
-function TAppConfig.GetPositionY: Integer;
-begin
-  Result := FPositionY;
-end;
-
-function TAppConfig.GetPositionW: Integer;
-begin
-  Result := FPositionW;
-end;
-
-function TAppConfig.GetPositionH: Integer;
-begin
-  Result := FPositionH;
-end;
-
-function TAppConfig.GetHotkey: string;
-begin
-  Result := FHotkey;
-end;
-
-function TAppConfig.GetUseLowLevelHook: Boolean;
-begin
-  Result := FUseLowLevelHook;
-end;
-
-function TAppConfig.GetPollingMode: TPollingMode;
-begin
-  Result := FPollingMode;
-end;
-
-function TAppConfig.GetPollingInterval: Integer;
-begin
-  Result := FPollingInterval;
-end;
-
-function TAppConfig.GetEventDebounceMs: Integer;
-begin
-  Result := FEventDebounceMs;
-end;
-
-function TAppConfig.GetLogEnabled: Boolean;
-begin
-  Result := FLogEnabled;
-end;
-
-function TAppConfig.GetLogFilename: string;
-begin
-  Result := FLogFilename;
-end;
-
-function TAppConfig.GetLogAppend: Boolean;
-begin
-  Result := FLogAppend;
-end;
-
-function TAppConfig.GetShowAddresses: Boolean;
-begin
-  Result := FShowAddresses;
-end;
-
-function TAppConfig.GetTheme: string;
-begin
-  Result := FTheme;
-end;
-
-function TAppConfig.GetVsfDir: string;
-begin
-  Result := FVsfDir;
-end;
-
-function TAppConfig.GetShowLastSeen: Boolean;
-begin
-  Result := FShowLastSeen;
-end;
-
-function TAppConfig.GetLastSeenFormat: TLastSeenFormat;
-begin
-  Result := FLastSeenFormat;
-end;
-
-function TAppConfig.GetShowDeviceIcons: Boolean;
-begin
-  Result := FShowDeviceIcons;
-end;
-
-function TAppConfig.GetConnectedColor: Integer;
-begin
-  Result := FConnectedColor;
-end;
-
-function TAppConfig.GetItemHeight: Integer;
-begin
-  Result := FItemHeight;
-end;
-
-function TAppConfig.GetItemPadding: Integer;
-begin
-  Result := FItemPadding;
-end;
-
-function TAppConfig.GetItemMargin: Integer;
-begin
-  Result := FItemMargin;
-end;
-
-function TAppConfig.GetIconSize: Integer;
-begin
-  Result := FIconSize;
-end;
-
-function TAppConfig.GetCornerRadius: Integer;
-begin
-  Result := FCornerRadius;
-end;
-
-function TAppConfig.GetDeviceNameFontSize: Integer;
-begin
-  Result := FDeviceNameFontSize;
-end;
-
-function TAppConfig.GetStatusFontSize: Integer;
-begin
-  Result := FStatusFontSize;
-end;
-
-function TAppConfig.GetAddressFontSize: Integer;
-begin
-  Result := FAddressFontSize;
-end;
-
-function TAppConfig.GetIconFontSize: Integer;
-begin
-  Result := FIconFontSize;
-end;
-
-function TAppConfig.GetItemBorderWidth: Integer;
-begin
-  Result := FItemBorderWidth;
-end;
-
-function TAppConfig.GetItemBorderColor: Integer;
-begin
-  Result := FItemBorderColor;
-end;
-
-function TAppConfig.GetConnectionTimeout: Integer;
-begin
-  Result := FConnectionTimeout;
-end;
-
-function TAppConfig.GetConnectionRetryCount: Integer;
-begin
-  Result := FConnectionRetryCount;
-end;
-
-function TAppConfig.GetNotifyOnConnect: TNotificationMode;
-begin
-  Result := FNotifyOnConnect;
-end;
-
-function TAppConfig.GetNotifyOnDisconnect: TNotificationMode;
-begin
-  Result := FNotifyOnDisconnect;
-end;
-
-function TAppConfig.GetNotifyOnConnectFailed: TNotificationMode;
-begin
-  Result := FNotifyOnConnectFailed;
-end;
-
-function TAppConfig.GetNotifyOnAutoConnect: TNotificationMode;
-begin
-  Result := FNotifyOnAutoConnect;
-end;
+// IAppConfig getters
 
 function TAppConfig.GetConfigPath: string;
 begin
@@ -1331,7 +1113,7 @@ begin
   Result := FModified;
 end;
 
-// IAppConfig - aggregate interface access
+// IAppConfig - aggregate interface access (returns Self since TAppConfig implements all interfaces)
 
 function TAppConfig.AsGeneralConfig: IGeneralConfig;
 begin
