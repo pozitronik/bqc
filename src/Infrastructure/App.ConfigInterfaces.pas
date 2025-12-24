@@ -24,6 +24,7 @@ unit App.ConfigInterfaces;
 interface
 
 uses
+  System.IniFiles,
   App.ConfigEnums,
   App.DeviceConfigTypes,
   App.LayoutConfigIntf,
@@ -241,12 +242,12 @@ type
     /// <summary>
     /// Loads device configurations from INI file.
     /// </summary>
-    procedure LoadFrom(AIni: TObject);  // TMemIniFile
+    procedure LoadFrom(AIni: TCustomIniFile);
 
     /// <summary>
     /// Saves device configurations to INI file.
     /// </summary>
-    procedure SaveTo(AIni: TObject);  // TMemIniFile
+    procedure SaveTo(AIni: TCustomIniFile);
 
     /// <summary>
     /// Returns true if any device config has been modified.

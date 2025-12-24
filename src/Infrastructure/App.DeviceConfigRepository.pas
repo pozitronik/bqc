@@ -45,8 +45,8 @@ type
     procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
     function GetAllAddresses: TArray<UInt64>;
     function GetAll: TArray<TDeviceConfig>;
-    procedure LoadFrom(AIni: TObject);
-    procedure SaveTo(AIni: TObject);
+    procedure LoadFrom(AIni: TCustomIniFile);
+    procedure SaveTo(AIni: TCustomIniFile);
     function IsModified: Boolean;
     procedure ClearModified;
   end;
@@ -173,9 +173,8 @@ begin
   FModified := False;
 end;
 
-procedure TDeviceConfigRepository.LoadFrom(AIni: TObject);
+procedure TDeviceConfigRepository.LoadFrom(AIni: TCustomIniFile);
 var
-  Ini: TMemIniFile;
   Sections: TStringList;
   Section: string;
   AddressStr: string;
@@ -183,11 +182,10 @@ var
   DeviceConfig: TDeviceConfig;
   LastSeenStr: string;
 begin
-  Ini := TMemIniFile(AIni);
   FDevices.Clear;
   Sections := TStringList.Create;
   try
-    Ini.ReadSections(Sections);
+    AIni.ReadSections(Sections);
     for Section in Sections do
     begin
       if Section.StartsWith(SEC_DEVICE_PREFIX) then
@@ -198,21 +196,21 @@ begin
         if TryStrToUInt64('$' + AddressStr, Address) then
         begin
           DeviceConfig := TDeviceConfig.Default(Address);
-          DeviceConfig.Name := Ini.ReadString(Section, KEY_NAME, '');
-          DeviceConfig.Alias := Ini.ReadString(Section, KEY_ALIAS, '');
-          DeviceConfig.Pinned := Ini.ReadBool(Section, KEY_PINNED, False);
-          DeviceConfig.Hidden := Ini.ReadBool(Section, KEY_HIDDEN, False);
-          DeviceConfig.AutoConnect := Ini.ReadBool(Section, KEY_AUTO_CONNECT, False);
-          DeviceConfig.ConnectionTimeout := Ini.ReadInteger(Section, KEY_CONNECTION_TIMEOUT, -1);
-          DeviceConfig.ConnectionRetryCount := Ini.ReadInteger(Section, KEY_CONNECTION_RETRY_COUNT, -1);
+          DeviceConfig.Name := AIni.ReadString(Section, KEY_NAME, '');
+          DeviceConfig.Alias := AIni.ReadString(Section, KEY_ALIAS, '');
+          DeviceConfig.Pinned := AIni.ReadBool(Section, KEY_PINNED, False);
+          DeviceConfig.Hidden := AIni.ReadBool(Section, KEY_HIDDEN, False);
+          DeviceConfig.AutoConnect := AIni.ReadBool(Section, KEY_AUTO_CONNECT, False);
+          DeviceConfig.ConnectionTimeout := AIni.ReadInteger(Section, KEY_CONNECTION_TIMEOUT, -1);
+          DeviceConfig.ConnectionRetryCount := AIni.ReadInteger(Section, KEY_CONNECTION_RETRY_COUNT, -1);
           // Per-device notification overrides (-1 = use global)
-          DeviceConfig.Notifications.OnConnect := Ini.ReadInteger(Section, KEY_NOTIFY_ON_CONNECT, -1);
-          DeviceConfig.Notifications.OnDisconnect := Ini.ReadInteger(Section, KEY_NOTIFY_ON_DISCONNECT, -1);
-          DeviceConfig.Notifications.OnConnectFailed := Ini.ReadInteger(Section, KEY_NOTIFY_ON_CONNECT_FAILED, -1);
-          DeviceConfig.Notifications.OnAutoConnect := Ini.ReadInteger(Section, KEY_NOTIFY_ON_AUTO_CONNECT, -1);
-          DeviceConfig.DeviceTypeOverride := Ini.ReadInteger(Section, KEY_DEVICE_TYPE_OVERRIDE, -1);
+          DeviceConfig.Notifications.OnConnect := AIni.ReadInteger(Section, KEY_NOTIFY_ON_CONNECT, -1);
+          DeviceConfig.Notifications.OnDisconnect := AIni.ReadInteger(Section, KEY_NOTIFY_ON_DISCONNECT, -1);
+          DeviceConfig.Notifications.OnConnectFailed := AIni.ReadInteger(Section, KEY_NOTIFY_ON_CONNECT_FAILED, -1);
+          DeviceConfig.Notifications.OnAutoConnect := AIni.ReadInteger(Section, KEY_NOTIFY_ON_AUTO_CONNECT, -1);
+          DeviceConfig.DeviceTypeOverride := AIni.ReadInteger(Section, KEY_DEVICE_TYPE_OVERRIDE, -1);
           // Parse LastSeen as ISO 8601 datetime string
-          LastSeenStr := Ini.ReadString(Section, KEY_LAST_SEEN, '');
+          LastSeenStr := AIni.ReadString(Section, KEY_LAST_SEEN, '');
           if LastSeenStr <> '' then
           begin
             try
@@ -231,24 +229,21 @@ begin
   FModified := False;
 end;
 
-procedure TDeviceConfigRepository.SaveTo(AIni: TObject);
+procedure TDeviceConfigRepository.SaveTo(AIni: TCustomIniFile);
 var
-  Ini: TMemIniFile;
   Sections: TStringList;
   Section: string;
   Pair: TPair<UInt64, TDeviceConfig>;
   SectionName: string;
 begin
-  Ini := TMemIniFile(AIni);
-
   // First, remove all existing device sections
   Sections := TStringList.Create;
   try
-    Ini.ReadSections(Sections);
+    AIni.ReadSections(Sections);
     for Section in Sections do
     begin
       if Section.StartsWith(SEC_DEVICE_PREFIX) then
-        Ini.EraseSection(Section);
+        AIni.EraseSection(Section);
     end;
   finally
     Sections.Free;
@@ -259,31 +254,31 @@ begin
   begin
     SectionName := SEC_DEVICE_PREFIX + IntToHex(Pair.Key, 12);
     // Always save Name (original device name from Windows)
-    Ini.WriteString(SectionName, KEY_NAME, Pair.Value.Name);
-    Ini.WriteString(SectionName, KEY_ALIAS, Pair.Value.Alias);
-    Ini.WriteBool(SectionName, KEY_PINNED, Pair.Value.Pinned);
-    Ini.WriteBool(SectionName, KEY_HIDDEN, Pair.Value.Hidden);
-    Ini.WriteBool(SectionName, KEY_AUTO_CONNECT, Pair.Value.AutoConnect);
+    AIni.WriteString(SectionName, KEY_NAME, Pair.Value.Name);
+    AIni.WriteString(SectionName, KEY_ALIAS, Pair.Value.Alias);
+    AIni.WriteBool(SectionName, KEY_PINNED, Pair.Value.Pinned);
+    AIni.WriteBool(SectionName, KEY_HIDDEN, Pair.Value.Hidden);
+    AIni.WriteBool(SectionName, KEY_AUTO_CONNECT, Pair.Value.AutoConnect);
     // Only save connection settings if they override defaults
     if Pair.Value.ConnectionTimeout >= 0 then
-      Ini.WriteInteger(SectionName, KEY_CONNECTION_TIMEOUT, Pair.Value.ConnectionTimeout);
+      AIni.WriteInteger(SectionName, KEY_CONNECTION_TIMEOUT, Pair.Value.ConnectionTimeout);
     if Pair.Value.ConnectionRetryCount >= 0 then
-      Ini.WriteInteger(SectionName, KEY_CONNECTION_RETRY_COUNT, Pair.Value.ConnectionRetryCount);
+      AIni.WriteInteger(SectionName, KEY_CONNECTION_RETRY_COUNT, Pair.Value.ConnectionRetryCount);
     // Only save notification settings if they override globals
     if Pair.Value.Notifications.OnConnect >= 0 then
-      Ini.WriteInteger(SectionName, KEY_NOTIFY_ON_CONNECT, Pair.Value.Notifications.OnConnect);
+      AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_CONNECT, Pair.Value.Notifications.OnConnect);
     if Pair.Value.Notifications.OnDisconnect >= 0 then
-      Ini.WriteInteger(SectionName, KEY_NOTIFY_ON_DISCONNECT, Pair.Value.Notifications.OnDisconnect);
+      AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_DISCONNECT, Pair.Value.Notifications.OnDisconnect);
     if Pair.Value.Notifications.OnConnectFailed >= 0 then
-      Ini.WriteInteger(SectionName, KEY_NOTIFY_ON_CONNECT_FAILED, Pair.Value.Notifications.OnConnectFailed);
+      AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_CONNECT_FAILED, Pair.Value.Notifications.OnConnectFailed);
     if Pair.Value.Notifications.OnAutoConnect >= 0 then
-      Ini.WriteInteger(SectionName, KEY_NOTIFY_ON_AUTO_CONNECT, Pair.Value.Notifications.OnAutoConnect);
+      AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_AUTO_CONNECT, Pair.Value.Notifications.OnAutoConnect);
     // Only save DeviceTypeOverride if it's set (not auto-detect)
     if Pair.Value.DeviceTypeOverride >= 0 then
-      Ini.WriteInteger(SectionName, KEY_DEVICE_TYPE_OVERRIDE, Pair.Value.DeviceTypeOverride);
+      AIni.WriteInteger(SectionName, KEY_DEVICE_TYPE_OVERRIDE, Pair.Value.DeviceTypeOverride);
     // Save LastSeen as ISO 8601 datetime string
     if Pair.Value.LastSeen > 0 then
-      Ini.WriteString(SectionName, KEY_LAST_SEEN, DateToISO8601(Pair.Value.LastSeen, False));
+      AIni.WriteString(SectionName, KEY_LAST_SEEN, DateToISO8601(Pair.Value.LastSeen, False));
   end;
   FModified := False;
 end;
