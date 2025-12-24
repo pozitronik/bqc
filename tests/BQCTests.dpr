@@ -71,7 +71,8 @@ uses
   UI.ListGeometry in '..\src\Presentation\UI.ListGeometry.pas',
   UI.DeviceFormatter in '..\src\Presentation\UI.DeviceFormatter.pas',
   UI.DeviceSorter in '..\src\Presentation\UI.DeviceSorter.pas',
-  UI.DeviceDisplayItemBuilder in '..\src\Presentation\UI.DeviceDisplayItemBuilder.pas';
+  UI.DeviceDisplayItemBuilder in '..\src\Presentation\UI.DeviceDisplayItemBuilder.pas',
+  UI.Theme in '..\src\Presentation\UI.Theme.pas';
 
 
 {$IFNDEF TESTINSIGHT}

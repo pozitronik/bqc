@@ -18,7 +18,8 @@ interface
 
 uses
   App.ConfigInterfaces,
-  Bluetooth.Interfaces;
+  Bluetooth.Interfaces,
+  UI.Theme;
 
 type
   /// <summary>
@@ -69,6 +70,7 @@ type
 
     // Services
     function Logger: ILogger;
+    function ThemeManager: IThemeManager;
 
     // Service factories
     function ConnectionStrategyFactory: IConnectionStrategyFactory;
@@ -251,6 +253,11 @@ begin
   // Ensure config is loaded (which configures logger)
   GetConfig;
   Result := App.Logger.Logger;
+end;
+
+function TAppBootstrap.ThemeManager: IThemeManager;
+begin
+  Result := UI.Theme.ThemeManager;
 end;
 
 function TAppBootstrap.ConnectionStrategyFactory: IConnectionStrategyFactory;

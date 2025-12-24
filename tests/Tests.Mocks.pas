@@ -21,7 +21,8 @@ uses
   App.SettingsPresenter,
   Bluetooth.Types,
   Bluetooth.Interfaces,
-  UI.DeviceList;
+  UI.DeviceList,
+  UI.Theme;
 
 type
   /// <summary>
@@ -657,6 +658,38 @@ type
     property LastEventType: TDeviceEventType read FLastEventType;
     property LastConnectionState: TBluetoothConnectionState read FLastConnectionState;
     property DebounceMs: Integer read FDebounceMs write FDebounceMs;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IThemeManager for testing.
+  /// Tracks calls and allows configuring available styles.
+  /// </summary>
+  TMockThemeManager = class(TInterfacedObject, IThemeManager)
+  private
+    FCurrentStyleName: string;
+    FAvailableStyles: TArray<string>;
+    FLoadStylesCallCount: Integer;
+    FLastLoadedDirectory: string;
+    FSetStyleCallCount: Integer;
+    FLastSetStyle: string;
+  public
+    constructor Create;
+
+    // IThemeManager
+    procedure LoadStylesFromDirectory(const ADirectory: string);
+    function GetAvailableStyles: TArray<string>;
+    procedure SetStyle(const AStyleName: string);
+    function GetCurrentStyleName: string;
+
+    // Test setup
+    property AvailableStyles: TArray<string> read FAvailableStyles write FAvailableStyles;
+    property CurrentStyleName: string read FCurrentStyleName write FCurrentStyleName;
+
+    // Test verification
+    property LoadStylesCallCount: Integer read FLoadStylesCallCount;
+    property LastLoadedDirectory: string read FLastLoadedDirectory;
+    property SetStyleCallCount: Integer read FSetStyleCallCount;
+    property LastSetStyle: string read FLastSetStyle;
   end;
 
 implementation
@@ -1863,6 +1896,42 @@ end;
 procedure TMockEventDebouncer.SetDebounceMs(AValue: Integer);
 begin
   FDebounceMs := AValue;
+end;
+
+{ TMockThemeManager }
+
+constructor TMockThemeManager.Create;
+begin
+  inherited Create;
+  FCurrentStyleName := 'Windows';
+  FAvailableStyles := ['Windows', 'Dark', 'Light'];
+  FLoadStylesCallCount := 0;
+  FLastLoadedDirectory := '';
+  FSetStyleCallCount := 0;
+  FLastSetStyle := '';
+end;
+
+procedure TMockThemeManager.LoadStylesFromDirectory(const ADirectory: string);
+begin
+  Inc(FLoadStylesCallCount);
+  FLastLoadedDirectory := ADirectory;
+end;
+
+function TMockThemeManager.GetAvailableStyles: TArray<string>;
+begin
+  Result := FAvailableStyles;
+end;
+
+procedure TMockThemeManager.SetStyle(const AStyleName: string);
+begin
+  Inc(FSetStyleCallCount);
+  FLastSetStyle := AStyleName;
+  FCurrentStyleName := AStyleName;
+end;
+
+function TMockThemeManager.GetCurrentStyleName: string;
+begin
+  Result := FCurrentStyleName;
 end;
 
 end.

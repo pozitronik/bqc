@@ -22,19 +22,50 @@ uses
 
 type
   /// <summary>
+  /// Interface for theme management.
+  /// Allows injection and mocking for testability.
+  /// </summary>
+  IThemeManager = interface
+    ['{E8F7A6B5-1234-5678-9ABC-DEF012345678}']
+
+    /// <summary>
+    /// Loads .vsf style files from the specified directory.
+    /// </summary>
+    procedure LoadStylesFromDirectory(const ADirectory: string);
+
+    /// <summary>
+    /// Returns list of all available style names.
+    /// </summary>
+    function GetAvailableStyles: TArray<string>;
+
+    /// <summary>
+    /// Sets a specific VCL style by exact name.
+    /// </summary>
+    procedure SetStyle(const AStyleName: string);
+
+    /// <summary>
+    /// Returns the current style name.
+    /// </summary>
+    function GetCurrentStyleName: string;
+
+    property CurrentStyleName: string read GetCurrentStyleName;
+  end;
+
+  /// <summary>
   /// Theme manager for the application.
   /// Provides simple, explicit style selection without guessing.
-  /// Singleton pattern.
+  /// Implements IThemeManager for dependency injection.
   /// </summary>
-  TThemeManager = class
+  TThemeManager = class(TInterfacedObject, IThemeManager)
   private class var
-    FInstance: TThemeManager;
+    FInstance: IThemeManager;
   private
     FCurrentStyleName: string;
 
     function GetFirstAvailableStyle: string;
+    function GetCurrentStyleName: string;
   public
-    class function Instance: TThemeManager;
+    class function Instance: IThemeManager;
     class destructor Destroy;
 
     /// <summary>
@@ -54,13 +85,13 @@ type
     /// </summary>
     procedure SetStyle(const AStyleName: string);
 
-    property CurrentStyleName: string read FCurrentStyleName;
+    property CurrentStyleName: string read GetCurrentStyleName;
   end;
 
 /// <summary>
 /// Returns the global theme manager instance.
 /// </summary>
-function Theme: TThemeManager; inline;
+function ThemeManager: IThemeManager;
 
 implementation
 
@@ -111,26 +142,34 @@ begin
   end;
 end;
 
-function Theme: TThemeManager;
+function ThemeManager: IThemeManager;
 begin
   Result := TThemeManager.Instance;
 end;
 
 { TThemeManager }
 
-class function TThemeManager.Instance: TThemeManager;
+class function TThemeManager.Instance: IThemeManager;
+var
+  Manager: TThemeManager;
 begin
   if FInstance = nil then
   begin
-    FInstance := TThemeManager.Create;
-    FInstance.FCurrentStyleName := TStyleManager.ActiveStyle.Name;
+    Manager := TThemeManager.Create;
+    Manager.FCurrentStyleName := TStyleManager.ActiveStyle.Name;
+    FInstance := Manager;
   end;
   Result := FInstance;
 end;
 
+function TThemeManager.GetCurrentStyleName: string;
+begin
+  Result := FCurrentStyleName;
+end;
+
 class destructor TThemeManager.Destroy;
 begin
-  FreeAndNil(FInstance);
+  FInstance := nil;  // Interface reference - will be released automatically
 end;
 
 function TThemeManager.GetFirstAvailableStyle: string;

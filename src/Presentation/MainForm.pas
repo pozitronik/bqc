@@ -88,6 +88,7 @@ type
     FConnectionConfig: IConnectionConfig;
     FStrategyFactory: IConnectionStrategyFactory;
     FDeviceConfigProvider: IDeviceConfigProvider;
+    FThemeManager: IThemeManager;
 
     { View setup }
     procedure CreateDeviceList;
@@ -143,7 +144,8 @@ type
       APollingConfig: IPollingConfig;
       AConnectionConfig: IConnectionConfig;
       AStrategyFactory: IConnectionStrategyFactory;
-      ADeviceConfigProvider: IDeviceConfigProvider
+      ADeviceConfigProvider: IDeviceConfigProvider;
+      AThemeManager: IThemeManager
     );
 
     { Public declarations }
@@ -180,7 +182,8 @@ procedure TFormMain.Setup(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
   AStrategyFactory: IConnectionStrategyFactory;
-  ADeviceConfigProvider: IDeviceConfigProvider);
+  ADeviceConfigProvider: IDeviceConfigProvider;
+  AThemeManager: IThemeManager);
 begin
   FAppConfig := AAppConfig;
   FGeneralConfig := AGeneralConfig;
@@ -193,6 +196,7 @@ begin
   FConnectionConfig := AConnectionConfig;
   FStrategyFactory := AStrategyFactory;
   FDeviceConfigProvider := ADeviceConfigProvider;
+  FThemeManager := AThemeManager;
 end;
 
 procedure TFormMain.FormCreate(Sender: TObject);
@@ -210,7 +214,8 @@ begin
     Bootstrap.PollingConfig,
     Bootstrap.ConnectionConfig,
     Bootstrap.ConnectionStrategyFactory,
-    Bootstrap.DeviceConfigProvider
+    Bootstrap.DeviceConfigProvider,
+    Bootstrap.ThemeManager
   );
 
   Log('FormCreate: Starting', ClassName);
@@ -247,8 +252,8 @@ begin
   end;
 
   // Load external VCL styles and apply configured theme
-  Theme.LoadStylesFromDirectory(FAppearanceConfig.VsfDir);
-  Theme.SetStyle(FAppearanceConfig.Theme);
+  FThemeManager.LoadStylesFromDirectory(FAppearanceConfig.VsfDir);
+  FThemeManager.SetStyle(FAppearanceConfig.Theme);
 
   // Subscribe to application deactivation
   Application.OnDeactivate := HandleApplicationDeactivate;
@@ -453,10 +458,10 @@ begin
   Log('ApplyAllSettings: Hotkey re-registered: %s', [FHotkeyConfig.Hotkey], ClassName);
 
   // Reload styles from directory (loads any new styles, skips already loaded)
-  Theme.LoadStylesFromDirectory(FAppearanceConfig.VsfDir);
+  FThemeManager.LoadStylesFromDirectory(FAppearanceConfig.VsfDir);
 
   // Apply theme
-  Theme.SetStyle(FAppearanceConfig.Theme);
+  FThemeManager.SetStyle(FAppearanceConfig.Theme);
   ApplyTheme;
   Log('ApplyAllSettings: Theme applied: %s', [FAppearanceConfig.Theme], ClassName);
 
@@ -544,7 +549,8 @@ begin
     SettingsDialog.Setup(
       FAppConfig,
       FAppConfig.AsLogConfig,
-      FDeviceConfigProvider
+      FDeviceConfigProvider,
+      FThemeManager
     );
     SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
     SettingsDialog.ShowModal;

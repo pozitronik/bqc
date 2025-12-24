@@ -156,6 +156,7 @@
         <DCCReference Include="..\src\Presentation\UI.DeviceFormatter.pas"/>
         <DCCReference Include="..\src\Presentation\UI.DeviceSorter.pas"/>
         <DCCReference Include="..\src\Presentation\UI.DeviceDisplayItemBuilder.pas"/>
+        <DCCReference Include="..\src\Presentation\UI.Theme.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

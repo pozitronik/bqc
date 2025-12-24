@@ -17,7 +17,8 @@ uses
   Vcl.ExtCtrls,
   Vcl.ComCtrls,
   App.ConfigInterfaces,
-  App.SettingsPresenter;
+  App.SettingsPresenter,
+  UI.Theme;
 
 type
   /// <summary>
@@ -240,6 +241,7 @@ type
     FAppConfig: IAppConfig;
     FLogConfig: ILogConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
+    FThemeManager: IThemeManager;
 
     { ISettingsView implementation - Dialog control }
     procedure CloseWithOK;
@@ -288,7 +290,8 @@ type
     procedure Setup(
       AAppConfig: IAppConfig;
       ALogConfig: ILogConfig;
-      ADeviceConfigProvider: IDeviceConfigProvider
+      ADeviceConfigProvider: IDeviceConfigProvider;
+      AThemeManager: IThemeManager
     );
     function GetOnSettingsApplied: TNotifyEvent;
     procedure SetOnSettingsApplied(AValue: TNotifyEvent);
@@ -306,7 +309,6 @@ uses
   App.Logger,
   App.Config,
   Bluetooth.Types,
-  UI.Theme,
   UI.HotkeyManager;
 
 {$R *.dfm}
@@ -325,12 +327,14 @@ end;
 procedure TFormSettings.Setup(
   AAppConfig: IAppConfig;
   ALogConfig: ILogConfig;
-  ADeviceConfigProvider: IDeviceConfigProvider
+  ADeviceConfigProvider: IDeviceConfigProvider;
+  AThemeManager: IThemeManager
 );
 begin
   FAppConfig := AAppConfig;
   FLogConfig := ALogConfig;
   FDeviceConfigProvider := ADeviceConfigProvider;
+  FThemeManager := AThemeManager;
 
   // Create presenter with injected dependencies
   FPresenter := TSettingsPresenter.Create(
@@ -536,8 +540,8 @@ var
   StyleName: string;
   Idx: Integer;
 begin
-  // Get available styles from theme manager (Presentation layer responsibility)
-  Styles := UI.Theme.Theme.GetAvailableStyles;
+  // Get available styles from theme manager (injected dependency)
+  Styles := FThemeManager.GetAvailableStyles;
 
   ComboTheme.Items.Clear;
   for StyleName in Styles do
