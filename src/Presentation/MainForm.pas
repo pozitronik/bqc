@@ -41,9 +41,9 @@ const
 type
   /// <summary>
   /// Main application form displaying Bluetooth devices.
-  /// Implements IMainView for MVP pattern.
+  /// Implements ISP-compliant view interfaces for MVP pattern.
   /// </summary>
-  TFormMain = class(TForm, IMainView)
+  TFormMain = class(TForm, IDeviceListView, IToggleView, IStatusView, IVisibilityView)
     HeaderPanel: TPanel;
     TitleLabel: TLabel;
     StatusPanel: TPanel;
@@ -88,7 +88,7 @@ type
     procedure HandleApplicationDeactivate(Sender: TObject);
     procedure HandleSettingsApplied(Sender: TObject);
 
-    { IMainView implementation }
+    { View interfaces implementation }
     procedure ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
     procedure UpdateDisplayItem(const AItem: TDeviceDisplayItem);
     procedure ClearDevices;
@@ -102,7 +102,7 @@ type
     function GetWindowHandle: HWND;
     procedure ShowView;
     procedure HideView;
-    procedure IMainView.ForceClose = DoForceClose;
+    procedure IVisibilityView.ForceClose = DoForceClose;
     procedure DoForceClose;
 
   protected
@@ -194,8 +194,12 @@ begin
   FDeviceList.ShowAddresses := Bootstrap.AppearanceConfig.ShowAddresses;
 
   // Create and initialize presenter with injected dependencies
+  // Pass Self as each focused interface (ISP-compliant)
   FPresenter := TMainPresenter.Create(
-    Self,
+    Self as IDeviceListView,
+    Self as IToggleView,
+    Self as IStatusView,
+    Self as IVisibilityView,
     Bootstrap.AppConfig,
     Bootstrap.DeviceConfigProvider,
     Bootstrap.GeneralConfig,
@@ -538,7 +542,7 @@ begin
   end;
 end;
 
-{ IMainView implementation }
+{ View interfaces implementation }
 
 procedure TFormMain.ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
 begin

@@ -357,10 +357,11 @@ function CreateTestDevice(
 
 type
   /// <summary>
-  /// Mock implementation of IMainView for testing TMainPresenter.
+  /// Mock implementation of view interfaces for testing TMainPresenter.
   /// Records all calls made by the presenter for verification.
+  /// Implements all focused interfaces for ISP compliance.
   /// </summary>
-  TMockMainView = class(TInterfacedObject, IMainView)
+  TMockMainView = class(TInterfacedObject, IDeviceListView, IToggleView, IStatusView, IVisibilityView)
   private
     FDisplayItems: TDeviceDisplayItemArray;
     FToggleState: Boolean;
@@ -382,7 +383,7 @@ type
   public
     constructor Create;
 
-    // IMainView
+    // View interfaces implementation
     procedure ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
     procedure UpdateDisplayItem(const AItem: TDeviceDisplayItem);
     procedure ClearDevices;
