@@ -31,6 +31,8 @@ type
   /// </summary>
   TAppConfig = class(TObject,
     IInterface,
+    IDeviceConfigQuery,
+    IDeviceConfigMutation,
     IDeviceConfigProvider,
     IAppConfig)
   protected

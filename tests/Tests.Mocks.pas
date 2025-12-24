@@ -129,23 +129,27 @@ type
 
   /// <summary>
   /// Mock implementation of IDeviceConfigProvider for testing.
+  /// Implements IDeviceConfigQuery, IDeviceConfigMutation, and combined IDeviceConfigProvider.
   /// </summary>
-  TMockDeviceConfigProvider = class(TInterfacedObject, IDeviceConfigProvider)
+  TMockDeviceConfigProvider = class(TInterfacedObject,
+    IDeviceConfigQuery, IDeviceConfigMutation, IDeviceConfigProvider)
   private
     FDeviceConfigs: TDictionary<UInt64, TDeviceConfig>;
   public
     constructor Create;
     destructor Destroy; override;
 
-    // IDeviceConfigProvider
+    // IDeviceConfigQuery
     function GetDeviceConfig(AAddress: UInt64): TDeviceConfig;
-    procedure SetDeviceConfig(const AConfig: TDeviceConfig);
-    procedure RemoveDeviceConfig(AAddress: UInt64);
-    procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
     function GetConfiguredDeviceAddresses: TArray<UInt64>;
     function GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
     function GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
     function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
+
+    // IDeviceConfigMutation
+    procedure SetDeviceConfig(const AConfig: TDeviceConfig);
+    procedure RemoveDeviceConfig(AAddress: UInt64);
+    procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
 
     // Test helpers
     procedure AddDeviceConfig(AAddress: UInt64; const AConfig: TDeviceConfig);

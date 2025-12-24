@@ -34,15 +34,15 @@ type
   /// </summary>
   TDeviceDisplayItemBuilder = class
   private
-    FConfigProvider: IDeviceConfigProvider;
+    FConfigProvider: IDeviceConfigQuery;
     FAppearanceConfig: IAppearanceConfig;
   public
     /// <summary>
     /// Creates a new builder instance with required dependencies.
     /// </summary>
-    /// <param name="AConfigProvider">Provider for device-specific configuration.</param>
+    /// <param name="AConfigProvider">Provider for device-specific configuration (read-only).</param>
     /// <param name="AAppearanceConfig">Provider for appearance settings.</param>
-    constructor Create(AConfigProvider: IDeviceConfigProvider;
+    constructor Create(AConfigProvider: IDeviceConfigQuery;
       AAppearanceConfig: IAppearanceConfig);
 
     /// <summary>
@@ -78,7 +78,7 @@ uses
 
 { TDeviceDisplayItemBuilder }
 
-constructor TDeviceDisplayItemBuilder.Create(AConfigProvider: IDeviceConfigProvider;
+constructor TDeviceDisplayItemBuilder.Create(AConfigProvider: IDeviceConfigQuery;
   AAppearanceConfig: IAppearanceConfig);
 begin
   inherited Create;

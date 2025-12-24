@@ -38,7 +38,7 @@ type
 
     { Injected dependencies }
     FConnectionConfig: IConnectionConfig;
-    FDeviceConfigProvider: IDeviceConfigProvider;
+    FDeviceConfigProvider: IDeviceConfigQuery;
     FStrategyFactory: IConnectionStrategyFactory;
     FDeviceMonitor: IDeviceMonitor;
     FDeviceRepository: IDeviceRepository;
@@ -80,7 +80,7 @@ type
   public
     constructor Create(
       AConnectionConfig: IConnectionConfig;
-      ADeviceConfigProvider: IDeviceConfigProvider;
+      ADeviceConfigProvider: IDeviceConfigQuery;
       AStrategyFactory: IConnectionStrategyFactory;
       ADeviceMonitor: IDeviceMonitor;
       ADeviceRepository: IDeviceRepository;
@@ -92,7 +92,7 @@ type
 
     { Read-only access to injected dependencies }
     property ConnectionConfig: IConnectionConfig read FConnectionConfig;
-    property DeviceConfigProvider: IDeviceConfigProvider read FDeviceConfigProvider;
+    property DeviceConfigProvider: IDeviceConfigQuery read FDeviceConfigProvider;
     property StrategyFactory: IConnectionStrategyFactory read FStrategyFactory;
     property DeviceMonitor: IDeviceMonitor read FDeviceMonitor;
     property DeviceRepository: IDeviceRepository read FDeviceRepository;
@@ -108,7 +108,7 @@ type
 function CreateBluetoothService(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
-  ADeviceConfigProvider: IDeviceConfigProvider;
+  ADeviceConfigProvider: IDeviceConfigQuery;
   AStrategyFactory: IConnectionStrategyFactory
 ): IBluetoothService;
 
@@ -124,7 +124,7 @@ uses
 function CreateBluetoothService(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
-  ADeviceConfigProvider: IDeviceConfigProvider;
+  ADeviceConfigProvider: IDeviceConfigQuery;
   AStrategyFactory: IConnectionStrategyFactory
 ): IBluetoothService;
 var
@@ -149,7 +149,7 @@ end;
 
 constructor TBluetoothService.Create(
   AConnectionConfig: IConnectionConfig;
-  ADeviceConfigProvider: IDeviceConfigProvider;
+  ADeviceConfigProvider: IDeviceConfigQuery;
   AStrategyFactory: IConnectionStrategyFactory;
   ADeviceMonitor: IDeviceMonitor;
   ADeviceRepository: IDeviceRepository;

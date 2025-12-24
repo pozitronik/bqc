@@ -142,15 +142,21 @@ type
   end;
 
   /// <summary>
-  /// Per-device configuration provider.
-  /// Used by: TDeviceListBox, TMainPresenter, TBluetoothService
+  /// Read-only access to device configuration.
+  /// Use this for consumers that only need to query device settings.
+  /// Used by: TDeviceDisplayItemBuilder, TBluetoothService (read path)
   /// </summary>
-  IDeviceConfigProvider = interface
-    ['{A1B2C3D4-1111-1111-1111-00000000000B}']
+  IDeviceConfigQuery = interface
+    ['{A1B2C3D4-1111-1111-1111-00000000000D}']
+    /// <summary>
+    /// Gets configuration for a specific device by address.
+    /// Returns default config if device not configured.
+    /// </summary>
     function GetDeviceConfig(AAddress: UInt64): TDeviceConfig;
-    procedure SetDeviceConfig(const AConfig: TDeviceConfig);
-    procedure RemoveDeviceConfig(AAddress: UInt64);
-    procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
+
+    /// <summary>
+    /// Gets all configured device addresses.
+    /// </summary>
     function GetConfiguredDeviceAddresses: TArray<UInt64>;
 
     /// <summary>
@@ -168,6 +174,41 @@ type
     /// Gets effective retry count for a device.
     /// </summary>
     function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
+  end;
+
+  /// <summary>
+  /// Write access to device configuration.
+  /// Use this for consumers that need to modify device settings.
+  /// Used by: TSettingsPresenter (device settings), TMainPresenter (device registration)
+  /// </summary>
+  IDeviceConfigMutation = interface
+    ['{A1B2C3D4-1111-1111-1111-00000000000E}']
+    /// <summary>
+    /// Sets configuration for a device.
+    /// </summary>
+    procedure SetDeviceConfig(const AConfig: TDeviceConfig);
+
+    /// <summary>
+    /// Removes configuration for a device.
+    /// </summary>
+    procedure RemoveDeviceConfig(AAddress: UInt64);
+
+    /// <summary>
+    /// Registers a newly discovered device.
+    /// Creates default config if not exists, updates LastSeen if exists.
+    /// </summary>
+    procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
+  end;
+
+  /// <summary>
+  /// Full device configuration provider combining query and mutation.
+  /// Used by: TMainPresenter, TSettingsPresenter, components needing both read and write access.
+  /// </summary>
+  IDeviceConfigProvider = interface(IDeviceConfigQuery)
+    ['{A1B2C3D4-1111-1111-1111-00000000000B}']
+    procedure SetDeviceConfig(const AConfig: TDeviceConfig);
+    procedure RemoveDeviceConfig(AAddress: UInt64);
+    procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
   end;
 
   //--------------------------------------------------------------------------
