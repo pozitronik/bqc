@@ -17,7 +17,7 @@ unit App.MainPresenter;
   1. ALREADY WELL-DELEGATED: The presenter properly delegates to:
      - FBluetoothService for device operations
      - FDisplayItemBuilder for building display items
-     - Bootstrap.* providers for configuration access
+     - Injected config interfaces for configuration access
      The presenter itself is a thin coordinator, not a "god class".
 
   2. COHESIVE RESPONSIBILITIES: All methods relate to a single concern -
@@ -54,6 +54,7 @@ uses
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
   App.MainViewInterfaces,
+  App.ConfigInterfaces,
   UI.DeviceList,
   UI.DeviceDisplayItemBuilder;
 
@@ -61,11 +62,19 @@ type
   /// <summary>
   /// Main presenter handling business logic for the Bluetooth device management.
   /// Coordinates between the View (Form) and the Model (Services).
+  /// Dependencies are injected via constructor for testability.
   /// </summary>
   TMainPresenter = class
   private
     FView: IMainView;
     FBluetoothService: IBluetoothService;
+
+    { Injected configuration dependencies }
+    FAppConfig: IAppConfig;
+    FDeviceConfigProvider: IDeviceConfigProvider;
+    FGeneralConfig: IGeneralConfig;
+    FWindowConfig: IWindowConfig;
+    FAppearanceConfig: IAppearanceConfig;
     FRadioWatcher: TBluetoothRadioWatcher;
     FDevices: TBluetoothDeviceInfoArray;
     FDisplayItems: TDeviceDisplayItemArray;
@@ -94,10 +103,22 @@ type
 
   public
     /// <summary>
-    /// Creates the presenter with a reference to the view.
+    /// Creates the presenter with injected dependencies.
     /// </summary>
     /// <param name="AView">The view interface (implemented by Form).</param>
-    constructor Create(AView: IMainView);
+    /// <param name="AAppConfig">Application configuration for persistence.</param>
+    /// <param name="ADeviceConfigProvider">Device configuration provider.</param>
+    /// <param name="AGeneralConfig">General settings (window mode).</param>
+    /// <param name="AWindowConfig">Window settings (close to tray).</param>
+    /// <param name="AAppearanceConfig">Appearance settings for display items.</param>
+    constructor Create(
+      AView: IMainView;
+      AAppConfig: IAppConfig;
+      ADeviceConfigProvider: IDeviceConfigProvider;
+      AGeneralConfig: IGeneralConfig;
+      AWindowConfig: IWindowConfig;
+      AAppearanceConfig: IAppearanceConfig
+    );
 
     /// <summary>
     /// Destroys the presenter and releases resources.
@@ -168,23 +189,36 @@ implementation
 uses
   App.Logger,
   App.ConfigEnums,
-  App.ConfigInterfaces,
-  App.Bootstrap,
   Bluetooth.Service;
 
 { TMainPresenter }
 
-constructor TMainPresenter.Create(AView: IMainView);
+constructor TMainPresenter.Create(
+  AView: IMainView;
+  AAppConfig: IAppConfig;
+  ADeviceConfigProvider: IDeviceConfigProvider;
+  AGeneralConfig: IGeneralConfig;
+  AWindowConfig: IWindowConfig;
+  AAppearanceConfig: IAppearanceConfig
+);
 begin
   inherited Create;
   FView := AView;
+
+  // Store injected dependencies
+  FAppConfig := AAppConfig;
+  FDeviceConfigProvider := ADeviceConfigProvider;
+  FGeneralConfig := AGeneralConfig;
+  FWindowConfig := AWindowConfig;
+  FAppearanceConfig := AAppearanceConfig;
+
   FBluetoothService := nil;
   FRadioWatcher := nil;
   FDevices := nil;
   FDisplayItems := nil;
   FDisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
-    Bootstrap.DeviceConfigProvider,
-    Bootstrap.AppearanceConfig
+    FDeviceConfigProvider,
+    FAppearanceConfig
   );
   FDelayedLoadTimer := nil;
   FUpdatingToggle := False;
@@ -299,11 +333,11 @@ begin
         I, FDevices[I].AddressInt, FDevices[I].Name, BoolToStr(FDevices[I].IsConnected, True)
       ], ClassName);
       // Register device with current timestamp
-      Bootstrap.DeviceConfigProvider.RegisterDevice(FDevices[I].AddressInt, FDevices[I].Name, Now);
+      FDeviceConfigProvider.RegisterDevice(FDevices[I].AddressInt, FDevices[I].Name, Now);
     end;
 
     // Save config if any new devices were registered
-    Bootstrap.AppConfig.SaveIfModified;
+    FAppConfig.SaveIfModified;
 
     // Build display items and send to view
     RefreshDisplayItems;
@@ -335,7 +369,7 @@ begin
   for I := 0 to High(FDevices) do
   begin
     Device := FDevices[I];
-    DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Device.AddressInt);
+    DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(Device.AddressInt);
 
     if not DeviceConfig.AutoConnect then
       Continue;
@@ -455,7 +489,7 @@ end;
 
 function TMainPresenter.GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
 begin
-  Result := Bootstrap.DeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt).Alias;
+  Result := FDeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt).Alias;
   if Result = '' then
     Result := ADevice.Name;
 end;
@@ -470,19 +504,19 @@ begin
   case ADevice.ConnectionState of
     csConnected:
       begin
-        NotifyMode := Bootstrap.DeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnect);
+        NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnect);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Connected', nfInfo);
       end;
     csDisconnected:
       begin
-        NotifyMode := Bootstrap.DeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neDisconnect);
+        NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neDisconnect);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Disconnected', nfInfo);
       end;
     csError:
       begin
-        NotifyMode := Bootstrap.DeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnectFailed);
+        NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnectFailed);
         if NotifyMode = nmBalloon then
           FView.ShowNotification(DeviceName, 'Connection failed', nfError);
       end;
@@ -543,8 +577,8 @@ begin
       end;
 
       // Update LastSeen timestamp in persistent config
-      Bootstrap.DeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
-      Bootstrap.AppConfig.SaveIfModified;
+      FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
+      FAppConfig.SaveIfModified;
 
       // Rebuild display items (device may have moved groups due to state change)
       RefreshDisplayItems;
@@ -629,7 +663,7 @@ begin
     FView.ShowStatus(Format('Connecting %s...', [ADevice.Name]));
 
   // In Menu mode, hide immediately after device click
-  if Bootstrap.GeneralConfig.WindowMode = wmMenu then
+  if FGeneralConfig.WindowMode = wmMenu then
   begin
     Log('OnDeviceClicked: Menu mode, hiding view', ClassName);
     FView.HideView;
@@ -683,7 +717,7 @@ end;
 
 function TMainPresenter.CanClose: Boolean;
 begin
-  Result := not Bootstrap.WindowConfig.CloseToTray;
+  Result := not FWindowConfig.CloseToTray;
 end;
 
 end.

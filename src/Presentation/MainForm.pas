@@ -193,8 +193,15 @@ begin
   // Apply configuration to device list
   FDeviceList.ShowAddresses := Bootstrap.AppearanceConfig.ShowAddresses;
 
-  // Create and initialize presenter
-  FPresenter := TMainPresenter.Create(Self);
+  // Create and initialize presenter with injected dependencies
+  FPresenter := TMainPresenter.Create(
+    Self,
+    Bootstrap.AppConfig,
+    Bootstrap.DeviceConfigProvider,
+    Bootstrap.GeneralConfig,
+    Bootstrap.WindowConfig,
+    Bootstrap.AppearanceConfig
+  );
   FPresenter.Initialize;
 
   // Create and register global hotkey
