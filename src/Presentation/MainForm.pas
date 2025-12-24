@@ -540,6 +540,12 @@ begin
   Log('HandleSettingsClick: Opening settings dialog', ClassName);
   SettingsDialog := TFormSettings.Create(Self);
   try
+    // Inject dependencies from MainForm (not Bootstrap)
+    SettingsDialog.Setup(
+      FAppConfig,
+      FAppConfig.AsLogConfig,
+      FDeviceConfigProvider
+    );
     SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
     SettingsDialog.ShowModal;
   finally

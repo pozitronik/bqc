@@ -305,7 +305,6 @@ uses
   Vcl.FileCtrl,
   App.Logger,
   App.Config,
-  App.Bootstrap,
   Bluetooth.Types,
   UI.Theme,
   UI.HotkeyManager;
@@ -317,18 +316,8 @@ uses
 procedure TFormSettings.FormCreate(Sender: TObject);
 begin
   Log('FormCreate', ClassName);
-  // Initialize dependencies from Bootstrap (composition root)
-  Setup(
-    Bootstrap.AppConfig,
-    Bootstrap.AppConfig.AsLogConfig,
-    Bootstrap.DeviceConfigProvider
-  );
-  FPresenter := TSettingsPresenter.Create(
-    Self as ISettingsView,
-    Self as IDeviceSettingsView,
-    FAppConfig,
-    FDeviceConfigProvider
-  );
+  // Dependencies must be injected via Setup() before showing dialog
+  // Setup() is called by the parent form (MainForm) after Create
   FRecordingHotkey := False;
   KeyPreview := True;
 end;
@@ -342,6 +331,14 @@ begin
   FAppConfig := AAppConfig;
   FLogConfig := ALogConfig;
   FDeviceConfigProvider := ADeviceConfigProvider;
+
+  // Create presenter with injected dependencies
+  FPresenter := TSettingsPresenter.Create(
+    Self as ISettingsView,
+    Self as IDeviceSettingsView,
+    FAppConfig,
+    FDeviceConfigProvider
+  );
 end;
 
 procedure TFormSettings.FormDestroy(Sender: TObject);
