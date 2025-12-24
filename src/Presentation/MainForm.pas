@@ -99,6 +99,13 @@ type
     procedure ApplyWindowSize;
     procedure CalculateAutoSize(out AWidth, AHeight: Integer);
 
+    { Initialization helpers (extracted from FormCreate for SRP) }
+    procedure InitializeWindowSettings;
+    procedure InitializeUIComponents;
+    procedure InitializePresenter;
+    procedure InitializeHotkey;
+    procedure FinalizeMenuMode;
+
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
     procedure HandleHotkeyTriggered(Sender: TObject);
@@ -222,87 +229,12 @@ begin
 
   FForceClose := False;
 
-  // Apply window mode (must be done early before window handle is created)
-  ApplyWindowMode;
-
-  // Apply window size first (may be auto-calculated)
-  ApplyWindowSize;
-
-  // Apply window position (depends on size being set)
-  if FGeneralConfig.WindowMode = wmMenu then
-  begin
-    // Menu mode: start hidden off-screen, position will be set on show
-    Position := poDesigned;
-    Left := -10000;
-    Top := -10000;
-    Log('FormCreate: Menu mode, position will be set on show', ClassName);
-  end
-  else
-  begin
-    // Window mode: apply position based on PositionMode
-    Position := poDesigned;
-    ApplyWindowPosition;
-  end;
-
-  // Apply OnTop setting
-  if FGeneralConfig.OnTop or (FGeneralConfig.WindowMode = wmMenu) then
-  begin
-    FormStyle := fsStayOnTop;
-    Log('FormCreate: OnTop enabled', ClassName);
-  end;
-
-  // Load external VCL styles and apply configured theme
-  FThemeManager.LoadStylesFromDirectory(FAppearanceConfig.VsfDir);
-  FThemeManager.SetStyle(FAppearanceConfig.Theme);
-
-  // Subscribe to application deactivation
-  Application.OnDeactivate := HandleApplicationDeactivate;
-
-  // Create UI components
-  CreateDeviceList;
-
-  // Create tray manager
-  FTrayManager := TTrayManager.Create(Self);
-  FTrayManager.OnToggleVisibility := HandleTrayToggleVisibility;
-  FTrayManager.OnSettingsRequest := HandleTraySettingsRequest;
-  FTrayManager.OnExitRequest := HandleTrayExitRequest;
-
-  // Apply configuration to device list
-  FDeviceList.ShowAddresses := FAppearanceConfig.ShowAddresses;
-
-  // Create and initialize presenter with injected dependencies
-  // Pass Self as each focused interface (ISP-compliant)
-  FPresenter := TMainPresenter.Create(
-    Self as IDeviceListView,
-    Self as IToggleView,
-    Self as IStatusView,
-    Self as IVisibilityView,
-    FAppConfig,
-    FDeviceConfigProvider,
-    FGeneralConfig,
-    FWindowConfig,
-    FAppearanceConfig,
-    FPollingConfig,
-    FConnectionConfig,
-    FStrategyFactory
-  );
-  FPresenter.Initialize;
-
-  // Create and register global hotkey
-  FHotkeyManager := THotkeyManager.Create;
-  FHotkeyManager.OnHotkeyTriggered := HandleHotkeyTriggered;
-  FHotkeyManager.Register(Handle, FHotkeyConfig.Hotkey, FHotkeyConfig.UseLowLevelHook);
-
-  // Hide from taskbar in Menu mode
-  ApplyMenuModeTaskbarHide;
-
-  // In Menu mode, start hidden
-  if FGeneralConfig.WindowMode = wmMenu then
-  begin
-    Log('FormCreate: Menu mode, starting hidden', ClassName);
-    Application.ShowMainForm := False;
-    Visible := False;
-  end;
+  // Initialize form using focused helper methods (SRP)
+  InitializeWindowSettings;
+  InitializeUIComponents;
+  InitializePresenter;
+  InitializeHotkey;
+  FinalizeMenuMode;
 
   Log('FormCreate: Complete', ClassName);
 end;
@@ -444,6 +376,105 @@ begin
   if AHeight > WINDOW_MAX_HEIGHT then AHeight := WINDOW_MAX_HEIGHT;
 
   Log('CalculateAutoSize: Calculated W=%d, H=%d', [AWidth, AHeight], ClassName);
+end;
+
+{ Initialization helpers (extracted from FormCreate for SRP) }
+
+procedure TFormMain.InitializeWindowSettings;
+begin
+  // Apply window mode (must be done early before window handle is created)
+  ApplyWindowMode;
+
+  // Apply window size first (may be auto-calculated)
+  ApplyWindowSize;
+
+  // Apply window position (depends on size being set)
+  if FGeneralConfig.WindowMode = wmMenu then
+  begin
+    // Menu mode: start hidden off-screen, position will be set on show
+    Position := poDesigned;
+    Left := -10000;
+    Top := -10000;
+    Log('InitializeWindowSettings: Menu mode, position will be set on show', ClassName);
+  end
+  else
+  begin
+    // Window mode: apply position based on PositionMode
+    Position := poDesigned;
+    ApplyWindowPosition;
+  end;
+
+  // Apply OnTop setting
+  if FGeneralConfig.OnTop or (FGeneralConfig.WindowMode = wmMenu) then
+  begin
+    FormStyle := fsStayOnTop;
+    Log('InitializeWindowSettings: OnTop enabled', ClassName);
+  end;
+end;
+
+procedure TFormMain.InitializeUIComponents;
+begin
+  // Load external VCL styles and apply configured theme
+  FThemeManager.LoadStylesFromDirectory(FAppearanceConfig.VsfDir);
+  FThemeManager.SetStyle(FAppearanceConfig.Theme);
+
+  // Subscribe to application deactivation
+  Application.OnDeactivate := HandleApplicationDeactivate;
+
+  // Create UI components
+  CreateDeviceList;
+
+  // Create tray manager
+  FTrayManager := TTrayManager.Create(Self);
+  FTrayManager.OnToggleVisibility := HandleTrayToggleVisibility;
+  FTrayManager.OnSettingsRequest := HandleTraySettingsRequest;
+  FTrayManager.OnExitRequest := HandleTrayExitRequest;
+
+  // Apply configuration to device list
+  FDeviceList.ShowAddresses := FAppearanceConfig.ShowAddresses;
+end;
+
+procedure TFormMain.InitializePresenter;
+begin
+  // Create and initialize presenter with injected dependencies
+  // Pass Self as each focused interface (ISP-compliant)
+  FPresenter := TMainPresenter.Create(
+    Self as IDeviceListView,
+    Self as IToggleView,
+    Self as IStatusView,
+    Self as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FPollingConfig,
+    FConnectionConfig,
+    FStrategyFactory
+  );
+  FPresenter.Initialize;
+end;
+
+procedure TFormMain.InitializeHotkey;
+begin
+  // Create and register global hotkey
+  FHotkeyManager := THotkeyManager.Create;
+  FHotkeyManager.OnHotkeyTriggered := HandleHotkeyTriggered;
+  FHotkeyManager.Register(Handle, FHotkeyConfig.Hotkey, FHotkeyConfig.UseLowLevelHook);
+end;
+
+procedure TFormMain.FinalizeMenuMode;
+begin
+  // Hide from taskbar in Menu mode
+  ApplyMenuModeTaskbarHide;
+
+  // In Menu mode, start hidden
+  if FGeneralConfig.WindowMode = wmMenu then
+  begin
+    Log('FinalizeMenuMode: Starting hidden', ClassName);
+    Application.ShowMainForm := False;
+    Visible := False;
+  end;
 end;
 
 procedure TFormMain.ApplyAllSettings;
