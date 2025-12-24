@@ -109,6 +109,12 @@ type
     procedure ShowDeviceNotification(const ADevice: TBluetoothDeviceInfo);
     procedure RefreshDisplayItems;
 
+    /// <summary>
+    /// Updates existing device or adds new one using copy-on-write pattern.
+    /// Creates a new array to avoid in-place modification issues.
+    /// </summary>
+    procedure UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
+
   public
     /// <summary>
     /// Creates the presenter with injected dependencies.
@@ -574,6 +580,38 @@ begin
   FDeviceListView.ShowDisplayItems(FDisplayItems);
 end;
 
+procedure TMainPresenter.UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
+var
+  I: Integer;
+  NewDevices: TBluetoothDeviceInfoArray;
+begin
+  // Copy-on-write pattern: create new array to avoid in-place modification
+  // This ensures FDevices is always in a consistent state
+
+  // First, check if device exists and update
+  for I := 0 to High(FDevices) do
+  begin
+    if FDevices[I].AddressInt = ADevice.AddressInt then
+    begin
+      // Create copy with updated element
+      SetLength(NewDevices, Length(FDevices));
+      Move(FDevices[0], NewDevices[0], Length(FDevices) * SizeOf(TBluetoothDeviceInfo));
+      NewDevices[I] := ADevice;
+      FDevices := NewDevices;
+      Log('UpdateOrAddDevice: Updated device at index %d', [I], ClassName);
+      Exit;
+    end;
+  end;
+
+  // Device not found, append to new array
+  SetLength(NewDevices, Length(FDevices) + 1);
+  if Length(FDevices) > 0 then
+    Move(FDevices[0], NewDevices[0], Length(FDevices) * SizeOf(TBluetoothDeviceInfo));
+  NewDevices[High(NewDevices)] := ADevice;
+  FDevices := NewDevices;
+  Log('UpdateOrAddDevice: Added new device, total=%d', [Length(FDevices)], ClassName);
+end;
+
 { Service event handlers }
 
 procedure TMainPresenter.HandleDeviceStateChanged(Sender: TObject;
@@ -595,31 +633,11 @@ begin
 
   TThread.Queue(nil,
     procedure
-    var
-      I: Integer;
-      Found: Boolean;
     begin
       Log('HandleDeviceStateChanged (queued): Processing %s', [LDevice.Name], ClassName);
 
-      Found := False;
-
-      // Update local cache
-      for I := 0 to High(FDevices) do
-      begin
-        if FDevices[I].AddressInt = LDevice.AddressInt then
-        begin
-          FDevices[I] := LDevice;
-          Found := True;
-          Break;
-        end;
-      end;
-
-      // Add to local cache if not found
-      if not Found then
-      begin
-        SetLength(FDevices, Length(FDevices) + 1);
-        FDevices[High(FDevices)] := LDevice;
-      end;
+      // Update local cache using copy-on-write pattern
+      UpdateOrAddDevice(LDevice);
 
       // Update LastSeen timestamp in persistent config
       FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
