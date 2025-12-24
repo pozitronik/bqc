@@ -179,6 +179,8 @@ type
   TSettingsPresenter = class
   private
     FView: ISettingsView;
+    FAppConfig: IAppConfig;
+    FDeviceConfigProvider: IDeviceConfigProvider;
     FModified: Boolean;
     FDeviceAddresses: TList<UInt64>;
     FSelectedDeviceIndex: Integer;
@@ -189,7 +191,11 @@ type
     procedure SaveDeviceSettings(AIndex: Integer);
 
   public
-    constructor Create(AView: ISettingsView);
+    constructor Create(
+      AView: ISettingsView;
+      AAppConfig: IAppConfig;
+      ADeviceConfigProvider: IDeviceConfigProvider
+    );
     destructor Destroy; override;
 
     procedure LoadSettings;
@@ -217,15 +223,20 @@ implementation
 uses
   App.Logger,
   App.Config,  // For DEF_* constants
-  App.Bootstrap,
   Bluetooth.Types;
 
 { TSettingsPresenter }
 
-constructor TSettingsPresenter.Create(AView: ISettingsView);
+constructor TSettingsPresenter.Create(
+  AView: ISettingsView;
+  AAppConfig: IAppConfig;
+  ADeviceConfigProvider: IDeviceConfigProvider
+);
 begin
   inherited Create;
   FView := AView;
+  FAppConfig := AAppConfig;
+  FDeviceConfigProvider := ADeviceConfigProvider;
   FModified := False;
   FDeviceAddresses := TList<UInt64>.Create;
   FSelectedDeviceIndex := -1;
@@ -251,13 +262,13 @@ begin
   FDeviceAddresses.Clear;
   SetLength(Items, 0);
 
-  Addresses := Bootstrap.DeviceConfigProvider.GetConfiguredDeviceAddresses;
+  Addresses := FDeviceConfigProvider.GetConfiguredDeviceAddresses;
   SetLength(Items, Length(Addresses));
 
   I := 0;
   for Address in Addresses do
   begin
-    DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
+    DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(Address);
     if DeviceConfig.Name <> '' then
       DisplayName := Format('%s (%s)', [DeviceConfig.Name, FormatAddressAsMAC(Address)])
     else
@@ -297,7 +308,7 @@ begin
   if (AIndex < 0) or (AIndex >= FDeviceAddresses.Count) then Exit;
 
   Address := FDeviceAddresses[AIndex];
-  DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
+  DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(Address);
 
   Settings.Alias := DeviceConfig.Alias;
   Settings.DeviceTypeIndex := DeviceConfig.DeviceTypeOverride + 1;
@@ -324,7 +335,7 @@ begin
     Exit;
 
   Address := FDeviceAddresses[AIndex];
-  DeviceConfig := Bootstrap.DeviceConfigProvider.GetDeviceConfig(Address);
+  DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(Address);
   Settings := FView.GetDeviceSettings;
 
   DeviceConfig.Alias := Settings.Alias;
@@ -339,7 +350,7 @@ begin
   DeviceConfig.Notifications.OnConnectFailed := Settings.NotifyFailedIndex - 1;
   DeviceConfig.Notifications.OnAutoConnect := Settings.NotifyAutoIndex - 1;
 
-  Bootstrap.DeviceConfigProvider.SetDeviceConfig(DeviceConfig);
+  FDeviceConfigProvider.SetDeviceConfig(DeviceConfig);
 end;
 
 procedure TSettingsPresenter.LoadSettings;
@@ -365,7 +376,7 @@ begin
   Log('LoadSettings', ClassName);
 
   // Get interfaces from AppConfig
-  AppCfg := Bootstrap.AppConfig;
+  AppCfg := FAppConfig;
   GeneralCfg := AppCfg.AsGeneralConfig;
   WindowCfg := AppCfg.AsWindowConfig;
   PositionCfg := AppCfg.AsPositionConfig;
@@ -471,7 +482,7 @@ begin
       SaveDeviceSettings(FSelectedDeviceIndex);
 
     // Get interfaces from AppConfig
-    AppCfg := Bootstrap.AppConfig;
+    AppCfg := FAppConfig;
     GeneralCfg := AppCfg.AsGeneralConfig;
     WindowCfg := AppCfg.AsWindowConfig;
     PositionCfg := AppCfg.AsPositionConfig;
@@ -555,7 +566,7 @@ begin
     LogCfg.LogAppend := Logging.Append;
 
     // Save configuration to file
-    Bootstrap.AppConfig.Save;
+    FAppConfig.Save;
     FModified := False;
     Log('SaveSettings: Success', ClassName);
 
@@ -597,7 +608,7 @@ var
   PositionCfg: IPositionConfig;
 begin
   Log('OnResetSizeClicked', ClassName);
-  PositionCfg := Bootstrap.AppConfig.AsPositionConfig;
+  PositionCfg := FAppConfig.AsPositionConfig;
   PositionCfg.PositionW := -1;
   PositionCfg.PositionH := -1;
   FView.ShowInfo('Window size will be reset to default on next application start.');
@@ -608,7 +619,7 @@ var
   PositionCfg: IPositionConfig;
 begin
   Log('OnResetPositionClicked', ClassName);
-  PositionCfg := Bootstrap.AppConfig.AsPositionConfig;
+  PositionCfg := FAppConfig.AsPositionConfig;
   PositionCfg.PositionX := -1;
   PositionCfg.PositionY := -1;
   FView.ShowInfo('Window position will be reset to default on next application start.');
@@ -628,7 +639,7 @@ begin
   if (AIndex >= 0) and (AIndex < FDeviceAddresses.Count) then
   begin
     Address := FDeviceAddresses[AIndex];
-    Bootstrap.DeviceConfigProvider.RemoveDeviceConfig(Address);
+    FDeviceConfigProvider.RemoveDeviceConfig(Address);
     FSelectedDeviceIndex := -1;
     LoadDeviceList;
   end;
@@ -645,11 +656,11 @@ begin
   Log('OnResetDefaultsClicked', ClassName);
   try
     // Delete config file
-    if FileExists(Bootstrap.AppConfig.ConfigPath) then
-      System.SysUtils.DeleteFile(Bootstrap.AppConfig.ConfigPath);
+    if FileExists(FAppConfig.ConfigPath) then
+      System.SysUtils.DeleteFile(FAppConfig.ConfigPath);
 
     // Reload defaults
-    Bootstrap.AppConfig.Load;
+    FAppConfig.Load;
     LoadSettings;
 
     FView.ShowInfo('Settings have been reset to defaults.');

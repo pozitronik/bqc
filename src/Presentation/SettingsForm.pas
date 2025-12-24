@@ -306,7 +306,11 @@ uses
 procedure TFormSettings.FormCreate(Sender: TObject);
 begin
   Log('FormCreate', ClassName);
-  FPresenter := TSettingsPresenter.Create(Self);
+  FPresenter := TSettingsPresenter.Create(
+    Self,
+    Bootstrap.AppConfig,
+    Bootstrap.DeviceConfigProvider
+  );
   FRecordingHotkey := False;
   KeyPreview := True;
 end;

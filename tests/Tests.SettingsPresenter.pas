@@ -31,6 +31,8 @@ type
   TSettingsPresenterTests = class
   private
     FMockView: TMockSettingsView;
+    FMockAppConfig: TMockAppConfig;
+    FMockDeviceConfigProvider: TMockDeviceConfigProvider;
     FPresenter: TSettingsPresenter;
   public
     [Setup]
@@ -147,9 +149,15 @@ uses
 procedure TSettingsPresenterTests.Setup;
 begin
   FMockView := TMockSettingsView.Create;
-  // Note: The mock is a TInterfacedObject, but we need to prevent premature destruction
-  // by keeping a reference. The presenter takes an interface reference.
-  FPresenter := TSettingsPresenter.Create(FMockView);
+  FMockAppConfig := TMockAppConfig.Create;
+  FMockDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  // Note: The mocks are TInterfacedObjects, but we need to prevent premature destruction
+  // by keeping references. The presenter takes interface references.
+  FPresenter := TSettingsPresenter.Create(
+    FMockView,
+    FMockAppConfig,
+    FMockDeviceConfigProvider
+  );
 end;
 
 procedure TSettingsPresenterTests.TearDown;
