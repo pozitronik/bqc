@@ -35,6 +35,9 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
+    FPollingConfig: TMockPollingConfig;
+    FConnectionConfig: TMockConnectionConfig;
+    FStrategyFactory: TMockConnectionStrategyFactory;
     FPresenter: TMainPresenter;
 
     procedure CreatePresenter;
@@ -96,6 +99,9 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
+  FPollingConfig := TMockPollingConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FStrategyFactory := TMockConnectionStrategyFactory.Create;
   FPresenter := nil;
 end;
 
@@ -116,7 +122,10 @@ begin
     FDeviceConfigProvider,
     FGeneralConfig,
     FWindowConfig,
-    FAppearanceConfig
+    FAppearanceConfig,
+    FPollingConfig,
+    FConnectionConfig,
+    FStrategyFactory
   );
 end;
 

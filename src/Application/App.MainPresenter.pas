@@ -80,6 +80,9 @@ type
     FGeneralConfig: IGeneralConfig;
     FWindowConfig: IWindowConfig;
     FAppearanceConfig: IAppearanceConfig;
+    FPollingConfig: IPollingConfig;
+    FConnectionConfig: IConnectionConfig;
+    FStrategyFactory: IConnectionStrategyFactory;
     FRadioWatcher: TBluetoothRadioWatcher;
     FDevices: TBluetoothDeviceInfoArray;
     FDisplayItems: TDeviceDisplayItemArray;
@@ -119,6 +122,9 @@ type
     /// <param name="AGeneralConfig">General settings (window mode).</param>
     /// <param name="AWindowConfig">Window settings (close to tray).</param>
     /// <param name="AAppearanceConfig">Appearance settings for display items.</param>
+    /// <param name="APollingConfig">Polling settings for device monitor.</param>
+    /// <param name="AConnectionConfig">Connection settings.</param>
+    /// <param name="AStrategyFactory">Connection strategy factory.</param>
     constructor Create(
       ADeviceListView: IDeviceListView;
       AToggleView: IToggleView;
@@ -128,7 +134,10 @@ type
       ADeviceConfigProvider: IDeviceConfigProvider;
       AGeneralConfig: IGeneralConfig;
       AWindowConfig: IWindowConfig;
-      AAppearanceConfig: IAppearanceConfig
+      AAppearanceConfig: IAppearanceConfig;
+      APollingConfig: IPollingConfig;
+      AConnectionConfig: IConnectionConfig;
+      AStrategyFactory: IConnectionStrategyFactory
     );
 
     /// <summary>
@@ -213,7 +222,10 @@ constructor TMainPresenter.Create(
   ADeviceConfigProvider: IDeviceConfigProvider;
   AGeneralConfig: IGeneralConfig;
   AWindowConfig: IWindowConfig;
-  AAppearanceConfig: IAppearanceConfig
+  AAppearanceConfig: IAppearanceConfig;
+  APollingConfig: IPollingConfig;
+  AConnectionConfig: IConnectionConfig;
+  AStrategyFactory: IConnectionStrategyFactory
 );
 begin
   inherited Create;
@@ -230,6 +242,9 @@ begin
   FGeneralConfig := AGeneralConfig;
   FWindowConfig := AWindowConfig;
   FAppearanceConfig := AAppearanceConfig;
+  FPollingConfig := APollingConfig;
+  FConnectionConfig := AConnectionConfig;
+  FStrategyFactory := AStrategyFactory;
 
   FBluetoothService := nil;
   FRadioWatcher := nil;
@@ -266,7 +281,12 @@ begin
 
   // Create Bluetooth service
   Log('Initialize: Creating Bluetooth service', ClassName);
-  FBluetoothService := CreateBluetoothService;
+  FBluetoothService := CreateBluetoothService(
+    FPollingConfig,
+    FConnectionConfig,
+    FDeviceConfigProvider,
+    FStrategyFactory
+  );
   FBluetoothService.OnDeviceStateChanged := HandleDeviceStateChanged;
   FBluetoothService.OnDeviceListChanged := HandleDeviceListChanged;
   FBluetoothService.OnError := HandleError;

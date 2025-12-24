@@ -16,6 +16,7 @@ uses
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
   Vcl.ComCtrls,
+  App.ConfigInterfaces,
   App.SettingsPresenter;
 
 type
@@ -235,6 +236,11 @@ type
     FPresenter: TSettingsPresenter;
     FRecordingHotkey: Boolean;
 
+    { Injected dependencies }
+    FAppConfig: IAppConfig;
+    FLogConfig: ILogConfig;
+    FDeviceConfigProvider: IDeviceConfigProvider;
+
     { ISettingsView implementation - Dialog control }
     procedure CloseWithOK;
     procedure CloseWithCancel;
@@ -279,6 +285,11 @@ type
 
   public
     { Public declarations }
+    procedure Setup(
+      AAppConfig: IAppConfig;
+      ALogConfig: ILogConfig;
+      ADeviceConfigProvider: IDeviceConfigProvider
+    );
     function GetOnSettingsApplied: TNotifyEvent;
     procedure SetOnSettingsApplied(AValue: TNotifyEvent);
     property OnSettingsApplied: TNotifyEvent read GetOnSettingsApplied write SetOnSettingsApplied;
@@ -294,7 +305,6 @@ uses
   Vcl.FileCtrl,
   App.Logger,
   App.Config,
-  App.ConfigInterfaces,
   App.Bootstrap,
   Bluetooth.Types,
   UI.Theme;
@@ -306,14 +316,31 @@ uses
 procedure TFormSettings.FormCreate(Sender: TObject);
 begin
   Log('FormCreate', ClassName);
+  // Initialize dependencies from Bootstrap (composition root)
+  Setup(
+    Bootstrap.AppConfig,
+    Bootstrap.AppConfig.AsLogConfig,
+    Bootstrap.DeviceConfigProvider
+  );
   FPresenter := TSettingsPresenter.Create(
     Self as ISettingsView,
     Self as IDeviceSettingsView,
-    Bootstrap.AppConfig,
-    Bootstrap.DeviceConfigProvider
+    FAppConfig,
+    FDeviceConfigProvider
   );
   FRecordingHotkey := False;
   KeyPreview := True;
+end;
+
+procedure TFormSettings.Setup(
+  AAppConfig: IAppConfig;
+  ALogConfig: ILogConfig;
+  ADeviceConfigProvider: IDeviceConfigProvider
+);
+begin
+  FAppConfig := AAppConfig;
+  FLogConfig := ALogConfig;
+  FDeviceConfigProvider := ADeviceConfigProvider;
 end;
 
 procedure TFormSettings.FormDestroy(Sender: TObject);
@@ -941,14 +968,14 @@ end;
 
 procedure TFormSettings.ButtonOpenConfigClick(Sender: TObject);
 begin
-  ShellExecute(0, 'open', PChar(Bootstrap.AppConfig.ConfigPath), nil, nil, SW_SHOWNORMAL);
+  ShellExecute(0, 'open', PChar(FAppConfig.ConfigPath), nil, nil, SW_SHOWNORMAL);
 end;
 
 procedure TFormSettings.ButtonOpenLogFileClick(Sender: TObject);
 var
   LogPath: string;
 begin
-  LogPath := Bootstrap.LogConfig.LogFilename;
+  LogPath := FLogConfig.LogFilename;
   if ExtractFilePath(LogPath) = '' then
     LogPath := ExtractFilePath(ParamStr(0)) + LogPath;
 

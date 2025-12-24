@@ -105,29 +105,38 @@ type
 /// Creates the default Bluetooth service instance.
 /// Factory function for dependency injection.
 /// </summary>
-function CreateBluetoothService: IBluetoothService;
+function CreateBluetoothService(
+  APollingConfig: IPollingConfig;
+  AConnectionConfig: IConnectionConfig;
+  ADeviceConfigProvider: IDeviceConfigProvider;
+  AStrategyFactory: IConnectionStrategyFactory
+): IBluetoothService;
 
 implementation
 
 uses
-  App.Bootstrap,
   Bluetooth.DeviceMonitors,
   Bluetooth.DeviceRepository,
   Bluetooth.ConnectionExecutor,
   Bluetooth.AdapterQuery,
   Bluetooth.EventDebouncer;
 
-function CreateBluetoothService: IBluetoothService;
+function CreateBluetoothService(
+  APollingConfig: IPollingConfig;
+  AConnectionConfig: IConnectionConfig;
+  ADeviceConfigProvider: IDeviceConfigProvider;
+  AStrategyFactory: IConnectionStrategyFactory
+): IBluetoothService;
 var
   MonitorFactory: IDeviceMonitorFactory;
   Debouncer: IEventDebouncer;
 begin
-  MonitorFactory := TDeviceMonitorFactory.Create(Bootstrap.PollingConfig);
+  MonitorFactory := TDeviceMonitorFactory.Create(APollingConfig);
   Debouncer := TDeviceEventDebouncer.Create(500); // 500ms default debounce interval
   Result := TBluetoothService.Create(
-    Bootstrap.ConnectionConfig,
-    Bootstrap.DeviceConfigProvider,
-    Bootstrap.ConnectionStrategyFactory,
+    AConnectionConfig,
+    ADeviceConfigProvider,
+    AStrategyFactory,
     MonitorFactory.CreateMonitor,
     CreateDeviceRepository,
     CreateConnectionExecutor,

@@ -29,8 +29,10 @@ type
     /// Handles taskbar detection and multi-monitor support.
     /// </summary>
     /// <param name="AForm">The form to position.</param>
+    /// <param name="APositionConfig">Position configuration (for pmCoordinates mode).</param>
     /// <param name="APosition">The positioning mode.</param>
-    class procedure PositionWindow(AForm: TForm; APosition: TPositionMode);
+    class procedure PositionWindow(AForm: TForm; APositionConfig: IPositionConfig;
+      APosition: TPositionMode);
 
     /// <summary>
     /// Ensures a form stays within the work area of its current monitor.
@@ -47,8 +49,7 @@ implementation
 
 uses
   Vcl.Controls,
-  App.Logger,
-  App.Bootstrap;
+  App.Logger;
 
 const
   // Windows Shell class name for taskbar
@@ -76,7 +77,8 @@ begin
   Result := TaskbarWidth > TaskbarHeight;
 end;
 
-class procedure TWindowPositioner.PositionWindow(AForm: TForm; APosition: TPositionMode);
+class procedure TWindowPositioner.PositionWindow(AForm: TForm;
+  APositionConfig: IPositionConfig; APosition: TPositionMode);
 var
   CursorPos: TPoint;
   Mon: TMonitor;
@@ -108,10 +110,10 @@ begin
     pmCoordinates:
       begin
         // Use saved coordinates from config
-        if (Bootstrap.PositionConfig.PositionX >= 0) and (Bootstrap.PositionConfig.PositionY >= 0) then
+        if (APositionConfig.PositionX >= 0) and (APositionConfig.PositionY >= 0) then
         begin
-          NewLeft := Bootstrap.PositionConfig.PositionX;
-          NewTop := Bootstrap.PositionConfig.PositionY;
+          NewLeft := APositionConfig.PositionX;
+          NewTop := APositionConfig.PositionY;
           Log('Using saved coordinates X=%d, Y=%d', [NewLeft, NewTop], ClassName);
         end
         else

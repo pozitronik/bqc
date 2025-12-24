@@ -183,7 +183,7 @@ type
     property OnDisplayItemClick: TDeviceDisplayItemClickEvent read FOnDisplayItemClick write FOnDisplayItemClick;
     property OnSelectionChanged: TNotifyEvent read FOnSelectionChanged write FOnSelectionChanged;
 
-    // Dependency injection properties (optional - uses Bootstrap fallback if not set)
+    // Dependency injection properties (must be set before use)
     property LayoutConfig: ILayoutConfig read GetLayoutConfig write FLayoutConfig;
     property AppearanceConfig: IAppearanceConfig read GetAppearanceConfig write FAppearanceConfig;
 
@@ -202,7 +202,6 @@ implementation
 
 uses
   System.Math,
-  App.Bootstrap,
   UI.ListGeometry;
 
 const
@@ -299,15 +298,11 @@ end;
 
 function TDeviceListBox.GetLayoutConfig: ILayoutConfig;
 begin
-  if FLayoutConfig = nil then
-    FLayoutConfig := Bootstrap.LayoutConfig;
   Result := FLayoutConfig;
 end;
 
 function TDeviceListBox.GetAppearanceConfig: IAppearanceConfig;
 begin
-  if FAppearanceConfig = nil then
-    FAppearanceConfig := Bootstrap.AppearanceConfig;
   Result := FAppearanceConfig;
 end;
 
