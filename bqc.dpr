@@ -35,6 +35,7 @@ uses
   App.Config in 'src\Infrastructure\App.Config.pas',
   App.SettingsRepository in 'src\Infrastructure\App.SettingsRepository.pas',
   App.DeviceConfigRepository in 'src\Infrastructure\App.DeviceConfigRepository.pas',
+  App.DeviceConfigProvider in 'src\Infrastructure\App.DeviceConfigProvider.pas',
   App.Bootstrap in 'src\Infrastructure\App.Bootstrap.pas',
   App.Autostart in 'src\Infrastructure\App.Autostart.pas',
   UI.Theme in 'src\Presentation\UI.Theme.pas',

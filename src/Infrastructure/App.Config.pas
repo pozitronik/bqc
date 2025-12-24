@@ -28,12 +28,10 @@ type
   /// Handles loading/saving settings from INI file.
   /// Implements layer-specific configuration interfaces via composition.
   /// Uses reference counting for automatic memory management.
+  /// Device configuration is delegated to composed IDeviceConfigProvider (SRP).
   /// </summary>
   TAppConfig = class(TObject,
     IInterface,
-    IDeviceConfigQuery,
-    IDeviceConfigMutation,
-    IDeviceConfigProvider,
     IAppConfig)
   protected
     FRefCount: Integer;
@@ -46,6 +44,7 @@ type
     FModified: Boolean;
     FDeviceRepository: IDeviceConfigRepository;
     FSettingsRepository: ISettingsRepository;
+    FDeviceConfigProvider: IDeviceConfigProvider;
 
     // Composed configuration sections (stored as interfaces for reference counting)
     FGeneralSection: IGeneralConfig;
@@ -100,36 +99,6 @@ type
     procedure ClearModified;
 
     /// <summary>
-    /// Gets device-specific configuration.
-    /// Returns default config if device not configured.
-    /// </summary>
-    function GetDeviceConfig(AAddress: UInt64): TDeviceConfig;
-
-    /// <summary>
-    /// Sets device-specific configuration.
-    /// </summary>
-    procedure SetDeviceConfig(const AConfig: TDeviceConfig);
-
-    /// <summary>
-    /// Removes device-specific configuration (resets to defaults).
-    /// </summary>
-    procedure RemoveDeviceConfig(AAddress: UInt64);
-
-    /// <summary>
-    /// Registers a discovered device. Creates new config if not exists,
-    /// or updates Name and LastSeen if already registered.
-    /// </summary>
-    /// <param name="AAddress">Device Bluetooth address.</param>
-    /// <param name="AName">Original device name from Windows.</param>
-    /// <param name="ALastSeen">Timestamp when device was discovered.</param>
-    procedure RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
-
-    /// <summary>
-    /// Returns all configured device addresses.
-    /// </summary>
-    function GetConfiguredDeviceAddresses: TArray<UInt64>;
-
-    /// <summary>
     /// Path to the configuration file.
     /// </summary>
     property ConfigPath: string read FConfigPath;
@@ -138,24 +107,6 @@ type
     /// True if configuration was modified since last save.
     /// </summary>
     property Modified: Boolean read FModified;
-
-    /// <summary>
-    /// Gets effective notification mode for a device and event.
-    /// Resolves per-device override or returns global default.
-    /// </summary>
-    function GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
-
-    /// <summary>
-    /// Gets effective connection timeout for a device.
-    /// Resolves per-device override or returns global default.
-    /// </summary>
-    function GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
-
-    /// <summary>
-    /// Gets effective retry count for a device.
-    /// Resolves per-device override or returns global default.
-    /// </summary>
-    function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
 
     // IAppConfig - aggregate interface access (returns section interfaces)
     function AsGeneralConfig: IGeneralConfig;
@@ -241,7 +192,8 @@ implementation
 uses
   System.Math,
   System.DateUtils,
-  App.SettingsRepository;
+  App.SettingsRepository,
+  App.DeviceConfigProvider;
 
 { TAppConfig }
 
@@ -283,6 +235,7 @@ begin
     SaveIfModified;
   finally
     // All fields are interface-based, released automatically via reference counting
+    FDeviceConfigProvider := nil;
     FSettingsRepository := nil;
     FDeviceRepository := nil;
     FGeneralSection := nil;
@@ -309,6 +262,13 @@ procedure TAppConfig.SetRepositories(ASettingsRepository: ISettingsRepository;
 begin
   FSettingsRepository := ASettingsRepository;
   FDeviceRepository := ADeviceRepository;
+
+  // Create device config provider with dependencies (SRP)
+  FDeviceConfigProvider := CreateDeviceConfigProvider(
+    FDeviceRepository,
+    FNotificationSection,
+    FConnectionSection
+  );
 end;
 
 procedure TAppConfig.ClearModified;
@@ -343,107 +303,6 @@ begin
   DeviceModified := Assigned(FDeviceRepository) and FDeviceRepository.IsModified;
   if FModified or DeviceModified then
     Save;
-end;
-
-function TAppConfig.GetDeviceConfig(AAddress: UInt64): TDeviceConfig;
-begin
-  if Assigned(FDeviceRepository) then
-    Result := FDeviceRepository.GetConfig(AAddress)
-  else
-    Result := TDeviceConfig.Default(AAddress);
-end;
-
-procedure TAppConfig.SetDeviceConfig(const AConfig: TDeviceConfig);
-begin
-  if Assigned(FDeviceRepository) then
-    FDeviceRepository.SetConfig(AConfig);
-end;
-
-procedure TAppConfig.RemoveDeviceConfig(AAddress: UInt64);
-begin
-  if Assigned(FDeviceRepository) then
-    FDeviceRepository.Remove(AAddress);
-end;
-
-procedure TAppConfig.RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
-begin
-  if Assigned(FDeviceRepository) then
-    FDeviceRepository.RegisterDevice(AAddress, AName, ALastSeen);
-end;
-
-function TAppConfig.GetConfiguredDeviceAddresses: TArray<UInt64>;
-begin
-  if Assigned(FDeviceRepository) then
-    Result := FDeviceRepository.GetAllAddresses
-  else
-    Result := nil;
-end;
-
-// Effective value resolution (resolves per-device overrides)
-
-function TAppConfig.GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
-var
-  DeviceConfig: TDeviceConfig;
-  DeviceValue: Integer;
-begin
-  // Get per-device config if exists
-  DeviceConfig := GetDeviceConfig(AAddress);
-
-  // Get the per-device override value for this event
-  case AEvent of
-    neConnect:
-      DeviceValue := DeviceConfig.Notifications.OnConnect;
-    neDisconnect:
-      DeviceValue := DeviceConfig.Notifications.OnDisconnect;
-    neConnectFailed:
-      DeviceValue := DeviceConfig.Notifications.OnConnectFailed;
-    neAutoConnect:
-      DeviceValue := DeviceConfig.Notifications.OnAutoConnect;
-  else
-    DeviceValue := -1;
-  end;
-
-  // If per-device value is set (>= 0), use it; otherwise use global
-  if DeviceValue >= 0 then
-    Result := TNotificationMode(DeviceValue)
-  else
-  begin
-    // Return global default from section
-    case AEvent of
-      neConnect:
-        Result := FNotificationSection.NotifyOnConnect;
-      neDisconnect:
-        Result := FNotificationSection.NotifyOnDisconnect;
-      neConnectFailed:
-        Result := FNotificationSection.NotifyOnConnectFailed;
-      neAutoConnect:
-        Result := FNotificationSection.NotifyOnAutoConnect;
-    else
-      Result := nmNone;
-    end;
-  end;
-end;
-
-function TAppConfig.GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
-var
-  DeviceConfig: TDeviceConfig;
-begin
-  DeviceConfig := GetDeviceConfig(AAddress);
-  if DeviceConfig.ConnectionTimeout >= 0 then
-    Result := DeviceConfig.ConnectionTimeout
-  else
-    Result := FConnectionSection.ConnectionTimeout;
-end;
-
-function TAppConfig.GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
-var
-  DeviceConfig: TDeviceConfig;
-begin
-  DeviceConfig := GetDeviceConfig(AAddress);
-  if DeviceConfig.ConnectionRetryCount >= 0 then
-    Result := DeviceConfig.ConnectionRetryCount
-  else
-    Result := FConnectionSection.ConnectionRetryCount;
 end;
 
 // IInterface implementation with reference counting
@@ -534,7 +393,7 @@ end;
 
 function TAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
 begin
-  Result := Self;
+  Result := FDeviceConfigProvider;
 end;
 
 end.
