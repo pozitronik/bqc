@@ -59,6 +59,15 @@ type
       out AModifiers: Cardinal; out AVirtualKey: Cardinal): Boolean;
 
     /// <summary>
+    /// Builds a hotkey string from a virtual key code and shift state.
+    /// Inverse of ParseHotkeyString. Used for hotkey recording.
+    /// </summary>
+    /// <param name="AKey">Virtual key code (VK_*).</param>
+    /// <param name="AShift">Shift state (ssCtrl, ssAlt, ssShift).</param>
+    /// <returns>Hotkey string like "Ctrl+Alt+B", or empty if invalid.</returns>
+    class function BuildHotkeyString(AKey: Word; AShift: TShiftState): string;
+
+    /// <summary>
     /// Registers a global hotkey for the specified window.
     /// </summary>
     /// <param name="AWindowHandle">Handle of the window to receive hotkey messages.</param>
@@ -317,6 +326,75 @@ begin
 
   Result := True;
   Log('ParseHotkeyString: Parsed "%s" -> Modifiers=$%X, VK=$%X', [AHotkey, AModifiers, AVirtualKey], ClassName);
+end;
+
+class function THotkeyManager.BuildHotkeyString(AKey: Word; AShift: TShiftState): string;
+begin
+  Result := '';
+
+  // Build modifier prefix
+  if ssCtrl in AShift then
+    Result := Result + 'Ctrl+';
+  if ssAlt in AShift then
+    Result := Result + 'Alt+';
+  if ssShift in AShift then
+    Result := Result + 'Shift+';
+
+  // Check for Win key (not in standard TShiftState, but we handle it for completeness)
+  if GetAsyncKeyState(VK_LWIN) < 0 then
+    Result := Result + 'Win+';
+
+  // Need at least one modifier
+  if Result = '' then
+    Exit('');
+
+  // Don't process modifier-only keys
+  if AKey in [VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN, VK_LCONTROL,
+    VK_RCONTROL, VK_LMENU, VK_RMENU, VK_LSHIFT, VK_RSHIFT] then
+    Exit('');
+
+  // Convert virtual key to string
+  case AKey of
+    VK_F1..VK_F12:
+      Result := Result + 'F' + IntToStr(AKey - VK_F1 + 1);
+    VK_SPACE:
+      Result := Result + 'Space';
+    VK_RETURN:
+      Result := Result + 'Enter';
+    VK_ESCAPE:
+      Result := Result + 'Escape';
+    VK_TAB:
+      Result := Result + 'Tab';
+    VK_BACK:
+      Result := Result + 'Backspace';
+    VK_DELETE:
+      Result := Result + 'Delete';
+    VK_INSERT:
+      Result := Result + 'Insert';
+    VK_HOME:
+      Result := Result + 'Home';
+    VK_END:
+      Result := Result + 'End';
+    VK_PRIOR:
+      Result := Result + 'PageUp';
+    VK_NEXT:
+      Result := Result + 'PageDown';
+    VK_UP:
+      Result := Result + 'Up';
+    VK_DOWN:
+      Result := Result + 'Down';
+    VK_LEFT:
+      Result := Result + 'Left';
+    VK_RIGHT:
+      Result := Result + 'Right';
+    Ord('A')..Ord('Z'):
+      Result := Result + Chr(AKey);
+    Ord('0')..Ord('9'):
+      Result := Result + Chr(AKey);
+  else
+    // Unknown key
+    Result := '';
+  end;
 end;
 
 procedure THotkeyManager.Register(AWindowHandle: HWND; const AHotkey: string;

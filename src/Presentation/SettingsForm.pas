@@ -307,7 +307,8 @@ uses
   App.Config,
   App.Bootstrap,
   Bluetooth.Types,
-  UI.Theme;
+  UI.Theme,
+  UI.HotkeyManager;
 
 {$R *.dfm}
 
@@ -806,81 +807,25 @@ begin
 
   if FRecordingHotkey then
   begin
-    // Build hotkey string from key and modifiers
-    HotkeyStr := '';
-
-    if ssCtrl in Shift then
-      HotkeyStr := HotkeyStr + 'Ctrl+';
-    if ssAlt in Shift then
-      HotkeyStr := HotkeyStr + 'Alt+';
-    if ssShift in Shift then
-      HotkeyStr := HotkeyStr + 'Shift+';
-
-    // Check for Win key - need to check GetAsyncKeyState
-    if (GetAsyncKeyState(VK_LWIN) < 0) or (GetAsyncKeyState(VK_RWIN) < 0) then
-      HotkeyStr := HotkeyStr + 'Win+';
-
-    // Only accept if there's at least one modifier and a non-modifier key
-    if (HotkeyStr <> '') and not (Key in [VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN]) then
+    // Handle Escape to cancel recording
+    if Key = VK_ESCAPE then
     begin
-      // Convert key code to string
-      case Key of
-        VK_F1..VK_F12:
-          HotkeyStr := HotkeyStr + 'F' + IntToStr(Key - VK_F1 + 1);
-        VK_SPACE:
-          HotkeyStr := HotkeyStr + 'Space';
-        VK_RETURN:
-          HotkeyStr := HotkeyStr + 'Enter';
-        VK_ESCAPE:
-          HotkeyStr := HotkeyStr + 'Escape';
-        VK_TAB:
-          HotkeyStr := HotkeyStr + 'Tab';
-        VK_BACK:
-          HotkeyStr := HotkeyStr + 'Backspace';
-        VK_DELETE:
-          HotkeyStr := HotkeyStr + 'Delete';
-        VK_INSERT:
-          HotkeyStr := HotkeyStr + 'Insert';
-        VK_HOME:
-          HotkeyStr := HotkeyStr + 'Home';
-        VK_END:
-          HotkeyStr := HotkeyStr + 'End';
-        VK_PRIOR:
-          HotkeyStr := HotkeyStr + 'PageUp';
-        VK_NEXT:
-          HotkeyStr := HotkeyStr + 'PageDown';
-        VK_UP:
-          HotkeyStr := HotkeyStr + 'Up';
-        VK_DOWN:
-          HotkeyStr := HotkeyStr + 'Down';
-        VK_LEFT:
-          HotkeyStr := HotkeyStr + 'Left';
-        VK_RIGHT:
-          HotkeyStr := HotkeyStr + 'Right';
-        Ord('0')..Ord('9'):
-          HotkeyStr := HotkeyStr + Chr(Key);
-        Ord('A')..Ord('Z'):
-          HotkeyStr := HotkeyStr + Chr(Key);
-      else
-        // Unknown key, cancel recording
-        HotkeyStr := '';
-      end;
-
-      if HotkeyStr <> '' then
-      begin
-        EditHotkey.Text := HotkeyStr;
-        FRecordingHotkey := False;
-        ButtonRecordHotkey.Enabled := True;
-        Key := 0; // Consume the key
-      end;
-    end
-    else if Key = VK_ESCAPE then
-    begin
-      // Cancel recording
       FRecordingHotkey := False;
       ButtonRecordHotkey.Enabled := True;
       FPresenter.LoadSettings; // Restore original value
       Key := 0;
+      Exit;
+    end;
+
+    // Use THotkeyManager to build the hotkey string
+    HotkeyStr := THotkeyManager.BuildHotkeyString(Key, Shift);
+
+    if HotkeyStr <> '' then
+    begin
+      EditHotkey.Text := HotkeyStr;
+      FRecordingHotkey := False;
+      ButtonRecordHotkey.Enabled := True;
+      Key := 0; // Consume the key
     end;
   end;
 end;
