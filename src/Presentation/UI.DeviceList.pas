@@ -202,7 +202,8 @@ implementation
 
 uses
   System.Math,
-  UI.ListGeometry;
+  UI.ListGeometry,
+  UI.DeviceFormatter;
 
 const
   // Font names used for rendering
@@ -761,7 +762,7 @@ begin
   ACanvas.Font.Style := [];
 
   // Connection status (left-aligned)
-  StatusText := AItem.Device.ConnectionStateText;
+  StatusText := TDeviceFormatter.FormatConnectionState(AItem.Device.ConnectionState);
   if AItem.Device.IsConnected then
     ACanvas.Font.Color := AContext.ConnectedColor
   else

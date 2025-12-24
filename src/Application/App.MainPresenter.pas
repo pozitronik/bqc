@@ -215,7 +215,8 @@ implementation
 uses
   App.Logger,
   App.ConfigEnums,
-  Bluetooth.Service;
+  Bluetooth.Service,
+  UI.DeviceFormatter;
 
 { TMainPresenter }
 
@@ -646,7 +647,7 @@ begin
       // Rebuild display items (device may have moved groups due to state change)
       RefreshDisplayItems;
 
-      FStatusView.ShowStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
+      FStatusView.ShowStatus(Format('%s: %s', [LDevice.Name, TDeviceFormatter.FormatConnectionState(LDevice.ConnectionState)]));
       ShowDeviceNotification(LDevice);
     end
   );

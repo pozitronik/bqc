@@ -209,16 +209,6 @@ type
     /// Whether this is an input device (keyboard, mouse, gamepad).
     /// </summary>
     function IsInputDevice: Boolean;
-
-    /// <summary>
-    /// Gets a human-readable connection status string.
-    /// </summary>
-    function ConnectionStateText: string;
-
-    /// <summary>
-    /// Gets a human-readable device type string.
-    /// </summary>
-    function DeviceTypeText: string;
   end;
 
   /// <summary>
@@ -330,36 +320,6 @@ end;
 function TBluetoothDeviceInfo.IsInputDevice: Boolean;
 begin
   Result := FDeviceType in [btKeyboard, btMouse, btGamepad, btHID];
-end;
-
-function TBluetoothDeviceInfo.ConnectionStateText: string;
-begin
-  case FConnectionState of
-    csDisconnected:  Result := 'Disconnected';
-    csConnected:     Result := 'Connected';
-    csConnecting:    Result := 'Connecting...';
-    csDisconnecting: Result := 'Disconnecting...';
-    csError:         Result := 'Error';
-  else
-    Result := 'Unknown';
-  end;
-end;
-
-function TBluetoothDeviceInfo.DeviceTypeText: string;
-begin
-  case FDeviceType of
-    btAudioOutput: Result := 'Audio Output';
-    btAudioInput:  Result := 'Audio Input';
-    btHeadset:     Result := 'Headset';
-    btComputer:    Result := 'Computer';
-    btPhone:       Result := 'Phone';
-    btKeyboard:    Result := 'Keyboard';
-    btMouse:       Result := 'Mouse';
-    btGamepad:     Result := 'Gamepad';
-    btHID:         Result := 'Input Device';
-  else
-    Result := 'Unknown';
-  end;
 end;
 
 { EBluetoothException }

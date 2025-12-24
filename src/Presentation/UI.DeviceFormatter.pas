@@ -79,6 +79,20 @@ type
     /// <returns>Sort group index (0, 1, or 2).</returns>
     class function GetSortGroup(const ADevice: TBluetoothDeviceInfo;
       const AConfig: TDeviceConfig): Integer; static;
+
+    /// <summary>
+    /// Formats a connection state as human-readable text.
+    /// </summary>
+    /// <param name="AState">The connection state to format.</param>
+    /// <returns>Human-readable connection state string.</returns>
+    class function FormatConnectionState(AState: TBluetoothConnectionState): string; static;
+
+    /// <summary>
+    /// Formats a device type as human-readable text.
+    /// </summary>
+    /// <param name="ADeviceType">The device type to format.</param>
+    /// <returns>Human-readable device type string.</returns>
+    class function FormatDeviceType(ADeviceType: TBluetoothDeviceType): string; static;
   end;
 
 implementation
@@ -167,6 +181,36 @@ begin
     Result := 1
   else
     Result := 2;
+end;
+
+class function TDeviceFormatter.FormatConnectionState(AState: TBluetoothConnectionState): string;
+begin
+  case AState of
+    csDisconnected:  Result := 'Disconnected';
+    csConnected:     Result := 'Connected';
+    csConnecting:    Result := 'Connecting...';
+    csDisconnecting: Result := 'Disconnecting...';
+    csError:         Result := 'Error';
+  else
+    Result := 'Unknown';
+  end;
+end;
+
+class function TDeviceFormatter.FormatDeviceType(ADeviceType: TBluetoothDeviceType): string;
+begin
+  case ADeviceType of
+    btAudioOutput: Result := 'Audio Output';
+    btAudioInput:  Result := 'Audio Input';
+    btHeadset:     Result := 'Headset';
+    btComputer:    Result := 'Computer';
+    btPhone:       Result := 'Phone';
+    btKeyboard:    Result := 'Keyboard';
+    btMouse:       Result := 'Mouse';
+    btGamepad:     Result := 'Gamepad';
+    btHID:         Result := 'Input Device';
+  else
+    Result := 'Unknown';
+  end;
 end;
 
 end.

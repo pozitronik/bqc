@@ -106,6 +106,50 @@ type
 
     [Test]
     procedure GetSortGroup_DisconnectedNotPinned_ReturnsTwo;
+
+    { FormatConnectionState Tests }
+    [Test]
+    procedure FormatConnectionState_Disconnected;
+
+    [Test]
+    procedure FormatConnectionState_Connected;
+
+    [Test]
+    procedure FormatConnectionState_Connecting;
+
+    [Test]
+    procedure FormatConnectionState_Disconnecting;
+
+    [Test]
+    procedure FormatConnectionState_Error;
+
+    [Test]
+    procedure FormatConnectionState_Unknown;
+
+    { FormatDeviceType Tests }
+    [Test]
+    procedure FormatDeviceType_AudioOutput;
+
+    [Test]
+    procedure FormatDeviceType_AudioInput;
+
+    [Test]
+    procedure FormatDeviceType_Headset;
+
+    [Test]
+    procedure FormatDeviceType_Keyboard;
+
+    [Test]
+    procedure FormatDeviceType_Mouse;
+
+    [Test]
+    procedure FormatDeviceType_Gamepad;
+
+    [Test]
+    procedure FormatDeviceType_HID;
+
+    [Test]
+    procedure FormatDeviceType_Unknown;
   end;
 
 implementation
@@ -333,6 +377,80 @@ begin
   Config.Pinned := False;
 
   Assert.AreEqual(2, TDeviceFormatter.GetSortGroup(Device, Config));
+end;
+
+{ TDeviceFormatterTests - FormatConnectionState }
+
+procedure TDeviceFormatterTests.FormatConnectionState_Disconnected;
+begin
+  Assert.AreEqual('Disconnected', TDeviceFormatter.FormatConnectionState(csDisconnected));
+end;
+
+procedure TDeviceFormatterTests.FormatConnectionState_Connected;
+begin
+  Assert.AreEqual('Connected', TDeviceFormatter.FormatConnectionState(csConnected));
+end;
+
+procedure TDeviceFormatterTests.FormatConnectionState_Connecting;
+begin
+  Assert.AreEqual('Connecting...', TDeviceFormatter.FormatConnectionState(csConnecting));
+end;
+
+procedure TDeviceFormatterTests.FormatConnectionState_Disconnecting;
+begin
+  Assert.AreEqual('Disconnecting...', TDeviceFormatter.FormatConnectionState(csDisconnecting));
+end;
+
+procedure TDeviceFormatterTests.FormatConnectionState_Error;
+begin
+  Assert.AreEqual('Error', TDeviceFormatter.FormatConnectionState(csError));
+end;
+
+procedure TDeviceFormatterTests.FormatConnectionState_Unknown;
+begin
+  Assert.AreEqual('Unknown', TDeviceFormatter.FormatConnectionState(csUnknown));
+end;
+
+{ TDeviceFormatterTests - FormatDeviceType }
+
+procedure TDeviceFormatterTests.FormatDeviceType_AudioOutput;
+begin
+  Assert.AreEqual('Audio Output', TDeviceFormatter.FormatDeviceType(btAudioOutput));
+end;
+
+procedure TDeviceFormatterTests.FormatDeviceType_AudioInput;
+begin
+  Assert.AreEqual('Audio Input', TDeviceFormatter.FormatDeviceType(btAudioInput));
+end;
+
+procedure TDeviceFormatterTests.FormatDeviceType_Headset;
+begin
+  Assert.AreEqual('Headset', TDeviceFormatter.FormatDeviceType(btHeadset));
+end;
+
+procedure TDeviceFormatterTests.FormatDeviceType_Keyboard;
+begin
+  Assert.AreEqual('Keyboard', TDeviceFormatter.FormatDeviceType(btKeyboard));
+end;
+
+procedure TDeviceFormatterTests.FormatDeviceType_Mouse;
+begin
+  Assert.AreEqual('Mouse', TDeviceFormatter.FormatDeviceType(btMouse));
+end;
+
+procedure TDeviceFormatterTests.FormatDeviceType_Gamepad;
+begin
+  Assert.AreEqual('Gamepad', TDeviceFormatter.FormatDeviceType(btGamepad));
+end;
+
+procedure TDeviceFormatterTests.FormatDeviceType_HID;
+begin
+  Assert.AreEqual('Input Device', TDeviceFormatter.FormatDeviceType(btHID));
+end;
+
+procedure TDeviceFormatterTests.FormatDeviceType_Unknown;
+begin
+  Assert.AreEqual('Unknown', TDeviceFormatter.FormatDeviceType(btUnknown));
 end;
 
 initialization
