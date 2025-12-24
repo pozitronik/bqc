@@ -209,17 +209,17 @@ begin
   FEventHandlers.Add(GUID_BLUETOOTH_L2CAP_EVENT, ProcessL2CapEvent);
   FEventHandlers.Add(GUID_BLUETOOTH_RADIO_IN_RANGE, ProcessRadioInRange);
   FEventHandlers.Add(GUID_BLUETOOTH_RADIO_OUT_OF_RANGE, ProcessRadioOutOfRange);
-  Log('Registered %d event handlers', [FEventHandlers.Count], ClassName);
+  LogDebug('Registered %d event handlers', [FEventHandlers.Count], ClassName);
 end;
 
 function TBluetoothDeviceWatcher.Start: Boolean;
 begin
-  Log('Start called', ClassName);
+  LogDebug('Start called', ClassName);
   Result := False;
 
   if FIsRunning then
   begin
-    Log('Already running', ClassName);
+    LogDebug('Already running', ClassName);
     Result := True;
     Exit;
   end;
@@ -228,35 +228,35 @@ begin
   FWindowHandle := AllocateHWnd(WndProc);
   if FWindowHandle = 0 then
   begin
-    Log('Failed to create notification window: %d', [GetLastError], ClassName);
+    LogWarning('Failed to create notification window: %d', [GetLastError], ClassName);
     DoError('Failed to create notification window', GetLastError);
     Exit;
   end;
-  Log('Window handle created: %d', [FWindowHandle], ClassName);
+  LogDebug('Window handle created: %d', [FWindowHandle], ClassName);
 
   // Open Bluetooth radio handle
   if not OpenBluetoothRadio then
   begin
-    Log('Failed to open Bluetooth radio', ClassName);
+    LogWarning('Failed to open Bluetooth radio', ClassName);
     DeallocateHWnd(FWindowHandle);
     FWindowHandle := 0;
     Exit;
   end;
-  Log('Radio handle opened: %d', [FRadioHandle], ClassName);
+  LogDebug('Radio handle opened: %d', [FRadioHandle], ClassName);
 
   // Register for device notifications
   if not RegisterForNotifications then
   begin
-    Log('Failed to register for notifications', ClassName);
+    LogWarning('Failed to register for notifications', ClassName);
     CloseBluetoothRadio;
     DeallocateHWnd(FWindowHandle);
     FWindowHandle := 0;
     Exit;
   end;
-  Log('Notification handle: %d', [FNotifyHandle], ClassName);
+  LogDebug('Notification handle: %d', [FNotifyHandle], ClassName);
 
   FIsRunning := True;
-  Log('Started successfully', ClassName);
+  LogInfo('Started successfully', ClassName);
   Result := True;
 end;
 
@@ -351,7 +351,7 @@ procedure TBluetoothDeviceWatcher.WndProc(var Msg: TMessage);
 begin
   if Msg.Msg = WM_DEVICECHANGE then
   begin
-    Log('WM_DEVICECHANGE received, wParam=$%.4X', [Msg.WParam], ClassName);
+    LogDebug('WM_DEVICECHANGE received, wParam=$%.4X', [Msg.WParam], ClassName);
     HandleDeviceChange(Msg.WParam, Msg.LParam);
   end
   else
@@ -365,14 +365,14 @@ var
 begin
   if lParam = 0 then
   begin
-    Log('HandleDeviceChange: lParam is 0, ignoring', ClassName);
+    LogDebug('HandleDeviceChange: lParam is 0, ignoring', ClassName);
     Exit;
   end;
 
   // Check for custom event (DBT_CUSTOMEVENT)
   if wParam <> DBT_CUSTOMEVENT then
   begin
-    Log('HandleDeviceChange: Not DBT_CUSTOMEVENT ($%.4X), ignoring', [wParam], ClassName);
+    LogDebug('HandleDeviceChange: Not DBT_CUSTOMEVENT ($%.4X), ignoring', [wParam], ClassName);
     Exit;
   end;
 
@@ -381,11 +381,11 @@ begin
   // Verify it's a handle-based notification
   if Header^.dbch_devicetype <> DBT_DEVTYP_HANDLE then
   begin
-    Log('HandleDeviceChange: Not DBT_DEVTYP_HANDLE (%d), ignoring', [Header^.dbch_devicetype], ClassName);
+    LogDebug('HandleDeviceChange: Not DBT_DEVTYP_HANDLE (%d), ignoring', [Header^.dbch_devicetype], ClassName);
     Exit;
   end;
 
-  Log('HandleDeviceChange: Processing DBT_CUSTOMEVENT with DBT_DEVTYP_HANDLE', ClassName);
+  LogDebug('HandleDeviceChange: Processing DBT_CUSTOMEVENT with DBT_DEVTYP_HANDLE', ClassName);
   BroadcastHandle := PDEV_BROADCAST_HANDLE(lParam);
   ProcessCustomEvent(BroadcastHandle);
 end;
@@ -400,12 +400,12 @@ begin
   // Look up handler in registry (OCP - extensible without modification)
   if FEventHandlers.TryGetValue(Broadcast^.dbch_eventguid, Handler) then
   begin
-    Log('ProcessCustomEvent: Found handler for GUID', ClassName);
+    LogDebug('ProcessCustomEvent: Found handler for GUID', ClassName);
     Handler(@Broadcast^.dbch_data[0]);
   end
   else
   begin
-    Log('ProcessCustomEvent: Unknown GUID {%.8X-%.4X-%.4X-%.2X%.2X-%.2X%.2X%.2X%.2X%.2X%.2X}', [
+    LogDebug('ProcessCustomEvent: Unknown GUID {%.8X-%.4X-%.4X-%.2X%.2X-%.2X%.2X%.2X%.2X%.2X%.2X}', [
       Broadcast^.dbch_eventguid.D1,
       Broadcast^.dbch_eventguid.D2,
       Broadcast^.dbch_eventguid.D3,
@@ -430,7 +430,7 @@ begin
   // bthAddress is UInt64 (BTH_ADDR), not BLUETOOTH_ADDRESS record
   DeviceAddress := EventInfo^.bthAddress;
 
-  Log('ProcessHciEvent: Address=$%.12X, ConnectionType=%d, Connected=%d', [
+  LogDebug('ProcessHciEvent: Address=$%.12X, ConnectionType=%d, Connected=%d', [
     DeviceAddress,
     EventInfo^.connectionType,
     EventInfo^.connected
@@ -438,12 +438,12 @@ begin
 
   if EventInfo^.connected <> 0 then
   begin
-    Log('ProcessHciEvent: Firing OnDeviceConnected', ClassName);
+    LogDebug('ProcessHciEvent: Firing OnDeviceConnected', ClassName);
     DoDeviceConnected(DeviceAddress);
   end
   else
   begin
-    Log('ProcessHciEvent: Firing OnDeviceDisconnected', ClassName);
+    LogDebug('ProcessHciEvent: Firing OnDeviceDisconnected', ClassName);
     DoDeviceDisconnected(DeviceAddress);
   end;
 end;
@@ -453,7 +453,7 @@ var
   EventInfo: PBTH_L2CAP_EVENT_INFO;
 begin
   EventInfo := PBTH_L2CAP_EVENT_INFO(AEventInfo);
-  Log('ProcessL2CapEvent: Address=$%.12X, PSM=%d, Connected=%d, Initiated=%d', [
+  LogDebug('ProcessL2CapEvent: Address=$%.12X, PSM=%d, Connected=%d, Initiated=%d', [
     EventInfo^.bthAddress,
     EventInfo^.psm,
     EventInfo^.connected,
@@ -476,7 +476,7 @@ begin
   IsConnected := (EventInfo^.deviceInfo.flags and BDIF_CONNECTED) <> 0;
   IsPaired := (EventInfo^.deviceInfo.flags and BDIF_PAIRED) <> 0;
 
-  Log('ProcessRadioInRange: Address=$%.12X, Name="%s", Flags=$%.8X (Connected=%d, Paired=%d), PrevFlags=$%.8X', [
+  LogDebug('ProcessRadioInRange: Address=$%.12X, Name="%s", Flags=$%.8X (Connected=%d, Paired=%d), PrevFlags=$%.8X', [
     EventInfo^.deviceInfo.address,
     string(AnsiString(EventInfo^.deviceInfo.name)),
     EventInfo^.deviceInfo.flags,
@@ -494,7 +494,7 @@ begin
   // Also fire discovered event for newly discovered devices (not paired)
   if not IsPaired then
   begin
-    Log('ProcessRadioInRange: Device not paired, firing OnDeviceDiscovered', ClassName);
+    LogDebug('ProcessRadioInRange: Device not paired, firing OnDeviceDiscovered', ClassName);
     DoDeviceDiscovered(DeviceInfo);
   end;
 end;
@@ -504,13 +504,13 @@ var
   Address: PBLUETOOTH_ADDRESS;
 begin
   Address := PBLUETOOTH_ADDRESS(AAddress);
-  Log('ProcessRadioOutOfRange: Address=$%.12X', [Address^.ullLong], ClassName);
+  LogDebug('ProcessRadioOutOfRange: Address=$%.12X', [Address^.ullLong], ClassName);
   DoDeviceOutOfRange(Address^.ullLong);
 end;
 
 procedure TBluetoothDeviceWatcher.DoDeviceConnected(const ADeviceAddress: UInt64);
 begin
-  Log('DoDeviceConnected: Address=$%.12X, Handler assigned=%s', [
+  LogDebug('DoDeviceConnected: Address=$%.12X, Handler assigned=%s', [
     ADeviceAddress,
     BoolToStr(Assigned(FOnDeviceConnected), True)
   ], ClassName);
@@ -520,7 +520,7 @@ end;
 
 procedure TBluetoothDeviceWatcher.DoDeviceDisconnected(const ADeviceAddress: UInt64);
 begin
-  Log('DoDeviceDisconnected: Address=$%.12X, Handler assigned=%s', [
+  LogDebug('DoDeviceDisconnected: Address=$%.12X, Handler assigned=%s', [
     ADeviceAddress,
     BoolToStr(Assigned(FOnDeviceDisconnected), True)
   ], ClassName);
@@ -531,7 +531,7 @@ end;
 procedure TBluetoothDeviceWatcher.DoDeviceAttributeChanged(
   const ADeviceInfo: TBluetoothDeviceInfo);
 begin
-  Log('DoDeviceAttributeChanged: Address=$%.12X, Handler assigned=%s', [
+  LogDebug('DoDeviceAttributeChanged: Address=$%.12X, Handler assigned=%s', [
     ADeviceInfo.AddressInt,
     BoolToStr(Assigned(FOnDeviceAttributeChanged), True)
   ], ClassName);
@@ -542,7 +542,7 @@ end;
 procedure TBluetoothDeviceWatcher.DoDeviceDiscovered(
   const ADeviceInfo: TBluetoothDeviceInfo);
 begin
-  Log('DoDeviceDiscovered: Address=$%.12X, Handler assigned=%s', [
+  LogDebug('DoDeviceDiscovered: Address=$%.12X, Handler assigned=%s', [
     ADeviceInfo.AddressInt,
     BoolToStr(Assigned(FOnDeviceDiscovered), True)
   ], ClassName);
@@ -552,7 +552,7 @@ end;
 
 procedure TBluetoothDeviceWatcher.DoDeviceOutOfRange(const ADeviceAddress: UInt64);
 begin
-  Log('DoDeviceOutOfRange: Address=$%.12X, Handler assigned=%s', [
+  LogDebug('DoDeviceOutOfRange: Address=$%.12X, Handler assigned=%s', [
     ADeviceAddress,
     BoolToStr(Assigned(FOnDeviceOutOfRange), True)
   ], ClassName);
@@ -562,7 +562,7 @@ end;
 
 procedure TBluetoothDeviceWatcher.DoError(const AMessage: string; AErrorCode: DWORD);
 begin
-  Log('DoError: %s (code=%d)', [AMessage, AErrorCode], ClassName);
+  LogError('DoError: %s (code=%d)', [AMessage, AErrorCode], ClassName);
   if Assigned(FOnError) then
     FOnError(Self, AMessage, AErrorCode);
 end;

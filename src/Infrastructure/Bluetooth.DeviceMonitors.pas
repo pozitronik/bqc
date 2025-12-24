@@ -222,7 +222,7 @@ begin
   CheckDeviceStates;
 
   FRunning := True;
-  Log('Started with interval %d ms', [FPollingInterval], ClassName);
+  LogDebug('Started with interval %d ms', [FPollingInterval], ClassName);
   Result := True;
 end;
 
@@ -244,7 +244,7 @@ begin
   end;
 
   FRunning := False;
-  Log('Stopped', ClassName);
+  LogDebug('Stopped', ClassName);
 end;
 
 function TPollingMonitor.IsRunning: Boolean;
@@ -284,7 +284,7 @@ begin
     // Fire event if state changed (but not on first check)
     if (not IsFirstCheck) and (CurrentState <> PreviousState) then
     begin
-      Log('Device $%.12X state changed: %d -> %d', [
+      LogDebug('Device $%.12X state changed: %d -> %d', [
         Address, Ord(PreviousState), Ord(CurrentState)
       ], ClassName);
       DoDeviceStateChanged(Address, CurrentState);
@@ -354,7 +354,7 @@ end;
 
 procedure TPollingMonitor.DoError(const AMessage: string; AErrorCode: Cardinal);
 begin
-  Log('Error: %s (code %d)', [AMessage, AErrorCode], ClassName);
+  LogDebug('Error: %s (code %d)', [AMessage, AErrorCode], ClassName);
   if Assigned(FOnError) then
     FOnError(Self, AMessage, AErrorCode);
 end;
@@ -409,12 +409,12 @@ begin
   if FWatcher.Start then
   begin
     FRunning := True;
-    Log('Started successfully', ClassName);
+    LogDebug('Started successfully', ClassName);
     Result := True;
   end
   else
   begin
-    Log('Failed to start', ClassName);
+    LogDebug('Failed to start', ClassName);
     FWatcher.Free;
     FWatcher := nil;
   end;
@@ -433,7 +433,7 @@ begin
   end;
 
   FRunning := False;
-  Log('Stopped', ClassName);
+  LogDebug('Stopped', ClassName);
 end;
 
 function TDeviceWatcherMonitor.IsRunning: Boolean;
@@ -468,7 +468,7 @@ end;
 
 procedure TDeviceWatcherMonitor.DoError(const AMessage: string; AErrorCode: Cardinal);
 begin
-  Log('Error: %s (code %d)', [AMessage, AErrorCode], ClassName);
+  LogDebug('Error: %s (code %d)', [AMessage, AErrorCode], ClassName);
   if Assigned(FOnError) then
     FOnError(Self, AMessage, AErrorCode);
 end;
@@ -524,13 +524,13 @@ begin
   if FPrimaryMonitor.Start then
   begin
     FActiveMonitor := FPrimaryMonitor;
-    Log('Started with device watcher (primary)', ClassName);
+    LogDebug('Started with device watcher (primary)', ClassName);
     Result := True;
   end
   else
   begin
     // Primary failed, switch to secondary
-    Log('Device watcher failed, switching to polling', ClassName);
+    LogDebug('Device watcher failed, switching to polling', ClassName);
     FPrimaryMonitor := nil;
     SwitchToSecondary;
     Result := IsRunning;
@@ -552,7 +552,7 @@ begin
   end;
 
   FActiveMonitor := nil;
-  Log('Stopped', ClassName);
+  LogDebug('Stopped', ClassName);
 end;
 
 function TFallbackMonitor.IsRunning: Boolean;
@@ -563,7 +563,7 @@ end;
 procedure TFallbackMonitor.HandlePrimaryError(Sender: TObject;
   const AMessage: string; AErrorCode: Cardinal);
 begin
-  Log('Primary monitor error: %s, switching to secondary', [AMessage], ClassName);
+  LogDebug('Primary monitor error: %s, switching to secondary', [AMessage], ClassName);
   SwitchToSecondary;
 
   // Forward the error to external handler
@@ -602,11 +602,11 @@ begin
   if FSecondaryMonitor.Start then
   begin
     FActiveMonitor := FSecondaryMonitor;
-    Log('Switched to polling monitor (interval=%d ms)', [FPollingInterval], ClassName);
+    LogDebug('Switched to polling monitor (interval=%d ms)', [FPollingInterval], ClassName);
   end
   else
   begin
-    Log('Failed to start polling monitor', ClassName);
+    LogDebug('Failed to start polling monitor', ClassName);
     FActiveMonitor := nil;
   end;
 end;
@@ -645,19 +645,19 @@ begin
     pmDisabled:
       begin
         // Use device watcher only, no fallback
-        Log('Creating DeviceWatcherMonitor (polling disabled)', ClassName);
+        LogDebug('Creating DeviceWatcherMonitor (polling disabled)', ClassName);
         Result := TDeviceWatcherMonitor.Create;
       end;
     pmFallback:
       begin
         // Use fallback monitor (watcher + polling fallback)
-        Log('Creating FallbackMonitor (watcher with polling fallback)', ClassName);
+        LogDebug('Creating FallbackMonitor (watcher with polling fallback)', ClassName);
         Result := TFallbackMonitor.Create(FPollingConfig.PollingInterval);
       end;
     pmPrimary:
       begin
         // Use polling as primary method
-        Log('Creating PollingMonitor (polling as primary, interval=%d)', [
+        LogDebug('Creating PollingMonitor (polling as primary, interval=%d)', [
           FPollingConfig.PollingInterval
         ], ClassName);
         Result := TPollingMonitor.Create(FPollingConfig.PollingInterval);

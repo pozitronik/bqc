@@ -18,6 +18,7 @@ uses
   System.SysUtils,
   System.Classes,
   System.SyncObjs,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type
@@ -28,7 +29,7 @@ type
 
   /// <summary>
   /// Logger implementation.
-  /// Thread-safe file-based logging with source identification.
+  /// Thread-safe file-based logging with severity levels and source identification.
   /// </summary>
   TLogger = class(TInterfacedObject, ILogger)
   private
@@ -37,8 +38,10 @@ type
     FEnabled: Boolean;
     FAppendMode: Boolean;
     FSessionStarted: Boolean;
+    FMinLevel: TLogLevel;
 
-    procedure WriteToFile(const AMessage: string; const ASource: string);
+    procedure WriteToFile(ALevel: TLogLevel; const AMessage: string;
+      const ASource: string);
   public
     constructor Create;
     destructor Destroy; override;
@@ -49,46 +52,82 @@ type
     /// <param name="AEnabled">Enable or disable logging.</param>
     /// <param name="AFilename">Log filename (relative to exe or absolute path).</param>
     /// <param name="AAppend">If true, append to existing file; if false, create new file.</param>
+    /// <param name="AMinLevel">Minimum log level to output.</param>
     procedure Configure(AEnabled: Boolean; const AFilename: string = 'bqc.log';
-      AAppend: Boolean = False);
+      AAppend: Boolean = False; AMinLevel: TLogLevel = llInfo);
 
     { ILogger }
-    procedure Log(const AMessage: string; const ASource: string = '');
-    procedure LogFmt(const AFormat: string; const AArgs: array of const;
-      const ASource: string = '');
+    procedure Debug(const AMessage: string; const ASource: string = ''); overload;
+    procedure Info(const AMessage: string; const ASource: string = ''); overload;
+    procedure Warning(const AMessage: string; const ASource: string = ''); overload;
+    procedure Error(const AMessage: string; const ASource: string = ''); overload;
     function IsEnabled: Boolean;
+    function GetMinLevel: TLogLevel;
+
+    { Format overloads for convenience }
+    procedure Debug(const AFormat: string; const AArgs: array of const;
+      const ASource: string = ''); overload;
+    procedure Info(const AFormat: string; const AArgs: array of const;
+      const ASource: string = ''); overload;
+    procedure Warning(const AFormat: string; const AArgs: array of const;
+      const ASource: string = ''); overload;
+    procedure Error(const AFormat: string; const AArgs: array of const;
+      const ASource: string = ''); overload;
   end;
 
 //------------------------------------------------------------------------------
-// Global convenience procedures (backward compatible + new signature)
+// Global convenience procedures with severity levels
 //------------------------------------------------------------------------------
 
 /// <summary>
-/// Logs a message with source identifier.
+/// Logs a debug message with optional source.
 /// </summary>
-procedure Log(const AMessage: string; const ASource: string); overload;
+procedure LogDebug(const AMessage: string; const ASource: string = ''); overload;
 
 /// <summary>
-/// Logs a message (legacy - no source).
+/// Logs a formatted debug message with optional source.
 /// </summary>
-procedure Log(const AMessage: string); overload;
+procedure LogDebug(const AFormat: string; const AArgs: array of const;
+  const ASource: string = ''); overload;
 
 /// <summary>
-/// Logs a formatted message with source identifier.
+/// Logs an informational message with optional source.
 /// </summary>
-procedure Log(const AFormat: string; const AArgs: array of const;
-  const ASource: string); overload;
+procedure LogInfo(const AMessage: string; const ASource: string = ''); overload;
 
 /// <summary>
-/// Logs a formatted message (legacy - no source).
+/// Logs a formatted informational message with optional source.
 /// </summary>
-procedure Log(const AFormat: string; const AArgs: array of const); overload;
+procedure LogInfo(const AFormat: string; const AArgs: array of const;
+  const ASource: string = ''); overload;
 
 /// <summary>
-/// Enables or disables logging globally.
+/// Logs a warning message with optional source.
+/// </summary>
+procedure LogWarning(const AMessage: string; const ASource: string = ''); overload;
+
+/// <summary>
+/// Logs a formatted warning message with optional source.
+/// </summary>
+procedure LogWarning(const AFormat: string; const AArgs: array of const;
+  const ASource: string = ''); overload;
+
+/// <summary>
+/// Logs an error message with optional source.
+/// </summary>
+procedure LogError(const AMessage: string; const ASource: string = ''); overload;
+
+/// <summary>
+/// Logs a formatted error message with optional source.
+/// </summary>
+procedure LogError(const AFormat: string; const AArgs: array of const;
+  const ASource: string = ''); overload;
+
+/// <summary>
+/// Configures the global logger.
 /// </summary>
 procedure SetLoggingEnabled(AEnabled: Boolean; const AFilename: string = 'bqc.log';
-  AAppend: Boolean = False);
+  AAppend: Boolean = False; AMinLevel: TLogLevel = llInfo);
 
 /// <summary>
 /// Returns true if logging is currently enabled.
@@ -129,31 +168,54 @@ begin
   Result := GetLogger;
 end;
 
-procedure Log(const AMessage: string; const ASource: string);
+procedure LogDebug(const AMessage: string; const ASource: string);
 begin
-  GetLogger.Log(AMessage, ASource);
+  GetLogger.Debug(AMessage, ASource);
 end;
 
-procedure Log(const AMessage: string);
-begin
-  GetLogger.Log(AMessage, '');
-end;
-
-procedure Log(const AFormat: string; const AArgs: array of const;
+procedure LogDebug(const AFormat: string; const AArgs: array of const;
   const ASource: string);
 begin
-  GetLogger.LogFmt(AFormat, AArgs, ASource);
+  GetLogger.Debug(Format(AFormat, AArgs), ASource);
 end;
 
-procedure Log(const AFormat: string; const AArgs: array of const);
+procedure LogInfo(const AMessage: string; const ASource: string);
 begin
-  GetLogger.LogFmt(AFormat, AArgs, '');
+  GetLogger.Info(AMessage, ASource);
+end;
+
+procedure LogInfo(const AFormat: string; const AArgs: array of const;
+  const ASource: string);
+begin
+  GetLogger.Info(Format(AFormat, AArgs), ASource);
+end;
+
+procedure LogWarning(const AMessage: string; const ASource: string);
+begin
+  GetLogger.Warning(AMessage, ASource);
+end;
+
+procedure LogWarning(const AFormat: string; const AArgs: array of const;
+  const ASource: string);
+begin
+  GetLogger.Warning(Format(AFormat, AArgs), ASource);
+end;
+
+procedure LogError(const AMessage: string; const ASource: string);
+begin
+  GetLogger.Error(AMessage, ASource);
+end;
+
+procedure LogError(const AFormat: string; const AArgs: array of const;
+  const ASource: string);
+begin
+  GetLogger.Error(Format(AFormat, AArgs), ASource);
 end;
 
 procedure SetLoggingEnabled(AEnabled: Boolean; const AFilename: string;
-  AAppend: Boolean);
+  AAppend: Boolean; AMinLevel: TLogLevel);
 begin
-  GetLogger.Configure(AEnabled, AFilename, AAppend);
+  GetLogger.Configure(AEnabled, AFilename, AAppend, AMinLevel);
 end;
 
 function IsLoggingEnabled: Boolean;
@@ -172,6 +234,7 @@ begin
   FEnabled := True;  // Enabled by default for startup diagnostics
   FAppendMode := False;
   FSessionStarted := False;
+  FMinLevel := llInfo;  // Default to Info level
 
   // Default log file next to executable
   ExePath := ExtractFilePath(ParamStr(0));
@@ -185,7 +248,7 @@ begin
 end;
 
 procedure TLogger.Configure(AEnabled: Boolean; const AFilename: string;
-  AAppend: Boolean);
+  AAppend: Boolean; AMinLevel: TLogLevel);
 var
   ExePath: string;
 begin
@@ -193,6 +256,7 @@ begin
   try
     FEnabled := AEnabled;
     FAppendMode := AAppend;
+    FMinLevel := AMinLevel;
 
     // Resolve filename
     if AFilename <> '' then
@@ -219,24 +283,57 @@ begin
   Result := FEnabled;
 end;
 
-procedure TLogger.Log(const AMessage: string; const ASource: string);
+function TLogger.GetMinLevel: TLogLevel;
 begin
-  if not FEnabled then
-    Exit;
-
-  WriteToFile(AMessage, ASource);
+  Result := FMinLevel;
 end;
 
-procedure TLogger.LogFmt(const AFormat: string; const AArgs: array of const;
+procedure TLogger.Debug(const AMessage: string; const ASource: string);
+begin
+  WriteToFile(llDebug, AMessage, ASource);
+end;
+
+procedure TLogger.Info(const AMessage: string; const ASource: string);
+begin
+  WriteToFile(llInfo, AMessage, ASource);
+end;
+
+procedure TLogger.Warning(const AMessage: string; const ASource: string);
+begin
+  WriteToFile(llWarning, AMessage, ASource);
+end;
+
+procedure TLogger.Error(const AMessage: string; const ASource: string);
+begin
+  WriteToFile(llError, AMessage, ASource);
+end;
+
+procedure TLogger.Debug(const AFormat: string; const AArgs: array of const;
   const ASource: string);
 begin
-  if not FEnabled then
-    Exit;
-
-  WriteToFile(Format(AFormat, AArgs), ASource);
+  WriteToFile(llDebug, Format(AFormat, AArgs), ASource);
 end;
 
-procedure TLogger.WriteToFile(const AMessage: string; const ASource: string);
+procedure TLogger.Info(const AFormat: string; const AArgs: array of const;
+  const ASource: string);
+begin
+  WriteToFile(llInfo, Format(AFormat, AArgs), ASource);
+end;
+
+procedure TLogger.Warning(const AFormat: string; const AArgs: array of const;
+  const ASource: string);
+begin
+  WriteToFile(llWarning, Format(AFormat, AArgs), ASource);
+end;
+
+procedure TLogger.Error(const AFormat: string; const AArgs: array of const;
+  const ASource: string);
+begin
+  WriteToFile(llError, Format(AFormat, AArgs), ASource);
+end;
+
+procedure TLogger.WriteToFile(ALevel: TLogLevel; const AMessage: string;
+  const ASource: string);
 var
   LogLine: string;
   FileHandle: TextFile;
@@ -244,6 +341,10 @@ var
   CreateNew: Boolean;
   SourcePart: string;
 begin
+  // Check if logging is enabled and level meets threshold
+  if (not FEnabled) or (ALevel < FMinLevel) then
+    Exit;
+
   ThreadId := GetCurrentThreadId;
 
   // Build source part
@@ -252,9 +353,10 @@ begin
   else
     SourcePart := '';
 
-  LogLine := Format('[%s] [TID:%d] %s%s', [
+  LogLine := Format('[%s] [TID:%d] [%s] %s%s', [
     FormatDateTime('yyyy-mm-dd hh:nn:ss.zzz', Now),
     ThreadId,
+    LogLevelNames[ALevel],
     SourcePart,
     AMessage
   ]);

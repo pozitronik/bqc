@@ -175,13 +175,13 @@ begin
   FDeviceMonitor.OnError := HandleMonitorError;
 
   if FDeviceMonitor.Start then
-    Log('Create: Device monitor started successfully', ClassName)
+    LogDebug('Create: Device monitor started successfully', ClassName)
   else
-    Log('Create: Device monitor failed to start', ClassName);
+    LogDebug('Create: Device monitor failed to start', ClassName);
 
   // Initial device enumeration
   FDeviceRepository.Refresh;
-  Log('Create: Initial device enumeration complete, %d devices found', [
+  LogDebug('Create: Initial device enumeration complete, %d devices found', [
     FDeviceRepository.Count
   ], ClassName);
 end;
@@ -260,7 +260,7 @@ begin
   else
     RetryCount := FConnectionConfig.ConnectionRetryCount;
 
-  Log('ConnectWithStrategy: Device=%s, RetryCount=%d (device-specific=%s)', [
+  LogDebug('ConnectWithStrategy: Device=%s, RetryCount=%d (device-specific=%s)', [
     ADevice.Name, RetryCount, BoolToStr(DeviceConfig.ConnectionRetryCount >= 0, True)
   ], ClassName);
 
@@ -313,7 +313,7 @@ end;
 procedure TBluetoothService.DoDeviceStateChanged(
   const ADevice: TBluetoothDeviceInfo);
 begin
-  Log('DoDeviceStateChanged: Address=$%.12X, Name="%s", ConnectionState=%d, Handler assigned=%s', [
+  LogDebug('DoDeviceStateChanged: Address=$%.12X, Name="%s", ConnectionState=%d, Handler assigned=%s', [
     ADevice.AddressInt,
     ADevice.Name,
     Ord(ADevice.ConnectionState),
@@ -370,7 +370,7 @@ var
   UpdatedDevice: TBluetoothDeviceInfo;
   EventType: TDeviceEventType;
 begin
-  Log('HandleMonitorDeviceStateChanged: Address=$%.12X, NewState=%d', [
+  LogDebug('HandleMonitorDeviceStateChanged: Address=$%.12X, NewState=%d', [
     ADeviceAddress, Ord(ANewState)
   ], ClassName);
 
@@ -387,7 +387,7 @@ begin
   begin
     if not FEventDebouncer.ShouldProcess(ADeviceAddress, EventType, ANewState) then
     begin
-      Log('HandleMonitorDeviceStateChanged: Event filtered by debouncer', ClassName);
+      LogDebug('HandleMonitorDeviceStateChanged: Event filtered by debouncer', ClassName);
       Exit;
     end;
   end;
@@ -416,7 +416,7 @@ end;
 procedure TBluetoothService.HandleMonitorError(Sender: TObject;
   const AMessage: string; AErrorCode: Cardinal);
 begin
-  Log('HandleMonitorError: %s (code %d)', [AMessage, AErrorCode], ClassName);
+  LogWarning('HandleMonitorError: %s (code %d)', [AMessage, AErrorCode], ClassName);
   DoError(AMessage, AErrorCode);
 end;
 

@@ -92,6 +92,7 @@ const
   KEY_ENABLED = 'Enabled';
   KEY_FILENAME = 'Filename';
   KEY_APPEND = 'Append';
+  KEY_LEVEL = 'Level';
 
   // INI key names - [Appearance]
   KEY_SHOW_ADDRESSES = 'ShowAddresses';
@@ -141,6 +142,7 @@ const
   DEF_LOG_ENABLED = False;
   DEF_LOG_FILENAME = 'bqc.log';
   DEF_LOG_APPEND = False;
+  DEF_LOG_LEVEL = llInfo;
   DEF_SHOW_ADDRESSES = False;
   DEF_THEME = '';
   DEF_VSF_DIR = 'themes';
@@ -258,6 +260,7 @@ begin
   LogCfg.LogEnabled := AIni.ReadBool(SEC_LOG, KEY_ENABLED, DEF_LOG_ENABLED);
   LogCfg.LogFilename := AIni.ReadString(SEC_LOG, KEY_FILENAME, DEF_LOG_FILENAME);
   LogCfg.LogAppend := AIni.ReadBool(SEC_LOG, KEY_APPEND, DEF_LOG_APPEND);
+  LogCfg.LogLevel := TLogLevel(AIni.ReadInteger(SEC_LOG, KEY_LEVEL, Ord(DEF_LOG_LEVEL)));
 
   // [Appearance]
   AppearanceCfg.ShowAddresses := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, DEF_SHOW_ADDRESSES);
@@ -390,6 +393,7 @@ begin
   AIni.WriteBool(SEC_LOG, KEY_ENABLED, LogCfg.LogEnabled);
   AIni.WriteString(SEC_LOG, KEY_FILENAME, LogCfg.LogFilename);
   AIni.WriteBool(SEC_LOG, KEY_APPEND, LogCfg.LogAppend);
+  AIni.WriteInteger(SEC_LOG, KEY_LEVEL, Ord(LogCfg.LogLevel));
 
   // [Appearance]
   AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, AppearanceCfg.ShowAddresses);

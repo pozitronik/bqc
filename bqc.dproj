@@ -140,6 +140,7 @@
         <DCCReference Include="src\Application\Bluetooth.ConnectionStrategies.pas"/>
         <DCCReference Include="src\Application\Bluetooth.EventDebouncer.pas"/>
         <DCCReference Include="src\Application\Bluetooth.Service.pas"/>
+        <DCCReference Include="src\Application\App.MainViewInterfaces.pas"/>
         <DCCReference Include="src\Application\App.MainPresenter.pas"/>
         <DCCReference Include="src\Application\App.SettingsPresenter.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.RadioControl.pas"/>
@@ -150,14 +151,29 @@
         <DCCReference Include="src\Infrastructure\Bluetooth.AdapterQuery.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceConverter.pas"/>
         <DCCReference Include="src\Infrastructure\App.Logger.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigEnums.pas"/>
+        <DCCReference Include="src\Infrastructure\App.DeviceConfigTypes.pas"/>
+        <DCCReference Include="src\Infrastructure\App.LayoutConfigIntf.pas"/>
+        <DCCReference Include="src\Infrastructure\App.AppearanceConfigIntf.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConnectionConfigIntf.pas"/>
+        <DCCReference Include="src\Infrastructure\App.NotificationConfigIntf.pas"/>
+        <DCCReference Include="src\Infrastructure\App.LogConfigIntf.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigInterfaces.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSections.pas"/>
         <DCCReference Include="src\Infrastructure\App.Config.pas"/>
+        <DCCReference Include="src\Infrastructure\App.SettingsRepository.pas"/>
+        <DCCReference Include="src\Infrastructure\App.DeviceConfigRepository.pas"/>
+        <DCCReference Include="src\Infrastructure\App.DeviceConfigProvider.pas"/>
         <DCCReference Include="src\Infrastructure\App.Bootstrap.pas"/>
         <DCCReference Include="src\Infrastructure\App.Autostart.pas"/>
         <DCCReference Include="src\Presentation\UI.Theme.pas"/>
         <DCCReference Include="src\Presentation\UI.DeviceList.pas">
             <Form>$R *.res</Form>
         </DCCReference>
+        <DCCReference Include="src\Presentation\UI.ListGeometry.pas"/>
+        <DCCReference Include="src\Presentation\UI.DeviceFormatter.pas"/>
+        <DCCReference Include="src\Presentation\UI.DeviceSorter.pas"/>
+        <DCCReference Include="src\Presentation\UI.DeviceDisplayItemBuilder.pas"/>
         <DCCReference Include="src\Presentation\UI.WindowPositioner.pas"/>
         <DCCReference Include="src\Presentation\UI.TrayManager.pas"/>
         <DCCReference Include="src\Presentation\UI.HotkeyManager.pas"/>

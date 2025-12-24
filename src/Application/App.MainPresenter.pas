@@ -263,14 +263,14 @@ begin
   );
   FDelayedLoadTimer := nil;
   FUpdatingToggle := False;
-  Log('Created', ClassName);
+  LogDebug('Created', ClassName);
 end;
 
 destructor TMainPresenter.Destroy;
 begin
   Shutdown;
   FDisplayItemBuilder.Free;
-  Log('Destroyed', ClassName);
+  LogDebug('Destroyed', ClassName);
   inherited;
 end;
 
@@ -278,7 +278,7 @@ procedure TMainPresenter.Initialize;
 var
   RadioEnabled: Boolean;
 begin
-  Log('Initialize: Starting', ClassName);
+  LogDebug('Initialize: Starting', ClassName);
 
   // Create delayed load timer
   FDelayedLoadTimer := TTimer.Create(nil);
@@ -287,7 +287,7 @@ begin
   FDelayedLoadTimer.OnTimer := HandleDelayedLoadTimer;
 
   // Create Bluetooth service
-  Log('Initialize: Creating Bluetooth service', ClassName);
+  LogDebug('Initialize: Creating Bluetooth service', ClassName);
   FBluetoothService := CreateBluetoothService(
     FPollingConfig,
     FConnectionConfig,
@@ -297,12 +297,12 @@ begin
   FBluetoothService.OnDeviceStateChanged := HandleDeviceStateChanged;
   FBluetoothService.OnDeviceListChanged := HandleDeviceListChanged;
   FBluetoothService.OnError := HandleError;
-  Log('Initialize: Bluetooth service created', ClassName);
+  LogDebug('Initialize: Bluetooth service created', ClassName);
 
   // Check Bluetooth radio state
   if GetBluetoothRadioState(RadioEnabled) then
   begin
-    Log('Initialize: Radio state: Enabled=%s', [BoolToStr(RadioEnabled, True)], ClassName);
+    LogDebug('Initialize: Radio state: Enabled=%s', [BoolToStr(RadioEnabled, True)], ClassName);
 
     if RadioEnabled then
     begin
@@ -322,22 +322,22 @@ begin
     FRadioWatcher := TBluetoothRadioWatcher.Create;
     FRadioWatcher.OnStateChanged := HandleRadioStateChanged;
     FRadioWatcher.Start;
-    Log('Initialize: Radio watcher started', ClassName);
+    LogDebug('Initialize: Radio watcher started', ClassName);
   end
   else
   begin
-    Log('Initialize: No Bluetooth adapter found', ClassName);
+    LogDebug('Initialize: No Bluetooth adapter found', ClassName);
     FToggleView.SetToggleState(False);
     FToggleView.SetToggleEnabled(False);
     FStatusView.ShowStatus('No Bluetooth adapter found');
   end;
 
-  Log('Initialize: Complete', ClassName);
+  LogDebug('Initialize: Complete', ClassName);
 end;
 
 procedure TMainPresenter.Shutdown;
 begin
-  Log('Shutdown: Starting', ClassName);
+  LogDebug('Shutdown: Starting', ClassName);
 
   // Stop delayed load timer
   if FDelayedLoadTimer <> nil then
@@ -359,23 +359,23 @@ begin
   FBluetoothService := nil;
   FDevices := nil;
 
-  Log('Shutdown: Complete', ClassName);
+  LogDebug('Shutdown: Complete', ClassName);
 end;
 
 procedure TMainPresenter.LoadDevices;
 var
   I: Integer;
 begin
-  Log('LoadDevices: Starting', ClassName);
+  LogDebug('LoadDevices: Starting', ClassName);
   FStatusView.SetBusy(True);
   try
     FDevices := FBluetoothService.GetPairedDevices;
-    Log('LoadDevices: Got %d devices', [Length(FDevices)], ClassName);
+    LogDebug('LoadDevices: Got %d devices', [Length(FDevices)], ClassName);
 
     // Register all discovered devices to persistent config
     for I := 0 to High(FDevices) do
     begin
-      Log('LoadDevices: Device[%d] Address=$%.12X, Name="%s", Connected=%s', [
+      LogDebug('LoadDevices: Device[%d] Address=$%.12X, Name="%s", Connected=%s', [
         I, FDevices[I].AddressInt, FDevices[I].Name, BoolToStr(FDevices[I].IsConnected, True)
       ], ClassName);
       // Register device with current timestamp
@@ -395,7 +395,7 @@ begin
   finally
     FStatusView.SetBusy(False);
   end;
-  Log('LoadDevices: Complete', ClassName);
+  LogDebug('LoadDevices: Complete', ClassName);
 end;
 
 procedure TMainPresenter.LoadDevicesDelayed;
@@ -410,7 +410,7 @@ var
   DeviceConfig: TDeviceConfig;
   Device: TBluetoothDeviceInfo;
 begin
-  Log('AutoConnectDevices: Starting', ClassName);
+  LogDebug('AutoConnectDevices: Starting', ClassName);
 
   for I := 0 to High(FDevices) do
   begin
@@ -422,16 +422,16 @@ begin
 
     if Device.IsConnected then
     begin
-      Log('AutoConnectDevices: %s already connected, skipping', [Device.Name], ClassName);
+      LogDebug('AutoConnectDevices: %s already connected, skipping', [Device.Name], ClassName);
       Continue;
     end;
 
-    Log('AutoConnectDevices: Auto-connecting %s', [Device.Name], ClassName);
+    LogDebug('AutoConnectDevices: Auto-connecting %s', [Device.Name], ClassName);
     FStatusView.ShowStatus(Format('Auto-connecting %s...', [Device.Name]));
     ConnectDeviceAsync(Device);
   end;
 
-  Log('AutoConnectDevices: Complete', ClassName);
+  LogDebug('AutoConnectDevices: Complete', ClassName);
 end;
 
 procedure TMainPresenter.ConnectDeviceAsync(const ADevice: TBluetoothDeviceInfo);
@@ -459,9 +459,9 @@ begin
   TThread.CreateAnonymousThread(
     procedure
     begin
-      Log('ToggleConnectionAsync: Calling ToggleConnection', ClassName);
+      LogDebug('ToggleConnectionAsync: Calling ToggleConnection', ClassName);
       LService.ToggleConnection(LDevice);
-      Log('ToggleConnectionAsync: Complete', ClassName);
+      LogDebug('ToggleConnectionAsync: Complete', ClassName);
     end
   ).Start;
 end;
@@ -599,7 +599,7 @@ begin
       Move(FDevices[0], NewDevices[0], Length(FDevices) * SizeOf(TBluetoothDeviceInfo));
       NewDevices[I] := ADevice;
       FDevices := NewDevices;
-      Log('UpdateOrAddDevice: Updated device at index %d', [I], ClassName);
+      LogDebug('UpdateOrAddDevice: Updated device at index %d', [I], ClassName);
       Exit;
     end;
   end;
@@ -610,7 +610,7 @@ begin
     Move(FDevices[0], NewDevices[0], Length(FDevices) * SizeOf(TBluetoothDeviceInfo));
   NewDevices[High(NewDevices)] := ADevice;
   FDevices := NewDevices;
-  Log('UpdateOrAddDevice: Added new device, total=%d', [Length(FDevices)], ClassName);
+  LogDebug('UpdateOrAddDevice: Added new device, total=%d', [Length(FDevices)], ClassName);
 end;
 
 { Service event handlers }
@@ -620,13 +620,13 @@ procedure TMainPresenter.HandleDeviceStateChanged(Sender: TObject;
 var
   LDevice: TBluetoothDeviceInfo;
 begin
-  Log('HandleDeviceStateChanged: Address=$%.12X, Name="%s", State=%d', [
+  LogDebug('HandleDeviceStateChanged: Address=$%.12X, Name="%s", State=%d', [
     ADevice.AddressInt, ADevice.Name, Ord(ADevice.ConnectionState)
   ], ClassName);
 
   if Trim(ADevice.Name) = '' then
   begin
-    Log('HandleDeviceStateChanged: Empty name, skipping', ClassName);
+    LogDebug('HandleDeviceStateChanged: Empty name, skipping', ClassName);
     Exit;
   end;
 
@@ -635,7 +635,7 @@ begin
   TThread.Queue(nil,
     procedure
     begin
-      Log('HandleDeviceStateChanged (queued): Processing %s', [LDevice.Name], ClassName);
+      LogDebug('HandleDeviceStateChanged (queued): Processing %s', [LDevice.Name], ClassName);
 
       // Update local cache using copy-on-write pattern
       UpdateOrAddDevice(LDevice);
@@ -679,7 +679,7 @@ end;
 
 procedure TMainPresenter.HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
 begin
-  Log('HandleRadioStateChanged: Enabled=%s', [BoolToStr(AEnabled, True)], ClassName);
+  LogInfo('HandleRadioStateChanged: Enabled=%s', [BoolToStr(AEnabled, True)], ClassName);
 
   FUpdatingToggle := True;
   try
@@ -712,11 +712,11 @@ end;
 
 procedure TMainPresenter.OnDeviceClicked(const ADevice: TBluetoothDeviceInfo);
 begin
-  Log('OnDeviceClicked: %s, State=%d', [ADevice.Name, Ord(ADevice.ConnectionState)], ClassName);
+  LogInfo('OnDeviceClicked: %s, State=%d', [ADevice.Name, Ord(ADevice.ConnectionState)], ClassName);
 
   if ADevice.ConnectionState in [csConnecting, csDisconnecting] then
   begin
-    Log('OnDeviceClicked: Operation in progress, ignoring', ClassName);
+    LogInfo('OnDeviceClicked: Operation in progress, ignoring', ClassName);
     FStatusView.ShowStatus('Operation in progress...');
     Exit;
   end;
@@ -729,7 +729,7 @@ begin
   // In Menu mode, hide immediately after device click
   if FGeneralConfig.WindowMode = wmMenu then
   begin
-    Log('OnDeviceClicked: Menu mode, hiding view', ClassName);
+    LogInfo('OnDeviceClicked: Menu mode, hiding view', ClassName);
     FVisibilityView.HideView;
   end;
 
@@ -741,7 +741,7 @@ begin
   if FUpdatingToggle then
     Exit;
 
-  Log('OnToggleChanged: Enabled=%s', [BoolToStr(AEnabled, True)], ClassName);
+  LogInfo('OnToggleChanged: Enabled=%s', [BoolToStr(AEnabled, True)], ClassName);
 
   if AEnabled then
     FStatusView.ShowStatus('Enabling Bluetooth...')
@@ -753,7 +753,7 @@ end;
 
 procedure TMainPresenter.OnRefreshRequested;
 begin
-  Log('OnRefreshRequested', ClassName);
+  LogInfo('OnRefreshRequested', ClassName);
   FStatusView.ShowStatus('Refreshing...');
   LoadDevices;
 end;
@@ -768,13 +768,13 @@ end;
 
 procedure TMainPresenter.OnExitRequested;
 begin
-  Log('OnExitRequested', ClassName);
+  LogInfo('OnExitRequested', ClassName);
   FVisibilityView.ForceClose;
 end;
 
 procedure TMainPresenter.OnSettingsChanged;
 begin
-  Log('OnSettingsChanged', ClassName);
+  LogInfo('OnSettingsChanged', ClassName);
   // Note: Polling mode changes require application restart to take effect.
   // Other settings (theme, hotkey, etc.) are applied immediately by MainForm.
 end;

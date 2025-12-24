@@ -69,6 +69,28 @@ type
     neAutoConnect     // Auto-connect triggered
   );
 
+  /// <summary>
+  /// Log severity levels.
+  /// Messages with level below MinLogLevel are filtered out.
+  /// </summary>
+  TLogLevel = (
+    llDebug,   // Verbose debugging information (0)
+    llInfo,    // Informational messages (1)
+    llWarning, // Warning messages (2)
+    llError    // Error messages (3)
+  );
+
+const
+  /// <summary>
+  /// Display names for log levels.
+  /// </summary>
+  LogLevelNames: array[TLogLevel] of string = (
+    'Debug',
+    'Info',
+    'Warning',
+    'Error'
+  );
+
 implementation
 
 end.

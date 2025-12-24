@@ -225,7 +225,7 @@ begin
     Bootstrap.ThemeManager
   );
 
-  Log('FormCreate: Starting', ClassName);
+  LogDebug('FormCreate: Starting', ClassName);
 
   FForceClose := False;
 
@@ -236,7 +236,7 @@ begin
   InitializeHotkey;
   FinalizeMenuMode;
 
-  Log('FormCreate: Complete', ClassName);
+  LogDebug('FormCreate: Complete', ClassName);
 end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
@@ -248,7 +248,7 @@ begin
     FPositionConfig.PositionY := Top;
     FPositionConfig.PositionW := Width;
     FPositionConfig.PositionH := Height;
-    Log('FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d',
+    LogDebug('FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d',
       [Left, Top, Width, Height], ClassName);
   end;
 
@@ -265,7 +265,7 @@ begin
 
   Application.OnDeactivate := nil;
 
-  Log('FormDestroy: Complete', ClassName);
+  LogDebug('FormDestroy: Complete', ClassName);
 end;
 
 procedure TFormMain.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -306,13 +306,13 @@ begin
   begin
     BorderStyle := bsNone;
     BorderIcons := [];
-    Log('ApplyWindowMode: Menu mode', ClassName);
+    LogDebug('ApplyWindowMode: Menu mode', ClassName);
   end
   else
   begin
     BorderStyle := bsSizeable;
     BorderIcons := [biSystemMenu, biMinimize];
-    Log('ApplyWindowMode: Window mode', ClassName);
+    LogDebug('ApplyWindowMode: Window mode', ClassName);
   end;
 end;
 
@@ -326,7 +326,7 @@ begin
     ExStyle := ExStyle or WS_EX_TOOLWINDOW;
     ExStyle := ExStyle and (not WS_EX_APPWINDOW);
     SetWindowLongPtr(Handle, GWL_EXSTYLE, ExStyle);
-    Log('ApplyMenuModeTaskbarHide: Hidden from taskbar', ClassName);
+    LogDebug('ApplyMenuModeTaskbarHide: Hidden from taskbar', ClassName);
   end;
 end;
 
@@ -351,13 +351,13 @@ begin
       Height := NewHeight
     else
       Height := FPositionConfig.PositionH;
-    Log('ApplyWindowSize: Auto-calculated W=%d, H=%d', [Width, Height], ClassName);
+    LogDebug('ApplyWindowSize: Auto-calculated W=%d, H=%d', [Width, Height], ClassName);
   end
   else if (FPositionConfig.PositionW > 0) and (FPositionConfig.PositionH > 0) then
   begin
     Width := FPositionConfig.PositionW;
     Height := FPositionConfig.PositionH;
-    Log('ApplyWindowSize: Restored W=%d, H=%d', [Width, Height], ClassName);
+    LogDebug('ApplyWindowSize: Restored W=%d, H=%d', [Width, Height], ClassName);
   end;
   // else: use default form dimensions from DFM
 end;
@@ -375,7 +375,7 @@ begin
   if AHeight < WINDOW_MIN_HEIGHT then AHeight := WINDOW_MIN_HEIGHT;
   if AHeight > WINDOW_MAX_HEIGHT then AHeight := WINDOW_MAX_HEIGHT;
 
-  Log('CalculateAutoSize: Calculated W=%d, H=%d', [AWidth, AHeight], ClassName);
+  LogDebug('CalculateAutoSize: Calculated W=%d, H=%d', [AWidth, AHeight], ClassName);
 end;
 
 { Initialization helpers (extracted from FormCreate for SRP) }
@@ -395,7 +395,7 @@ begin
     Position := poDesigned;
     Left := -10000;
     Top := -10000;
-    Log('InitializeWindowSettings: Menu mode, position will be set on show', ClassName);
+    LogDebug('InitializeWindowSettings: Menu mode, position will be set on show', ClassName);
   end
   else
   begin
@@ -408,7 +408,7 @@ begin
   if FGeneralConfig.OnTop or (FGeneralConfig.WindowMode = wmMenu) then
   begin
     FormStyle := fsStayOnTop;
-    Log('InitializeWindowSettings: OnTop enabled', ClassName);
+    LogDebug('InitializeWindowSettings: OnTop enabled', ClassName);
   end;
 end;
 
@@ -471,7 +471,7 @@ begin
   // In Menu mode, start hidden
   if FGeneralConfig.WindowMode = wmMenu then
   begin
-    Log('FinalizeMenuMode: Starting hidden', ClassName);
+    LogDebug('FinalizeMenuMode: Starting hidden', ClassName);
     Application.ShowMainForm := False;
     Visible := False;
   end;
@@ -481,12 +481,12 @@ procedure TFormMain.ApplyAllSettings;
 var
   ExStyle: LONG_PTR;
 begin
-  Log('ApplyAllSettings: Applying configuration changes', ClassName);
+  LogDebug('ApplyAllSettings: Applying configuration changes', ClassName);
 
   // Re-register hotkey (unregister first, then register with new settings)
   FHotkeyManager.Unregister;
   FHotkeyManager.Register(Handle, FHotkeyConfig.Hotkey, FHotkeyConfig.UseLowLevelHook);
-  Log('ApplyAllSettings: Hotkey re-registered: %s', [FHotkeyConfig.Hotkey], ClassName);
+  LogDebug('ApplyAllSettings: Hotkey re-registered: %s', [FHotkeyConfig.Hotkey], ClassName);
 
   // Reload styles from directory (loads any new styles, skips already loaded)
   FThemeManager.LoadStylesFromDirectory(FAppearanceConfig.VsfDir);
@@ -494,20 +494,20 @@ begin
   // Apply theme
   FThemeManager.SetStyle(FAppearanceConfig.Theme);
   ApplyTheme;
-  Log('ApplyAllSettings: Theme applied: %s', [FAppearanceConfig.Theme], ClassName);
+  LogDebug('ApplyAllSettings: Theme applied: %s', [FAppearanceConfig.Theme], ClassName);
 
   // Apply window mode (border style and icons)
   if FGeneralConfig.WindowMode = wmMenu then
   begin
     BorderStyle := bsNone;
     BorderIcons := [];
-    Log('ApplyAllSettings: Applied Menu mode', ClassName);
+    LogDebug('ApplyAllSettings: Applied Menu mode', ClassName);
   end
   else
   begin
     BorderStyle := bsSizeable;
     BorderIcons := [biSystemMenu, biMinimize];
-    Log('ApplyAllSettings: Applied Window mode', ClassName);
+    LogDebug('ApplyAllSettings: Applied Window mode', ClassName);
   end;
 
   // Apply taskbar visibility based on window mode
@@ -529,14 +529,14 @@ begin
     SetWindowLongPtr(Handle, GWL_EXSTYLE, ExStyle);
     ShowWindow(Handle, SW_SHOW);
   end;
-  Log('ApplyAllSettings: Taskbar visibility updated', ClassName);
+  LogDebug('ApplyAllSettings: Taskbar visibility updated', ClassName);
 
   // Apply OnTop setting
   if FGeneralConfig.OnTop or (FGeneralConfig.WindowMode = wmMenu) then
     FormStyle := fsStayOnTop
   else
     FormStyle := fsNormal;
-  Log('ApplyAllSettings: OnTop=%s', [BoolToStr(FGeneralConfig.OnTop, True)], ClassName);
+  LogDebug('ApplyAllSettings: OnTop=%s', [BoolToStr(FGeneralConfig.OnTop, True)], ClassName);
 
   // Apply ShowAddresses to device list
   if FDeviceList <> nil then
@@ -553,7 +553,7 @@ begin
     FPresenter.OnRefreshRequested;
   end;
 
-  Log('ApplyAllSettings: Complete', ClassName);
+  LogDebug('ApplyAllSettings: Complete', ClassName);
 end;
 
 { Event handlers }
@@ -573,7 +573,7 @@ procedure TFormMain.HandleSettingsClick(Sender: TObject);
 var
   SettingsDialog: TFormSettings;
 begin
-  Log('HandleSettingsClick: Opening settings dialog', ClassName);
+  LogInfo('HandleSettingsClick: Opening settings dialog', ClassName);
   SettingsDialog := TFormSettings.Create(Self);
   try
     // Inject dependencies from MainForm (not Bootstrap)
@@ -634,7 +634,7 @@ procedure TFormMain.HandleApplicationDeactivate(Sender: TObject);
 begin
   if (FGeneralConfig.WindowMode = wmMenu) and FWindowConfig.MenuHideOnFocusLoss and Visible then
   begin
-    Log('HandleApplicationDeactivate: Hiding to tray', ClassName);
+    LogDebug('HandleApplicationDeactivate: Hiding to tray', ClassName);
     HideView;
   end;
 end;
@@ -643,7 +643,7 @@ procedure TFormMain.FormDeactivate(Sender: TObject);
 begin
   if (FGeneralConfig.WindowMode = wmMenu) and FWindowConfig.MenuHideOnFocusLoss then
   begin
-    Log('FormDeactivate: Hiding to tray', ClassName);
+    LogDebug('FormDeactivate: Hiding to tray', ClassName);
     HideView;
   end;
 end;
@@ -652,13 +652,13 @@ procedure TFormMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
   if (not FForceClose) and (not FPresenter.CanClose) then
   begin
-    Log('FormCloseQuery: Hiding to tray instead of closing', ClassName);
+    LogDebug('FormCloseQuery: Hiding to tray instead of closing', ClassName);
     CanClose := False;
     HideView;
   end
   else
   begin
-    Log('FormCloseQuery: Allowing close', ClassName);
+    LogDebug('FormCloseQuery: Allowing close', ClassName);
     CanClose := True;
   end;
 end;
@@ -737,7 +737,7 @@ end;
 
 procedure TFormMain.ShowView;
 begin
-  Log('ShowView', ClassName);
+  LogInfo('ShowView', ClassName);
 
   // Position window based on PositionMode
   // In Menu mode or for modes 1-3 (tray/cursor/center), always reposition
@@ -763,14 +763,14 @@ end;
 
 procedure TFormMain.HideView;
 begin
-  Log('HideView', ClassName);
+  LogInfo('HideView', ClassName);
   Hide;
   FTrayManager.UpdateMenuCaption(False);
 end;
 
 procedure TFormMain.DoForceClose;
 begin
-  Log('DoForceClose', ClassName);
+  LogInfo('DoForceClose', ClassName);
   FForceClose := True;
   Close;
 end;
@@ -793,7 +793,7 @@ begin
 
   if (FGeneralConfig.WindowMode = wmMenu) and Visible then
   begin
-    Log('WMDpiChanged: Repositioning window', ClassName);
+    LogDebug('WMDpiChanged: Repositioning window', ClassName);
     ApplyWindowPosition;
   end;
 end;
@@ -804,7 +804,7 @@ begin
   begin
     if FWindowConfig.MinimizeToTray then
     begin
-      Log('WMSysCommand: Minimizing to tray', ClassName);
+      LogDebug('WMSysCommand: Minimizing to tray', ClassName);
       HideView;
       Msg.Result := 0;
       Exit;

@@ -96,6 +96,7 @@ type
     Enabled: Boolean;
     Filename: string;
     Append: Boolean;
+    LevelIndex: Integer;  // Index in log level ComboBox
   end;
 
   /// <summary>
@@ -374,13 +375,13 @@ begin
   FDeviceConfigProvider := ADeviceConfigProvider;
   FDeviceAddresses := TList<UInt64>.Create;
   FSelectedDeviceIndex := -1;
-  Log('Created', ClassName);
+  LogDebug('Created', ClassName);
 end;
 
 destructor TDeviceSettingsPresenter.Destroy;
 begin
   FDeviceAddresses.Free;
-  Log('Destroyed', ClassName);
+  LogDebug('Destroyed', ClassName);
   inherited;
 end;
 
@@ -495,7 +496,7 @@ end;
 
 procedure TDeviceSettingsPresenter.OnDeviceSelected(AIndex: Integer);
 begin
-  Log('OnDeviceSelected: Index=%d', [AIndex], ClassName);
+  LogDebug('OnDeviceSelected: Index=%d', [AIndex], ClassName);
   LoadDeviceSettings(AIndex);
 end;
 
@@ -503,7 +504,7 @@ procedure TDeviceSettingsPresenter.OnForgetDeviceClicked(AIndex: Integer);
 var
   Address: UInt64;
 begin
-  Log('OnForgetDeviceClicked: Index=%d', [AIndex], ClassName);
+  LogInfo('OnForgetDeviceClicked: Index=%d', [AIndex], ClassName);
   if (AIndex >= 0) and (AIndex < FDeviceAddresses.Count) then
   begin
     Address := FDeviceAddresses[AIndex];
@@ -515,7 +516,7 @@ end;
 
 procedure TDeviceSettingsPresenter.OnRefreshDevicesClicked;
 begin
-  Log('OnRefreshDevicesClicked', ClassName);
+  LogInfo('OnRefreshDevicesClicked', ClassName);
   LoadDeviceList;
 end;
 
@@ -536,13 +537,13 @@ begin
   // Create device settings presenter with delegation
   FDevicePresenter := TDeviceSettingsPresenter.Create(ADeviceSettingsView, ADeviceConfigProvider);
 
-  Log('Created', ClassName);
+  LogDebug('Created', ClassName);
 end;
 
 destructor TSettingsPresenter.Destroy;
 begin
   FDevicePresenter.Free;
-  Log('Destroyed', ClassName);
+  LogDebug('Destroyed', ClassName);
   inherited;
 end;
 
@@ -566,7 +567,7 @@ var
   Connection: TConnectionViewSettings;
   Logging: TLoggingViewSettings;
 begin
-  Log('LoadSettings', ClassName);
+  LogDebug('LoadSettings', ClassName);
 
   // Get interfaces from AppConfig
   AppCfg := FAppConfig;
@@ -638,13 +639,14 @@ begin
   Logging.Enabled := LogCfg.LogEnabled;
   Logging.Filename := LogCfg.LogFilename;
   Logging.Append := LogCfg.LogAppend;
+  Logging.LevelIndex := Ord(LogCfg.LogLevel);
   FView.SetLoggingSettings(Logging);
 
   // Device list (delegated to device presenter)
   FDevicePresenter.LoadDeviceList;
 
   FModified := False;
-  Log('LoadSettings: Complete', ClassName);
+  LogDebug('LoadSettings: Complete', ClassName);
 end;
 
 function TSettingsPresenter.SaveSettings: Boolean;
@@ -667,7 +669,7 @@ var
   Connection: TConnectionViewSettings;
   Logging: TLoggingViewSettings;
 begin
-  Log('SaveSettings', ClassName);
+  LogDebug('SaveSettings', ClassName);
   Result := True;
   try
     // Save current device settings (delegated to device presenter)
@@ -756,11 +758,12 @@ begin
     LogCfg.LogEnabled := Logging.Enabled;
     LogCfg.LogFilename := Logging.Filename;
     LogCfg.LogAppend := Logging.Append;
+    LogCfg.LogLevel := TLogLevel(Logging.LevelIndex);
 
     // Save configuration to file
     FAppConfig.Save;
     FModified := False;
-    Log('SaveSettings: Success', ClassName);
+    LogDebug('SaveSettings: Success', ClassName);
 
     // Notify that settings were applied
     if Assigned(FOnSettingsApplied) then
@@ -768,7 +771,7 @@ begin
   except
     on E: Exception do
     begin
-      Log('SaveSettings: Error - %s', [E.Message], ClassName);
+      LogError('SaveSettings: Error - %s', [E.Message], ClassName);
       FView.ShowError('Failed to save settings: ' + E.Message);
       Result := False;
     end;
@@ -777,20 +780,20 @@ end;
 
 procedure TSettingsPresenter.OnOKClicked;
 begin
-  Log('OnOKClicked', ClassName);
+  LogDebug('OnOKClicked', ClassName);
   if SaveSettings then
     FView.CloseWithOK;
 end;
 
 procedure TSettingsPresenter.OnCancelClicked;
 begin
-  Log('OnCancelClicked', ClassName);
+  LogDebug('OnCancelClicked', ClassName);
   FView.CloseWithCancel;
 end;
 
 procedure TSettingsPresenter.OnApplyClicked;
 begin
-  Log('OnApplyClicked', ClassName);
+  LogDebug('OnApplyClicked', ClassName);
   if SaveSettings then
     FView.SetApplyEnabled(False);
 end;
@@ -799,7 +802,7 @@ procedure TSettingsPresenter.OnResetSizeClicked;
 var
   PositionCfg: IPositionConfig;
 begin
-  Log('OnResetSizeClicked', ClassName);
+  LogDebug('OnResetSizeClicked', ClassName);
   PositionCfg := FAppConfig.AsPositionConfig;
   PositionCfg.PositionW := -1;
   PositionCfg.PositionH := -1;
@@ -810,7 +813,7 @@ procedure TSettingsPresenter.OnResetPositionClicked;
 var
   PositionCfg: IPositionConfig;
 begin
-  Log('OnResetPositionClicked', ClassName);
+  LogDebug('OnResetPositionClicked', ClassName);
   PositionCfg := FAppConfig.AsPositionConfig;
   PositionCfg.PositionX := -1;
   PositionCfg.PositionY := -1;
@@ -834,7 +837,7 @@ end;
 
 procedure TSettingsPresenter.OnResetDefaultsClicked;
 begin
-  Log('OnResetDefaultsClicked', ClassName);
+  LogInfo('OnResetDefaultsClicked', ClassName);
   try
     // Delete config file
     if FileExists(FAppConfig.ConfigPath) then
@@ -856,7 +859,7 @@ var
   Layout: TLayoutViewSettings;
   Appearance: TAppearanceViewSettings;
 begin
-  Log('OnResetLayoutClicked', ClassName);
+  LogDebug('OnResetLayoutClicked', ClassName);
 
   // Reset layout settings to defaults
   Layout.ItemHeight := DEF_ITEM_HEIGHT;

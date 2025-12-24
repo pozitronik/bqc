@@ -161,7 +161,7 @@ begin
   // Tray icon is visible by default
   FTrayIcon.Visible := True;
 
-  Log('Created', ClassName);
+  LogDebug('Created', ClassName);
 end;
 
 procedure TTrayManager.HandleTrayClick(Sender: TObject);
@@ -178,14 +178,14 @@ end;
 
 procedure TTrayManager.HandleMenuSettingsClick(Sender: TObject);
 begin
-  Log('Settings requested', ClassName);
+  LogDebug('Settings requested', ClassName);
   if Assigned(FOnSettingsRequest) then
     FOnSettingsRequest(Self);
 end;
 
 procedure TTrayManager.HandleMenuExitClick(Sender: TObject);
 begin
-  Log('Exit requested', ClassName);
+  LogDebug('Exit requested', ClassName);
   if Assigned(FOnExitRequest) then
     FOnExitRequest(Self);
 end;
@@ -195,7 +195,7 @@ begin
   if FTrayIcon = nil then
     Exit;
 
-  Log('ShowNotification: Title="%s", Message="%s"', [ATitle, AMessage], ClassName);
+  LogDebug('ShowNotification: Title="%s", Message="%s"', [ATitle, AMessage], ClassName);
 
   FTrayIcon.BalloonTitle := ATitle;
   FTrayIcon.BalloonHint := AMessage;

@@ -193,9 +193,11 @@ type
     TabAdvanced: TTabSheet;
     GroupLogging: TGroupBox;
     LabelLogFilename: TLabel;
+    LabelLogLevel: TLabel;
     CheckLogEnabled: TCheckBox;
     CheckLogAppend: TCheckBox;
     EditLogFilename: TEdit;
+    ComboLogLevel: TComboBox;
     ButtonBrowseLogFile: TButton;
     ButtonOpenLogFile: TButton;
     GroupActions: TGroupBox;
@@ -327,7 +329,7 @@ uses
 
 procedure TFormSettings.FormCreate(Sender: TObject);
 begin
-  Log('FormCreate', ClassName);
+  LogDebug('FormCreate', ClassName);
   // Dependencies must be injected via Setup() before showing dialog
   // Setup() is called by the parent form (MainForm) after Create
   FRecordingHotkey := False;
@@ -357,13 +359,13 @@ end;
 
 procedure TFormSettings.FormDestroy(Sender: TObject);
 begin
-  Log('FormDestroy', ClassName);
+  LogDebug('FormDestroy', ClassName);
   FPresenter.Free;
 end;
 
 procedure TFormSettings.FormShow(Sender: TObject);
 begin
-  Log('FormShow', ClassName);
+  LogDebug('FormShow', ClassName);
   InitUpDownLimits;
   InitDeviceTypeCombo;
   FPresenter.LoadSettings;
@@ -533,6 +535,7 @@ begin
   Result.Enabled := CheckLogEnabled.Checked;
   Result.Filename := EditLogFilename.Text;
   Result.Append := CheckLogAppend.Checked;
+  Result.LevelIndex := ComboLogLevel.ItemIndex;
 end;
 
 procedure TFormSettings.SetLoggingSettings(const ASettings: TLoggingViewSettings);
@@ -540,6 +543,7 @@ begin
   CheckLogEnabled.Checked := ASettings.Enabled;
   EditLogFilename.Text := ASettings.Filename;
   CheckLogAppend.Checked := ASettings.Append;
+  ComboLogLevel.ItemIndex := ASettings.LevelIndex;
 end;
 
 { ISettingsView implementation - Theme management }
@@ -780,6 +784,7 @@ begin
   CheckLogEnabled.OnClick := HandleSettingChanged;
   EditLogFilename.OnChange := HandleSettingChanged;
   CheckLogAppend.OnClick := HandleSettingChanged;
+  ComboLogLevel.OnChange := HandleSettingChanged;
 
   // Tab: Appearance
   CheckShowDeviceIcons.OnClick := HandleSettingChanged;

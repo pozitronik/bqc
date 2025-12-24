@@ -1171,16 +1171,25 @@ object FormSettings: TFormSettings
       object GroupLogging: TGroupBox
         Left = 0
         Top = 0
-        Width = 540
-        Height = 95
+        Width = 542
+        Height = 125
+        Align = alTop
         Caption = 'Logging'
         TabOrder = 0
+        ExplicitWidth = 540
         object LabelLogFilename: TLabel
           Left = 12
-          Top = 60
+          Top = 90
           Width = 42
           Height = 15
           Caption = 'Log file:'
+        end
+        object LabelLogLevel: TLabel
+          Left = 12
+          Top = 57
+          Width = 30
+          Height = 15
+          Caption = 'Level:'
         end
         object CheckLogEnabled: TCheckBox
           Left = 12
@@ -1198,39 +1207,55 @@ object FormSettings: TFormSettings
           Caption = 'Append to existing log'
           TabOrder = 1
         end
+        object ComboLogLevel: TComboBox
+          Left = 70
+          Top = 54
+          Width = 120
+          Height = 23
+          Style = csDropDownList
+          TabOrder = 2
+          Items.Strings = (
+            'Debug'
+            'Info'
+            'Warning'
+            'Error')
+        end
         object EditLogFilename: TEdit
           Left = 70
-          Top = 57
+          Top = 87
           Width = 288
           Height = 23
-          TabOrder = 2
+          TabOrder = 3
         end
         object ButtonBrowseLogFile: TButton
           Left = 364
-          Top = 57
+          Top = 87
           Width = 80
           Height = 23
           Caption = 'Browse...'
-          TabOrder = 3
+          TabOrder = 4
           OnClick = ButtonBrowseLogFileClick
         end
         object ButtonOpenLogFile: TButton
           Left = 450
-          Top = 57
+          Top = 87
           Width = 80
           Height = 23
           Caption = 'Open log file'
-          TabOrder = 4
+          TabOrder = 5
           OnClick = ButtonOpenLogFileClick
         end
       end
       object GroupActions: TGroupBox
         Left = 0
-        Top = 101
-        Width = 540
+        Top = 125
+        Width = 542
         Height = 59
+        Align = alTop
         Caption = 'Actions'
         TabOrder = 1
+        ExplicitTop = 131
+        ExplicitWidth = 540
         object ButtonOpenConfig: TButton
           Left = 12
           Top = 24

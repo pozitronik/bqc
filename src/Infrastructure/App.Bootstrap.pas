@@ -182,7 +182,8 @@ begin
   GeneralCfg := FConfig.AsGeneralConfig;
 
   // Initialize logger with settings from config
-  App.Logger.SetLoggingEnabled(LogCfg.LogEnabled, LogCfg.LogFilename, LogCfg.LogAppend);
+  App.Logger.SetLoggingEnabled(LogCfg.LogEnabled, LogCfg.LogFilename, LogCfg.LogAppend,
+    LogCfg.LogLevel);
 
   // Ensure autostart registry matches config setting
   TAutostartManager.Apply(GeneralCfg.Autostart);

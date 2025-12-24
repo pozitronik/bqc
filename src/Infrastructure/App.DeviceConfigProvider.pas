@@ -99,7 +99,7 @@ begin
   FDeviceRepository := ADeviceRepository;
   FNotificationConfig := ANotificationConfig;
   FConnectionConfig := AConnectionConfig;
-  Log('Created', ClassName);
+  LogDebug('Created', ClassName);
 end;
 
 function TDeviceConfigProvider.GetDeviceConfig(AAddress: UInt64): TDeviceConfig;

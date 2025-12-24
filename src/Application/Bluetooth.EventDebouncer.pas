@@ -85,7 +85,7 @@ begin
   FLastEvents := TDictionary<string, TDateTime>.Create;
   FDebounceMs := ADebounceMs;
   FLock := TObject.Create;
-  Log('Created with debounce interval=%d ms', [ADebounceMs], ClassName);
+  LogDebug('Created with debounce interval=%d ms', [ADebounceMs], ClassName);
 end;
 
 destructor TDeviceEventDebouncer.Destroy;
@@ -136,7 +136,7 @@ begin
       ElapsedMs := MilliSecondsBetween(Now, LastTime);
       if ElapsedMs < FDebounceMs then
       begin
-        Log('Filtered duplicate event: %s (elapsed=%d ms < %d ms)',
+        LogDebug('Filtered duplicate event: %s (elapsed=%d ms < %d ms)',
           [Key, ElapsedMs, FDebounceMs], ClassName);
         Result := False;
         Exit;
@@ -145,7 +145,7 @@ begin
 
     // Record this event and allow processing
     FLastEvents.AddOrSetValue(Key, Now);
-    Log('Processing event: %s', [Key], ClassName);
+    LogDebug('Processing event: %s', [Key], ClassName);
     Result := True;
   finally
     TMonitor.Exit(FLock);
@@ -157,7 +157,7 @@ begin
   TMonitor.Enter(FLock);
   try
     FLastEvents.Clear;
-    Log('Cleared all recorded events', ClassName);
+    LogDebug('Cleared all recorded events', ClassName);
   finally
     TMonitor.Exit(FLock);
   end;

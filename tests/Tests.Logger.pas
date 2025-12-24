@@ -18,6 +18,7 @@ uses
   System.IOUtils,
   System.RegularExpressions,
   App.Logger,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type
@@ -86,18 +87,18 @@ type
     [Test]
     procedure Log_EmptyMessage_WritesEmptyLine;
 
-    { LogFmt Tests }
+    { Formatted Log Tests }
     [Test]
-    procedure LogFmt_FormattedMessage_WritesFormattedOutput;
+    procedure Debug_FormattedMessage_WritesFormattedOutput;
 
     [Test]
-    procedure LogFmt_WithSource_IncludesSourceInOutput;
+    procedure Debug_WithSource_IncludesSourceInOutput;
 
     [Test]
-    procedure LogFmt_WhenDisabled_DoesNotWrite;
+    procedure Debug_WhenDisabled_DoesNotWrite;
 
     [Test]
-    procedure LogFmt_MultipleArgs_FormatsCorrectly;
+    procedure Debug_MultipleArgs_FormatsCorrectly;
 
     { IsEnabled Tests }
     [Test]
@@ -129,6 +130,19 @@ type
     [Test]
     procedure Log_SubsequentWrite_NoAdditionalHeader;
 
+    { Severity Level Tests }
+    [Test]
+    procedure Configure_MinLevel_FiltersLowerLevels;
+
+    [Test]
+    procedure Configure_MinLevelDebug_LogsAllLevels;
+
+    [Test]
+    procedure Configure_MinLevelError_OnlyLogsErrors;
+
+    [Test]
+    procedure Log_WithLevel_IncludesLevelInOutput;
+
     { ILogger Interface Tests }
     [Test]
     procedure ILogger_CanCastToInterface;
@@ -137,7 +151,7 @@ type
     procedure ILogger_LogMethod_Works;
 
     [Test]
-    procedure ILogger_LogFmtMethod_Works;
+    procedure ILogger_DebugMethod_Works;
 
     { Global Procedures Tests }
     [Test]
@@ -186,7 +200,8 @@ begin
   FTestLogFile := TPath.Combine(TPath.GetTempPath,
     'bqc_test_' + IntToStr(GetTickCount) + '.log');
   FLogger := TLogger.Create;
-  FLogger.Configure(True, FTestLogFile, False);
+  // Use llDebug so all log levels are captured in tests
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
 end;
 
 procedure TLoggerTests.TearDown;
@@ -250,17 +265,17 @@ end;
 
 procedure TLoggerTests.Configure_Disable_StopsLogging;
 begin
-  FLogger.Configure(False, FTestLogFile, False);
-  FLogger.Log('This should not appear', 'Test');
+  FLogger.Configure(False, FTestLogFile, False, llDebug);
+  FLogger.Debug('This should not appear', 'Test');
 
   Assert.IsFalse(TFile.Exists(FTestLogFile), 'Log file should not exist when disabled');
 end;
 
 procedure TLoggerTests.Configure_Enable_StartsLogging;
 begin
-  FLogger.Configure(False, FTestLogFile, False);
-  FLogger.Configure(True, FTestLogFile, False);
-  FLogger.Log('Test message', 'Test');
+  FLogger.Configure(False, FTestLogFile, False, llDebug);
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
+  FLogger.Debug('Test message', 'Test');
 
   Assert.IsTrue(TFile.Exists(FTestLogFile), 'Log file should exist when enabled');
   Assert.Contains(ReadLogFile, 'Test message');
@@ -272,8 +287,8 @@ var
 begin
   CustomFile := TPath.Combine(TPath.GetTempPath, 'custom_log_' + IntToStr(GetTickCount) + '.log');
   try
-    FLogger.Configure(True, CustomFile, False);
-    FLogger.Log('Custom file test', 'Test');
+    FLogger.Configure(True, CustomFile, False, llDebug);
+    FLogger.Debug('Custom file test', 'Test');
 
     Assert.IsTrue(TFile.Exists(CustomFile), 'Custom log file should exist');
   finally
@@ -295,8 +310,8 @@ var
 begin
   AbsPath := TPath.Combine(TPath.GetTempPath, 'absolute_test_' + IntToStr(GetTickCount) + '.log');
   try
-    FLogger.Configure(True, AbsPath, False);
-    FLogger.Log('Absolute path test', 'Test');
+    FLogger.Configure(True, AbsPath, False, llDebug);
+    FLogger.Debug('Absolute path test', 'Test');
 
     Assert.IsTrue(TFile.Exists(AbsPath), 'Absolute path log file should exist');
   finally
@@ -310,12 +325,12 @@ var
   Lines: TArray<string>;
 begin
   // Write first session
-  FLogger.Configure(True, FTestLogFile, False);
-  FLogger.Log('First message', 'Test');
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
+  FLogger.Debug('First message', 'Test');
 
   // Reconfigure with append mode (new session)
-  FLogger.Configure(True, FTestLogFile, True);
-  FLogger.Log('Second message', 'Test');
+  FLogger.Configure(True, FTestLogFile, True, llDebug);
+  FLogger.Debug('Second message', 'Test');
 
   Lines := ReadLogLines;
   Assert.IsTrue(Length(Lines) > 5, 'Should have multiple lines with headers');
@@ -328,12 +343,12 @@ var
   Content: string;
 begin
   // Write first session
-  FLogger.Configure(True, FTestLogFile, False);
-  FLogger.Log('First message', 'Test');
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
+  FLogger.Debug('First message', 'Test');
 
   // Reconfigure without append mode (new session)
-  FLogger.Configure(True, FTestLogFile, False);
-  FLogger.Log('Second message', 'Test');
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
+  FLogger.Debug('Second message', 'Test');
 
   Content := ReadLogFile;
   Assert.DoesNotContain(Content, 'First message', 'First message should be overwritten');
@@ -344,7 +359,7 @@ end;
 
 procedure TLoggerTests.Log_SimpleMessage_WritesToFile;
 begin
-  FLogger.Log('Simple message', 'Test');
+  FLogger.Debug('Simple message', 'Test');
 
   Assert.IsTrue(TFile.Exists(FTestLogFile), 'Log file should exist');
   Assert.Contains(ReadLogFile, 'Simple message');
@@ -352,7 +367,7 @@ end;
 
 procedure TLoggerTests.Log_WithSource_IncludesSourceInOutput;
 begin
-  FLogger.Log('Message with source', 'MySource');
+  FLogger.Debug('Message with source', 'MySource');
 
   Assert.Contains(ReadLogFile, '[MySource]');
   Assert.Contains(ReadLogFile, 'Message with source');
@@ -362,7 +377,7 @@ procedure TLoggerTests.Log_WithoutSource_NoSourceBrackets;
 var
   Content: string;
 begin
-  FLogger.Log('Message without source', '');
+  FLogger.Debug('Message without source', '');
 
   Content := ReadLogFile;
   Assert.Contains(Content, 'Message without source');
@@ -372,48 +387,48 @@ end;
 
 procedure TLoggerTests.Log_WhenDisabled_DoesNotWrite;
 begin
-  FLogger.Configure(False, FTestLogFile, False);
-  FLogger.Log('Should not appear', 'Test');
+  FLogger.Configure(False, FTestLogFile, False, llDebug);
+  FLogger.Debug('Should not appear', 'Test');
 
   Assert.IsFalse(TFile.Exists(FTestLogFile), 'File should not exist when logging disabled');
 end;
 
 procedure TLoggerTests.Log_EmptyMessage_WritesEmptyLine;
 begin
-  FLogger.Log('', 'Test');
+  FLogger.Debug('', 'Test');
 
   Assert.IsTrue(TFile.Exists(FTestLogFile), 'Log file should exist');
   Assert.Contains(ReadLogFile, '[Test]');
 end;
 
-{ LogFmt Tests }
+{ Formatted Log Tests }
 
-procedure TLoggerTests.LogFmt_FormattedMessage_WritesFormattedOutput;
+procedure TLoggerTests.Debug_FormattedMessage_WritesFormattedOutput;
 begin
-  FLogger.LogFmt('Value is %d', [42], 'Test');
+  FLogger.Debug('Value is %d', [42], 'Test');
 
   Assert.Contains(ReadLogFile, 'Value is 42');
 end;
 
-procedure TLoggerTests.LogFmt_WithSource_IncludesSourceInOutput;
+procedure TLoggerTests.Debug_WithSource_IncludesSourceInOutput;
 begin
-  FLogger.LogFmt('Formatted: %s', ['test'], 'FormatSource');
+  FLogger.Debug('Formatted: %s', ['test'], 'FormatSource');
 
   Assert.Contains(ReadLogFile, '[FormatSource]');
   Assert.Contains(ReadLogFile, 'Formatted: test');
 end;
 
-procedure TLoggerTests.LogFmt_WhenDisabled_DoesNotWrite;
+procedure TLoggerTests.Debug_WhenDisabled_DoesNotWrite;
 begin
-  FLogger.Configure(False, FTestLogFile, False);
-  FLogger.LogFmt('Should not appear: %d', [123], 'Test');
+  FLogger.Configure(False, FTestLogFile, False, llDebug);
+  FLogger.Debug('Should not appear: %d', [123], 'Test');
 
   Assert.IsFalse(TFile.Exists(FTestLogFile));
 end;
 
-procedure TLoggerTests.LogFmt_MultipleArgs_FormatsCorrectly;
+procedure TLoggerTests.Debug_MultipleArgs_FormatsCorrectly;
 begin
-  FLogger.LogFmt('Name=%s, Value=%d, Flag=%s', ['Test', 42, 'True'], 'Multi');
+  FLogger.Debug('Name=%s, Value=%d, Flag=%s', ['Test', 42, 'True'], 'Multi');
 
   Assert.Contains(ReadLogFile, 'Name=Test, Value=42, Flag=True');
 end;
@@ -434,14 +449,14 @@ end;
 
 procedure TLoggerTests.IsEnabled_AfterDisable_ReturnsFalse;
 begin
-  FLogger.Configure(False, FTestLogFile, False);
+  FLogger.Configure(False, FTestLogFile, False, llDebug);
   Assert.IsFalse(FLogger.IsEnabled);
 end;
 
 procedure TLoggerTests.IsEnabled_AfterReEnable_ReturnsTrue;
 begin
-  FLogger.Configure(False, FTestLogFile, False);
-  FLogger.Configure(True, FTestLogFile, False);
+  FLogger.Configure(False, FTestLogFile, False, llDebug);
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
   Assert.IsTrue(FLogger.IsEnabled);
 end;
 
@@ -451,7 +466,7 @@ procedure TLoggerTests.LogFormat_ContainsTimestamp;
 var
   Content: string;
 begin
-  FLogger.Log('Test', 'Src');
+  FLogger.Debug('Test', 'Src');
   Content := ReadLogFile;
 
   // Check for timestamp pattern [YYYY-MM-DD HH:NN:SS.ZZZ]
@@ -463,7 +478,7 @@ procedure TLoggerTests.LogFormat_ContainsThreadId;
 var
   Content: string;
 begin
-  FLogger.Log('Test', 'Src');
+  FLogger.Debug('Test', 'Src');
   Content := ReadLogFile;
 
   Assert.IsTrue(TRegEx.IsMatch(Content, '\[TID:\d+\]'),
@@ -474,7 +489,7 @@ procedure TLoggerTests.LogFormat_SourceInBrackets;
 var
   Content: string;
 begin
-  FLogger.Log('Test message', 'TestSource');
+  FLogger.Debug('Test message', 'TestSource');
   Content := ReadLogFile;
 
   Assert.Contains(Content, '[TestSource]');
@@ -485,7 +500,7 @@ var
   Lines: TArray<string>;
   LastLogLine: string;
 begin
-  FLogger.Log('Final message text', 'Src');
+  FLogger.Debug('Final message text', 'Src');
   Lines := ReadLogLines;
 
   // Find the actual log line (after headers)
@@ -508,7 +523,7 @@ procedure TLoggerTests.Log_FirstWrite_WritesSessionHeader;
 var
   Content: string;
 begin
-  FLogger.Log('Test', 'Src');
+  FLogger.Debug('Test', 'Src');
   Content := ReadLogFile;
 
   Assert.Contains(Content, '=== Bluetooth Quick Connect Log ===');
@@ -520,9 +535,9 @@ var
   Content: string;
   HeaderCount: Integer;
 begin
-  FLogger.Log('First', 'Src');
-  FLogger.Log('Second', 'Src');
-  FLogger.Log('Third', 'Src');
+  FLogger.Debug('First', 'Src');
+  FLogger.Debug('Second', 'Src');
+  FLogger.Debug('Third', 'Src');
 
   Content := ReadLogFile;
   HeaderCount := 0;
@@ -540,6 +555,80 @@ begin
   end;
 
   Assert.AreEqual(1, HeaderCount, 'Should have exactly one session header');
+end;
+
+{ Severity Level Tests }
+
+procedure TLoggerTests.Configure_MinLevel_FiltersLowerLevels;
+var
+  Content: string;
+begin
+  FLogger.Configure(True, FTestLogFile, False, llWarning);
+
+  FLogger.Debug('Debug message', 'Test');
+  FLogger.Info('Info message', 'Test');
+  FLogger.Warning('Warning message', 'Test');
+  FLogger.Error('Error message', 'Test');
+
+  Content := ReadLogFile;
+  Assert.DoesNotContain(Content, 'Debug message', 'Debug should be filtered');
+  Assert.DoesNotContain(Content, 'Info message', 'Info should be filtered');
+  Assert.Contains(Content, 'Warning message', 'Warning should appear');
+  Assert.Contains(Content, 'Error message', 'Error should appear');
+end;
+
+procedure TLoggerTests.Configure_MinLevelDebug_LogsAllLevels;
+var
+  Content: string;
+begin
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
+
+  FLogger.Debug('Debug message', 'Test');
+  FLogger.Info('Info message', 'Test');
+  FLogger.Warning('Warning message', 'Test');
+  FLogger.Error('Error message', 'Test');
+
+  Content := ReadLogFile;
+  Assert.Contains(Content, 'Debug message');
+  Assert.Contains(Content, 'Info message');
+  Assert.Contains(Content, 'Warning message');
+  Assert.Contains(Content, 'Error message');
+end;
+
+procedure TLoggerTests.Configure_MinLevelError_OnlyLogsErrors;
+var
+  Content: string;
+begin
+  FLogger.Configure(True, FTestLogFile, False, llError);
+
+  FLogger.Debug('Debug message', 'Test');
+  FLogger.Info('Info message', 'Test');
+  FLogger.Warning('Warning message', 'Test');
+  FLogger.Error('Error message', 'Test');
+
+  Content := ReadLogFile;
+  Assert.DoesNotContain(Content, 'Debug message');
+  Assert.DoesNotContain(Content, 'Info message');
+  Assert.DoesNotContain(Content, 'Warning message');
+  Assert.Contains(Content, 'Error message');
+end;
+
+procedure TLoggerTests.Log_WithLevel_IncludesLevelInOutput;
+var
+  Content: string;
+begin
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
+
+  FLogger.Debug('Debug msg', 'Test');
+  FLogger.Info('Info msg', 'Test');
+  FLogger.Warning('Warn msg', 'Test');
+  FLogger.Error('Error msg', 'Test');
+
+  Content := ReadLogFile;
+  Assert.Contains(Content, '[Debug]', 'Should contain Debug level prefix');
+  Assert.Contains(Content, '[Info]', 'Should contain Info level prefix');
+  Assert.Contains(Content, '[Warning]', 'Should contain Warning level prefix');
+  Assert.Contains(Content, '[Error]', 'Should contain Error level prefix');
 end;
 
 { ILogger Interface Tests }
@@ -565,38 +654,39 @@ var
 begin
   // Create separate instance - interface will manage lifetime
   Logger := TLogger.Create;
-  Logger.Configure(True, FTestLogFile, False);
+  Logger.Configure(True, FTestLogFile, False, llInfo);
   LoggerIntf := Logger;
   // Don't free Logger - interface now owns it
 
-  LoggerIntf.Log('Interface log', 'IntfTest');
+  LoggerIntf.Info('Interface log', 'IntfTest');
 
   Assert.Contains(ReadLogFile, 'Interface log');
   Assert.Contains(ReadLogFile, '[IntfTest]');
 end;
 
-procedure TLoggerTests.ILogger_LogFmtMethod_Works;
+procedure TLoggerTests.ILogger_DebugMethod_Works;
 var
   Logger: TLogger;
   LoggerIntf: ILogger;
 begin
   // Create separate instance - interface will manage lifetime
   Logger := TLogger.Create;
-  Logger.Configure(True, FTestLogFile, False);
+  Logger.Configure(True, FTestLogFile, False, llDebug);
   LoggerIntf := Logger;
   // Don't free Logger - interface now owns it
 
-  LoggerIntf.LogFmt('Value=%d', [99], 'IntfFmt');
+  LoggerIntf.Debug('Debug via interface', 'IntfDebug');
 
-  Assert.Contains(ReadLogFile, 'Value=99');
+  Assert.Contains(ReadLogFile, 'Debug via interface');
+  Assert.Contains(ReadLogFile, '[IntfDebug]');
 end;
 
 { Global Procedures Tests }
 
 procedure TLoggerTests.GlobalLog_WithSource_Works;
 begin
-  SetLoggingEnabled(True, FTestLogFile, False);
-  App.Logger.Log('Global with source', 'GlobalSrc');
+  SetLoggingEnabled(True, FTestLogFile, False, llDebug);
+  LogDebug('Global with source', 'GlobalSrc');
 
   Assert.Contains(ReadLogFile, 'Global with source');
   Assert.Contains(ReadLogFile, '[GlobalSrc]');
@@ -604,43 +694,43 @@ end;
 
 procedure TLoggerTests.GlobalLog_WithoutSource_Works;
 begin
-  SetLoggingEnabled(True, FTestLogFile, False);
-  App.Logger.Log('Global without source');
+  SetLoggingEnabled(True, FTestLogFile, False, llDebug);
+  LogDebug('Global without source');
 
   Assert.Contains(ReadLogFile, 'Global without source');
 end;
 
 procedure TLoggerTests.GlobalLogFmt_WithSource_Works;
 begin
-  SetLoggingEnabled(True, FTestLogFile, False);
-  App.Logger.Log('Formatted %d', [777], 'FmtSrc');
+  SetLoggingEnabled(True, FTestLogFile, False, llDebug);
+  LogDebug('Formatted %d', [777], 'FmtSrc');
 
   Assert.Contains(ReadLogFile, 'Formatted 777');
 end;
 
 procedure TLoggerTests.GlobalLogFmt_WithoutSource_Works;
 begin
-  SetLoggingEnabled(True, FTestLogFile, False);
-  App.Logger.Log('No source %s', ['value']);
+  SetLoggingEnabled(True, FTestLogFile, False, llDebug);
+  LogDebug('No source %s', ['value']);
 
   Assert.Contains(ReadLogFile, 'No source value');
 end;
 
 procedure TLoggerTests.GlobalIsLoggingEnabled_ReturnsState;
 begin
-  SetLoggingEnabled(True, FTestLogFile, False);
+  SetLoggingEnabled(True, FTestLogFile, False, llDebug);
   Assert.IsTrue(IsLoggingEnabled);
 
-  SetLoggingEnabled(False, FTestLogFile, False);
+  SetLoggingEnabled(False, FTestLogFile, False, llDebug);
   Assert.IsFalse(IsLoggingEnabled);
 end;
 
 procedure TLoggerTests.GlobalSetLoggingEnabled_ChangesState;
 begin
-  SetLoggingEnabled(False, FTestLogFile, False);
+  SetLoggingEnabled(False, FTestLogFile, False, llDebug);
   Assert.IsFalse(IsLoggingEnabled);
 
-  SetLoggingEnabled(True, FTestLogFile, False);
+  SetLoggingEnabled(True, FTestLogFile, False, llDebug);
   Assert.IsTrue(IsLoggingEnabled);
 end;
 
@@ -648,7 +738,7 @@ end;
 
 procedure TLoggerTests.Log_SpecialCharacters_HandledCorrectly;
 begin
-  FLogger.Log('Special: <>&"''%[]{}()', 'Test');
+  FLogger.Debug('Special: <>&"''%[]{}()', 'Test');
 
   Assert.Contains(ReadLogFile, 'Special: <>&"''%[]{}()');
 end;
@@ -658,14 +748,14 @@ var
   LongMessage: string;
 begin
   LongMessage := StringOfChar('X', 10000);
-  FLogger.Log(LongMessage, 'LongTest');
+  FLogger.Debug(LongMessage, 'LongTest');
 
   Assert.Contains(ReadLogFile, LongMessage);
 end;
 
 procedure TLoggerTests.Log_UnicodeCharacters_HandledCorrectly;
 begin
-  FLogger.Log('Unicode: Hello World', 'Unicode');
+  FLogger.Debug('Unicode: Hello World', 'Unicode');
 
   // Basic test - file should be created without error
   Assert.IsTrue(TFile.Exists(FTestLogFile));
@@ -683,13 +773,13 @@ begin
   InvalidLogger := TLogger.Create;
   try
     // Use an invalid UNC path that cannot exist
-    InvalidLogger.Configure(True, '\\?\InvalidPath\file.log', False);
+    InvalidLogger.Configure(True, '\\?\InvalidPath\file.log', False, llDebug);
 
     ExceptionRaised := False;
     ExceptionClass := '';
     ExceptionMsg := '';
     try
-      InvalidLogger.Log('Test', 'Src');
+      InvalidLogger.Debug('Test', 'Src');
     except
       on E: Exception do
       begin

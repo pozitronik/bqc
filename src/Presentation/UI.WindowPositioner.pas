@@ -180,14 +180,14 @@ begin
   begin
     Result.X := AContext.PositionConfig.PositionX;
     Result.Y := AContext.PositionConfig.PositionY;
-    Log('Using saved coordinates X=%d, Y=%d', [Result.X, Result.Y], ClassName);
+    LogDebug('Using saved coordinates X=%d, Y=%d', [Result.X, Result.Y], ClassName);
   end
   else
   begin
     // Default: center on active monitor
     Result.X := AContext.WorkArea.Left + (AContext.WorkArea.Width - AContext.FormWidth) div 2;
     Result.Y := AContext.WorkArea.Top + (AContext.WorkArea.Height - AContext.FormHeight) div 2;
-    Log('No saved coordinates, centering on screen', ClassName);
+    LogDebug('No saved coordinates, centering on screen', ClassName);
   end;
 end;
 
@@ -198,7 +198,7 @@ begin
   // Position popup above the cursor, centered horizontally
   Result.X := AContext.CursorPos.X - (AContext.FormWidth div 2);
   Result.Y := AContext.CursorPos.Y - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-  Log('Near cursor (%d, %d)', [AContext.CursorPos.X, AContext.CursorPos.Y], ClassName);
+  LogDebug('Near cursor (%d, %d)', [AContext.CursorPos.X, AContext.CursorPos.Y], ClassName);
 end;
 
 { TNearTrayPositioner }
@@ -214,7 +214,7 @@ begin
   // Find the actual taskbar/tray position
   if GetTaskbarRect(TrayRect) then
   begin
-    Log('Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
+    LogDebug('Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
       [TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom,
        BoolToStr(IsTaskbarHorizontal(TrayRect), True)], ClassName);
 
@@ -231,14 +231,14 @@ begin
         // Taskbar at top - position popup below taskbar, near right edge
         Result.X := TrayRect.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
         Result.Y := TrayRect.Bottom + WINDOW_EDGE_MARGIN;
-        Log('Taskbar at TOP', ClassName);
+        LogDebug('Taskbar at TOP', ClassName);
       end
       else
       begin
         // Taskbar at bottom - position popup above taskbar, near right edge
         Result.X := TrayRect.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
         Result.Y := TrayRect.Top - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-        Log('Taskbar at BOTTOM', ClassName);
+        LogDebug('Taskbar at BOTTOM', ClassName);
       end;
     end
     else
@@ -249,14 +249,14 @@ begin
         // Taskbar at left - position popup to the right of taskbar, near bottom
         Result.X := TrayRect.Right + WINDOW_EDGE_MARGIN;
         Result.Y := TrayRect.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-        Log('Taskbar at LEFT', ClassName);
+        LogDebug('Taskbar at LEFT', ClassName);
       end
       else
       begin
         // Taskbar at right - position popup to the left of taskbar, near bottom
         Result.X := TrayRect.Left - AContext.FormWidth - WINDOW_EDGE_MARGIN;
         Result.Y := TrayRect.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-        Log('Taskbar at RIGHT', ClassName);
+        LogDebug('Taskbar at RIGHT', ClassName);
       end;
     end;
   end
@@ -265,7 +265,7 @@ begin
     // Fallback: position at bottom-right of cursor's monitor work area
     Result.X := WorkArea.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
     Result.Y := WorkArea.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-    Log('Near tray (fallback to bottom-right)', ClassName);
+    LogDebug('Near tray (fallback to bottom-right)', ClassName);
   end;
 end;
 
@@ -276,7 +276,7 @@ begin
   // Center on the monitor where cursor is
   Result.X := AContext.WorkArea.Left + (AContext.WorkArea.Width - AContext.FormWidth) div 2;
   Result.Y := AContext.WorkArea.Top + (AContext.WorkArea.Height - AContext.FormHeight) div 2;
-  Log('Center screen', ClassName);
+  LogDebug('Center screen', ClassName);
 end;
 
 { TWindowPositioner }
@@ -308,7 +308,7 @@ begin
   // Build context with all positioning data
   Context := TPositionContext.Create(AForm, APositionConfig);
 
-  Log('PositionWindow: FormWidth=%d, FormHeight=%d, Mode=%d',
+  LogDebug('PositionWindow: FormWidth=%d, FormHeight=%d, Mode=%d',
     [Context.FormWidth, Context.FormHeight, Ord(APosition)], ClassName);
 
   // Get strategy and calculate position
@@ -317,7 +317,7 @@ begin
   NewLeft := NewPos.X;
   NewTop := NewPos.Y;
 
-  Log('Before bounds check: NewLeft=%d, NewTop=%d, WorkArea=(%d,%d,%d,%d)',
+  LogDebug('Before bounds check: NewLeft=%d, NewTop=%d, WorkArea=(%d,%d,%d,%d)',
     [NewLeft, NewTop, Context.WorkArea.Left, Context.WorkArea.Top,
      Context.WorkArea.Right, Context.WorkArea.Bottom], ClassName);
 
@@ -331,7 +331,7 @@ begin
   if NewTop + Context.FormHeight > Context.WorkArea.Bottom then
     NewTop := Context.WorkArea.Bottom - Context.FormHeight;
 
-  Log('Final position: Left=%d, Top=%d', [NewLeft, NewTop], ClassName);
+  LogDebug('Final position: Left=%d, Top=%d', [NewLeft, NewTop], ClassName);
 
   AForm.Left := NewLeft;
   AForm.Top := NewTop;
