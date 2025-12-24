@@ -34,6 +34,7 @@ uses
   Tests.SettingsPresenter in 'Tests.SettingsPresenter.pas',
   Tests.MainPresenter in 'Tests.MainPresenter.pas',
   Tests.WinAPI in 'Tests.WinAPI.pas',
+  Tests.DeviceConverter in 'Tests.DeviceConverter.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
@@ -99,7 +100,7 @@ begin
     // Create the test runner
     Runner := TDUnitX.CreateRunner;
 
-    // Add loggers
+    // Add loggers (False = not quiet mode, shows full output)
     Logger := TDUnitXConsoleLogger.Create(True);
     Runner.AddLogger(Logger);
 
