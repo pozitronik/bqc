@@ -35,10 +35,12 @@ type
     FDeviceRepository: IDeviceRepository;
     FConnectionExecutor: IConnectionExecutor;
     FAdapterQuery: IBluetoothAdapterQuery;
+    FEventDebouncer: IEventDebouncer;
     // Keep object references for test setup
     FMockDeviceRepository: TMockDeviceRepository;
     FMockConnectionExecutor: TMockConnectionExecutor;
     FMockStrategyFactory: TMockConnectionStrategyFactory;
+    FMockEventDebouncer: TMockEventDebouncer;
   public
     [Setup]
     procedure Setup;
@@ -92,6 +94,8 @@ begin
   FMockConnectionExecutor := TMockConnectionExecutor.Create;
   FConnectionExecutor := FMockConnectionExecutor;
   FAdapterQuery := TMockAdapterQuery.Create;
+  FMockEventDebouncer := TMockEventDebouncer.Create;
+  FEventDebouncer := FMockEventDebouncer;
 
   // Register a default strategy with service GUIDs
   Strategy := TMockConnectionStrategy.Create;
@@ -106,7 +110,8 @@ begin
     FDeviceMonitor,
     FDeviceRepository,
     FConnectionExecutor,
-    FAdapterQuery
+    FAdapterQuery,
+    FEventDebouncer
   );
 end;
 
@@ -121,9 +126,11 @@ begin
   FDeviceRepository := nil;
   FConnectionExecutor := nil;
   FAdapterQuery := nil;
+  FEventDebouncer := nil;
   FMockDeviceRepository := nil;
   FMockConnectionExecutor := nil;
   FMockStrategyFactory := nil;
+  FMockEventDebouncer := nil;
 end;
 
 { Interface Segregation Tests }

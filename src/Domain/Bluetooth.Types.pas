@@ -80,6 +80,19 @@ type
   );
 
   /// <summary>
+  /// Event types that can be debounced.
+  /// Used by IEventDebouncer to filter duplicate events.
+  /// </summary>
+  TDeviceEventType = (
+    /// <summary>Device connection event.</summary>
+    detConnect,
+    /// <summary>Device disconnection event.</summary>
+    detDisconnect,
+    /// <summary>Device attribute change event.</summary>
+    detAttributeChange
+  );
+
+  /// <summary>
   /// 6-byte Bluetooth MAC address.
   /// </summary>
   TBluetoothAddress = array[0..5] of Byte;

@@ -411,6 +411,48 @@ type
     ): TConnectionResult;
   end;
 
+  /// <summary>
+  /// Interface for debouncing Bluetooth device events.
+  /// Prevents duplicate event processing when multiple Windows Bluetooth
+  /// events fire for the same device state change.
+  /// </summary>
+  IEventDebouncer = interface
+    ['{A7B8C9D0-EEEE-FFFF-0000-111122223333}']
+
+    /// <summary>
+    /// Checks if an event should be processed or filtered as a duplicate.
+    /// </summary>
+    /// <param name="AAddress">Device Bluetooth address.</param>
+    /// <param name="AEventType">Type of event.</param>
+    /// <param name="AConnectionState">Current connection state.</param>
+    /// <returns>True if event should be processed, False if duplicate.</returns>
+    function ShouldProcess(
+      AAddress: UInt64;
+      AEventType: TDeviceEventType;
+      AConnectionState: TBluetoothConnectionState
+    ): Boolean;
+
+    /// <summary>
+    /// Clears all recorded events, allowing immediate processing of next event.
+    /// </summary>
+    procedure Clear;
+
+    /// <summary>
+    /// Gets the debounce interval in milliseconds.
+    /// </summary>
+    function GetDebounceMs: Integer;
+
+    /// <summary>
+    /// Sets the debounce interval in milliseconds.
+    /// </summary>
+    procedure SetDebounceMs(AValue: Integer);
+
+    /// <summary>
+    /// Debounce interval in milliseconds.
+    /// </summary>
+    property DebounceMs: Integer read GetDebounceMs write SetDebounceMs;
+  end;
+
 implementation
 
 { TConnectionResult }

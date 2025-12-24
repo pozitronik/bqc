@@ -624,6 +624,39 @@ type
     property Strategies: TList<IConnectionStrategy> read FStrategies;
   end;
 
+  /// <summary>
+  /// Mock implementation of IEventDebouncer for testing.
+  /// By default allows all events, but can be configured to block or track calls.
+  /// </summary>
+  TMockEventDebouncer = class(TInterfacedObject, IEventDebouncer)
+  private
+    FDebounceMs: Integer;
+    FShouldProcessResult: Boolean;
+    FShouldProcessCallCount: Integer;
+    FClearCallCount: Integer;
+    FLastAddress: UInt64;
+    FLastEventType: TDeviceEventType;
+    FLastConnectionState: TBluetoothConnectionState;
+  public
+    constructor Create;
+
+    // IEventDebouncer
+    function ShouldProcess(AAddress: UInt64; AEventType: TDeviceEventType;
+      AConnectionState: TBluetoothConnectionState): Boolean;
+    procedure Clear;
+    function GetDebounceMs: Integer;
+    procedure SetDebounceMs(AValue: Integer);
+
+    // Test setup and verification
+    property ShouldProcessResult: Boolean read FShouldProcessResult write FShouldProcessResult;
+    property ShouldProcessCallCount: Integer read FShouldProcessCallCount;
+    property ClearCallCount: Integer read FClearCallCount;
+    property LastAddress: UInt64 read FLastAddress;
+    property LastEventType: TDeviceEventType read FLastEventType;
+    property LastConnectionState: TBluetoothConnectionState read FLastConnectionState;
+    property DebounceMs: Integer read FDebounceMs write FDebounceMs;
+  end;
+
 implementation
 
 { TMockLayoutConfig }
@@ -1789,6 +1822,45 @@ end;
 function TMockAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
 begin
   Result := nil;
+end;
+
+{ TMockEventDebouncer }
+
+constructor TMockEventDebouncer.Create;
+begin
+  inherited Create;
+  FDebounceMs := 500;
+  FShouldProcessResult := True;  // Default: allow all events
+  FShouldProcessCallCount := 0;
+  FClearCallCount := 0;
+  FLastAddress := 0;
+  FLastEventType := detConnect;
+  FLastConnectionState := csDisconnected;
+end;
+
+function TMockEventDebouncer.ShouldProcess(AAddress: UInt64;
+  AEventType: TDeviceEventType; AConnectionState: TBluetoothConnectionState): Boolean;
+begin
+  Inc(FShouldProcessCallCount);
+  FLastAddress := AAddress;
+  FLastEventType := AEventType;
+  FLastConnectionState := AConnectionState;
+  Result := FShouldProcessResult;
+end;
+
+procedure TMockEventDebouncer.Clear;
+begin
+  Inc(FClearCallCount);
+end;
+
+function TMockEventDebouncer.GetDebounceMs: Integer;
+begin
+  Result := FDebounceMs;
+end;
+
+procedure TMockEventDebouncer.SetDebounceMs(AValue: Integer);
+begin
+  FDebounceMs := AValue;
 end;
 
 end.

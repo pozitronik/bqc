@@ -44,6 +44,7 @@ type
     FDeviceRepository: IDeviceRepository;
     FConnectionExecutor: IConnectionExecutor;
     FAdapterQuery: IBluetoothAdapterQuery;
+    FEventDebouncer: IEventDebouncer;
 
     procedure DoDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
     procedure DoError(const AMessage: string; AErrorCode: Cardinal);
@@ -84,7 +85,8 @@ type
       ADeviceMonitor: IDeviceMonitor;
       ADeviceRepository: IDeviceRepository;
       AConnectionExecutor: IConnectionExecutor;
-      AAdapterQuery: IBluetoothAdapterQuery
+      AAdapterQuery: IBluetoothAdapterQuery;
+      AEventDebouncer: IEventDebouncer
     );
     destructor Destroy; override;
 
@@ -96,6 +98,7 @@ type
     property DeviceRepository: IDeviceRepository read FDeviceRepository;
     property ConnectionExecutor: IConnectionExecutor read FConnectionExecutor;
     property AdapterQuery: IBluetoothAdapterQuery read FAdapterQuery;
+    property EventDebouncer: IEventDebouncer read FEventDebouncer;
   end;
 
 /// <summary>
@@ -111,13 +114,16 @@ uses
   Bluetooth.DeviceMonitors,
   Bluetooth.DeviceRepository,
   Bluetooth.ConnectionExecutor,
-  Bluetooth.AdapterQuery;
+  Bluetooth.AdapterQuery,
+  Bluetooth.EventDebouncer;
 
 function CreateBluetoothService: IBluetoothService;
 var
   MonitorFactory: IDeviceMonitorFactory;
+  Debouncer: IEventDebouncer;
 begin
   MonitorFactory := TDeviceMonitorFactory.Create(Bootstrap.PollingConfig);
+  Debouncer := TDeviceEventDebouncer.Create(500); // 500ms default debounce interval
   Result := TBluetoothService.Create(
     Bootstrap.ConnectionConfig,
     Bootstrap.DeviceConfigProvider,
@@ -125,7 +131,8 @@ begin
     MonitorFactory.CreateMonitor,
     CreateDeviceRepository,
     CreateConnectionExecutor,
-    CreateAdapterQuery
+    CreateAdapterQuery,
+    Debouncer
   );
 end;
 
@@ -138,7 +145,8 @@ constructor TBluetoothService.Create(
   ADeviceMonitor: IDeviceMonitor;
   ADeviceRepository: IDeviceRepository;
   AConnectionExecutor: IConnectionExecutor;
-  AAdapterQuery: IBluetoothAdapterQuery
+  AAdapterQuery: IBluetoothAdapterQuery;
+  AEventDebouncer: IEventDebouncer
 );
 begin
   inherited Create;
@@ -151,6 +159,7 @@ begin
   FDeviceRepository := ADeviceRepository;
   FConnectionExecutor := AConnectionExecutor;
   FAdapterQuery := AAdapterQuery;
+  FEventDebouncer := AEventDebouncer;
 
   // Configure and start device monitor
   FDeviceMonitor.OnDeviceStateChanged := HandleMonitorDeviceStateChanged;
@@ -350,10 +359,29 @@ procedure TBluetoothService.HandleMonitorDeviceStateChanged(Sender: TObject;
 var
   Device: TBluetoothDeviceInfo;
   UpdatedDevice: TBluetoothDeviceInfo;
+  EventType: TDeviceEventType;
 begin
   Log('HandleMonitorDeviceStateChanged: Address=$%.12X, NewState=%d', [
     ADeviceAddress, Ord(ANewState)
   ], ClassName);
+
+  // Determine event type based on new state
+  case ANewState of
+    csConnected: EventType := detConnect;
+    csDisconnected: EventType := detDisconnect;
+  else
+    EventType := detAttributeChange;
+  end;
+
+  // Check with debouncer if event should be processed
+  if Assigned(FEventDebouncer) then
+  begin
+    if not FEventDebouncer.ShouldProcess(ADeviceAddress, EventType, ANewState) then
+    begin
+      Log('HandleMonitorDeviceStateChanged: Event filtered by debouncer', ClassName);
+      Exit;
+    end;
+  end;
 
   // Check if device is in repository
   if FDeviceRepository.TryGetByAddress(ADeviceAddress, Device) then

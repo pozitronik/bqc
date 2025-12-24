@@ -18,25 +18,18 @@ interface
 uses
   System.SysUtils,
   System.Generics.Collections,
-  Bluetooth.Types;
+  Bluetooth.Types,
+  Bluetooth.Interfaces;
 
 type
-  /// <summary>
-  /// Event types that can be debounced.
-  /// </summary>
-  TDeviceEventType = (
-    detConnect,
-    detDisconnect,
-    detAttributeChange
-  );
-
   /// <summary>
   /// Debounces Bluetooth device events to prevent duplicate processing.
   /// Multiple Windows Bluetooth event sources (HCI, L2CAP, RadioInRange)
   /// can fire for the same device state change within milliseconds.
   /// This class filters out duplicate events within a configurable time window.
+  /// Implements IEventDebouncer for dependency injection.
   /// </summary>
-  TDeviceEventDebouncer = class
+  TDeviceEventDebouncer = class(TInterfacedObject, IEventDebouncer)
   private
     FLastEvents: TDictionary<string, TDateTime>;
     FDebounceMs: Integer;
@@ -44,6 +37,10 @@ type
 
     function MakeKey(AAddress: UInt64; AEventType: TDeviceEventType;
       AConnectionState: TBluetoothConnectionState): string;
+
+    { IEventDebouncer }
+    function GetDebounceMs: Integer;
+    procedure SetDebounceMs(AValue: Integer);
   public
     /// <summary>
     /// Creates a debouncer with the specified debounce interval.
@@ -96,6 +93,16 @@ begin
   FLastEvents.Free;
   FLock.Free;
   inherited Destroy;
+end;
+
+function TDeviceEventDebouncer.GetDebounceMs: Integer;
+begin
+  Result := FDebounceMs;
+end;
+
+procedure TDeviceEventDebouncer.SetDebounceMs(AValue: Integer);
+begin
+  FDebounceMs := AValue;
 end;
 
 function TDeviceEventDebouncer.MakeKey(AAddress: UInt64;

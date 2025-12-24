@@ -38,6 +38,7 @@ uses
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in '..\src\Application\Bluetooth.ConnectionStrategies.pas',
+  Bluetooth.EventDebouncer in '..\src\Application\Bluetooth.EventDebouncer.pas',
   Bluetooth.Service in '..\src\Application\Bluetooth.Service.pas',
   Bluetooth.WinAPI in '..\src\Infrastructure\Bluetooth.WinAPI.pas',
   Bluetooth.DeviceMonitors in '..\src\Infrastructure\Bluetooth.DeviceMonitors.pas',
