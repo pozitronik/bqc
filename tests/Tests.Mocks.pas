@@ -511,11 +511,20 @@ type
 
 type
   /// <summary>
-  /// Mock implementation of ISettingsView and IDeviceSettingsView for testing TSettingsPresenter.
+  /// Mock implementation of settings view interfaces for testing TSettingsPresenter.
   /// Records all calls made by the presenter for verification.
-  /// Implements both interfaces for ISP compliance.
+  /// Implements all focused interfaces and combined ISettingsView for ISP compliance.
   /// </summary>
-  TMockSettingsView = class(TInterfacedObject, ISettingsView, IDeviceSettingsView)
+  TMockSettingsView = class(TInterfacedObject,
+    ISettingsDialogView,
+    IGeneralSettingsView,
+    IHotkeySettingsView,
+    IAppearanceSettingsView,
+    ILayoutSettingsView,
+    IConnectionSettingsView,
+    ILoggingSettingsView,
+    IDeviceSettingsView,
+    ISettingsView)
   private
     // Stored settings
     FGeneralSettings: TGeneralViewSettings;

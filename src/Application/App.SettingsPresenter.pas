@@ -116,92 +116,131 @@ type
   end;
 
   //----------------------------------------------------------------------------
-  // IDeviceSettingsView - Interface for device settings view (ISP-compliant)
+  // Focused Settings View Interfaces (ISP-compliant)
   //----------------------------------------------------------------------------
 
   /// <summary>
-  /// Focused interface for device settings view operations.
-  /// Implements Interface Segregation Principle by separating device
-  /// management from general settings view.
+  /// Dialog control operations for settings view.
   /// </summary>
-  IDeviceSettingsView = interface
-    ['{C3D4E5F6-A7B8-9012-CDEF-345678901234}']
-
-    /// <summary>
-    /// Populates the device list with display names.
-    /// </summary>
-    procedure PopulateDeviceList(const AItems: TArray<string>);
-
-    /// <summary>
-    /// Gets the currently selected device index.
-    /// </summary>
-    function GetSelectedDeviceIndex: Integer;
-
-    /// <summary>
-    /// Sets the selected device index.
-    /// </summary>
-    procedure SetSelectedDeviceIndex(AIndex: Integer);
-
-    /// <summary>
-    /// Gets the current device settings from the view.
-    /// </summary>
-    function GetDeviceSettings: TDeviceViewSettings;
-
-    /// <summary>
-    /// Sets the device settings in the view.
-    /// </summary>
-    procedure SetDeviceSettings(const ASettings: TDeviceViewSettings);
-
-    /// <summary>
-    /// Clears the device settings controls.
-    /// </summary>
-    procedure ClearDeviceSettings;
-  end;
-
-  //----------------------------------------------------------------------------
-  // ISettingsView - Interface for general settings view
-  //----------------------------------------------------------------------------
-
-  /// <summary>
-  /// Interface for general settings view (implemented by SettingsForm).
-  /// Provides data access through grouped settings records.
-  /// Device-related methods are in IDeviceSettingsView (ISP).
-  /// </summary>
-  ISettingsView = interface
-    ['{B2C3D4E5-F6A7-8901-BCDE-F23456789012}']
-    // Dialog control
+  ISettingsDialogView = interface
+    ['{D4E5F6A7-B8C9-0123-DEF0-456789012345}']
     procedure CloseWithOK;
     procedure CloseWithCancel;
     procedure ShowError(const AMessage: string);
     procedure ShowInfo(const AMessage: string);
     procedure SetApplyEnabled(AEnabled: Boolean);
+    procedure PopulateThemeList(const ACurrentTheme: string);
+  end;
 
-    // General settings
+  /// <summary>
+  /// General settings view operations.
+  /// </summary>
+  IGeneralSettingsView = interface
+    ['{E5F6A7B8-C9D0-1234-EF01-567890123456}']
+    function GetGeneralSettings: TGeneralViewSettings;
+    procedure SetGeneralSettings(const ASettings: TGeneralViewSettings);
+  end;
+
+  /// <summary>
+  /// Hotkey settings view operations.
+  /// </summary>
+  IHotkeySettingsView = interface
+    ['{F6A7B8C9-D0E1-2345-F012-678901234567}']
+    function GetHotkeySettings: THotkeyViewSettings;
+    procedure SetHotkeySettings(const ASettings: THotkeyViewSettings);
+  end;
+
+  /// <summary>
+  /// Appearance settings view operations.
+  /// </summary>
+  IAppearanceSettingsView = interface
+    ['{A7B8C9D0-E1F2-3456-0123-789012345678}']
+    function GetAppearanceSettings: TAppearanceViewSettings;
+    procedure SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
+  end;
+
+  /// <summary>
+  /// Layout settings view operations.
+  /// </summary>
+  ILayoutSettingsView = interface
+    ['{B8C9D0E1-F2A3-4567-1234-890123456789}']
+    function GetLayoutSettings: TLayoutViewSettings;
+    procedure SetLayoutSettings(const ASettings: TLayoutViewSettings);
+  end;
+
+  /// <summary>
+  /// Connection settings view operations.
+  /// </summary>
+  IConnectionSettingsView = interface
+    ['{C9D0E1F2-A3B4-5678-2345-901234567890}']
+    function GetConnectionSettings: TConnectionViewSettings;
+    procedure SetConnectionSettings(const ASettings: TConnectionViewSettings);
+  end;
+
+  /// <summary>
+  /// Logging settings view operations.
+  /// </summary>
+  ILoggingSettingsView = interface
+    ['{D0E1F2A3-B4C5-6789-3456-012345678901}']
+    function GetLoggingSettings: TLoggingViewSettings;
+    procedure SetLoggingSettings(const ASettings: TLoggingViewSettings);
+  end;
+
+  /// <summary>
+  /// Device settings view operations.
+  /// </summary>
+  IDeviceSettingsView = interface
+    ['{C3D4E5F6-A7B8-9012-CDEF-345678901234}']
+    procedure PopulateDeviceList(const AItems: TArray<string>);
+    function GetSelectedDeviceIndex: Integer;
+    procedure SetSelectedDeviceIndex(AIndex: Integer);
+    function GetDeviceSettings: TDeviceViewSettings;
+    procedure SetDeviceSettings(const ASettings: TDeviceViewSettings);
+    procedure ClearDeviceSettings;
+  end;
+
+  //----------------------------------------------------------------------------
+  // ISettingsView - Combined interface for backward compatibility
+  //----------------------------------------------------------------------------
+
+  /// <summary>
+  /// Combined settings view interface (implemented by SettingsForm).
+  /// Includes all settings categories for components that need full access.
+  /// For focused access, use the individual interfaces above.
+  /// </summary>
+  ISettingsView = interface
+    ['{B2C3D4E5-F6A7-8901-BCDE-F23456789012}']
+    // Dialog control (from ISettingsDialogView)
+    procedure CloseWithOK;
+    procedure CloseWithCancel;
+    procedure ShowError(const AMessage: string);
+    procedure ShowInfo(const AMessage: string);
+    procedure SetApplyEnabled(AEnabled: Boolean);
+    procedure PopulateThemeList(const ACurrentTheme: string);
+
+    // General settings (from IGeneralSettingsView)
     function GetGeneralSettings: TGeneralViewSettings;
     procedure SetGeneralSettings(const ASettings: TGeneralViewSettings);
 
-    // Hotkey settings
+    // Hotkey settings (from IHotkeySettingsView)
     function GetHotkeySettings: THotkeyViewSettings;
     procedure SetHotkeySettings(const ASettings: THotkeyViewSettings);
 
-    // Appearance settings
+    // Appearance settings (from IAppearanceSettingsView)
     function GetAppearanceSettings: TAppearanceViewSettings;
     procedure SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
 
-    // Layout settings
+    // Layout settings (from ILayoutSettingsView)
     function GetLayoutSettings: TLayoutViewSettings;
     procedure SetLayoutSettings(const ASettings: TLayoutViewSettings);
 
-    // Connection settings
+    // Connection settings (from IConnectionSettingsView)
     function GetConnectionSettings: TConnectionViewSettings;
     procedure SetConnectionSettings(const ASettings: TConnectionViewSettings);
 
-    // Logging settings
+    // Logging settings (from ILoggingSettingsView)
     function GetLoggingSettings: TLoggingViewSettings;
     procedure SetLoggingSettings(const ASettings: TLoggingViewSettings);
-
-    // Theme list management
-    procedure PopulateThemeList(const ACurrentTheme: string);
   end;
 
   //----------------------------------------------------------------------------

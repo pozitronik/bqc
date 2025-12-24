@@ -23,9 +23,19 @@ uses
 type
   /// <summary>
   /// Settings dialog form.
-  /// Implements ISettingsView and IDeviceSettingsView for MVP pattern (ISP).
+  /// Implements focused settings interfaces for ISP compliance.
+  /// Also implements combined ISettingsView for backward compatibility.
   /// </summary>
-  TFormSettings = class(TForm, ISettingsView, IDeviceSettingsView)
+  TFormSettings = class(TForm,
+    ISettingsDialogView,
+    IGeneralSettingsView,
+    IHotkeySettingsView,
+    IAppearanceSettingsView,
+    ILayoutSettingsView,
+    IConnectionSettingsView,
+    ILoggingSettingsView,
+    IDeviceSettingsView,
+    ISettingsView)
     PanelBottom: TPanel;
     ButtonOK: TButton;
     ButtonCancel: TButton;
