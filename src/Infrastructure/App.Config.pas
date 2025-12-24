@@ -42,6 +42,7 @@ type
   private
     FConfigPath: string;
     FModified: Boolean;
+    FDestroying: Boolean;
     FDeviceRepository: IDeviceConfigRepository;
     FSettingsRepository: ISettingsRepository;
     FDeviceConfigProvider: IDeviceConfigProvider;
@@ -231,6 +232,11 @@ end;
 
 destructor TAppConfig.Destroy;
 begin
+  // Prevent re-entry from _Release during SaveIfModified
+  if FDestroying then
+    Exit;
+  FDestroying := True;
+
   try
     SaveIfModified;
   finally
@@ -323,7 +329,7 @@ end;
 function TAppConfig._Release: Integer;
 begin
   Result := AtomicDecrement(FRefCount);
-  if Result = 0 then
+  if (Result = 0) and not FDestroying then
     Destroy;
 end;
 
