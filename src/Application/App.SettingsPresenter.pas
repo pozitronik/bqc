@@ -352,6 +352,16 @@ uses
   App.Config,  // For DEF_* constants
   Bluetooth.Types;
 
+const
+  /// <summary>
+  /// UI index offset for ComboBox items that include "Default" or "Use Global" at index 0.
+  /// Config stores -1 for "use default", 0 for first real option, etc.
+  /// UI ComboBox has "Default" at index 0, first real option at index 1, etc.
+  /// Conversion: UIIndex = ConfigValue + UI_DEFAULT_ITEM_OFFSET
+  ///             ConfigValue = UIIndex - UI_DEFAULT_ITEM_OFFSET
+  /// </summary>
+  UI_DEFAULT_ITEM_OFFSET = 1;
+
 { TDeviceSettingsPresenter }
 
 constructor TDeviceSettingsPresenter.Create(
@@ -435,16 +445,16 @@ begin
   DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(Address);
 
   Settings.Alias := DeviceConfig.Alias;
-  Settings.DeviceTypeIndex := DeviceConfig.DeviceTypeOverride + 1;
+  Settings.DeviceTypeIndex := DeviceConfig.DeviceTypeOverride + UI_DEFAULT_ITEM_OFFSET;
   Settings.Pinned := DeviceConfig.Pinned;
   Settings.Hidden := DeviceConfig.Hidden;
   Settings.AutoConnect := DeviceConfig.AutoConnect;
   Settings.Timeout := DeviceConfig.ConnectionTimeout;
   Settings.RetryCount := DeviceConfig.ConnectionRetryCount;
-  Settings.NotifyConnectIndex := DeviceConfig.Notifications.OnConnect + 1;
-  Settings.NotifyDisconnectIndex := DeviceConfig.Notifications.OnDisconnect + 1;
-  Settings.NotifyFailedIndex := DeviceConfig.Notifications.OnConnectFailed + 1;
-  Settings.NotifyAutoIndex := DeviceConfig.Notifications.OnAutoConnect + 1;
+  Settings.NotifyConnectIndex := DeviceConfig.Notifications.OnConnect + UI_DEFAULT_ITEM_OFFSET;
+  Settings.NotifyDisconnectIndex := DeviceConfig.Notifications.OnDisconnect + UI_DEFAULT_ITEM_OFFSET;
+  Settings.NotifyFailedIndex := DeviceConfig.Notifications.OnConnectFailed + UI_DEFAULT_ITEM_OFFSET;
+  Settings.NotifyAutoIndex := DeviceConfig.Notifications.OnAutoConnect + UI_DEFAULT_ITEM_OFFSET;
 
   FView.SetDeviceSettings(Settings);
 end;
@@ -463,16 +473,16 @@ begin
   Settings := FView.GetDeviceSettings;
 
   DeviceConfig.Alias := Settings.Alias;
-  DeviceConfig.DeviceTypeOverride := Settings.DeviceTypeIndex - 1;
+  DeviceConfig.DeviceTypeOverride := Settings.DeviceTypeIndex - UI_DEFAULT_ITEM_OFFSET;
   DeviceConfig.Pinned := Settings.Pinned;
   DeviceConfig.Hidden := Settings.Hidden;
   DeviceConfig.AutoConnect := Settings.AutoConnect;
   DeviceConfig.ConnectionTimeout := Settings.Timeout;
   DeviceConfig.ConnectionRetryCount := Settings.RetryCount;
-  DeviceConfig.Notifications.OnConnect := Settings.NotifyConnectIndex - 1;
-  DeviceConfig.Notifications.OnDisconnect := Settings.NotifyDisconnectIndex - 1;
-  DeviceConfig.Notifications.OnConnectFailed := Settings.NotifyFailedIndex - 1;
-  DeviceConfig.Notifications.OnAutoConnect := Settings.NotifyAutoIndex - 1;
+  DeviceConfig.Notifications.OnConnect := Settings.NotifyConnectIndex - UI_DEFAULT_ITEM_OFFSET;
+  DeviceConfig.Notifications.OnDisconnect := Settings.NotifyDisconnectIndex - UI_DEFAULT_ITEM_OFFSET;
+  DeviceConfig.Notifications.OnConnectFailed := Settings.NotifyFailedIndex - UI_DEFAULT_ITEM_OFFSET;
+  DeviceConfig.Notifications.OnAutoConnect := Settings.NotifyAutoIndex - UI_DEFAULT_ITEM_OFFSET;
 
   FDeviceConfigProvider.SetDeviceConfig(DeviceConfig);
 end;
