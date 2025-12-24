@@ -3,6 +3,9 @@
 {       Bluetooth Quick Connect                         }
 {       Window Positioning Utilities                    }
 {                                                       }
+{       Uses Strategy pattern for extensible            }
+{       positioning modes (OCP-compliant).              }
+{                                                       }
 {       Copyright (c) 2024                              }
 {                                                       }
 {*******************************************************}
@@ -14,13 +17,74 @@ interface
 uses
   Winapi.Windows,
   System.SysUtils,
+  System.Types,
   Vcl.Forms,
   App.ConfigEnums,
   App.ConfigInterfaces;
 
 type
   /// <summary>
+  /// Context data passed to position strategies.
+  /// Contains all information needed to calculate window position.
+  /// </summary>
+  TPositionContext = record
+    FormWidth: Integer;
+    FormHeight: Integer;
+    CursorPos: TPoint;
+    WorkArea: TRect;
+    PositionConfig: IPositionConfig;
+    class function Create(AForm: TForm; APositionConfig: IPositionConfig): TPositionContext; static;
+  end;
+
+  /// <summary>
+  /// Strategy interface for window positioning.
+  /// Implement this to add new positioning modes (OCP).
+  /// </summary>
+  IPositionStrategy = interface
+    ['{F1E2D3C4-B5A6-9788-7654-321098765432}']
+    /// <summary>
+    /// Calculates the top-left position for the window.
+    /// </summary>
+    /// <param name="AContext">Context with form dimensions, cursor pos, work area.</param>
+    /// <returns>Point with calculated Left and Top coordinates.</returns>
+    function CalculatePosition(const AContext: TPositionContext): TPoint;
+  end;
+
+  /// <summary>
+  /// Strategy: Position at saved coordinates or center if not set.
+  /// </summary>
+  TCoordinatesPositioner = class(TInterfacedObject, IPositionStrategy)
+  public
+    function CalculatePosition(const AContext: TPositionContext): TPoint;
+  end;
+
+  /// <summary>
+  /// Strategy: Position near the cursor.
+  /// </summary>
+  TNearCursorPositioner = class(TInterfacedObject, IPositionStrategy)
+  public
+    function CalculatePosition(const AContext: TPositionContext): TPoint;
+  end;
+
+  /// <summary>
+  /// Strategy: Position near the system tray/taskbar.
+  /// </summary>
+  TNearTrayPositioner = class(TInterfacedObject, IPositionStrategy)
+  public
+    function CalculatePosition(const AContext: TPositionContext): TPoint;
+  end;
+
+  /// <summary>
+  /// Strategy: Center on the current monitor.
+  /// </summary>
+  TCenterScreenPositioner = class(TInterfacedObject, IPositionStrategy)
+  public
+    function CalculatePosition(const AContext: TPositionContext): TPoint;
+  end;
+
+  /// <summary>
   /// Utility class for positioning popup windows relative to taskbar and screen.
+  /// Uses strategy pattern for extensible positioning modes.
   /// </summary>
   TWindowPositioner = class
   public
@@ -40,10 +104,17 @@ type
     /// <param name="AForm">The form to adjust.</param>
     class procedure EnsureOnScreen(AForm: TForm);
 
-  private
-    class function GetTaskbarRect(out ARect: TRect): Boolean;
-    class function IsTaskbarHorizontal(const ARect: TRect): Boolean;
+    /// <summary>
+    /// Gets the appropriate positioning strategy for a mode.
+    /// </summary>
+    class function GetStrategy(AMode: TPositionMode): IPositionStrategy;
   end;
+
+/// <summary>
+/// Taskbar utility functions (used by strategies).
+/// </summary>
+function GetTaskbarRect(out ARect: TRect): Boolean;
+function IsTaskbarHorizontal(const ARect: TRect): Boolean;
 
 implementation
 
@@ -58,9 +129,9 @@ const
   // Margin between window and screen/taskbar edge
   WINDOW_EDGE_MARGIN = 10;
 
-{ TWindowPositioner }
+{ Taskbar utility functions }
 
-class function TWindowPositioner.GetTaskbarRect(out ARect: TRect): Boolean;
+function GetTaskbarRect(out ARect: TRect): Boolean;
 var
   TrayWnd: HWND;
 begin
@@ -68,7 +139,7 @@ begin
   Result := (TrayWnd <> 0) and GetWindowRect(TrayWnd, ARect);
 end;
 
-class function TWindowPositioner.IsTaskbarHorizontal(const ARect: TRect): Boolean;
+function IsTaskbarHorizontal(const ARect: TRect): Boolean;
 var
   TaskbarWidth, TaskbarHeight: Integer;
 begin
@@ -77,147 +148,188 @@ begin
   Result := TaskbarWidth > TaskbarHeight;
 end;
 
-class procedure TWindowPositioner.PositionWindow(AForm: TForm;
-  APositionConfig: IPositionConfig; APosition: TPositionMode);
+{ TPositionContext }
+
+class function TPositionContext.Create(AForm: TForm; APositionConfig: IPositionConfig): TPositionContext;
 var
-  CursorPos: TPoint;
   Mon: TMonitor;
-  WorkArea: TRect;
-  NewLeft, NewTop: Integer;
-  TrayRect: TRect;
-  FormWidth, FormHeight: Integer;
 begin
   // Ensure window handle exists so dimensions are accurate
   if not AForm.HandleAllocated then
     AForm.HandleNeeded;
 
-  // Use actual form dimensions
-  FormWidth := AForm.Width;
-  FormHeight := AForm.Height;
-
-  Log('PositionWindow: FormWidth=%d, FormHeight=%d, Mode=%d',
-    [FormWidth, FormHeight, Ord(APosition)], ClassName);
+  Result.FormWidth := AForm.Width;
+  Result.FormHeight := AForm.Height;
+  Result.PositionConfig := APositionConfig;
 
   // Get cursor position and find which monitor it's on
-  GetCursorPos(CursorPos);
-  Mon := Screen.MonitorFromPoint(CursorPos);
+  GetCursorPos(Result.CursorPos);
+  Mon := Screen.MonitorFromPoint(Result.CursorPos);
   if Mon <> nil then
-    WorkArea := Mon.WorkareaRect
+    Result.WorkArea := Mon.WorkareaRect
   else
-    WorkArea := Screen.WorkAreaRect;
+    Result.WorkArea := Screen.WorkAreaRect;
+end;
 
-  case APosition of
-    pmCoordinates:
-      begin
-        // Use saved coordinates from config
-        if (APositionConfig.PositionX >= 0) and (APositionConfig.PositionY >= 0) then
-        begin
-          NewLeft := APositionConfig.PositionX;
-          NewTop := APositionConfig.PositionY;
-          Log('Using saved coordinates X=%d, Y=%d', [NewLeft, NewTop], ClassName);
-        end
-        else
-        begin
-          // Default: center on active monitor
-          NewLeft := WorkArea.Left + (WorkArea.Width - FormWidth) div 2;
-          NewTop := WorkArea.Top + (WorkArea.Height - FormHeight) div 2;
-          Log('No saved coordinates, centering on screen', ClassName);
-        end;
-      end;
+{ TCoordinatesPositioner }
 
-    pmNearCursor:
-      begin
-        // Position popup above the cursor, centered horizontally
-        NewLeft := CursorPos.X - (FormWidth div 2);
-        NewTop := CursorPos.Y - FormHeight - WINDOW_EDGE_MARGIN;
-        Log('Near cursor (%d, %d)', [CursorPos.X, CursorPos.Y], ClassName);
-      end;
-
-    pmNearTray:
-      begin
-        // Find the actual taskbar/tray position
-        if GetTaskbarRect(TrayRect) then
-        begin
-          Log('Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
-            [TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom,
-             BoolToStr(IsTaskbarHorizontal(TrayRect), True)], ClassName);
-
-          // Get work area of monitor containing the taskbar
-          Mon := Screen.MonitorFromRect(TrayRect);
-          if Mon <> nil then
-            WorkArea := Mon.WorkareaRect;
-
-          if IsTaskbarHorizontal(TrayRect) then
-          begin
-            // Horizontal taskbar (top or bottom)
-            if TrayRect.Top < WorkArea.Top then
-            begin
-              // Taskbar at top - position popup below taskbar, near right edge
-              NewLeft := TrayRect.Right - FormWidth - WINDOW_EDGE_MARGIN;
-              NewTop := TrayRect.Bottom + WINDOW_EDGE_MARGIN;
-              Log('Taskbar at TOP', ClassName);
-            end
-            else
-            begin
-              // Taskbar at bottom - position popup above taskbar, near right edge
-              NewLeft := TrayRect.Right - FormWidth - WINDOW_EDGE_MARGIN;
-              NewTop := TrayRect.Top - FormHeight - WINDOW_EDGE_MARGIN;
-              Log('Taskbar at BOTTOM', ClassName);
-            end;
-          end
-          else
-          begin
-            // Vertical taskbar (left or right)
-            if TrayRect.Left < WorkArea.Left then
-            begin
-              // Taskbar at left - position popup to the right of taskbar, near bottom
-              NewLeft := TrayRect.Right + WINDOW_EDGE_MARGIN;
-              NewTop := TrayRect.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
-              Log('Taskbar at LEFT', ClassName);
-            end
-            else
-            begin
-              // Taskbar at right - position popup to the left of taskbar, near bottom
-              NewLeft := TrayRect.Left - FormWidth - WINDOW_EDGE_MARGIN;
-              NewTop := TrayRect.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
-              Log('Taskbar at RIGHT', ClassName);
-            end;
-          end;
-        end
-        else
-        begin
-          // Fallback: position at bottom-right of cursor's monitor work area
-          NewLeft := WorkArea.Right - FormWidth - WINDOW_EDGE_MARGIN;
-          NewTop := WorkArea.Bottom - FormHeight - WINDOW_EDGE_MARGIN;
-          Log('Near tray (fallback to bottom-right)', ClassName);
-        end;
-      end;
-
-    pmCenterScreen:
-      begin
-        // Center on the monitor where cursor is
-        NewLeft := WorkArea.Left + (WorkArea.Width - FormWidth) div 2;
-        NewTop := WorkArea.Top + (WorkArea.Height - FormHeight) div 2;
-        Log('Center screen', ClassName);
-      end;
-
+function TCoordinatesPositioner.CalculatePosition(const AContext: TPositionContext): TPoint;
+begin
+  // Use saved coordinates from config
+  if (AContext.PositionConfig.PositionX >= 0) and (AContext.PositionConfig.PositionY >= 0) then
+  begin
+    Result.X := AContext.PositionConfig.PositionX;
+    Result.Y := AContext.PositionConfig.PositionY;
+    Log('Using saved coordinates X=%d, Y=%d', [Result.X, Result.Y], ClassName);
+  end
   else
-    NewLeft := AForm.Left;
-    NewTop := AForm.Top;
+  begin
+    // Default: center on active monitor
+    Result.X := AContext.WorkArea.Left + (AContext.WorkArea.Width - AContext.FormWidth) div 2;
+    Result.Y := AContext.WorkArea.Top + (AContext.WorkArea.Height - AContext.FormHeight) div 2;
+    Log('No saved coordinates, centering on screen', ClassName);
   end;
+end;
+
+{ TNearCursorPositioner }
+
+function TNearCursorPositioner.CalculatePosition(const AContext: TPositionContext): TPoint;
+begin
+  // Position popup above the cursor, centered horizontally
+  Result.X := AContext.CursorPos.X - (AContext.FormWidth div 2);
+  Result.Y := AContext.CursorPos.Y - AContext.FormHeight - WINDOW_EDGE_MARGIN;
+  Log('Near cursor (%d, %d)', [AContext.CursorPos.X, AContext.CursorPos.Y], ClassName);
+end;
+
+{ TNearTrayPositioner }
+
+function TNearTrayPositioner.CalculatePosition(const AContext: TPositionContext): TPoint;
+var
+  TrayRect: TRect;
+  WorkArea: TRect;
+  Mon: TMonitor;
+begin
+  WorkArea := AContext.WorkArea;
+
+  // Find the actual taskbar/tray position
+  if GetTaskbarRect(TrayRect) then
+  begin
+    Log('Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
+      [TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom,
+       BoolToStr(IsTaskbarHorizontal(TrayRect), True)], ClassName);
+
+    // Get work area of monitor containing the taskbar
+    Mon := Screen.MonitorFromRect(TrayRect);
+    if Mon <> nil then
+      WorkArea := Mon.WorkareaRect;
+
+    if IsTaskbarHorizontal(TrayRect) then
+    begin
+      // Horizontal taskbar (top or bottom)
+      if TrayRect.Top < WorkArea.Top then
+      begin
+        // Taskbar at top - position popup below taskbar, near right edge
+        Result.X := TrayRect.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
+        Result.Y := TrayRect.Bottom + WINDOW_EDGE_MARGIN;
+        Log('Taskbar at TOP', ClassName);
+      end
+      else
+      begin
+        // Taskbar at bottom - position popup above taskbar, near right edge
+        Result.X := TrayRect.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
+        Result.Y := TrayRect.Top - AContext.FormHeight - WINDOW_EDGE_MARGIN;
+        Log('Taskbar at BOTTOM', ClassName);
+      end;
+    end
+    else
+    begin
+      // Vertical taskbar (left or right)
+      if TrayRect.Left < WorkArea.Left then
+      begin
+        // Taskbar at left - position popup to the right of taskbar, near bottom
+        Result.X := TrayRect.Right + WINDOW_EDGE_MARGIN;
+        Result.Y := TrayRect.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
+        Log('Taskbar at LEFT', ClassName);
+      end
+      else
+      begin
+        // Taskbar at right - position popup to the left of taskbar, near bottom
+        Result.X := TrayRect.Left - AContext.FormWidth - WINDOW_EDGE_MARGIN;
+        Result.Y := TrayRect.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
+        Log('Taskbar at RIGHT', ClassName);
+      end;
+    end;
+  end
+  else
+  begin
+    // Fallback: position at bottom-right of cursor's monitor work area
+    Result.X := WorkArea.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
+    Result.Y := WorkArea.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
+    Log('Near tray (fallback to bottom-right)', ClassName);
+  end;
+end;
+
+{ TCenterScreenPositioner }
+
+function TCenterScreenPositioner.CalculatePosition(const AContext: TPositionContext): TPoint;
+begin
+  // Center on the monitor where cursor is
+  Result.X := AContext.WorkArea.Left + (AContext.WorkArea.Width - AContext.FormWidth) div 2;
+  Result.Y := AContext.WorkArea.Top + (AContext.WorkArea.Height - AContext.FormHeight) div 2;
+  Log('Center screen', ClassName);
+end;
+
+{ TWindowPositioner }
+
+class function TWindowPositioner.GetStrategy(AMode: TPositionMode): IPositionStrategy;
+begin
+  case AMode of
+    pmCoordinates:
+      Result := TCoordinatesPositioner.Create;
+    pmNearCursor:
+      Result := TNearCursorPositioner.Create;
+    pmNearTray:
+      Result := TNearTrayPositioner.Create;
+    pmCenterScreen:
+      Result := TCenterScreenPositioner.Create;
+  else
+    Result := TCenterScreenPositioner.Create; // Default fallback
+  end;
+end;
+
+class procedure TWindowPositioner.PositionWindow(AForm: TForm;
+  APositionConfig: IPositionConfig; APosition: TPositionMode);
+var
+  Context: TPositionContext;
+  Strategy: IPositionStrategy;
+  NewPos: TPoint;
+  NewLeft, NewTop: Integer;
+begin
+  // Build context with all positioning data
+  Context := TPositionContext.Create(AForm, APositionConfig);
+
+  Log('PositionWindow: FormWidth=%d, FormHeight=%d, Mode=%d',
+    [Context.FormWidth, Context.FormHeight, Ord(APosition)], ClassName);
+
+  // Get strategy and calculate position
+  Strategy := GetStrategy(APosition);
+  NewPos := Strategy.CalculatePosition(Context);
+  NewLeft := NewPos.X;
+  NewTop := NewPos.Y;
 
   Log('Before bounds check: NewLeft=%d, NewTop=%d, WorkArea=(%d,%d,%d,%d)',
-    [NewLeft, NewTop, WorkArea.Left, WorkArea.Top, WorkArea.Right, WorkArea.Bottom], ClassName);
+    [NewLeft, NewTop, Context.WorkArea.Left, Context.WorkArea.Top,
+     Context.WorkArea.Right, Context.WorkArea.Bottom], ClassName);
 
   // Ensure popup stays within work area
-  if NewLeft < WorkArea.Left then
-    NewLeft := WorkArea.Left;
-  if NewLeft + FormWidth > WorkArea.Right then
-    NewLeft := WorkArea.Right - FormWidth;
-  if NewTop < WorkArea.Top then
-    NewTop := WorkArea.Top;
-  if NewTop + FormHeight > WorkArea.Bottom then
-    NewTop := WorkArea.Bottom - FormHeight;
+  if NewLeft < Context.WorkArea.Left then
+    NewLeft := Context.WorkArea.Left;
+  if NewLeft + Context.FormWidth > Context.WorkArea.Right then
+    NewLeft := Context.WorkArea.Right - Context.FormWidth;
+  if NewTop < Context.WorkArea.Top then
+    NewTop := Context.WorkArea.Top;
+  if NewTop + Context.FormHeight > Context.WorkArea.Bottom then
+    NewTop := Context.WorkArea.Bottom - Context.FormHeight;
 
   Log('Final position: Left=%d, Top=%d', [NewLeft, NewTop], ClassName);
 
