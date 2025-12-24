@@ -19,6 +19,7 @@ interface
 uses
   System.SysUtils,
   App.ConfigEnums,
+  App.ConfigInterfaces,
   App.LayoutConfigIntf,
   App.AppearanceConfigIntf,
   App.ConnectionConfigIntf,
@@ -35,7 +36,7 @@ type
   /// <summary>
   /// General application settings implementation.
   /// </summary>
-  TGeneralConfigSection = class(TInterfacedObject)
+  TGeneralConfigSection = class(TInterfacedObject, IGeneralConfig)
   private
     FWindowMode: TWindowMode;
     FOnTop: Boolean;
@@ -62,7 +63,7 @@ type
   /// <summary>
   /// Window behavior settings implementation.
   /// </summary>
-  TWindowConfigSection = class(TInterfacedObject)
+  TWindowConfigSection = class(TInterfacedObject, IWindowConfig)
   private
     FMinimizeToTray: Boolean;
     FCloseToTray: Boolean;
@@ -89,7 +90,7 @@ type
   /// <summary>
   /// Window position settings implementation.
   /// </summary>
-  TPositionConfigSection = class(TInterfacedObject)
+  TPositionConfigSection = class(TInterfacedObject, IPositionConfig)
   private
     FPositionMode: TPositionMode;
     FPositionX: Integer;
@@ -124,7 +125,7 @@ type
   /// <summary>
   /// Hotkey settings implementation.
   /// </summary>
-  THotkeyConfigSection = class(TInterfacedObject)
+  THotkeyConfigSection = class(TInterfacedObject, IHotkeyConfig)
   private
     FHotkey: string;
     FUseLowLevelHook: Boolean;

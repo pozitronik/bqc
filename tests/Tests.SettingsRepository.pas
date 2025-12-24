@@ -172,11 +172,11 @@ begin
     Repo.LoadSettings(Config);
 
     // Verify default values
-    Assert.AreEqual(Ord(wmWindow), Ord(ConfigObj.WindowMode));
-    Assert.IsFalse(ConfigObj.OnTop);
-    Assert.IsFalse(ConfigObj.Autostart);
-    Assert.AreEqual('Win+K', ConfigObj.Hotkey);
-    Assert.AreEqual(2000, ConfigObj.PollingInterval);
+    Assert.AreEqual(Ord(wmWindow), Ord(ConfigObj.AsGeneralConfig.WindowMode));
+    Assert.IsFalse(ConfigObj.AsGeneralConfig.OnTop);
+    Assert.IsFalse(ConfigObj.AsGeneralConfig.Autostart);
+    Assert.AreEqual('Win+K', ConfigObj.AsHotkeyConfig.Hotkey);
+    Assert.AreEqual(2000, ConfigObj.AsPollingConfig.PollingInterval);
   finally
     Config := nil;
   end;
@@ -208,10 +208,10 @@ begin
     ConfigObj.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config);
 
-    Assert.AreEqual(Ord(wmMenu), Ord(ConfigObj.WindowMode));
-    Assert.IsTrue(ConfigObj.OnTop);
-    Assert.AreEqual('Ctrl+Alt+B', ConfigObj.Hotkey);
-    Assert.AreEqual(5000, ConfigObj.PollingInterval);
+    Assert.AreEqual(Ord(wmMenu), Ord(ConfigObj.AsGeneralConfig.WindowMode));
+    Assert.IsTrue(ConfigObj.AsGeneralConfig.OnTop);
+    Assert.AreEqual('Ctrl+Alt+B', ConfigObj.AsHotkeyConfig.Hotkey);
+    Assert.AreEqual(5000, ConfigObj.AsPollingConfig.PollingInterval);
   finally
     Config := nil;
   end;
@@ -243,9 +243,9 @@ begin
     Repo.LoadSettings(Config);
 
     // Values should be clamped to valid ranges
-    Assert.AreEqual(10000, ConfigObj.PollingInterval);
-    Assert.AreEqual(30, ConfigObj.ItemHeight);
-    Assert.AreEqual(64, ConfigObj.IconSize);
+    Assert.AreEqual(10000, ConfigObj.AsPollingConfig.PollingInterval);
+    Assert.AreEqual(30, ConfigObj.AsLayoutConfig.ItemHeight);
+    Assert.AreEqual(64, ConfigObj.AsLayoutConfig.IconSize);
   finally
     Config := nil;
   end;
@@ -282,8 +282,8 @@ begin
   Config := ConfigObj;
   try
     ConfigObj.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj.WindowMode := wmMenu;
-    ConfigObj.OnTop := True;
+    ConfigObj.AsGeneralConfig.WindowMode := wmMenu;
+    ConfigObj.AsGeneralConfig.OnTop := True;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -310,8 +310,8 @@ begin
   Config := ConfigObj;
   try
     ConfigObj.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj.MinimizeToTray := False;
-    ConfigObj.CloseToTray := False;
+    ConfigObj.AsWindowConfig.MinimizeToTray := False;
+    ConfigObj.AsWindowConfig.CloseToTray := False;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -338,9 +338,9 @@ begin
   Config := ConfigObj;
   try
     ConfigObj.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj.PollingMode := pmPrimary;
-    ConfigObj.PollingInterval := 3000;
-    ConfigObj.EventDebounceMs := 750;
+    ConfigObj.AsPollingConfig.PollingMode := pmPrimary;
+    ConfigObj.AsPollingConfig.PollingInterval := 3000;
+    ConfigObj.AsPollingConfig.EventDebounceMs := 750;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -368,9 +368,9 @@ begin
   Config := ConfigObj;
   try
     ConfigObj.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj.LogEnabled := True;
-    ConfigObj.LogFilename := 'custom.log';
-    ConfigObj.LogAppend := True;
+    ConfigObj.AsLogConfig.LogEnabled := True;
+    ConfigObj.AsLogConfig.LogFilename := 'custom.log';
+    ConfigObj.AsLogConfig.LogAppend := True;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -398,10 +398,10 @@ begin
   Config := ConfigObj;
   try
     ConfigObj.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj.ShowAddresses := True;
-    ConfigObj.Theme := 'Dark';
-    ConfigObj.ShowLastSeen := True;
-    ConfigObj.ShowDeviceIcons := False;
+    ConfigObj.AsAppearanceConfig.ShowAddresses := True;
+    ConfigObj.AsAppearanceConfig.Theme := 'Dark';
+    ConfigObj.AsAppearanceConfig.ShowLastSeen := True;
+    ConfigObj.AsAppearanceConfig.ShowDeviceIcons := False;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -430,9 +430,9 @@ begin
   Config := ConfigObj;
   try
     ConfigObj.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj.ItemHeight := 80;
-    ConfigObj.IconSize := 48;
-    ConfigObj.CornerRadius := 10;
+    ConfigObj.AsLayoutConfig.ItemHeight := 80;
+    ConfigObj.AsLayoutConfig.IconSize := 48;
+    ConfigObj.AsLayoutConfig.CornerRadius := 10;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -460,9 +460,9 @@ begin
   Config := ConfigObj;
   try
     ConfigObj.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj.ConnectionTimeout := 15000;
-    ConfigObj.ConnectionRetryCount := 5;
-    ConfigObj.NotifyOnConnect := nmNone;
+    ConfigObj.AsConnectionConfig.ConnectionTimeout := 15000;
+    ConfigObj.AsConnectionConfig.ConnectionRetryCount := 5;
+    ConfigObj.AsNotificationConfig.NotifyOnConnect := nmNone;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -490,7 +490,7 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.WindowMode := wmMenu;
+    ConfigObj1.AsGeneralConfig.WindowMode := wmMenu;
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -501,7 +501,7 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(Ord(wmMenu), Ord(ConfigObj2.WindowMode));
+    Assert.AreEqual(Ord(wmMenu), Ord(ConfigObj2.AsGeneralConfig.WindowMode));
   finally
     Config2 := nil;
   end;
@@ -519,7 +519,7 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.OnTop := True;
+    ConfigObj1.AsGeneralConfig.OnTop := True;
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -530,7 +530,7 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.IsTrue(ConfigObj2.OnTop);
+    Assert.IsTrue(ConfigObj2.AsGeneralConfig.OnTop);
   finally
     Config2 := nil;
   end;
@@ -548,7 +548,7 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.Hotkey := 'Ctrl+Shift+B';
+    ConfigObj1.AsHotkeyConfig.Hotkey := 'Ctrl+Shift+B';
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -559,7 +559,7 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual('Ctrl+Shift+B', ConfigObj2.Hotkey);
+    Assert.AreEqual('Ctrl+Shift+B', ConfigObj2.AsHotkeyConfig.Hotkey);
   finally
     Config2 := nil;
   end;
@@ -577,9 +577,9 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.PollingMode := pmPrimary;
-    ConfigObj1.PollingInterval := 4000;
-    ConfigObj1.EventDebounceMs := 1000;
+    ConfigObj1.AsPollingConfig.PollingMode := pmPrimary;
+    ConfigObj1.AsPollingConfig.PollingInterval := 4000;
+    ConfigObj1.AsPollingConfig.EventDebounceMs := 1000;
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -590,9 +590,9 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(Ord(pmPrimary), Ord(ConfigObj2.PollingMode));
-    Assert.AreEqual(4000, ConfigObj2.PollingInterval);
-    Assert.AreEqual(1000, ConfigObj2.EventDebounceMs);
+    Assert.AreEqual(Ord(pmPrimary), Ord(ConfigObj2.AsPollingConfig.PollingMode));
+    Assert.AreEqual(4000, ConfigObj2.AsPollingConfig.PollingInterval);
+    Assert.AreEqual(1000, ConfigObj2.AsPollingConfig.EventDebounceMs);
   finally
     Config2 := nil;
   end;
@@ -610,9 +610,9 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.LogEnabled := True;
-    ConfigObj1.LogFilename := 'mylog.txt';
-    ConfigObj1.LogAppend := True;
+    ConfigObj1.AsLogConfig.LogEnabled := True;
+    ConfigObj1.AsLogConfig.LogFilename := 'mylog.txt';
+    ConfigObj1.AsLogConfig.LogAppend := True;
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -623,9 +623,9 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.IsTrue(ConfigObj2.LogEnabled);
-    Assert.AreEqual('mylog.txt', ConfigObj2.LogFilename);
-    Assert.IsTrue(ConfigObj2.LogAppend);
+    Assert.IsTrue(ConfigObj2.AsLogConfig.LogEnabled);
+    Assert.AreEqual('mylog.txt', ConfigObj2.AsLogConfig.LogFilename);
+    Assert.IsTrue(ConfigObj2.AsLogConfig.LogAppend);
   finally
     Config2 := nil;
   end;
@@ -643,11 +643,11 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.ShowAddresses := True;
-    ConfigObj1.Theme := 'CustomTheme';
-    ConfigObj1.ShowLastSeen := True;
-    ConfigObj1.LastSeenFormat := lsfAbsolute;
-    ConfigObj1.ShowDeviceIcons := False;
+    ConfigObj1.AsAppearanceConfig.ShowAddresses := True;
+    ConfigObj1.AsAppearanceConfig.Theme := 'CustomTheme';
+    ConfigObj1.AsAppearanceConfig.ShowLastSeen := True;
+    ConfigObj1.AsAppearanceConfig.LastSeenFormat := lsfAbsolute;
+    ConfigObj1.AsAppearanceConfig.ShowDeviceIcons := False;
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -658,11 +658,11 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.IsTrue(ConfigObj2.ShowAddresses);
-    Assert.AreEqual('CustomTheme', ConfigObj2.Theme);
-    Assert.IsTrue(ConfigObj2.ShowLastSeen);
-    Assert.AreEqual(Ord(lsfAbsolute), Ord(ConfigObj2.LastSeenFormat));
-    Assert.IsFalse(ConfigObj2.ShowDeviceIcons);
+    Assert.IsTrue(ConfigObj2.AsAppearanceConfig.ShowAddresses);
+    Assert.AreEqual('CustomTheme', ConfigObj2.AsAppearanceConfig.Theme);
+    Assert.IsTrue(ConfigObj2.AsAppearanceConfig.ShowLastSeen);
+    Assert.AreEqual(Ord(lsfAbsolute), Ord(ConfigObj2.AsAppearanceConfig.LastSeenFormat));
+    Assert.IsFalse(ConfigObj2.AsAppearanceConfig.ShowDeviceIcons);
   finally
     Config2 := nil;
   end;
@@ -680,11 +680,11 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.ItemHeight := 90;
-    ConfigObj1.ItemPadding := 10;
-    ConfigObj1.ItemMargin := 8;
-    ConfigObj1.IconSize := 50;
-    ConfigObj1.CornerRadius := 12;
+    ConfigObj1.AsLayoutConfig.ItemHeight := 90;
+    ConfigObj1.AsLayoutConfig.ItemPadding := 10;
+    ConfigObj1.AsLayoutConfig.ItemMargin := 8;
+    ConfigObj1.AsLayoutConfig.IconSize := 50;
+    ConfigObj1.AsLayoutConfig.CornerRadius := 12;
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -695,11 +695,11 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(90, ConfigObj2.ItemHeight);
-    Assert.AreEqual(10, ConfigObj2.ItemPadding);
-    Assert.AreEqual(8, ConfigObj2.ItemMargin);
-    Assert.AreEqual(50, ConfigObj2.IconSize);
-    Assert.AreEqual(12, ConfigObj2.CornerRadius);
+    Assert.AreEqual(90, ConfigObj2.AsLayoutConfig.ItemHeight);
+    Assert.AreEqual(10, ConfigObj2.AsLayoutConfig.ItemPadding);
+    Assert.AreEqual(8, ConfigObj2.AsLayoutConfig.ItemMargin);
+    Assert.AreEqual(50, ConfigObj2.AsLayoutConfig.IconSize);
+    Assert.AreEqual(12, ConfigObj2.AsLayoutConfig.CornerRadius);
   finally
     Config2 := nil;
   end;
@@ -717,8 +717,8 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.ConnectionTimeout := 20000;
-    ConfigObj1.ConnectionRetryCount := 4;
+    ConfigObj1.AsConnectionConfig.ConnectionTimeout := 20000;
+    ConfigObj1.AsConnectionConfig.ConnectionRetryCount := 4;
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -729,8 +729,8 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(20000, ConfigObj2.ConnectionTimeout);
-    Assert.AreEqual(4, ConfigObj2.ConnectionRetryCount);
+    Assert.AreEqual(20000, ConfigObj2.AsConnectionConfig.ConnectionTimeout);
+    Assert.AreEqual(4, ConfigObj2.AsConnectionConfig.ConnectionRetryCount);
   finally
     Config2 := nil;
   end;
@@ -748,10 +748,10 @@ begin
   Config1 := ConfigObj1;
   try
     ConfigObj1.SetRepositories(Repo, FDeviceRepository);
-    ConfigObj1.NotifyOnConnect := nmNone;
-    ConfigObj1.NotifyOnDisconnect := nmBalloon;
-    ConfigObj1.NotifyOnConnectFailed := nmNone;
-    ConfigObj1.NotifyOnAutoConnect := nmBalloon;
+    ConfigObj1.AsNotificationConfig.NotifyOnConnect := nmNone;
+    ConfigObj1.AsNotificationConfig.NotifyOnDisconnect := nmBalloon;
+    ConfigObj1.AsNotificationConfig.NotifyOnConnectFailed := nmNone;
+    ConfigObj1.AsNotificationConfig.NotifyOnAutoConnect := nmBalloon;
     Repo.SaveSettings(Config1);
   finally
     Config1 := nil;
@@ -762,10 +762,10 @@ begin
   try
     ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(Ord(nmNone), Ord(ConfigObj2.NotifyOnConnect));
-    Assert.AreEqual(Ord(nmBalloon), Ord(ConfigObj2.NotifyOnDisconnect));
-    Assert.AreEqual(Ord(nmNone), Ord(ConfigObj2.NotifyOnConnectFailed));
-    Assert.AreEqual(Ord(nmBalloon), Ord(ConfigObj2.NotifyOnAutoConnect));
+    Assert.AreEqual(Ord(nmNone), Ord(ConfigObj2.AsNotificationConfig.NotifyOnConnect));
+    Assert.AreEqual(Ord(nmBalloon), Ord(ConfigObj2.AsNotificationConfig.NotifyOnDisconnect));
+    Assert.AreEqual(Ord(nmNone), Ord(ConfigObj2.AsNotificationConfig.NotifyOnConnectFailed));
+    Assert.AreEqual(Ord(nmBalloon), Ord(ConfigObj2.AsNotificationConfig.NotifyOnAutoConnect));
   finally
     Config2 := nil;
   end;
