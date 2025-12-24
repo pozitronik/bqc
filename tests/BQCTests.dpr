@@ -45,6 +45,7 @@ uses
   Bluetooth.DeviceRepository in '..\src\Infrastructure\Bluetooth.DeviceRepository.pas',
   Bluetooth.ConnectionExecutor in '..\src\Infrastructure\Bluetooth.ConnectionExecutor.pas',
   Bluetooth.AdapterQuery in '..\src\Infrastructure\Bluetooth.AdapterQuery.pas',
+  Bluetooth.DeviceConverter in '..\src\Infrastructure\Bluetooth.DeviceConverter.pas',
   Bluetooth.DeviceWatcher in '..\src\Infrastructure\Bluetooth.DeviceWatcher.pas',
   Bluetooth.RadioControl in '..\src\Infrastructure\Bluetooth.RadioControl.pas',
   App.ConfigEnums in '..\src\Infrastructure\App.ConfigEnums.pas',

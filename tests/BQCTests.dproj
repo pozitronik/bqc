@@ -106,6 +106,7 @@
         <DCCReference Include="..\src\Domain\Bluetooth.Interfaces.pas"/>
         <DCCReference Include="..\src\Application\Bluetooth.ConnectionStrategies.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.WinAPI.pas"/>
+        <DCCReference Include="..\src\Infrastructure\Bluetooth.DeviceConverter.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.ConfigInterfaces.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.Config.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.Bootstrap.pas"/>

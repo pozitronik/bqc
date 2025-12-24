@@ -21,7 +21,7 @@ uses
   Winapi.Windows,
   Bluetooth.Types,
   Bluetooth.WinAPI,
-  Bluetooth.DeviceWatcher;
+  Bluetooth.DeviceConverter;
 
 type
   /// <summary>
@@ -97,7 +97,7 @@ type
   end;
 
   /// <summary>
-  /// Tests for ConvertBthDeviceInfoToDeviceInfo function.
+  /// Tests for ConvertBthDeviceInfo function.
   /// Verifies correct conversion from low-level BTH_DEVICE_INFO to domain TBluetoothDeviceInfo.
   /// </summary>
   [TestFixture]
@@ -346,7 +346,7 @@ var
   DeviceInfo: TBluetoothDeviceInfo;
 begin
   BthInfo := CreateTestBthDeviceInfo(BDIF_ADDRESS, $581862015DAE, 0, 'Test');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual(UInt64($581862015DAE), DeviceInfo.AddressInt);
   Assert.AreEqual('58:18:62:01:5D:AE', DeviceInfo.AddressString);
@@ -358,7 +358,7 @@ var
   DeviceInfo: TBluetoothDeviceInfo;
 begin
   BthInfo := CreateTestBthDeviceInfo(BDIF_NAME, $123456789ABC, 0, 'My Bluetooth Device');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual('My Bluetooth Device', DeviceInfo.Name);
 end;
@@ -369,7 +369,7 @@ var
   DeviceInfo: TBluetoothDeviceInfo;
 begin
   BthInfo := CreateTestBthDeviceInfo(BDIF_COD, $123456789ABC, $240418, 'Test');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual(Cardinal($240418), DeviceInfo.ClassOfDevice);
 end;
@@ -380,7 +380,7 @@ var
   DeviceInfo: TBluetoothDeviceInfo;
 begin
   BthInfo := CreateTestBthDeviceInfo(BDIF_CONNECTED, $123456789ABC, 0, 'Test');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual(csConnected, DeviceInfo.ConnectionState);
   Assert.IsTrue(DeviceInfo.IsConnected);
@@ -393,7 +393,7 @@ var
 begin
   // No BDIF_CONNECTED flag
   BthInfo := CreateTestBthDeviceInfo(BDIF_ADDRESS or BDIF_NAME, $123456789ABC, 0, 'Test');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual(csDisconnected, DeviceInfo.ConnectionState);
   Assert.IsFalse(DeviceInfo.IsConnected);
@@ -405,7 +405,7 @@ var
   DeviceInfo: TBluetoothDeviceInfo;
 begin
   BthInfo := CreateTestBthDeviceInfo(BDIF_PAIRED, $123456789ABC, 0, 'Test');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.IsTrue(DeviceInfo.IsPaired);
 end;
@@ -417,7 +417,7 @@ var
 begin
   // No BDIF_PAIRED flag
   BthInfo := CreateTestBthDeviceInfo(BDIF_ADDRESS or BDIF_NAME, $123456789ABC, 0, 'Test');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.IsFalse(DeviceInfo.IsPaired);
 end;
@@ -429,7 +429,7 @@ var
 begin
   // BTH_DEVICE_INFO doesn't have timestamp fields
   BthInfo := CreateTestBthDeviceInfo(BDIF_ADDRESS, $123456789ABC, 0, 'Test');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual(TDateTime(0), DeviceInfo.LastSeen, 'LastSeen should be 0');
   Assert.AreEqual(TDateTime(0), DeviceInfo.LastUsed, 'LastUsed should be 0');
@@ -444,7 +444,7 @@ begin
   // CoD bits: Minor (2-7), Major (8-12)
   // Headphones: 0x0400 (major) + 0x18 (minor 0x06 << 2) = $0418
   BthInfo := CreateTestBthDeviceInfo(BDIF_COD, $123456789ABC, $240418, 'Headphones');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual(btAudioOutput, DeviceInfo.DeviceType);
 end;
@@ -455,7 +455,7 @@ var
   DeviceInfo: TBluetoothDeviceInfo;
 begin
   BthInfo := CreateTestBthDeviceInfo(BDIF_ADDRESS, $123456789ABC, 0, '');
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual('', DeviceInfo.Name);
 end;
@@ -473,7 +473,7 @@ begin
     LongName[I] := AnsiChar(Ord('A') + (I mod 26));
 
   BthInfo := CreateTestBthDeviceInfo(BDIF_NAME, $123456789ABC, 0, LongName);
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(BthInfo);
+  DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
   Assert.AreEqual(BLUETOOTH_MAX_NAME_SIZE - 1, Length(DeviceInfo.Name),
     'Name should have max length - 1 characters');

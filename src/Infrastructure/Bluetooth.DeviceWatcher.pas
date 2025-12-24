@@ -21,6 +21,7 @@ uses
   System.Classes,
   Bluetooth.Types,
   Bluetooth.WinAPI,
+  Bluetooth.DeviceConverter,
   App.Logger;
 
 type
@@ -163,121 +164,10 @@ type
       read FOnError write FOnError;
   end;
 
-/// <summary>
-/// Converts a low-level BTH_DEVICE_INFO (from bthdef.h) to domain TBluetoothDeviceInfo.
-/// NOTE: BTH_DEVICE_INFO is different from BLUETOOTH_DEVICE_INFO!
-/// - BTH_DEVICE_INFO: Used in BTH_RADIO_IN_RANGE notifications, has flags field,
-///   ANSI name, no timestamps
-/// - BLUETOOTH_DEVICE_INFO: Used with BluetoothFindFirstDevice, has bool fields,
-///   Unicode name, timestamps
-/// </summary>
-function ConvertBthDeviceInfoToDeviceInfo(const ABthInfo: BTH_DEVICE_INFO): TBluetoothDeviceInfo;
-
-/// <summary>
-/// Converts a Windows API BLUETOOTH_DEVICE_INFO to domain TBluetoothDeviceInfo.
-/// NOTE: Use this for BLUETOOTH_DEVICE_INFO from BluetoothFindFirstDevice etc.
-/// For BTH_RADIO_IN_RANGE events, use ConvertBthDeviceInfoToDeviceInfo instead.
-/// </summary>
-function ConvertToDeviceInfo(const AWinAPIInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
-
 implementation
 
 uses
   Vcl.Forms;
-
-{ Helper Functions }
-
-/// <summary>
-/// Converts a low-level BTH_DEVICE_INFO (from bthdef.h) to domain TBluetoothDeviceInfo.
-/// NOTE: BTH_DEVICE_INFO is different from BLUETOOTH_DEVICE_INFO!
-/// - BTH_DEVICE_INFO: Used in BTH_RADIO_IN_RANGE notifications, has flags field,
-///   ANSI name, no timestamps
-/// - BLUETOOTH_DEVICE_INFO: Used with BluetoothFindFirstDevice, has bool fields,
-///   Unicode name, timestamps
-/// </summary>
-function ConvertBthDeviceInfoToDeviceInfo(const ABthInfo: BTH_DEVICE_INFO): TBluetoothDeviceInfo;
-var
-  Address: TBluetoothAddress;
-  ConnectionState: TBluetoothConnectionState;
-  DeviceName: string;
-begin
-  Address := UInt64ToBluetoothAddress(ABthInfo.address);
-
-  // Check BDIF_CONNECTED flag to determine connection state
-  if (ABthInfo.flags and BDIF_CONNECTED) <> 0 then
-    ConnectionState := csConnected
-  else
-    ConnectionState := csDisconnected;
-
-  // Convert ANSI name to string (BTH_DEVICE_INFO uses ANSI, not Unicode!)
-  DeviceName := string(AnsiString(ABthInfo.name));
-
-  Result := TBluetoothDeviceInfo.Create(
-    Address,
-    ABthInfo.address,
-    DeviceName,
-    DetermineDeviceType(ABthInfo.classOfDevice),
-    ConnectionState,
-    (ABthInfo.flags and BDIF_PAIRED) <> 0,     // fRemembered ~ BDIF_PAIRED
-    (ABthInfo.flags and BDIF_PAIRED) <> 0,     // fAuthenticated ~ BDIF_PAIRED
-    ABthInfo.classOfDevice,
-    0,  // LastSeen not available in BTH_DEVICE_INFO
-    0   // LastUsed not available in BTH_DEVICE_INFO
-  );
-end;
-
-/// <summary>
-/// Converts a Windows API BLUETOOTH_DEVICE_INFO to domain TBluetoothDeviceInfo.
-/// This conversion happens at the infrastructure boundary to keep domain
-/// types isolated from Windows API specifics.
-/// NOTE: Use this for BLUETOOTH_DEVICE_INFO from BluetoothFindFirstDevice etc.
-/// For BTH_RADIO_IN_RANGE events, use ConvertBthDeviceInfoToDeviceInfo instead.
-/// </summary>
-function ConvertToDeviceInfo(const AWinAPIInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
-var
-  Address: TBluetoothAddress;
-  ConnectionState: TBluetoothConnectionState;
-  LastSeen, LastUsed: TDateTime;
-begin
-  Address := UInt64ToBluetoothAddress(AWinAPIInfo.Address.ullLong);
-
-  if AWinAPIInfo.fConnected then
-    ConnectionState := csConnected
-  else
-    ConnectionState := csDisconnected;
-
-  // Convert SYSTEMTIME to TDateTime (0 means unknown)
-  try
-    if (AWinAPIInfo.stLastSeen.wYear > 0) then
-      LastSeen := SystemTimeToDateTime(AWinAPIInfo.stLastSeen)
-    else
-      LastSeen := 0;
-  except
-    LastSeen := 0;
-  end;
-
-  try
-    if (AWinAPIInfo.stLastUsed.wYear > 0) then
-      LastUsed := SystemTimeToDateTime(AWinAPIInfo.stLastUsed)
-    else
-      LastUsed := 0;
-  except
-    LastUsed := 0;
-  end;
-
-  Result := TBluetoothDeviceInfo.Create(
-    Address,
-    AWinAPIInfo.Address.ullLong,
-    string(AWinAPIInfo.szName),
-    DetermineDeviceType(AWinAPIInfo.ulClassOfDevice),
-    ConnectionState,
-    AWinAPIInfo.fRemembered,
-    AWinAPIInfo.fAuthenticated,
-    AWinAPIInfo.ulClassOfDevice,
-    LastSeen,
-    LastUsed
-  );
-end;
 
 { TBluetoothDeviceWatcher }
 
@@ -587,7 +477,7 @@ begin
   ], ClassName);
 
   // Convert low-level BTH_DEVICE_INFO to domain type at the boundary
-  DeviceInfo := ConvertBthDeviceInfoToDeviceInfo(EventInfo^.deviceInfo);
+  DeviceInfo := ConvertBthDeviceInfo(EventInfo^.deviceInfo);
 
   // RadioInRange provides device info including connection state
   DoDeviceAttributeChanged(DeviceInfo);

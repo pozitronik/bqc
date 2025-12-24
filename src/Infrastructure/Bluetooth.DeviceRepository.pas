@@ -20,7 +20,8 @@ uses
   Winapi.Windows,
   Bluetooth.Types,
   Bluetooth.Interfaces,
-  Bluetooth.WinAPI;
+  Bluetooth.WinAPI,
+  Bluetooth.DeviceConverter;
 
 type
   /// <summary>
@@ -32,8 +33,6 @@ type
     FDevices: TDictionary<UInt64, TBluetoothDeviceInfo>;
     FOnListChanged: TDeviceListChangedEvent;
 
-    function ConvertToDeviceInfo(const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
-    function ConvertSystemTimeToDateTime(const ASysTime: TSystemTime): TDateTime;
     procedure DoListChanged;
 
   protected
@@ -174,7 +173,7 @@ begin
   begin
     try
       repeat
-        Device := ConvertToDeviceInfo(DeviceInfo);
+        Device := ConvertBluetoothDeviceInfo(DeviceInfo);
         FDevices.AddOrSetValue(Device.AddressInt, Device);
         DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
       until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
@@ -190,54 +189,6 @@ end;
 function TBluetoothDeviceRepository.GetCount: Integer;
 begin
   Result := FDevices.Count;
-end;
-
-function TBluetoothDeviceRepository.ConvertToDeviceInfo(
-  const AWinDeviceInfo: BLUETOOTH_DEVICE_INFO): TBluetoothDeviceInfo;
-var
-  Address: TBluetoothAddress;
-  ConnectionState: TBluetoothConnectionState;
-begin
-  Move(AWinDeviceInfo.Address.rgBytes[0], Address[0], 6);
-
-  if AWinDeviceInfo.fConnected then
-    ConnectionState := csConnected
-  else
-    ConnectionState := csDisconnected;
-
-  Result := TBluetoothDeviceInfo.Create(
-    Address,
-    AWinDeviceInfo.Address.ullLong,
-    string(AWinDeviceInfo.szName),
-    DetermineDeviceType(AWinDeviceInfo.ulClassOfDevice),
-    ConnectionState,
-    AWinDeviceInfo.fRemembered,
-    AWinDeviceInfo.fAuthenticated,
-    AWinDeviceInfo.ulClassOfDevice,
-    ConvertSystemTimeToDateTime(AWinDeviceInfo.stLastSeen),
-    ConvertSystemTimeToDateTime(AWinDeviceInfo.stLastUsed)
-  );
-end;
-
-function TBluetoothDeviceRepository.ConvertSystemTimeToDateTime(
-  const ASysTime: TSystemTime): TDateTime;
-begin
-  try
-    if (ASysTime.wYear >= 1900) and (ASysTime.wYear <= 2100) then
-      Result := EncodeDateTime(
-        ASysTime.wYear,
-        ASysTime.wMonth,
-        ASysTime.wDay,
-        ASysTime.wHour,
-        ASysTime.wMinute,
-        ASysTime.wSecond,
-        ASysTime.wMilliseconds
-      )
-    else
-      Result := 0;
-  except
-    Result := 0;
-  end;
 end;
 
 procedure TBluetoothDeviceRepository.DoListChanged;
