@@ -167,6 +167,7 @@ implementation
 
 uses
   App.Logger,
+  App.ConfigEnums,
   App.ConfigInterfaces,
   App.Bootstrap,
   Bluetooth.Service;

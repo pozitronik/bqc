@@ -14,6 +14,7 @@ interface
 uses
   System.SysUtils,
   System.Generics.Collections,
+  App.ConfigEnums,
   App.ConfigInterfaces,
   App.SettingsPresenter,
   Bluetooth.Types,
@@ -167,6 +168,7 @@ type
     // IPollingConfig - setters
     procedure SetPollingMode(AValue: TPollingMode);
     procedure SetPollingInterval(AValue: Integer);
+    procedure SetEventDebounceMs(AValue: Integer);
 
     // Test setup properties
     property PollingMode: TPollingMode read FPollingMode write FPollingMode;
@@ -826,6 +828,11 @@ end;
 procedure TMockPollingConfig.SetPollingInterval(AValue: Integer);
 begin
   FPollingInterval := AValue;
+end;
+
+procedure TMockPollingConfig.SetEventDebounceMs(AValue: Integer);
+begin
+  FEventDebounceMs := AValue;
 end;
 
 { TMockConnectionConfig }

@@ -17,6 +17,7 @@ interface
 uses
   System.SysUtils,
   Bluetooth.Types,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type

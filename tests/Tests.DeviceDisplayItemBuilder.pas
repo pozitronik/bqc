@@ -16,6 +16,7 @@ uses
   System.SysUtils,
   System.DateUtils,
   Bluetooth.Types,
+  App.ConfigEnums,
   App.ConfigInterfaces,
   UI.DeviceList,
   UI.DeviceDisplayItemBuilder,

@@ -80,6 +80,13 @@ type
 /// </summary>
 function Bootstrap: TAppBootstrap;
 
+/// <summary>
+/// Explicitly shuts down and frees the Bootstrap singleton.
+/// Call this before application exit to ensure clean memory leak detection.
+/// Required for test projects that use FastMM5 leak checking.
+/// </summary>
+procedure ShutdownBootstrap;
+
 implementation
 
 uses
@@ -96,6 +103,15 @@ begin
   Result := TAppBootstrap.Instance;
 end;
 
+procedure ShutdownBootstrap;
+begin
+  if TAppBootstrap.FInstance <> nil then
+  begin
+    TAppBootstrap.FInstance.Free;
+    TAppBootstrap.FInstance := nil;
+  end;
+end;
+
 { TAppBootstrap }
 
 constructor TAppBootstrap.Create;
@@ -106,7 +122,9 @@ end;
 
 destructor TAppBootstrap.Destroy;
 begin
-  FConfig := nil;  // Release interface reference
+  FStrategyFactory := nil;
+  FDeviceRepository := nil;
+  FConfig := nil;
   inherited Destroy;
 end;
 

@@ -201,14 +201,10 @@ type
   /// <summary>
   /// Repository interface for per-device configuration.
   /// Separates device config storage from main configuration.
+  /// Handles only storage/retrieval - effective value resolution is done by IDeviceConfigProvider.
   /// </summary>
   IDeviceConfigRepository = interface
     ['{C2D3E4F5-3333-4444-5555-666677778888}']
-
-    /// <summary>
-    /// Sets reference to global app config for effective value resolution.
-    /// </summary>
-    procedure SetGlobalConfig(AConfig: IAppConfig);
 
     /// <summary>
     /// Gets configuration for a specific device.
@@ -261,21 +257,6 @@ type
     /// Clears the modified flag.
     /// </summary>
     procedure ClearModified;
-
-    /// <summary>
-    /// Gets effective notification mode for a device and event.
-    /// </summary>
-    function GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
-
-    /// <summary>
-    /// Gets effective connection timeout for a device.
-    /// </summary>
-    function GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
-
-    /// <summary>
-    /// Gets effective retry count for a device.
-    /// </summary>
-    function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
   end;
 
   //--------------------------------------------------------------------------

@@ -17,6 +17,7 @@ uses
   System.UITypes,
   System.Classes,
   App.SettingsPresenter,
+  App.ConfigEnums,
   App.ConfigInterfaces,
   Tests.Mocks;
 

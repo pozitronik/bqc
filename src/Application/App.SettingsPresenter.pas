@@ -16,6 +16,7 @@ uses
   System.Classes,
   System.UITypes,
   System.Generics.Collections,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type

@@ -16,6 +16,7 @@ uses
   System.SysUtils,
   System.IOUtils,
   System.IniFiles,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type
@@ -140,40 +141,44 @@ end;
 procedure TIniSettingsRepositoryTests.LoadSettings_NoFile_CreatesDefault;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;  // Hold interface reference to prevent premature destruction
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config);
 
     // File should be created
     Assert.IsTrue(TFile.Exists(FConfigPath));
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.LoadSettings_NoFile_SetsDefaultValues;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config);
 
     // Verify default values
-    Assert.AreEqual(Ord(wmWindow), Ord(Config.WindowMode));
-    Assert.IsFalse(Config.OnTop);
-    Assert.IsFalse(Config.Autostart);
-    Assert.AreEqual('Win+K', Config.Hotkey);
-    Assert.AreEqual(2000, Config.PollingInterval);
+    Assert.AreEqual(Ord(wmWindow), Ord(ConfigObj.WindowMode));
+    Assert.IsFalse(ConfigObj.OnTop);
+    Assert.IsFalse(ConfigObj.Autostart);
+    Assert.AreEqual('Win+K', ConfigObj.Hotkey);
+    Assert.AreEqual(2000, ConfigObj.PollingInterval);
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
@@ -181,7 +186,8 @@ procedure TIniSettingsRepositoryTests.LoadSettings_ExistingFile_LoadsValues;
 var
   Ini: TMemIniFile;
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
 begin
   // Create INI file with custom values
   Ini := TMemIniFile.Create(FConfigPath);
@@ -196,17 +202,18 @@ begin
   end;
 
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config);
 
-    Assert.AreEqual(Ord(wmMenu), Ord(Config.WindowMode));
-    Assert.IsTrue(Config.OnTop);
-    Assert.AreEqual('Ctrl+Alt+B', Config.Hotkey);
-    Assert.AreEqual(5000, Config.PollingInterval);
+    Assert.AreEqual(Ord(wmMenu), Ord(ConfigObj.WindowMode));
+    Assert.IsTrue(ConfigObj.OnTop);
+    Assert.AreEqual('Ctrl+Alt+B', ConfigObj.Hotkey);
+    Assert.AreEqual(5000, ConfigObj.PollingInterval);
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
@@ -214,7 +221,8 @@ procedure TIniSettingsRepositoryTests.LoadSettings_ValidatesRanges;
 var
   Ini: TMemIniFile;
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
 begin
   // Create INI file with out-of-range values
   Ini := TMemIniFile.Create(FConfigPath);
@@ -228,49 +236,54 @@ begin
   end;
 
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config);
 
     // Values should be clamped to valid ranges
-    Assert.AreEqual(10000, Config.PollingInterval);
-    Assert.AreEqual(30, Config.ItemHeight);
-    Assert.AreEqual(64, Config.IconSize);
+    Assert.AreEqual(10000, ConfigObj.PollingInterval);
+    Assert.AreEqual(30, ConfigObj.ItemHeight);
+    Assert.AreEqual(64, ConfigObj.IconSize);
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveSettings_CreatesFile;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
     Repo.SaveSettings(Config);
 
     Assert.IsTrue(TFile.Exists(FConfigPath));
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveSettings_WritesGeneralSection;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
   Ini: TMemIniFile;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
-    Config.WindowMode := wmMenu;
-    Config.OnTop := True;
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.WindowMode := wmMenu;
+    ConfigObj.OnTop := True;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -281,22 +294,24 @@ begin
       Ini.Free;
     end;
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveSettings_WritesWindowSection;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
   Ini: TMemIniFile;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
-    Config.MinimizeToTray := False;
-    Config.CloseToTray := False;
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.MinimizeToTray := False;
+    ConfigObj.CloseToTray := False;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -307,23 +322,25 @@ begin
       Ini.Free;
     end;
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveSettings_WritesPollingSection;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
   Ini: TMemIniFile;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
-    Config.PollingMode := pmPrimary;
-    Config.PollingInterval := 3000;
-    Config.EventDebounceMs := 750;
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.PollingMode := pmPrimary;
+    ConfigObj.PollingInterval := 3000;
+    ConfigObj.EventDebounceMs := 750;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -335,23 +352,25 @@ begin
       Ini.Free;
     end;
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveSettings_WritesLogSection;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
   Ini: TMemIniFile;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
-    Config.LogEnabled := True;
-    Config.LogFilename := 'custom.log';
-    Config.LogAppend := True;
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.LogEnabled := True;
+    ConfigObj.LogFilename := 'custom.log';
+    ConfigObj.LogAppend := True;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -363,24 +382,26 @@ begin
       Ini.Free;
     end;
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveSettings_WritesAppearanceSection;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
   Ini: TMemIniFile;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
-    Config.ShowAddresses := True;
-    Config.Theme := 'Dark';
-    Config.ShowLastSeen := True;
-    Config.ShowDeviceIcons := False;
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.ShowAddresses := True;
+    ConfigObj.Theme := 'Dark';
+    ConfigObj.ShowLastSeen := True;
+    ConfigObj.ShowDeviceIcons := False;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -393,23 +414,25 @@ begin
       Ini.Free;
     end;
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveSettings_WritesLayoutSection;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
   Ini: TMemIniFile;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
-    Config.ItemHeight := 80;
-    Config.IconSize := 48;
-    Config.CornerRadius := 10;
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.ItemHeight := 80;
+    ConfigObj.IconSize := 48;
+    ConfigObj.CornerRadius := 10;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -421,23 +444,25 @@ begin
       Ini.Free;
     end;
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveSettings_WritesDeviceSection;
 var
   Repo: ISettingsRepository;
-  Config: TAppConfig;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
   Ini: TMemIniFile;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
-  Config := TAppConfig.Create;
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
   try
-    Config.SetRepositories(Repo, FDeviceRepository);
-    Config.ConnectionTimeout := 15000;
-    Config.ConnectionRetryCount := 5;
-    Config.NotifyOnConnect := nmNone;
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.ConnectionTimeout := 15000;
+    ConfigObj.ConnectionRetryCount := 5;
+    ConfigObj.NotifyOnConnect := nmNone;
     Repo.SaveSettings(Config);
 
     Ini := TMemIniFile.Create(FConfigPath);
@@ -449,273 +474,300 @@ begin
       Ini.Free;
     end;
   finally
-    Config.Free;
+    Config := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesWindowMode;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.WindowMode := wmMenu;
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.WindowMode := wmMenu;
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(Ord(wmMenu), Ord(Config2.WindowMode));
+    Assert.AreEqual(Ord(wmMenu), Ord(ConfigObj2.WindowMode));
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesOnTop;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.OnTop := True;
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.OnTop := True;
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.IsTrue(Config2.OnTop);
+    Assert.IsTrue(ConfigObj2.OnTop);
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesHotkey;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.Hotkey := 'Ctrl+Shift+B';
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.Hotkey := 'Ctrl+Shift+B';
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual('Ctrl+Shift+B', Config2.Hotkey);
+    Assert.AreEqual('Ctrl+Shift+B', ConfigObj2.Hotkey);
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesPollingSettings;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.PollingMode := pmPrimary;
-    Config1.PollingInterval := 4000;
-    Config1.EventDebounceMs := 1000;
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.PollingMode := pmPrimary;
+    ConfigObj1.PollingInterval := 4000;
+    ConfigObj1.EventDebounceMs := 1000;
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(Ord(pmPrimary), Ord(Config2.PollingMode));
-    Assert.AreEqual(4000, Config2.PollingInterval);
-    Assert.AreEqual(1000, Config2.EventDebounceMs);
+    Assert.AreEqual(Ord(pmPrimary), Ord(ConfigObj2.PollingMode));
+    Assert.AreEqual(4000, ConfigObj2.PollingInterval);
+    Assert.AreEqual(1000, ConfigObj2.EventDebounceMs);
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesLogSettings;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.LogEnabled := True;
-    Config1.LogFilename := 'mylog.txt';
-    Config1.LogAppend := True;
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.LogEnabled := True;
+    ConfigObj1.LogFilename := 'mylog.txt';
+    ConfigObj1.LogAppend := True;
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.IsTrue(Config2.LogEnabled);
-    Assert.AreEqual('mylog.txt', Config2.LogFilename);
-    Assert.IsTrue(Config2.LogAppend);
+    Assert.IsTrue(ConfigObj2.LogEnabled);
+    Assert.AreEqual('mylog.txt', ConfigObj2.LogFilename);
+    Assert.IsTrue(ConfigObj2.LogAppend);
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesAppearanceSettings;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.ShowAddresses := True;
-    Config1.Theme := 'CustomTheme';
-    Config1.ShowLastSeen := True;
-    Config1.LastSeenFormat := lsfAbsolute;
-    Config1.ShowDeviceIcons := False;
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.ShowAddresses := True;
+    ConfigObj1.Theme := 'CustomTheme';
+    ConfigObj1.ShowLastSeen := True;
+    ConfigObj1.LastSeenFormat := lsfAbsolute;
+    ConfigObj1.ShowDeviceIcons := False;
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.IsTrue(Config2.ShowAddresses);
-    Assert.AreEqual('CustomTheme', Config2.Theme);
-    Assert.IsTrue(Config2.ShowLastSeen);
-    Assert.AreEqual(Ord(lsfAbsolute), Ord(Config2.LastSeenFormat));
-    Assert.IsFalse(Config2.ShowDeviceIcons);
+    Assert.IsTrue(ConfigObj2.ShowAddresses);
+    Assert.AreEqual('CustomTheme', ConfigObj2.Theme);
+    Assert.IsTrue(ConfigObj2.ShowLastSeen);
+    Assert.AreEqual(Ord(lsfAbsolute), Ord(ConfigObj2.LastSeenFormat));
+    Assert.IsFalse(ConfigObj2.ShowDeviceIcons);
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesLayoutSettings;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.ItemHeight := 90;
-    Config1.ItemPadding := 10;
-    Config1.ItemMargin := 8;
-    Config1.IconSize := 50;
-    Config1.CornerRadius := 12;
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.ItemHeight := 90;
+    ConfigObj1.ItemPadding := 10;
+    ConfigObj1.ItemMargin := 8;
+    ConfigObj1.IconSize := 50;
+    ConfigObj1.CornerRadius := 12;
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(90, Config2.ItemHeight);
-    Assert.AreEqual(10, Config2.ItemPadding);
-    Assert.AreEqual(8, Config2.ItemMargin);
-    Assert.AreEqual(50, Config2.IconSize);
-    Assert.AreEqual(12, Config2.CornerRadius);
+    Assert.AreEqual(90, ConfigObj2.ItemHeight);
+    Assert.AreEqual(10, ConfigObj2.ItemPadding);
+    Assert.AreEqual(8, ConfigObj2.ItemMargin);
+    Assert.AreEqual(50, ConfigObj2.IconSize);
+    Assert.AreEqual(12, ConfigObj2.CornerRadius);
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesConnectionSettings;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.ConnectionTimeout := 20000;
-    Config1.ConnectionRetryCount := 4;
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.ConnectionTimeout := 20000;
+    ConfigObj1.ConnectionRetryCount := 4;
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(20000, Config2.ConnectionTimeout);
-    Assert.AreEqual(4, Config2.ConnectionRetryCount);
+    Assert.AreEqual(20000, ConfigObj2.ConnectionTimeout);
+    Assert.AreEqual(4, ConfigObj2.ConnectionRetryCount);
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 
 procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesNotificationSettings;
 var
   Repo: ISettingsRepository;
-  Config1, Config2: TAppConfig;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
 begin
   Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
 
-  Config1 := TAppConfig.Create;
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
   try
-    Config1.SetRepositories(Repo, FDeviceRepository);
-    Config1.NotifyOnConnect := nmNone;
-    Config1.NotifyOnDisconnect := nmBalloon;
-    Config1.NotifyOnConnectFailed := nmNone;
-    Config1.NotifyOnAutoConnect := nmBalloon;
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.NotifyOnConnect := nmNone;
+    ConfigObj1.NotifyOnDisconnect := nmBalloon;
+    ConfigObj1.NotifyOnConnectFailed := nmNone;
+    ConfigObj1.NotifyOnAutoConnect := nmBalloon;
     Repo.SaveSettings(Config1);
   finally
-    Config1.Free;
+    Config1 := nil;
   end;
 
-  Config2 := TAppConfig.Create;
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
   try
-    Config2.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
     Repo.LoadSettings(Config2);
-    Assert.AreEqual(Ord(nmNone), Ord(Config2.NotifyOnConnect));
-    Assert.AreEqual(Ord(nmBalloon), Ord(Config2.NotifyOnDisconnect));
-    Assert.AreEqual(Ord(nmNone), Ord(Config2.NotifyOnConnectFailed));
-    Assert.AreEqual(Ord(nmBalloon), Ord(Config2.NotifyOnAutoConnect));
+    Assert.AreEqual(Ord(nmNone), Ord(ConfigObj2.NotifyOnConnect));
+    Assert.AreEqual(Ord(nmBalloon), Ord(ConfigObj2.NotifyOnDisconnect));
+    Assert.AreEqual(Ord(nmNone), Ord(ConfigObj2.NotifyOnConnectFailed));
+    Assert.AreEqual(Ord(nmBalloon), Ord(ConfigObj2.NotifyOnAutoConnect));
   finally
-    Config2.Free;
+    Config2 := nil;
   end;
 end;
 

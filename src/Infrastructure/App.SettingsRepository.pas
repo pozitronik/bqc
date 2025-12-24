@@ -22,6 +22,7 @@ uses
   System.Math,
   System.DateUtils,
   System.Generics.Collections,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type
@@ -39,6 +40,7 @@ type
 
   public
     constructor Create(const AConfigPath: string; ADeviceRepository: IDeviceConfigRepository);
+    destructor Destroy; override;
 
     procedure LoadSettings(AConfig: IAppConfig);
     procedure SaveSettings(AConfig: IAppConfig);
@@ -165,6 +167,12 @@ begin
   FDeviceRepository := ADeviceRepository;
 end;
 
+destructor TIniSettingsRepository.Destroy;
+begin
+  FDeviceRepository := nil;
+  inherited Destroy;
+end;
+
 function TIniSettingsRepository.GetConfigPath: string;
 begin
   Result := FConfigPath;
@@ -244,6 +252,7 @@ begin
   // [Polling]
   PollingCfg.PollingMode := TPollingMode(AIni.ReadInteger(SEC_POLLING, KEY_MODE, Ord(DEF_POLLING_MODE)));
   PollingCfg.PollingInterval := AIni.ReadInteger(SEC_POLLING, KEY_INTERVAL, DEF_POLLING_INTERVAL);
+  PollingCfg.EventDebounceMs := AIni.ReadInteger(SEC_POLLING, KEY_EVENT_DEBOUNCE_MS, DEF_EVENT_DEBOUNCE_MS);
 
   // [Log]
   LogCfg.LogEnabled := AIni.ReadBool(SEC_LOG, KEY_ENABLED, DEF_LOG_ENABLED);

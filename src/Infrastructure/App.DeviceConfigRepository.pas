@@ -21,21 +21,19 @@ uses
   System.IniFiles,
   System.DateUtils,
   System.Generics.Collections,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type
   /// <summary>
   /// Repository for per-device configuration.
   /// Manages device-specific settings with INI persistence.
+  /// Handles only storage/retrieval - effective value resolution is done by TAppConfig.
   /// </summary>
   TDeviceConfigRepository = class(TInterfacedObject, IDeviceConfigRepository)
   private
     FDevices: TDictionary<UInt64, TDeviceConfig>;
     FModified: Boolean;
-    FGlobalConfig: IAppConfig;  // Reference for effective values via interfaces
-
-    procedure SetGlobalConfig(AValue: IAppConfig);
-
   public
     constructor Create;
     destructor Destroy; override;
@@ -51,13 +49,6 @@ type
     procedure SaveTo(AIni: TObject);
     function IsModified: Boolean;
     procedure ClearModified;
-
-    // Effective value resolution (uses global defaults from TAppConfig)
-    function GetEffectiveNotification(AAddress: UInt64; AEvent: TNotificationEvent): TNotificationMode;
-    function GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
-    function GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
-
-    property GlobalConfig: IAppConfig read FGlobalConfig write SetGlobalConfig;
   end;
 
 const
@@ -101,18 +92,12 @@ begin
   inherited Create;
   FDevices := TDictionary<UInt64, TDeviceConfig>.Create;
   FModified := False;
-  FGlobalConfig := nil;
 end;
 
 destructor TDeviceConfigRepository.Destroy;
 begin
   FDevices.Free;
   inherited Destroy;
-end;
-
-procedure TDeviceConfigRepository.SetGlobalConfig(AValue: IAppConfig);
-begin
-  FGlobalConfig := AValue;
 end;
 
 function TDeviceConfigRepository.GetConfig(AAddress: UInt64): TDeviceConfig;
@@ -301,79 +286,6 @@ begin
       Ini.WriteString(SectionName, KEY_LAST_SEEN, DateToISO8601(Pair.Value.LastSeen, False));
   end;
   FModified := False;
-end;
-
-function TDeviceConfigRepository.GetEffectiveNotification(AAddress: UInt64;
-  AEvent: TNotificationEvent): TNotificationMode;
-var
-  DeviceConfig: TDeviceConfig;
-  DeviceValue: Integer;
-  NotifCfg: INotificationConfig;
-begin
-  // Get per-device config if exists
-  DeviceConfig := GetConfig(AAddress);
-
-  // Get the per-device override value for this event
-  case AEvent of
-    neConnect:
-      DeviceValue := DeviceConfig.Notifications.OnConnect;
-    neDisconnect:
-      DeviceValue := DeviceConfig.Notifications.OnDisconnect;
-    neConnectFailed:
-      DeviceValue := DeviceConfig.Notifications.OnConnectFailed;
-    neAutoConnect:
-      DeviceValue := DeviceConfig.Notifications.OnAutoConnect;
-  else
-    DeviceValue := -1;
-  end;
-
-  // If per-device value is set (>= 0), use it; otherwise use global
-  if DeviceValue >= 0 then
-    Result := TNotificationMode(DeviceValue)
-  else if Assigned(FGlobalConfig) then
-  begin
-    NotifCfg := FGlobalConfig.AsNotificationConfig;
-    case AEvent of
-      neConnect:
-        Result := NotifCfg.NotifyOnConnect;
-      neDisconnect:
-        Result := NotifCfg.NotifyOnDisconnect;
-      neConnectFailed:
-        Result := NotifCfg.NotifyOnConnectFailed;
-      neAutoConnect:
-        Result := NotifCfg.NotifyOnAutoConnect;
-    else
-      Result := nmNone;
-    end;
-  end
-  else
-    Result := nmNone;
-end;
-
-function TDeviceConfigRepository.GetEffectiveConnectionTimeout(AAddress: UInt64): Integer;
-var
-  DeviceConfig: TDeviceConfig;
-begin
-  DeviceConfig := GetConfig(AAddress);
-  if DeviceConfig.ConnectionTimeout >= 0 then
-    Result := DeviceConfig.ConnectionTimeout
-  else if Assigned(FGlobalConfig) then
-    Result := FGlobalConfig.AsConnectionConfig.ConnectionTimeout
-  else
-    Result := 10000;  // Default
-end;
-
-function TDeviceConfigRepository.GetEffectiveConnectionRetryCount(AAddress: UInt64): Integer;
-var
-  DeviceConfig: TDeviceConfig;
-begin
-  DeviceConfig := GetConfig(AAddress);
-  if DeviceConfig.ConnectionRetryCount >= 0 then
-    Result := DeviceConfig.ConnectionRetryCount
-  else if Assigned(FGlobalConfig) then
-    Result := FGlobalConfig.AsConnectionConfig.ConnectionRetryCount
-  else
-    Result := 2;  // Default
 end;
 
 end.

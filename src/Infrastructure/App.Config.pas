@@ -18,13 +18,15 @@ uses
   System.IniFiles,
   System.Win.Registry,
   System.Generics.Collections,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type
   /// <summary>
   /// Application configuration manager.
-  /// Singleton class that handles loading/saving settings from INI file.
+  /// Handles loading/saving settings from INI file.
   /// Implements layer-specific configuration interfaces for dependency injection.
+  /// Uses reference counting for automatic memory management.
   /// </summary>
   TAppConfig = class(TObject,
     IInterface,
@@ -41,7 +43,8 @@ type
     IDeviceConfigProvider,
     IAppConfig)
   protected
-    // IInterface - manual implementation for singleton (no reference counting)
+    FRefCount: Integer;
+    // IInterface implementation with reference counting
     function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
     function _AddRef: Integer; stdcall;
     function _Release: Integer; stdcall;
@@ -470,10 +473,13 @@ end;
 
 destructor TAppConfig.Destroy;
 begin
-  SaveIfModified;
-  // Repositories are interface-based, released automatically
-  FSettingsRepository := nil;
-  FDeviceRepository := nil;
+  try
+    SaveIfModified;
+  finally
+    // Repositories are interface-based, released automatically
+    FSettingsRepository := nil;
+    FDeviceRepository := nil;
+  end;
   inherited Destroy;
 end;
 
@@ -482,9 +488,6 @@ procedure TAppConfig.SetRepositories(ASettingsRepository: ISettingsRepository;
 begin
   FSettingsRepository := ASettingsRepository;
   FDeviceRepository := ADeviceRepository;
-  // Connect device repository to global config for effective value resolution
-  if Assigned(FDeviceRepository) then
-    FDeviceRepository.SetGlobalConfig(Self);
 end;
 
 procedure TAppConfig.ClearModified;
@@ -1091,12 +1094,14 @@ end;
 
 function TAppConfig._AddRef: Integer;
 begin
-  Result := -1;  // Singleton - no reference counting
+  Result := AtomicIncrement(FRefCount);
 end;
 
 function TAppConfig._Release: Integer;
 begin
-  Result := -1;  // Singleton - no reference counting
+  Result := AtomicDecrement(FRefCount);
+  if Result = 0 then
+    Destroy;
 end;
 
 // Interface getter implementations

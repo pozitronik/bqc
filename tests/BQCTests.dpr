@@ -78,7 +78,12 @@ begin
   ReportMemoryLeaksOnShutdown := True;
 
 {$IFDEF TESTINSIGHT}
-  TestInsight.DUnitX.RunRegisteredTests;
+  try
+    TestInsight.DUnitX.RunRegisteredTests;
+  finally
+    // Shutdown Bootstrap singleton before leak detection runs
+    ShutdownBootstrap;
+  end;
 {$ELSE}
   try
     // Check command line options
@@ -118,5 +123,8 @@ begin
       System.ExitCode := EXIT_ERRORS;
     end;
   end;
+
+  // Shutdown Bootstrap singleton before leak detection runs
+  ShutdownBootstrap;
 {$ENDIF}
 end.

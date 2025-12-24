@@ -13,6 +13,7 @@ interface
 
 uses
   DUnitX.TestFramework,
+  App.ConfigEnums,
   App.ConfigInterfaces;
 
 type

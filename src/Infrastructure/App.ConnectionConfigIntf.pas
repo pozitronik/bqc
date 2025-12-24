@@ -46,10 +46,11 @@ type
 
     procedure SetPollingMode(AValue: TPollingMode);
     procedure SetPollingInterval(AValue: Integer);
+    procedure SetEventDebounceMs(AValue: Integer);
 
     property PollingMode: TPollingMode read GetPollingMode write SetPollingMode;
     property PollingInterval: Integer read GetPollingInterval write SetPollingInterval;
-    property EventDebounceMs: Integer read GetEventDebounceMs;
+    property EventDebounceMs: Integer read GetEventDebounceMs write SetEventDebounceMs;
   end;
 
 implementation
