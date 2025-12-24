@@ -19,12 +19,18 @@ uses
   Winapi.Messages,
   System.SysUtils,
   System.Classes,
+  System.Generics.Collections,
   Bluetooth.Types,
   Bluetooth.WinAPI,
   Bluetooth.DeviceConverter,
   App.Logger;
 
 type
+  /// <summary>
+  /// Handler procedure for processing Bluetooth custom events.
+  /// </summary>
+  TBluetoothEventHandler = procedure(AEventData: Pointer) of object;
+
   /// <summary>
   /// Event type for device connection state changes.
   /// </summary>
@@ -80,6 +86,9 @@ type
     FNotifyHandle: THandle;  // HDEVNOTIFY - handle from RegisterDeviceNotification
     FIsRunning: Boolean;
 
+    // GUID-to-handler registry for extensible event processing (OCP)
+    FEventHandlers: TDictionary<TGUID, TBluetoothEventHandler>;
+
     FOnDeviceConnected: TDeviceConnectionEvent;
     FOnDeviceDisconnected: TDeviceConnectionEvent;
     FOnDeviceAttributeChanged: TDeviceAttributeChangedEvent;
@@ -87,6 +96,7 @@ type
     FOnDeviceOutOfRange: TDeviceOutOfRangeEvent;
     FOnError: TDeviceWatcherErrorEvent;
 
+    procedure RegisterEventHandlers;
     procedure WndProc(var Msg: TMessage);
     procedure HandleDeviceChange(wParam: WPARAM; lParam: LPARAM);
     procedure ProcessCustomEvent(ABroadcast: Pointer);
@@ -178,12 +188,28 @@ begin
   FRadioHandle := 0;
   FNotifyHandle := 0;
   FIsRunning := False;
+
+  // Initialize event handlers registry
+  FEventHandlers := TDictionary<TGUID, TBluetoothEventHandler>.Create;
+  RegisterEventHandlers;
 end;
 
 destructor TBluetoothDeviceWatcher.Destroy;
 begin
   Stop;
+  FEventHandlers.Free;
   inherited Destroy;
+end;
+
+procedure TBluetoothDeviceWatcher.RegisterEventHandlers;
+begin
+  // Register known Bluetooth event GUIDs with their handlers (OCP)
+  // To add a new event type, simply add a new registration here
+  FEventHandlers.Add(GUID_BLUETOOTH_HCI_EVENT, ProcessHciEvent);
+  FEventHandlers.Add(GUID_BLUETOOTH_L2CAP_EVENT, ProcessL2CapEvent);
+  FEventHandlers.Add(GUID_BLUETOOTH_RADIO_IN_RANGE, ProcessRadioInRange);
+  FEventHandlers.Add(GUID_BLUETOOTH_RADIO_OUT_OF_RANGE, ProcessRadioOutOfRange);
+  Log('Registered %d event handlers', [FEventHandlers.Count], ClassName);
 end;
 
 function TBluetoothDeviceWatcher.Start: Boolean;
@@ -367,32 +393,15 @@ end;
 procedure TBluetoothDeviceWatcher.ProcessCustomEvent(ABroadcast: Pointer);
 var
   Broadcast: PDEV_BROADCAST_HANDLE;
+  Handler: TBluetoothEventHandler;
 begin
   Broadcast := PDEV_BROADCAST_HANDLE(ABroadcast);
-  // Check which Bluetooth event type this is
-  if IsEqualGUID(Broadcast^.dbch_eventguid, GUID_BLUETOOTH_HCI_EVENT) then
+
+  // Look up handler in registry (OCP - extensible without modification)
+  if FEventHandlers.TryGetValue(Broadcast^.dbch_eventguid, Handler) then
   begin
-    Log('ProcessCustomEvent: GUID_BLUETOOTH_HCI_EVENT', ClassName);
-    // ACL-level connect/disconnect
-    ProcessHciEvent(@Broadcast^.dbch_data[0]);
-  end
-  else if IsEqualGUID(Broadcast^.dbch_eventguid, GUID_BLUETOOTH_L2CAP_EVENT) then
-  begin
-    Log('ProcessCustomEvent: GUID_BLUETOOTH_L2CAP_EVENT', ClassName);
-    // L2CAP channel establish/terminate
-    ProcessL2CapEvent(@Broadcast^.dbch_data[0]);
-  end
-  else if IsEqualGUID(Broadcast^.dbch_eventguid, GUID_BLUETOOTH_RADIO_IN_RANGE) then
-  begin
-    Log('ProcessCustomEvent: GUID_BLUETOOTH_RADIO_IN_RANGE', ClassName);
-    // Device attributes changed or device discovered
-    ProcessRadioInRange(@Broadcast^.dbch_data[0]);
-  end
-  else if IsEqualGUID(Broadcast^.dbch_eventguid, GUID_BLUETOOTH_RADIO_OUT_OF_RANGE) then
-  begin
-    Log('ProcessCustomEvent: GUID_BLUETOOTH_RADIO_OUT_OF_RANGE', ClassName);
-    // Device went out of range
-    ProcessRadioOutOfRange(@Broadcast^.dbch_data[0]);
+    Log('ProcessCustomEvent: Found handler for GUID', ClassName);
+    Handler(@Broadcast^.dbch_data[0]);
   end
   else
   begin
