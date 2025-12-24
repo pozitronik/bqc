@@ -12,13 +12,16 @@ unit Tests.Mocks;
 interface
 
 uses
+  Winapi.Windows,
   System.SysUtils,
   System.Generics.Collections,
   App.ConfigEnums,
   App.ConfigInterfaces,
+  App.MainViewInterfaces,
   App.SettingsPresenter,
   Bluetooth.Types,
-  Bluetooth.Interfaces;
+  Bluetooth.Interfaces,
+  UI.DeviceList;
 
 type
   /// <summary>
@@ -351,6 +354,154 @@ function CreateTestDevice(
   ADeviceType: TBluetoothDeviceType;
   AConnectionState: TBluetoothConnectionState
 ): TBluetoothDeviceInfo;
+
+type
+  /// <summary>
+  /// Mock implementation of IMainView for testing TMainPresenter.
+  /// Records all calls made by the presenter for verification.
+  /// </summary>
+  TMockMainView = class(TInterfacedObject, IMainView)
+  private
+    FDisplayItems: TDeviceDisplayItemArray;
+    FToggleState: Boolean;
+    FToggleEnabled: Boolean;
+    FLastStatus: string;
+    FLastNotificationTitle: string;
+    FLastNotificationMessage: string;
+    FLastNotificationFlags: TNotificationFlags;
+    FBusy: Boolean;
+    FVisible: Boolean;
+    FMinimized: Boolean;
+    FForceCloseCalled: Boolean;
+    FShowViewCalled: Boolean;
+    FHideViewCalled: Boolean;
+    FClearDevicesCalled: Boolean;
+    FShowDisplayItemsCount: Integer;
+    FShowStatusCount: Integer;
+    FShowNotificationCount: Integer;
+  public
+    constructor Create;
+
+    // IMainView
+    procedure ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
+    procedure UpdateDisplayItem(const AItem: TDeviceDisplayItem);
+    procedure ClearDevices;
+    procedure SetToggleState(AEnabled: Boolean);
+    procedure SetToggleEnabled(AEnabled: Boolean);
+    procedure ShowStatus(const AMessage: string);
+    procedure ShowNotification(const ATitle, AMessage: string; AFlags: TNotificationFlags);
+    procedure SetBusy(ABusy: Boolean);
+    function IsVisible: Boolean;
+    function IsMinimized: Boolean;
+    function GetWindowHandle: HWND;
+    procedure ShowView;
+    procedure HideView;
+    procedure ForceClose;
+
+    // Test verification properties
+    property DisplayItems: TDeviceDisplayItemArray read FDisplayItems;
+    property ToggleState: Boolean read FToggleState write FToggleState;
+    property ToggleEnabled: Boolean read FToggleEnabled write FToggleEnabled;
+    property LastStatus: string read FLastStatus;
+    property LastNotificationTitle: string read FLastNotificationTitle;
+    property LastNotificationMessage: string read FLastNotificationMessage;
+    property LastNotificationFlags: TNotificationFlags read FLastNotificationFlags;
+    property Busy: Boolean read FBusy;
+    property Visible: Boolean read FVisible write FVisible;
+    property Minimized: Boolean read FMinimized write FMinimized;
+    property ForceCloseCalled: Boolean read FForceCloseCalled;
+    property ShowViewCalled: Boolean read FShowViewCalled;
+    property HideViewCalled: Boolean read FHideViewCalled;
+    property ClearDevicesCalled: Boolean read FClearDevicesCalled;
+    property ShowDisplayItemsCount: Integer read FShowDisplayItemsCount;
+    property ShowStatusCount: Integer read FShowStatusCount;
+    property ShowNotificationCount: Integer read FShowNotificationCount;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IGeneralConfig for testing.
+  /// </summary>
+  TMockGeneralConfig = class(TInterfacedObject, IGeneralConfig)
+  private
+    FWindowMode: TWindowMode;
+    FOnTop: Boolean;
+    FAutostart: Boolean;
+  public
+    constructor Create;
+
+    // IGeneralConfig
+    function GetWindowMode: TWindowMode;
+    function GetOnTop: Boolean;
+    function GetAutostart: Boolean;
+    procedure SetWindowMode(AValue: TWindowMode);
+    procedure SetOnTop(AValue: Boolean);
+    procedure SetAutostart(AValue: Boolean);
+
+    property WindowMode: TWindowMode read FWindowMode write FWindowMode;
+    property OnTop: Boolean read FOnTop write FOnTop;
+    property Autostart: Boolean read FAutostart write FAutostart;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IWindowConfig for testing.
+  /// </summary>
+  TMockWindowConfig = class(TInterfacedObject, IWindowConfig)
+  private
+    FMinimizeToTray: Boolean;
+    FCloseToTray: Boolean;
+    FMenuHideOnFocusLoss: Boolean;
+  public
+    constructor Create;
+
+    // IWindowConfig
+    function GetMinimizeToTray: Boolean;
+    function GetCloseToTray: Boolean;
+    function GetMenuHideOnFocusLoss: Boolean;
+    procedure SetMinimizeToTray(AValue: Boolean);
+    procedure SetCloseToTray(AValue: Boolean);
+    procedure SetMenuHideOnFocusLoss(AValue: Boolean);
+
+    property MinimizeToTray: Boolean read FMinimizeToTray write FMinimizeToTray;
+    property CloseToTray: Boolean read FCloseToTray write FCloseToTray;
+    property MenuHideOnFocusLoss: Boolean read FMenuHideOnFocusLoss write FMenuHideOnFocusLoss;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IAppConfig for testing.
+  /// Provides minimal implementation for SaveIfModified tracking.
+  /// </summary>
+  TMockAppConfig = class(TInterfacedObject, IAppConfig)
+  private
+    FModified: Boolean;
+    FSaveIfModifiedCount: Integer;
+    FClearModifiedCount: Integer;
+  public
+    constructor Create;
+
+    // IAppConfig
+    function GetConfigPath: string;
+    function GetModified: Boolean;
+    procedure Load;
+    procedure Save;
+    procedure SaveIfModified;
+    procedure ClearModified;
+    function AsGeneralConfig: IGeneralConfig;
+    function AsWindowConfig: IWindowConfig;
+    function AsPositionConfig: IPositionConfig;
+    function AsHotkeyConfig: IHotkeyConfig;
+    function AsPollingConfig: IPollingConfig;
+    function AsLogConfig: ILogConfig;
+    function AsAppearanceConfig: IAppearanceConfig;
+    function AsLayoutConfig: ILayoutConfig;
+    function AsConnectionConfig: IConnectionConfig;
+    function AsNotificationConfig: INotificationConfig;
+    function AsDeviceConfigProvider: IDeviceConfigProvider;
+
+    // Test verification
+    property Modified: Boolean read FModified write FModified;
+    property SaveIfModifiedCount: Integer read FSaveIfModifiedCount;
+    property ClearModifiedCount: Integer read FClearModifiedCount;
+  end;
 
 type
   /// <summary>
@@ -1355,6 +1506,289 @@ procedure TMockSettingsView.ClearDeviceSettings;
 begin
   FillChar(FDeviceSettings, SizeOf(FDeviceSettings), 0);
   Inc(FClearDeviceCount);
+end;
+
+{ TMockMainView }
+
+constructor TMockMainView.Create;
+begin
+  inherited Create;
+  FToggleState := False;
+  FToggleEnabled := True;
+  FBusy := False;
+  FVisible := True;
+  FMinimized := False;
+  FForceCloseCalled := False;
+  FShowViewCalled := False;
+  FHideViewCalled := False;
+  FClearDevicesCalled := False;
+  FShowDisplayItemsCount := 0;
+  FShowStatusCount := 0;
+  FShowNotificationCount := 0;
+end;
+
+procedure TMockMainView.ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
+begin
+  FDisplayItems := AItems;
+  Inc(FShowDisplayItemsCount);
+end;
+
+procedure TMockMainView.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
+var
+  I: Integer;
+begin
+  for I := 0 to High(FDisplayItems) do
+    if FDisplayItems[I].Device.AddressInt = AItem.Device.AddressInt then
+    begin
+      FDisplayItems[I] := AItem;
+      Exit;
+    end;
+end;
+
+procedure TMockMainView.ClearDevices;
+begin
+  SetLength(FDisplayItems, 0);
+  FClearDevicesCalled := True;
+end;
+
+procedure TMockMainView.SetToggleState(AEnabled: Boolean);
+begin
+  FToggleState := AEnabled;
+end;
+
+procedure TMockMainView.SetToggleEnabled(AEnabled: Boolean);
+begin
+  FToggleEnabled := AEnabled;
+end;
+
+procedure TMockMainView.ShowStatus(const AMessage: string);
+begin
+  FLastStatus := AMessage;
+  Inc(FShowStatusCount);
+end;
+
+procedure TMockMainView.ShowNotification(const ATitle, AMessage: string; AFlags: TNotificationFlags);
+begin
+  FLastNotificationTitle := ATitle;
+  FLastNotificationMessage := AMessage;
+  FLastNotificationFlags := AFlags;
+  Inc(FShowNotificationCount);
+end;
+
+procedure TMockMainView.SetBusy(ABusy: Boolean);
+begin
+  FBusy := ABusy;
+end;
+
+function TMockMainView.IsVisible: Boolean;
+begin
+  Result := FVisible;
+end;
+
+function TMockMainView.IsMinimized: Boolean;
+begin
+  Result := FMinimized;
+end;
+
+function TMockMainView.GetWindowHandle: HWND;
+begin
+  Result := 0;  // Mock returns 0
+end;
+
+procedure TMockMainView.ShowView;
+begin
+  FVisible := True;
+  FMinimized := False;
+  FShowViewCalled := True;
+end;
+
+procedure TMockMainView.HideView;
+begin
+  FVisible := False;
+  FHideViewCalled := True;
+end;
+
+procedure TMockMainView.ForceClose;
+begin
+  FForceCloseCalled := True;
+end;
+
+{ TMockGeneralConfig }
+
+constructor TMockGeneralConfig.Create;
+begin
+  inherited Create;
+  FWindowMode := wmWindow;
+  FOnTop := False;
+  FAutostart := False;
+end;
+
+function TMockGeneralConfig.GetWindowMode: TWindowMode;
+begin
+  Result := FWindowMode;
+end;
+
+function TMockGeneralConfig.GetOnTop: Boolean;
+begin
+  Result := FOnTop;
+end;
+
+function TMockGeneralConfig.GetAutostart: Boolean;
+begin
+  Result := FAutostart;
+end;
+
+procedure TMockGeneralConfig.SetWindowMode(AValue: TWindowMode);
+begin
+  FWindowMode := AValue;
+end;
+
+procedure TMockGeneralConfig.SetOnTop(AValue: Boolean);
+begin
+  FOnTop := AValue;
+end;
+
+procedure TMockGeneralConfig.SetAutostart(AValue: Boolean);
+begin
+  FAutostart := AValue;
+end;
+
+{ TMockWindowConfig }
+
+constructor TMockWindowConfig.Create;
+begin
+  inherited Create;
+  FMinimizeToTray := True;
+  FCloseToTray := True;
+  FMenuHideOnFocusLoss := True;
+end;
+
+function TMockWindowConfig.GetMinimizeToTray: Boolean;
+begin
+  Result := FMinimizeToTray;
+end;
+
+function TMockWindowConfig.GetCloseToTray: Boolean;
+begin
+  Result := FCloseToTray;
+end;
+
+function TMockWindowConfig.GetMenuHideOnFocusLoss: Boolean;
+begin
+  Result := FMenuHideOnFocusLoss;
+end;
+
+procedure TMockWindowConfig.SetMinimizeToTray(AValue: Boolean);
+begin
+  FMinimizeToTray := AValue;
+end;
+
+procedure TMockWindowConfig.SetCloseToTray(AValue: Boolean);
+begin
+  FCloseToTray := AValue;
+end;
+
+procedure TMockWindowConfig.SetMenuHideOnFocusLoss(AValue: Boolean);
+begin
+  FMenuHideOnFocusLoss := AValue;
+end;
+
+{ TMockAppConfig }
+
+constructor TMockAppConfig.Create;
+begin
+  inherited Create;
+  FModified := False;
+  FSaveIfModifiedCount := 0;
+  FClearModifiedCount := 0;
+end;
+
+function TMockAppConfig.GetConfigPath: string;
+begin
+  Result := 'mock_config.ini';
+end;
+
+function TMockAppConfig.GetModified: Boolean;
+begin
+  Result := FModified;
+end;
+
+procedure TMockAppConfig.Load;
+begin
+  // Mock does nothing
+end;
+
+procedure TMockAppConfig.Save;
+begin
+  FModified := False;
+end;
+
+procedure TMockAppConfig.SaveIfModified;
+begin
+  Inc(FSaveIfModifiedCount);
+  if FModified then
+    FModified := False;
+end;
+
+procedure TMockAppConfig.ClearModified;
+begin
+  FModified := False;
+  Inc(FClearModifiedCount);
+end;
+
+function TMockAppConfig.AsGeneralConfig: IGeneralConfig;
+begin
+  Result := nil;  // Not used in tests
+end;
+
+function TMockAppConfig.AsWindowConfig: IWindowConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsPositionConfig: IPositionConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsHotkeyConfig: IHotkeyConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsPollingConfig: IPollingConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsLogConfig: ILogConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsAppearanceConfig: IAppearanceConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsLayoutConfig: ILayoutConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsConnectionConfig: IConnectionConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsNotificationConfig: INotificationConfig;
+begin
+  Result := nil;
+end;
+
+function TMockAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
+begin
+  Result := nil;
 end;
 
 end.
