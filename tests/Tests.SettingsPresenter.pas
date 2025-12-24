@@ -154,7 +154,8 @@ begin
   // Note: The mocks are TInterfacedObjects, but we need to prevent premature destruction
   // by keeping references. The presenter takes interface references.
   FPresenter := TSettingsPresenter.Create(
-    FMockView,
+    FMockView as ISettingsView,
+    FMockView as IDeviceSettingsView,
     FMockAppConfig,
     FMockDeviceConfigProvider
   );

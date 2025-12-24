@@ -108,7 +108,10 @@ end;
 procedure TMainPresenterTests.CreatePresenter;
 begin
   FPresenter := TMainPresenter.Create(
-    FView,
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
     FAppConfig,
     FDeviceConfigProvider,
     FGeneralConfig,

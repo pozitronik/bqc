@@ -116,12 +116,56 @@ type
   end;
 
   //----------------------------------------------------------------------------
-  // ISettingsView - Interface for the settings view
+  // IDeviceSettingsView - Interface for device settings view (ISP-compliant)
   //----------------------------------------------------------------------------
 
   /// <summary>
-  /// Interface for the settings view (implemented by SettingsForm).
+  /// Focused interface for device settings view operations.
+  /// Implements Interface Segregation Principle by separating device
+  /// management from general settings view.
+  /// </summary>
+  IDeviceSettingsView = interface
+    ['{C3D4E5F6-A7B8-9012-CDEF-345678901234}']
+
+    /// <summary>
+    /// Populates the device list with display names.
+    /// </summary>
+    procedure PopulateDeviceList(const AItems: TArray<string>);
+
+    /// <summary>
+    /// Gets the currently selected device index.
+    /// </summary>
+    function GetSelectedDeviceIndex: Integer;
+
+    /// <summary>
+    /// Sets the selected device index.
+    /// </summary>
+    procedure SetSelectedDeviceIndex(AIndex: Integer);
+
+    /// <summary>
+    /// Gets the current device settings from the view.
+    /// </summary>
+    function GetDeviceSettings: TDeviceViewSettings;
+
+    /// <summary>
+    /// Sets the device settings in the view.
+    /// </summary>
+    procedure SetDeviceSettings(const ASettings: TDeviceViewSettings);
+
+    /// <summary>
+    /// Clears the device settings controls.
+    /// </summary>
+    procedure ClearDeviceSettings;
+  end;
+
+  //----------------------------------------------------------------------------
+  // ISettingsView - Interface for general settings view
+  //----------------------------------------------------------------------------
+
+  /// <summary>
+  /// Interface for general settings view (implemented by SettingsForm).
   /// Provides data access through grouped settings records.
+  /// Device-related methods are in IDeviceSettingsView (ISP).
   /// </summary>
   ISettingsView = interface
     ['{B2C3D4E5-F6A7-8901-BCDE-F23456789012}']
@@ -158,41 +202,85 @@ type
 
     // Theme list management
     procedure PopulateThemeList(const ACurrentTheme: string);
-
-    // Device list management
-    procedure PopulateDeviceList(const AItems: TArray<string>);
-    function GetSelectedDeviceIndex: Integer;
-    procedure SetSelectedDeviceIndex(AIndex: Integer);
-    function GetDeviceSettings: TDeviceViewSettings;
-    procedure SetDeviceSettings(const ASettings: TDeviceViewSettings);
-    procedure ClearDeviceSettings;
   end;
 
   //----------------------------------------------------------------------------
-  // TSettingsPresenter - Settings dialog presenter
+  // TDeviceSettingsPresenter - Device settings presenter (SRP-compliant)
+  //----------------------------------------------------------------------------
+
+  /// <summary>
+  /// Focused presenter for per-device configuration management.
+  /// Extracted from TSettingsPresenter to follow Single Responsibility Principle.
+  /// </summary>
+  TDeviceSettingsPresenter = class
+  private
+    FView: IDeviceSettingsView;
+    FDeviceConfigProvider: IDeviceConfigProvider;
+    FDeviceAddresses: TList<UInt64>;
+    FSelectedDeviceIndex: Integer;
+  public
+    constructor Create(
+      AView: IDeviceSettingsView;
+      ADeviceConfigProvider: IDeviceConfigProvider
+    );
+    destructor Destroy; override;
+
+    /// <summary>
+    /// Loads the device list from configuration.
+    /// </summary>
+    procedure LoadDeviceList;
+
+    /// <summary>
+    /// Loads settings for a specific device by index.
+    /// </summary>
+    procedure LoadDeviceSettings(AIndex: Integer);
+
+    /// <summary>
+    /// Saves settings for a specific device by index.
+    /// </summary>
+    procedure SaveDeviceSettings(AIndex: Integer);
+
+    /// <summary>
+    /// Saves the currently selected device settings.
+    /// </summary>
+    procedure SaveCurrentDevice;
+
+    /// <summary>
+    /// Called when user selects a device in the list.
+    /// </summary>
+    procedure OnDeviceSelected(AIndex: Integer);
+
+    /// <summary>
+    /// Called when user wants to forget/remove a device.
+    /// </summary>
+    procedure OnForgetDeviceClicked(AIndex: Integer);
+
+    /// <summary>
+    /// Called when user requests to refresh the device list.
+    /// </summary>
+    procedure OnRefreshDevicesClicked;
+  end;
+
+  //----------------------------------------------------------------------------
+  // TSettingsPresenter - General settings dialog presenter
   //----------------------------------------------------------------------------
 
   /// <summary>
   /// Presenter for the Settings dialog.
-  /// Handles loading and saving configuration through the ISettingsView interface.
+  /// Handles loading and saving general configuration.
+  /// Device settings are delegated to TDeviceSettingsPresenter (SRP).
   /// </summary>
   TSettingsPresenter = class
   private
     FView: ISettingsView;
+    FDevicePresenter: TDeviceSettingsPresenter;
     FAppConfig: IAppConfig;
-    FDeviceConfigProvider: IDeviceConfigProvider;
     FModified: Boolean;
-    FDeviceAddresses: TList<UInt64>;
-    FSelectedDeviceIndex: Integer;
     FOnSettingsApplied: TNotifyEvent;
-
-    procedure LoadDeviceList;
-    procedure LoadDeviceSettings(AIndex: Integer);
-    procedure SaveDeviceSettings(AIndex: Integer);
-
   public
     constructor Create(
       AView: ISettingsView;
+      ADeviceSettingsView: IDeviceSettingsView;
       AAppConfig: IAppConfig;
       ADeviceConfigProvider: IDeviceConfigProvider
     );
@@ -225,32 +313,29 @@ uses
   App.Config,  // For DEF_* constants
   Bluetooth.Types;
 
-{ TSettingsPresenter }
+{ TDeviceSettingsPresenter }
 
-constructor TSettingsPresenter.Create(
-  AView: ISettingsView;
-  AAppConfig: IAppConfig;
+constructor TDeviceSettingsPresenter.Create(
+  AView: IDeviceSettingsView;
   ADeviceConfigProvider: IDeviceConfigProvider
 );
 begin
   inherited Create;
   FView := AView;
-  FAppConfig := AAppConfig;
   FDeviceConfigProvider := ADeviceConfigProvider;
-  FModified := False;
   FDeviceAddresses := TList<UInt64>.Create;
   FSelectedDeviceIndex := -1;
   Log('Created', ClassName);
 end;
 
-destructor TSettingsPresenter.Destroy;
+destructor TDeviceSettingsPresenter.Destroy;
 begin
   FDeviceAddresses.Free;
   Log('Destroyed', ClassName);
   inherited;
 end;
 
-procedure TSettingsPresenter.LoadDeviceList;
+procedure TDeviceSettingsPresenter.LoadDeviceList;
 var
   Addresses: TArray<UInt64>;
   Address: UInt64;
@@ -293,7 +378,7 @@ begin
   end;
 end;
 
-procedure TSettingsPresenter.LoadDeviceSettings(AIndex: Integer);
+procedure TDeviceSettingsPresenter.LoadDeviceSettings(AIndex: Integer);
 var
   Address: UInt64;
   DeviceConfig: TDeviceConfig;
@@ -325,7 +410,7 @@ begin
   FView.SetDeviceSettings(Settings);
 end;
 
-procedure TSettingsPresenter.SaveDeviceSettings(AIndex: Integer);
+procedure TDeviceSettingsPresenter.SaveDeviceSettings(AIndex: Integer);
 var
   Address: UInt64;
   DeviceConfig: TDeviceConfig;
@@ -351,6 +436,65 @@ begin
   DeviceConfig.Notifications.OnAutoConnect := Settings.NotifyAutoIndex - 1;
 
   FDeviceConfigProvider.SetDeviceConfig(DeviceConfig);
+end;
+
+procedure TDeviceSettingsPresenter.SaveCurrentDevice;
+begin
+  if (FSelectedDeviceIndex >= 0) and (FSelectedDeviceIndex < FDeviceAddresses.Count) then
+    SaveDeviceSettings(FSelectedDeviceIndex);
+end;
+
+procedure TDeviceSettingsPresenter.OnDeviceSelected(AIndex: Integer);
+begin
+  Log('OnDeviceSelected: Index=%d', [AIndex], ClassName);
+  LoadDeviceSettings(AIndex);
+end;
+
+procedure TDeviceSettingsPresenter.OnForgetDeviceClicked(AIndex: Integer);
+var
+  Address: UInt64;
+begin
+  Log('OnForgetDeviceClicked: Index=%d', [AIndex], ClassName);
+  if (AIndex >= 0) and (AIndex < FDeviceAddresses.Count) then
+  begin
+    Address := FDeviceAddresses[AIndex];
+    FDeviceConfigProvider.RemoveDeviceConfig(Address);
+    FSelectedDeviceIndex := -1;
+    LoadDeviceList;
+  end;
+end;
+
+procedure TDeviceSettingsPresenter.OnRefreshDevicesClicked;
+begin
+  Log('OnRefreshDevicesClicked', ClassName);
+  LoadDeviceList;
+end;
+
+{ TSettingsPresenter }
+
+constructor TSettingsPresenter.Create(
+  AView: ISettingsView;
+  ADeviceSettingsView: IDeviceSettingsView;
+  AAppConfig: IAppConfig;
+  ADeviceConfigProvider: IDeviceConfigProvider
+);
+begin
+  inherited Create;
+  FView := AView;
+  FAppConfig := AAppConfig;
+  FModified := False;
+
+  // Create device settings presenter with delegation
+  FDevicePresenter := TDeviceSettingsPresenter.Create(ADeviceSettingsView, ADeviceConfigProvider);
+
+  Log('Created', ClassName);
+end;
+
+destructor TSettingsPresenter.Destroy;
+begin
+  FDevicePresenter.Free;
+  Log('Destroyed', ClassName);
+  inherited;
 end;
 
 procedure TSettingsPresenter.LoadSettings;
@@ -447,8 +591,8 @@ begin
   Logging.Append := LogCfg.LogAppend;
   FView.SetLoggingSettings(Logging);
 
-  // Device list
-  LoadDeviceList;
+  // Device list (delegated to device presenter)
+  FDevicePresenter.LoadDeviceList;
 
   FModified := False;
   Log('LoadSettings: Complete', ClassName);
@@ -477,9 +621,8 @@ begin
   Log('SaveSettings', ClassName);
   Result := True;
   try
-    // Save current device settings if any selected
-    if (FSelectedDeviceIndex >= 0) and (FSelectedDeviceIndex < FDeviceAddresses.Count) then
-      SaveDeviceSettings(FSelectedDeviceIndex);
+    // Save current device settings (delegated to device presenter)
+    FDevicePresenter.SaveCurrentDevice;
 
     // Get interfaces from AppConfig
     AppCfg := FAppConfig;
@@ -627,28 +770,17 @@ end;
 
 procedure TSettingsPresenter.OnDeviceSelected(AIndex: Integer);
 begin
-  Log('OnDeviceSelected: Index=%d', [AIndex], ClassName);
-  LoadDeviceSettings(AIndex);
+  FDevicePresenter.OnDeviceSelected(AIndex);
 end;
 
 procedure TSettingsPresenter.OnForgetDeviceClicked(AIndex: Integer);
-var
-  Address: UInt64;
 begin
-  Log('OnForgetDeviceClicked: Index=%d', [AIndex], ClassName);
-  if (AIndex >= 0) and (AIndex < FDeviceAddresses.Count) then
-  begin
-    Address := FDeviceAddresses[AIndex];
-    FDeviceConfigProvider.RemoveDeviceConfig(Address);
-    FSelectedDeviceIndex := -1;
-    LoadDeviceList;
-  end;
+  FDevicePresenter.OnForgetDeviceClicked(AIndex);
 end;
 
 procedure TSettingsPresenter.OnRefreshDevicesClicked;
 begin
-  Log('OnRefreshDevicesClicked', ClassName);
-  LoadDeviceList;
+  FDevicePresenter.OnRefreshDevicesClicked;
 end;
 
 procedure TSettingsPresenter.OnResetDefaultsClicked;

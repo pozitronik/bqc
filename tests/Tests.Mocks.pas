@@ -506,10 +506,11 @@ type
 
 type
   /// <summary>
-  /// Mock implementation of ISettingsView for testing TSettingsPresenter.
+  /// Mock implementation of ISettingsView and IDeviceSettingsView for testing TSettingsPresenter.
   /// Records all calls made by the presenter for verification.
+  /// Implements both interfaces for ISP compliance.
   /// </summary>
-  TMockSettingsView = class(TInterfacedObject, ISettingsView)
+  TMockSettingsView = class(TInterfacedObject, ISettingsView, IDeviceSettingsView)
   private
     // Stored settings
     FGeneralSettings: TGeneralViewSettings;
@@ -564,7 +565,7 @@ type
     // ISettingsView - Theme management
     procedure PopulateThemeList(const ACurrentTheme: string);
 
-    // ISettingsView - Device management
+    // IDeviceSettingsView - Device management
     procedure PopulateDeviceList(const AItems: TArray<string>);
     function GetSelectedDeviceIndex: Integer;
     procedure SetSelectedDeviceIndex(AIndex: Integer);

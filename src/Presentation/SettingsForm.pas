@@ -21,9 +21,9 @@ uses
 type
   /// <summary>
   /// Settings dialog form.
-  /// Implements ISettingsView for MVP pattern.
+  /// Implements ISettingsView and IDeviceSettingsView for MVP pattern (ISP).
   /// </summary>
-  TFormSettings = class(TForm, ISettingsView)
+  TFormSettings = class(TForm, ISettingsView, IDeviceSettingsView)
     PanelBottom: TPanel;
     ButtonOK: TButton;
     ButtonCancel: TButton;
@@ -307,7 +307,8 @@ procedure TFormSettings.FormCreate(Sender: TObject);
 begin
   Log('FormCreate', ClassName);
   FPresenter := TSettingsPresenter.Create(
-    Self,
+    Self as ISettingsView,
+    Self as IDeviceSettingsView,
     Bootstrap.AppConfig,
     Bootstrap.DeviceConfigProvider
   );

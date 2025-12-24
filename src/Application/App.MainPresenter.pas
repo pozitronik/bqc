@@ -21,7 +21,7 @@ unit App.MainPresenter;
      The presenter itself is a thin coordinator, not a "god class".
 
   2. COHESIVE RESPONSIBILITIES: All methods relate to a single concern -
-     coordinating between IMainView and Bluetooth services. This is exactly
+     coordinating between view interfaces and Bluetooth services. This is exactly
      what a main presenter in MVP should do.
 
   3. REASONABLE SIZE: 515 lines of implementation (excluding interface) is
@@ -66,7 +66,12 @@ type
   /// </summary>
   TMainPresenter = class
   private
-    FView: IMainView;
+    { View interfaces (ISP-compliant) }
+    FDeviceListView: IDeviceListView;
+    FToggleView: IToggleView;
+    FStatusView: IStatusView;
+    FVisibilityView: IVisibilityView;
+
     FBluetoothService: IBluetoothService;
 
     { Injected configuration dependencies }
@@ -105,14 +110,20 @@ type
     /// <summary>
     /// Creates the presenter with injected dependencies.
     /// </summary>
-    /// <param name="AView">The view interface (implemented by Form).</param>
+    /// <param name="ADeviceListView">View for device list operations.</param>
+    /// <param name="AToggleView">View for toggle switch operations.</param>
+    /// <param name="AStatusView">View for status and notifications.</param>
+    /// <param name="AVisibilityView">View for window visibility.</param>
     /// <param name="AAppConfig">Application configuration for persistence.</param>
     /// <param name="ADeviceConfigProvider">Device configuration provider.</param>
     /// <param name="AGeneralConfig">General settings (window mode).</param>
     /// <param name="AWindowConfig">Window settings (close to tray).</param>
     /// <param name="AAppearanceConfig">Appearance settings for display items.</param>
     constructor Create(
-      AView: IMainView;
+      ADeviceListView: IDeviceListView;
+      AToggleView: IToggleView;
+      AStatusView: IStatusView;
+      AVisibilityView: IVisibilityView;
       AAppConfig: IAppConfig;
       ADeviceConfigProvider: IDeviceConfigProvider;
       AGeneralConfig: IGeneralConfig;
@@ -194,7 +205,10 @@ uses
 { TMainPresenter }
 
 constructor TMainPresenter.Create(
-  AView: IMainView;
+  ADeviceListView: IDeviceListView;
+  AToggleView: IToggleView;
+  AStatusView: IStatusView;
+  AVisibilityView: IVisibilityView;
   AAppConfig: IAppConfig;
   ADeviceConfigProvider: IDeviceConfigProvider;
   AGeneralConfig: IGeneralConfig;
@@ -203,7 +217,12 @@ constructor TMainPresenter.Create(
 );
 begin
   inherited Create;
-  FView := AView;
+
+  // Store view interfaces
+  FDeviceListView := ADeviceListView;
+  FToggleView := AToggleView;
+  FStatusView := AStatusView;
+  FVisibilityView := AVisibilityView;
 
   // Store injected dependencies
   FAppConfig := AAppConfig;
@@ -260,16 +279,16 @@ begin
 
     if RadioEnabled then
     begin
-      FView.SetToggleState(True);
-      FView.ShowStatus('Loading devices...');
+      FToggleView.SetToggleState(True);
+      FStatusView.ShowStatus('Loading devices...');
       LoadDevices;
       AutoConnectDevices;
     end
     else
     begin
-      FView.SetToggleState(False);
-      FView.ShowStatus('Bluetooth is off');
-      FView.ClearDevices;
+      FToggleView.SetToggleState(False);
+      FStatusView.ShowStatus('Bluetooth is off');
+      FDeviceListView.ClearDevices;
     end;
 
     // Start watching for radio state changes
@@ -281,9 +300,9 @@ begin
   else
   begin
     Log('Initialize: No Bluetooth adapter found', ClassName);
-    FView.SetToggleState(False);
-    FView.SetToggleEnabled(False);
-    FView.ShowStatus('No Bluetooth adapter found');
+    FToggleView.SetToggleState(False);
+    FToggleView.SetToggleEnabled(False);
+    FStatusView.ShowStatus('No Bluetooth adapter found');
   end;
 
   Log('Initialize: Complete', ClassName);
@@ -321,7 +340,7 @@ var
   I: Integer;
 begin
   Log('LoadDevices: Starting', ClassName);
-  FView.SetBusy(True);
+  FStatusView.SetBusy(True);
   try
     FDevices := FBluetoothService.GetPairedDevices;
     Log('LoadDevices: Got %d devices', [Length(FDevices)], ClassName);
@@ -343,11 +362,11 @@ begin
     RefreshDisplayItems;
 
     if Length(FDevices) = 0 then
-      FView.ShowStatus('No paired devices')
+      FStatusView.ShowStatus('No paired devices')
     else
-      FView.ShowStatus(Format('%d device(s)', [Length(FDevices)]));
+      FStatusView.ShowStatus(Format('%d device(s)', [Length(FDevices)]));
   finally
-    FView.SetBusy(False);
+    FStatusView.SetBusy(False);
   end;
   Log('LoadDevices: Complete', ClassName);
 end;
@@ -381,7 +400,7 @@ begin
     end;
 
     Log('AutoConnectDevices: Auto-connecting %s', [Device.Name], ClassName);
-    FView.ShowStatus(Format('Auto-connecting %s...', [Device.Name]));
+    FStatusView.ShowStatus(Format('Auto-connecting %s...', [Device.Name]));
     ConnectDeviceAsync(Device);
   end;
 
@@ -422,9 +441,15 @@ end;
 
 procedure TMainPresenter.SetRadioStateAsync(AEnable: Boolean);
 var
-  LView: IMainView;
+  LDeviceListView: IDeviceListView;
+  LToggleView: IToggleView;
+  LStatusView: IStatusView;
 begin
-  LView := FView;
+  // Capture interface references for async thread
+  LDeviceListView := FDeviceListView;
+  LToggleView := FToggleView;
+  LStatusView := FStatusView;
+
   TThread.CreateAnonymousThread(
     procedure
     var
@@ -440,42 +465,42 @@ begin
               begin
                 if AEnable then
                 begin
-                  LView.ShowStatus('Bluetooth enabled');
+                  LStatusView.ShowStatus('Bluetooth enabled');
                   LoadDevices;
                 end
                 else
                 begin
-                  LView.ShowStatus('Bluetooth disabled');
-                  LView.ClearDevices;
+                  LStatusView.ShowStatus('Bluetooth disabled');
+                  LDeviceListView.ClearDevices;
                 end;
               end;
             rcAccessDenied:
               begin
-                LView.ShowStatus('Access denied - check Windows settings');
+                LStatusView.ShowStatus('Access denied - check Windows settings');
                 FUpdatingToggle := True;
                 try
-                  LView.SetToggleState(not AEnable);
+                  LToggleView.SetToggleState(not AEnable);
                 finally
                   FUpdatingToggle := False;
                 end;
               end;
             rcDeviceNotFound:
               begin
-                LView.ShowStatus('Bluetooth adapter not found');
+                LStatusView.ShowStatus('Bluetooth adapter not found');
                 FUpdatingToggle := True;
                 try
-                  LView.SetToggleState(False);
+                  LToggleView.SetToggleState(False);
                 finally
                   FUpdatingToggle := False;
                 end;
-                LView.SetToggleEnabled(False);
+                LToggleView.SetToggleEnabled(False);
               end;
           else
             begin
-              LView.ShowStatus('Failed to change Bluetooth state');
+              LStatusView.ShowStatus('Failed to change Bluetooth state');
               FUpdatingToggle := True;
               try
-                LView.SetToggleState(not AEnable);
+                LToggleView.SetToggleState(not AEnable);
               finally
                 FUpdatingToggle := False;
               end;
@@ -506,19 +531,19 @@ begin
       begin
         NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnect);
         if NotifyMode = nmBalloon then
-          FView.ShowNotification(DeviceName, 'Connected', nfInfo);
+          FStatusView.ShowNotification(DeviceName, 'Connected', nfInfo);
       end;
     csDisconnected:
       begin
         NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neDisconnect);
         if NotifyMode = nmBalloon then
-          FView.ShowNotification(DeviceName, 'Disconnected', nfInfo);
+          FStatusView.ShowNotification(DeviceName, 'Disconnected', nfInfo);
       end;
     csError:
       begin
         NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnectFailed);
         if NotifyMode = nmBalloon then
-          FView.ShowNotification(DeviceName, 'Connection failed', nfError);
+          FStatusView.ShowNotification(DeviceName, 'Connection failed', nfError);
       end;
   end;
 end;
@@ -526,7 +551,7 @@ end;
 procedure TMainPresenter.RefreshDisplayItems;
 begin
   FDisplayItems := FDisplayItemBuilder.BuildDisplayItems(FDevices);
-  FView.ShowDisplayItems(FDisplayItems);
+  FDeviceListView.ShowDisplayItems(FDisplayItems);
 end;
 
 { Service event handlers }
@@ -583,7 +608,7 @@ begin
       // Rebuild display items (device may have moved groups due to state change)
       RefreshDisplayItems;
 
-      FView.ShowStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
+      FStatusView.ShowStatus(Format('%s: %s', [LDevice.Name, LDevice.ConnectionStateText]));
       ShowDeviceNotification(LDevice);
     end
   );
@@ -606,9 +631,9 @@ begin
     procedure
     begin
       if AErrorCode <> 0 then
-        FView.ShowStatus(Format('Error: %s (%d)', [AMessage, AErrorCode]))
+        FStatusView.ShowStatus(Format('Error: %s (%d)', [AMessage, AErrorCode]))
       else
-        FView.ShowStatus(Format('Error: %s', [AMessage]));
+        FStatusView.ShowStatus(Format('Error: %s', [AMessage]));
     end
   );
 end;
@@ -619,22 +644,22 @@ begin
 
   FUpdatingToggle := True;
   try
-    FView.SetToggleState(AEnabled);
+    FToggleView.SetToggleState(AEnabled);
   finally
     FUpdatingToggle := False;
   end;
 
   if AEnabled then
   begin
-    FView.ShowStatus('Loading devices...');
+    FStatusView.ShowStatus('Loading devices...');
     LoadDevicesDelayed;
   end
   else
   begin
-    FView.ShowStatus('Bluetooth disabled');
+    FStatusView.ShowStatus('Bluetooth disabled');
     if FDelayedLoadTimer <> nil then
       FDelayedLoadTimer.Enabled := False;
-    FView.ClearDevices;
+    FDeviceListView.ClearDevices;
   end;
 end;
 
@@ -653,20 +678,20 @@ begin
   if ADevice.ConnectionState in [csConnecting, csDisconnecting] then
   begin
     Log('OnDeviceClicked: Operation in progress, ignoring', ClassName);
-    FView.ShowStatus('Operation in progress...');
+    FStatusView.ShowStatus('Operation in progress...');
     Exit;
   end;
 
   if ADevice.IsConnected then
-    FView.ShowStatus(Format('Disconnecting %s...', [ADevice.Name]))
+    FStatusView.ShowStatus(Format('Disconnecting %s...', [ADevice.Name]))
   else
-    FView.ShowStatus(Format('Connecting %s...', [ADevice.Name]));
+    FStatusView.ShowStatus(Format('Connecting %s...', [ADevice.Name]));
 
   // In Menu mode, hide immediately after device click
   if FGeneralConfig.WindowMode = wmMenu then
   begin
     Log('OnDeviceClicked: Menu mode, hiding view', ClassName);
-    FView.HideView;
+    FVisibilityView.HideView;
   end;
 
   ToggleConnectionAsync(ADevice);
@@ -680,9 +705,9 @@ begin
   Log('OnToggleChanged: Enabled=%s', [BoolToStr(AEnabled, True)], ClassName);
 
   if AEnabled then
-    FView.ShowStatus('Enabling Bluetooth...')
+    FStatusView.ShowStatus('Enabling Bluetooth...')
   else
-    FView.ShowStatus('Disabling Bluetooth...');
+    FStatusView.ShowStatus('Disabling Bluetooth...');
 
   SetRadioStateAsync(AEnabled);
 end;
@@ -690,22 +715,22 @@ end;
 procedure TMainPresenter.OnRefreshRequested;
 begin
   Log('OnRefreshRequested', ClassName);
-  FView.ShowStatus('Refreshing...');
+  FStatusView.ShowStatus('Refreshing...');
   LoadDevices;
 end;
 
 procedure TMainPresenter.OnVisibilityToggleRequested;
 begin
-  if FView.IsVisible and (not FView.IsMinimized) then
-    FView.HideView
+  if FVisibilityView.IsVisible and (not FVisibilityView.IsMinimized) then
+    FVisibilityView.HideView
   else
-    FView.ShowView;
+    FVisibilityView.ShowView;
 end;
 
 procedure TMainPresenter.OnExitRequested;
 begin
   Log('OnExitRequested', ClassName);
-  FView.ForceClose;
+  FVisibilityView.ForceClose;
 end;
 
 procedure TMainPresenter.OnSettingsChanged;
