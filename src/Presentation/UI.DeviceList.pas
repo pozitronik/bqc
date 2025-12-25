@@ -61,6 +61,26 @@ type
   end;
 
   /// <summary>
+  /// Cached layout and appearance parameters.
+  /// Populated once per paint cycle to avoid repeated config interface queries.
+  /// </summary>
+  TCachedLayoutParams = record
+    // From ILayoutConfig
+    ItemPadding: Integer;
+    IconSize: Integer;
+    CornerRadius: Integer;
+    DeviceNameFontSize: Integer;
+    StatusFontSize: Integer;
+    AddressFontSize: Integer;
+    ItemBorderWidth: Integer;
+    ItemBorderColor: TColor;
+    // From IAppearanceConfig
+    ShowDeviceIcons: Boolean;
+    ShowLastSeen: Boolean;
+    ConnectedColor: TColor;
+  end;
+
+  /// <summary>
   /// Pre-processed display item for device list rendering.
   /// Contains all data needed for display without further config lookups.
   /// Created by presenter, consumed by view (Information Expert pattern).
@@ -120,6 +140,10 @@ type
     FLayoutConfig: ILayoutConfig;
     FAppearanceConfig: IAppearanceConfig;
 
+    // Cached layout parameters (refreshed once per paint cycle)
+    FCachedLayout: TCachedLayoutParams;
+
+    procedure RefreshLayoutCache;
     function GetLayoutConfig: ILayoutConfig;
     function GetAppearanceConfig: IAppearanceConfig;
 
@@ -305,6 +329,30 @@ end;
 function TDeviceListBox.GetAppearanceConfig: IAppearanceConfig;
 begin
   Result := FAppearanceConfig;
+end;
+
+procedure TDeviceListBox.RefreshLayoutCache;
+begin
+  // Cache layout config values (avoids repeated interface queries per item)
+  if Assigned(FLayoutConfig) then
+  begin
+    FCachedLayout.ItemPadding := FLayoutConfig.ItemPadding;
+    FCachedLayout.IconSize := FLayoutConfig.IconSize;
+    FCachedLayout.CornerRadius := FLayoutConfig.CornerRadius;
+    FCachedLayout.DeviceNameFontSize := FLayoutConfig.DeviceNameFontSize;
+    FCachedLayout.StatusFontSize := FLayoutConfig.StatusFontSize;
+    FCachedLayout.AddressFontSize := FLayoutConfig.AddressFontSize;
+    FCachedLayout.ItemBorderWidth := FLayoutConfig.ItemBorderWidth;
+    FCachedLayout.ItemBorderColor := TColor(FLayoutConfig.ItemBorderColor);
+  end;
+
+  // Cache appearance config values
+  if Assigned(FAppearanceConfig) then
+  begin
+    FCachedLayout.ShowDeviceIcons := FAppearanceConfig.ShowDeviceIcons;
+    FCachedLayout.ShowLastSeen := FAppearanceConfig.ShowLastSeen;
+    FCachedLayout.ConnectedColor := TColor(FAppearanceConfig.ConnectedColor);
+  end;
 end;
 
 procedure TDeviceListBox.SetShowAddresses(AValue: Boolean);
@@ -568,6 +616,9 @@ var
   IsHover, IsSelected: Boolean;
   Style: TCustomStyleServices;
 begin
+  // Refresh cached layout params once per paint (not per item)
+  RefreshLayoutCache;
+
   Style := TStyleManager.ActiveStyle;
 
   // Background
@@ -614,20 +665,20 @@ begin
   // Store item rect for reference
   Result.ItemRect := ARect;
 
-  // Get layout settings from config
-  Result.ItemPadding := LayoutConfig.ItemPadding;
-  Result.IconSize := LayoutConfig.IconSize;
-  Result.CornerRadius := LayoutConfig.CornerRadius;
-  Result.DeviceNameFontSize := LayoutConfig.DeviceNameFontSize;
-  Result.StatusFontSize := LayoutConfig.StatusFontSize;
-  Result.AddressFontSize := LayoutConfig.AddressFontSize;
-  Result.ItemBorderWidth := LayoutConfig.ItemBorderWidth;
-  Result.ItemBorderColor := TColor(LayoutConfig.ItemBorderColor);
+  // Use cached layout settings (populated once per paint cycle)
+  Result.ItemPadding := FCachedLayout.ItemPadding;
+  Result.IconSize := FCachedLayout.IconSize;
+  Result.CornerRadius := FCachedLayout.CornerRadius;
+  Result.DeviceNameFontSize := FCachedLayout.DeviceNameFontSize;
+  Result.StatusFontSize := FCachedLayout.StatusFontSize;
+  Result.AddressFontSize := FCachedLayout.AddressFontSize;
+  Result.ItemBorderWidth := FCachedLayout.ItemBorderWidth;
+  Result.ItemBorderColor := FCachedLayout.ItemBorderColor;
 
-  // Get appearance settings from config
-  Result.ShowDeviceIcons := AppearanceConfig.ShowDeviceIcons;
-  Result.ShowLastSeen := AppearanceConfig.ShowLastSeen;
-  Result.ConnectedColor := TColor(AppearanceConfig.ConnectedColor);
+  // Use cached appearance settings
+  Result.ShowDeviceIcons := FCachedLayout.ShowDeviceIcons;
+  Result.ShowLastSeen := FCachedLayout.ShowLastSeen;
+  Result.ConnectedColor := FCachedLayout.ConnectedColor;
   Result.ShowAddresses := FShowAddresses;
 
   // State
