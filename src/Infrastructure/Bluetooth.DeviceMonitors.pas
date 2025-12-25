@@ -106,8 +106,9 @@ type
   end;
 
   /// <summary>
-  /// Fallback monitor that tries device watcher first, then falls back to polling.
+  /// Fallback monitor that tries primary monitor first, then falls back to secondary.
   /// Composite pattern: combines two monitoring strategies.
+  /// Monitors are injected for testability.
   /// </summary>
   TFallbackMonitor = class(TInterfacedObject, IDeviceMonitor)
   private
@@ -116,16 +117,16 @@ type
     FPrimaryMonitor: IDeviceMonitor;
     FSecondaryMonitor: IDeviceMonitor;
     FActiveMonitor: IDeviceMonitor;
-    FPollingInterval: Integer;
 
     procedure HandlePrimaryError(Sender: TObject;
       const AMessage: string; AErrorCode: Cardinal);
     procedure HandleDeviceStateChanged(Sender: TObject;
       const ADeviceAddress: UInt64; ANewState: TBluetoothConnectionState);
-    procedure HandleError(Sender: TObject;
+    procedure HandleSecondaryError(Sender: TObject;
       const AMessage: string; AErrorCode: Cardinal);
 
     procedure SwitchToSecondary;
+    procedure WireUpMonitorEvents;
 
   protected
     { IDeviceMonitor }
@@ -138,7 +139,12 @@ type
     procedure SetOnError(AValue: TMonitorErrorEvent);
 
   public
-    constructor Create(APollingInterval: Integer);
+    /// <summary>
+    /// Creates a fallback monitor with injected primary and secondary monitors.
+    /// </summary>
+    /// <param name="APrimaryMonitor">The primary monitor to try first.</param>
+    /// <param name="ASecondaryMonitor">The fallback monitor if primary fails.</param>
+    constructor Create(APrimaryMonitor, ASecondaryMonitor: IDeviceMonitor);
     destructor Destroy; override;
   end;
 
@@ -495,12 +501,11 @@ end;
 
 { TFallbackMonitor }
 
-constructor TFallbackMonitor.Create(APollingInterval: Integer);
+constructor TFallbackMonitor.Create(APrimaryMonitor, ASecondaryMonitor: IDeviceMonitor);
 begin
   inherited Create;
-  FPollingInterval := APollingInterval;
-  FPrimaryMonitor := nil;
-  FSecondaryMonitor := nil;
+  FPrimaryMonitor := APrimaryMonitor;
+  FSecondaryMonitor := ASecondaryMonitor;
   FActiveMonitor := nil;
 end;
 
@@ -510,28 +515,42 @@ begin
   inherited Destroy;
 end;
 
+procedure TFallbackMonitor.WireUpMonitorEvents;
+begin
+  // Wire up primary monitor events
+  if FPrimaryMonitor <> nil then
+  begin
+    FPrimaryMonitor.SetOnDeviceStateChanged(HandleDeviceStateChanged);
+    FPrimaryMonitor.SetOnError(HandlePrimaryError);
+  end;
+
+  // Wire up secondary monitor events
+  if FSecondaryMonitor <> nil then
+  begin
+    FSecondaryMonitor.SetOnDeviceStateChanged(HandleDeviceStateChanged);
+    FSecondaryMonitor.SetOnError(HandleSecondaryError);
+  end;
+end;
+
 function TFallbackMonitor.Start: Boolean;
 begin
   if IsRunning then
     Exit(True);
 
-  // Create primary monitor (device watcher)
-  FPrimaryMonitor := TDeviceWatcherMonitor.Create;
-  FPrimaryMonitor.OnDeviceStateChanged := HandleDeviceStateChanged;
-  FPrimaryMonitor.OnError := HandlePrimaryError;
+  // Wire up event handlers
+  WireUpMonitorEvents;
 
   // Try to start primary monitor
-  if FPrimaryMonitor.Start then
+  if (FPrimaryMonitor <> nil) and FPrimaryMonitor.Start then
   begin
     FActiveMonitor := FPrimaryMonitor;
-    LogDebug('Started with device watcher (primary)', ClassName);
+    LogDebug('Started with primary monitor', ClassName);
     Result := True;
   end
   else
   begin
-    // Primary failed, switch to secondary
-    LogDebug('Device watcher failed, switching to polling', ClassName);
-    FPrimaryMonitor := nil;
+    // Primary failed or not available, switch to secondary
+    LogDebug('Primary monitor failed, switching to secondary', ClassName);
     SwitchToSecondary;
     Result := IsRunning;
   end;
@@ -578,9 +597,10 @@ begin
     FOnDeviceStateChanged(Self, ADeviceAddress, ANewState);
 end;
 
-procedure TFallbackMonitor.HandleError(Sender: TObject;
+procedure TFallbackMonitor.HandleSecondaryError(Sender: TObject;
   const AMessage: string; AErrorCode: Cardinal);
 begin
+  // Secondary errors are just forwarded, no further fallback
   if Assigned(FOnError) then
     FOnError(Self, AMessage, AErrorCode);
 end;
@@ -591,22 +611,23 @@ begin
   if (FPrimaryMonitor <> nil) and FPrimaryMonitor.IsRunning then
     FPrimaryMonitor.Stop;
 
-  // Create and start secondary monitor (polling)
-  if FSecondaryMonitor = nil then
+  // Start secondary monitor if available
+  if FSecondaryMonitor <> nil then
   begin
-    FSecondaryMonitor := TPollingMonitor.Create(FPollingInterval);
-    FSecondaryMonitor.OnDeviceStateChanged := HandleDeviceStateChanged;
-    FSecondaryMonitor.OnError := HandleError;
-  end;
-
-  if FSecondaryMonitor.Start then
-  begin
-    FActiveMonitor := FSecondaryMonitor;
-    LogDebug('Switched to polling monitor (interval=%d ms)', [FPollingInterval], ClassName);
+    if FSecondaryMonitor.Start then
+    begin
+      FActiveMonitor := FSecondaryMonitor;
+      LogDebug('Switched to secondary monitor', ClassName);
+    end
+    else
+    begin
+      LogDebug('Failed to start secondary monitor', ClassName);
+      FActiveMonitor := nil;
+    end;
   end
   else
   begin
-    LogDebug('Failed to start polling monitor', ClassName);
+    LogDebug('No secondary monitor available', ClassName);
     FActiveMonitor := nil;
   end;
 end;
@@ -640,6 +661,8 @@ begin
 end;
 
 function TDeviceMonitorFactory.CreateMonitor: IDeviceMonitor;
+var
+  PrimaryMonitor, SecondaryMonitor: IDeviceMonitor;
 begin
   case FPollingConfig.PollingMode of
     pmDisabled:
@@ -652,7 +675,9 @@ begin
       begin
         // Use fallback monitor (watcher + polling fallback)
         LogDebug('Creating FallbackMonitor (watcher with polling fallback)', ClassName);
-        Result := TFallbackMonitor.Create(FPollingConfig.PollingInterval);
+        PrimaryMonitor := TDeviceWatcherMonitor.Create;
+        SecondaryMonitor := TPollingMonitor.Create(FPollingConfig.PollingInterval);
+        Result := TFallbackMonitor.Create(PrimaryMonitor, SecondaryMonitor);
       end;
     pmPrimary:
       begin
@@ -664,7 +689,9 @@ begin
       end;
   else
     // Default to fallback mode
-    Result := TFallbackMonitor.Create(DEFAULT_POLLING_INTERVAL);
+    PrimaryMonitor := TDeviceWatcherMonitor.Create;
+    SecondaryMonitor := TPollingMonitor.Create(DEFAULT_POLLING_INTERVAL);
+    Result := TFallbackMonitor.Create(PrimaryMonitor, SecondaryMonitor);
   end;
 end;
 

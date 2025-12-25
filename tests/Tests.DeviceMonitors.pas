@@ -72,6 +72,47 @@ type
   end;
 
   /// <summary>
+  /// Test fixture for TFallbackMonitor with injected mock monitors.
+  /// </summary>
+  [TestFixture]
+  TFallbackMonitorTests = class
+  private
+    FPrimaryMonitor: TMockDeviceMonitor;
+    FSecondaryMonitor: TMockDeviceMonitor;
+    FFallbackMonitor: IDeviceMonitor;
+    FStateChangedCount: Integer;
+    FLastAddress: UInt64;
+    FLastState: TBluetoothConnectionState;
+    FErrorCount: Integer;
+    FLastErrorMessage: string;
+    procedure HandleStateChanged(Sender: TObject; const AAddress: UInt64;
+      AState: TBluetoothConnectionState);
+    procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure Create_IsNotRunning;
+    [Test]
+    procedure Start_UsesPrimaryMonitor;
+    [Test]
+    procedure Start_PrimaryFails_UsesSecondary;
+    [Test]
+    procedure Start_WhenAlreadyRunning_ReturnsTrue;
+    [Test]
+    procedure Stop_StopsBothMonitors;
+    [Test]
+    procedure PrimaryError_SwitchesToSecondary;
+    [Test]
+    procedure DeviceStateChanged_ForwardsEvent;
+    [Test]
+    procedure SecondaryError_ForwardsError;
+  end;
+
+  /// <summary>
   /// Test fixture for TMockDeviceMonitor.
   /// </summary>
   [TestFixture]
@@ -162,6 +203,122 @@ procedure TPollingMonitorTests.Start_WhenAlreadyRunning_ReturnsTrue;
 begin
   FMonitor.Start;
   Assert.IsTrue(FMonitor.Start);
+end;
+
+{ TFallbackMonitorTests }
+
+procedure TFallbackMonitorTests.Setup;
+begin
+  FPrimaryMonitor := TMockDeviceMonitor.Create;
+  FSecondaryMonitor := TMockDeviceMonitor.Create;
+  // Note: TFallbackMonitor takes ownership via interface reference
+  FFallbackMonitor := TFallbackMonitor.Create(FPrimaryMonitor, FSecondaryMonitor);
+  FFallbackMonitor.SetOnDeviceStateChanged(HandleStateChanged);
+  FFallbackMonitor.SetOnError(HandleError);
+  FStateChangedCount := 0;
+  FLastAddress := 0;
+  FLastState := csUnknown;
+  FErrorCount := 0;
+  FLastErrorMessage := '';
+end;
+
+procedure TFallbackMonitorTests.TearDown;
+begin
+  FFallbackMonitor.Stop;
+  FFallbackMonitor := nil;
+  // Mock monitors are freed via interface reference counting
+end;
+
+procedure TFallbackMonitorTests.HandleStateChanged(Sender: TObject;
+  const AAddress: UInt64; AState: TBluetoothConnectionState);
+begin
+  Inc(FStateChangedCount);
+  FLastAddress := AAddress;
+  FLastState := AState;
+end;
+
+procedure TFallbackMonitorTests.HandleError(Sender: TObject;
+  const AMessage: string; AErrorCode: Cardinal);
+begin
+  Inc(FErrorCount);
+  FLastErrorMessage := AMessage;
+end;
+
+procedure TFallbackMonitorTests.Create_IsNotRunning;
+begin
+  Assert.IsFalse(FFallbackMonitor.IsRunning);
+end;
+
+procedure TFallbackMonitorTests.Start_UsesPrimaryMonitor;
+begin
+  FFallbackMonitor.Start;
+
+  Assert.AreEqual(1, FPrimaryMonitor.StartCallCount, 'Primary should be started');
+  Assert.AreEqual(0, FSecondaryMonitor.StartCallCount, 'Secondary should not be started');
+  Assert.IsTrue(FFallbackMonitor.IsRunning);
+end;
+
+procedure TFallbackMonitorTests.Start_PrimaryFails_UsesSecondary;
+begin
+  FPrimaryMonitor.StartResult := False;
+
+  FFallbackMonitor.Start;
+
+  Assert.AreEqual(1, FPrimaryMonitor.StartCallCount, 'Primary should be attempted');
+  Assert.AreEqual(1, FSecondaryMonitor.StartCallCount, 'Secondary should be started');
+  Assert.IsTrue(FFallbackMonitor.IsRunning);
+end;
+
+procedure TFallbackMonitorTests.Start_WhenAlreadyRunning_ReturnsTrue;
+begin
+  FFallbackMonitor.Start;
+  Assert.IsTrue(FFallbackMonitor.Start);
+  Assert.AreEqual(1, FPrimaryMonitor.StartCallCount, 'Should not start again');
+end;
+
+procedure TFallbackMonitorTests.Stop_StopsBothMonitors;
+begin
+  FFallbackMonitor.Start;
+  FFallbackMonitor.Stop;
+
+  Assert.AreEqual(1, FPrimaryMonitor.StopCallCount);
+  Assert.IsFalse(FFallbackMonitor.IsRunning);
+end;
+
+procedure TFallbackMonitorTests.PrimaryError_SwitchesToSecondary;
+begin
+  FFallbackMonitor.Start;
+  Assert.AreEqual(0, FSecondaryMonitor.StartCallCount, 'Secondary not started yet');
+
+  // Simulate error on primary
+  FPrimaryMonitor.SimulateError('Primary failed', 100);
+
+  Assert.AreEqual(1, FSecondaryMonitor.StartCallCount, 'Secondary should be started after error');
+  Assert.AreEqual(1, FErrorCount, 'Error should be forwarded');
+  Assert.AreEqual('Primary failed', FLastErrorMessage);
+end;
+
+procedure TFallbackMonitorTests.DeviceStateChanged_ForwardsEvent;
+begin
+  FFallbackMonitor.Start;
+
+  FPrimaryMonitor.SimulateDeviceStateChanged($AABBCCDD, csConnected);
+
+  Assert.AreEqual(1, FStateChangedCount);
+  Assert.AreEqual(UInt64($AABBCCDD), FLastAddress);
+  Assert.AreEqual(Ord(csConnected), Ord(FLastState));
+end;
+
+procedure TFallbackMonitorTests.SecondaryError_ForwardsError;
+begin
+  FPrimaryMonitor.StartResult := False;
+  FFallbackMonitor.Start;
+  FErrorCount := 0;  // Reset after potential primary error
+
+  FSecondaryMonitor.SimulateError('Secondary error', 200);
+
+  Assert.AreEqual(1, FErrorCount, 'Secondary error should be forwarded');
+  Assert.AreEqual('Secondary error', FLastErrorMessage);
 end;
 
 { TDeviceMonitorFactoryTests }
@@ -323,6 +480,7 @@ end;
 
 initialization
   TDUnitX.RegisterTestFixture(TPollingMonitorTests);
+  TDUnitX.RegisterTestFixture(TFallbackMonitorTests);
   TDUnitX.RegisterTestFixture(TDeviceMonitorFactoryTests);
   TDUnitX.RegisterTestFixture(TMockDeviceMonitorTests);
 
