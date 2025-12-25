@@ -29,7 +29,8 @@ type
   private
     FTempDir: string;
     FConfigPath: string;
-    FDeviceRepository: IDeviceConfigRepository;
+    FDeviceRepository: IDeviceConfigRepository;  // For TAppConfig.SetRepositories
+    FDevicePersistence: IDeviceConfigPersistence; // For TIniSettingsRepository.Create (ISP)
   public
     [Setup]
     procedure Setup;
@@ -109,12 +110,15 @@ begin
   TDirectory.CreateDirectory(FTempDir);
   FConfigPath := TPath.Combine(FTempDir, 'test.ini');
 
-  // Create device repository for settings repository
+  // Create device repository (implements both interfaces)
   FDeviceRepository := CreateDeviceConfigRepository;
+  // Query persistence interface for TIniSettingsRepository (ISP-compliant)
+  FDevicePersistence := FDeviceRepository as IDeviceConfigPersistence;
 end;
 
 procedure TIniSettingsRepositoryTests.TearDown;
 begin
+  FDevicePersistence := nil;
   FDeviceRepository := nil;
 
   // Clean up temp directory
@@ -126,7 +130,7 @@ procedure TIniSettingsRepositoryTests.Create_SetsConfigPath;
 var
   Repo: ISettingsRepository;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   Assert.AreEqual(FConfigPath, Repo.ConfigPath);
 end;
 
@@ -134,7 +138,7 @@ procedure TIniSettingsRepositoryTests.GetConfigPath_ReturnsPath;
 var
   Repo: ISettingsRepository;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   Assert.AreEqual(FConfigPath, Repo.GetConfigPath);
 end;
 
@@ -144,7 +148,7 @@ var
   ConfigObj: TAppConfig;
   Config: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;  // Hold interface reference to prevent premature destruction
   try
@@ -164,7 +168,7 @@ var
   ConfigObj: TAppConfig;
   Config: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -201,7 +205,7 @@ begin
     Ini.Free;
   end;
 
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -235,7 +239,7 @@ begin
     Ini.Free;
   end;
 
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -257,7 +261,7 @@ var
   ConfigObj: TAppConfig;
   Config: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -277,7 +281,7 @@ var
   Config: IAppConfig;
   Ini: TMemIniFile;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -305,7 +309,7 @@ var
   Config: IAppConfig;
   Ini: TMemIniFile;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -333,7 +337,7 @@ var
   Config: IAppConfig;
   Ini: TMemIniFile;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -363,7 +367,7 @@ var
   Config: IAppConfig;
   Ini: TMemIniFile;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -393,7 +397,7 @@ var
   Config: IAppConfig;
   Ini: TMemIniFile;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -425,7 +429,7 @@ var
   Config: IAppConfig;
   Ini: TMemIniFile;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -455,7 +459,7 @@ var
   Config: IAppConfig;
   Ini: TMemIniFile;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
   ConfigObj := TAppConfig.Create;
   Config := ConfigObj;
   try
@@ -484,7 +488,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;
@@ -513,7 +517,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;
@@ -542,7 +546,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;
@@ -571,7 +575,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;
@@ -604,7 +608,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;
@@ -637,7 +641,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;
@@ -674,7 +678,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;
@@ -711,7 +715,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;
@@ -742,7 +746,7 @@ var
   ConfigObj1, ConfigObj2: TAppConfig;
   Config1, Config2: IAppConfig;
 begin
-  Repo := TIniSettingsRepository.Create(FConfigPath, FDeviceRepository);
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
 
   ConfigObj1 := TAppConfig.Create;
   Config1 := ConfigObj1;

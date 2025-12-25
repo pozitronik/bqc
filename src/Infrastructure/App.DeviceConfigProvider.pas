@@ -24,25 +24,25 @@ type
   /// <summary>
   /// Device configuration provider implementation.
   /// Combines device-specific settings with global defaults.
-  /// Delegates storage to IDeviceConfigRepository.
+  /// Delegates storage to IDeviceConfigStorage (ISP-compliant - no INI exposure).
   /// </summary>
   TDeviceConfigProvider = class(TInterfacedObject,
     IDeviceConfigQuery,
     IDeviceConfigMutation,
     IDeviceConfigProvider)
   private
-    FDeviceRepository: IDeviceConfigRepository;
+    FDeviceStorage: IDeviceConfigStorage;
     FNotificationConfig: INotificationConfig;
     FConnectionConfig: IConnectionConfig;
   public
     /// <summary>
     /// Creates a device config provider with required dependencies.
     /// </summary>
-    /// <param name="ADeviceRepository">Repository for device config storage.</param>
+    /// <param name="ADeviceStorage">Storage for device config (domain operations only).</param>
     /// <param name="ANotificationConfig">Global notification settings for defaults.</param>
     /// <param name="AConnectionConfig">Global connection settings for defaults.</param>
     constructor Create(
-      ADeviceRepository: IDeviceConfigRepository;
+      ADeviceStorage: IDeviceConfigStorage;
       ANotificationConfig: INotificationConfig;
       AConnectionConfig: IConnectionConfig
     );
@@ -64,7 +64,7 @@ type
 /// Creates a device config provider instance.
 /// </summary>
 function CreateDeviceConfigProvider(
-  ADeviceRepository: IDeviceConfigRepository;
+  ADeviceStorage: IDeviceConfigStorage;
   ANotificationConfig: INotificationConfig;
   AConnectionConfig: IConnectionConfig
 ): IDeviceConfigProvider;
@@ -75,13 +75,13 @@ uses
   App.Logger;
 
 function CreateDeviceConfigProvider(
-  ADeviceRepository: IDeviceConfigRepository;
+  ADeviceStorage: IDeviceConfigStorage;
   ANotificationConfig: INotificationConfig;
   AConnectionConfig: IConnectionConfig
 ): IDeviceConfigProvider;
 begin
   Result := TDeviceConfigProvider.Create(
-    ADeviceRepository,
+    ADeviceStorage,
     ANotificationConfig,
     AConnectionConfig
   );
@@ -90,13 +90,13 @@ end;
 { TDeviceConfigProvider }
 
 constructor TDeviceConfigProvider.Create(
-  ADeviceRepository: IDeviceConfigRepository;
+  ADeviceStorage: IDeviceConfigStorage;
   ANotificationConfig: INotificationConfig;
   AConnectionConfig: IConnectionConfig
 );
 begin
   inherited Create;
-  FDeviceRepository := ADeviceRepository;
+  FDeviceStorage := ADeviceStorage;
   FNotificationConfig := ANotificationConfig;
   FConnectionConfig := AConnectionConfig;
   LogDebug('Created', ClassName);
@@ -104,34 +104,34 @@ end;
 
 function TDeviceConfigProvider.GetDeviceConfig(AAddress: UInt64): TDeviceConfig;
 begin
-  if Assigned(FDeviceRepository) then
-    Result := FDeviceRepository.GetConfig(AAddress)
+  if Assigned(FDeviceStorage) then
+    Result := FDeviceStorage.GetConfig(AAddress)
   else
     Result := TDeviceConfig.Default(AAddress);
 end;
 
 procedure TDeviceConfigProvider.SetDeviceConfig(const AConfig: TDeviceConfig);
 begin
-  if Assigned(FDeviceRepository) then
-    FDeviceRepository.SetConfig(AConfig);
+  if Assigned(FDeviceStorage) then
+    FDeviceStorage.SetConfig(AConfig);
 end;
 
 procedure TDeviceConfigProvider.RemoveDeviceConfig(AAddress: UInt64);
 begin
-  if Assigned(FDeviceRepository) then
-    FDeviceRepository.Remove(AAddress);
+  if Assigned(FDeviceStorage) then
+    FDeviceStorage.Remove(AAddress);
 end;
 
 procedure TDeviceConfigProvider.RegisterDevice(AAddress: UInt64; const AName: string; ALastSeen: TDateTime);
 begin
-  if Assigned(FDeviceRepository) then
-    FDeviceRepository.RegisterDevice(AAddress, AName, ALastSeen);
+  if Assigned(FDeviceStorage) then
+    FDeviceStorage.RegisterDevice(AAddress, AName, ALastSeen);
 end;
 
 function TDeviceConfigProvider.GetConfiguredDeviceAddresses: TArray<UInt64>;
 begin
-  if Assigned(FDeviceRepository) then
-    Result := FDeviceRepository.GetAllAddresses
+  if Assigned(FDeviceStorage) then
+    Result := FDeviceStorage.GetAllAddresses
   else
     Result := nil;
 end;

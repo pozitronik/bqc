@@ -158,16 +158,20 @@ function TAppBootstrap.GetConfig: IAppConfig;
 var
   Cfg: TAppConfig;
   SettingsRepo: ISettingsRepository;
+  DevicePersistence: IDeviceConfigPersistence;
 begin
   if FConfig = nil then
   begin
     Cfg := TAppConfig.Create;
 
-    // Create device repository
+    // Create device repository (implements both IDeviceConfigStorage and IDeviceConfigPersistence)
     FDeviceRepository := CreateDeviceConfigRepository;
 
-    // Create settings repository with device repository reference
-    SettingsRepo := TIniSettingsRepository.Create(Cfg.ConfigPath, FDeviceRepository);
+    // Query persistence interface for settings repository (ISP-compliant)
+    DevicePersistence := FDeviceRepository as IDeviceConfigPersistence;
+
+    // Create settings repository with persistence interface (only needs Load/Save)
+    SettingsRepo := TIniSettingsRepository.Create(Cfg.ConfigPath, DevicePersistence);
 
     // Wire up repositories
     Cfg.SetRepositories(SettingsRepo, FDeviceRepository);

@@ -29,8 +29,12 @@ type
   /// Repository for per-device configuration.
   /// Manages device-specific settings with INI persistence.
   /// Handles only storage/retrieval - effective value resolution is done by TAppConfig.
+  /// Implements both IDeviceConfigStorage (domain) and IDeviceConfigPersistence (INI).
   /// </summary>
-  TDeviceConfigRepository = class(TInterfacedObject, IDeviceConfigRepository)
+  TDeviceConfigRepository = class(TInterfacedObject,
+    IDeviceConfigStorage,
+    IDeviceConfigPersistence,
+    IDeviceConfigRepository)
   private
     FDevices: TDictionary<UInt64, TDeviceConfig>;
     FModified: Boolean;

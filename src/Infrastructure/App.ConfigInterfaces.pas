@@ -241,12 +241,12 @@ type
   end;
 
   /// <summary>
-  /// Repository interface for per-device configuration.
-  /// Separates device config storage from main configuration.
-  /// Handles only storage/retrieval - effective value resolution is done by IDeviceConfigProvider.
+  /// Pure domain interface for device configuration storage.
+  /// Used by: TDeviceConfigProvider (only needs domain operations).
+  /// Does NOT expose persistence details (ISP-compliant).
   /// </summary>
-  IDeviceConfigRepository = interface
-    ['{C2D3E4F5-3333-4444-5555-666677778888}']
+  IDeviceConfigStorage = interface
+    ['{C2D3E4F5-4444-5555-6666-777788889999}']
 
     /// <summary>
     /// Gets configuration for a specific device.
@@ -279,6 +279,15 @@ type
     /// Gets all device configurations.
     /// </summary>
     function GetAll: TArray<TDeviceConfig>;
+  end;
+
+  /// <summary>
+  /// Persistence interface for device configuration.
+  /// Used by: TIniSettingsRepository (coordinates INI load/save).
+  /// Separated from domain operations per ISP.
+  /// </summary>
+  IDeviceConfigPersistence = interface
+    ['{C2D3E4F5-5555-6666-7777-888899990000}']
 
     /// <summary>
     /// Loads device configurations from INI file.
@@ -298,6 +307,22 @@ type
     /// <summary>
     /// Clears the modified flag.
     /// </summary>
+    procedure ClearModified;
+  end;
+
+  /// <summary>
+  /// Combined repository interface for per-device configuration.
+  /// Extends both IDeviceConfigStorage and IDeviceConfigPersistence.
+  /// Used by: Bootstrap (creates single instance implementing both).
+  /// For focused access, use IDeviceConfigStorage or IDeviceConfigPersistence directly.
+  /// </summary>
+  IDeviceConfigRepository = interface(IDeviceConfigStorage)
+    ['{C2D3E4F5-3333-4444-5555-666677778888}']
+
+    // Persistence operations (from IDeviceConfigPersistence)
+    procedure LoadFrom(AIni: TCustomIniFile);
+    procedure SaveTo(AIni: TCustomIniFile);
+    function IsModified: Boolean;
     procedure ClearModified;
   end;
 

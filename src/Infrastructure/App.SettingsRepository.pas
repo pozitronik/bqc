@@ -28,18 +28,19 @@ uses
 type
   /// <summary>
   /// INI file-based settings repository implementation.
+  /// Uses IDeviceConfigPersistence for device config (ISP-compliant - only needs persistence).
   /// </summary>
   TIniSettingsRepository = class(TInterfacedObject, ISettingsRepository)
   private
     FConfigPath: string;
-    FDeviceRepository: IDeviceConfigRepository;
+    FDevicePersistence: IDeviceConfigPersistence;
 
     procedure LoadAppSettings(AIni: TMemIniFile; AConfig: IAppConfig);
     procedure SaveAppSettings(AIni: TMemIniFile; AConfig: IAppConfig);
     procedure ValidateRanges(AConfig: IAppConfig);
 
   public
-    constructor Create(const AConfigPath: string; ADeviceRepository: IDeviceConfigRepository);
+    constructor Create(const AConfigPath: string; ADevicePersistence: IDeviceConfigPersistence);
     destructor Destroy; override;
 
     procedure LoadSettings(AConfig: IAppConfig);
@@ -162,16 +163,16 @@ uses
 { TIniSettingsRepository }
 
 constructor TIniSettingsRepository.Create(const AConfigPath: string;
-  ADeviceRepository: IDeviceConfigRepository);
+  ADevicePersistence: IDeviceConfigPersistence);
 begin
   inherited Create;
   FConfigPath := AConfigPath;
-  FDeviceRepository := ADeviceRepository;
+  FDevicePersistence := ADevicePersistence;
 end;
 
 destructor TIniSettingsRepository.Destroy;
 begin
-  FDeviceRepository := nil;
+  FDevicePersistence := nil;
   inherited Destroy;
 end;
 
@@ -197,8 +198,8 @@ begin
     ValidateRanges(AConfig);
 
     // Load device-specific settings
-    if Assigned(FDeviceRepository) then
-      FDeviceRepository.LoadFrom(Ini);
+    if Assigned(FDevicePersistence) then
+      FDevicePersistence.LoadFrom(Ini);
   finally
     Ini.Free;
   end;
@@ -328,8 +329,8 @@ begin
     SaveAppSettings(Ini, AConfig);
 
     // Save device-specific settings
-    if Assigned(FDeviceRepository) then
-      FDeviceRepository.SaveTo(Ini);
+    if Assigned(FDevicePersistence) then
+      FDevicePersistence.SaveTo(Ini);
 
     Ini.UpdateFile;
   finally
