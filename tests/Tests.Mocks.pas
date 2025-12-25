@@ -499,14 +499,137 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IPositionConfig for testing.
+  /// </summary>
+  TMockPositionConfig = class(TInterfacedObject, IPositionConfig)
+  private
+    FPositionMode: TPositionMode;
+    FPositionX: Integer;
+    FPositionY: Integer;
+    FPositionW: Integer;
+    FPositionH: Integer;
+  public
+    constructor Create;
+
+    // IPositionConfig
+    function GetPositionMode: TPositionMode;
+    function GetPositionX: Integer;
+    function GetPositionY: Integer;
+    function GetPositionW: Integer;
+    function GetPositionH: Integer;
+    procedure SetPositionMode(AValue: TPositionMode);
+    procedure SetPositionX(AValue: Integer);
+    procedure SetPositionY(AValue: Integer);
+    procedure SetPositionW(AValue: Integer);
+    procedure SetPositionH(AValue: Integer);
+
+    property PositionMode: TPositionMode read FPositionMode write FPositionMode;
+    property PositionX: Integer read FPositionX write FPositionX;
+    property PositionY: Integer read FPositionY write FPositionY;
+    property PositionW: Integer read FPositionW write FPositionW;
+    property PositionH: Integer read FPositionH write FPositionH;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IHotkeyConfig for testing.
+  /// </summary>
+  TMockHotkeyConfig = class(TInterfacedObject, IHotkeyConfig)
+  private
+    FHotkey: string;
+    FUseLowLevelHook: Boolean;
+  public
+    constructor Create;
+
+    // IHotkeyConfig
+    function GetHotkey: string;
+    function GetUseLowLevelHook: Boolean;
+    procedure SetHotkey(const AValue: string);
+    procedure SetUseLowLevelHook(AValue: Boolean);
+
+    property Hotkey: string read FHotkey write FHotkey;
+    property UseLowLevelHook: Boolean read FUseLowLevelHook write FUseLowLevelHook;
+  end;
+
+  /// <summary>
+  /// Mock implementation of INotificationConfig for testing.
+  /// </summary>
+  TMockNotificationConfig = class(TInterfacedObject, INotificationConfig)
+  private
+    FNotifyOnConnect: TNotificationMode;
+    FNotifyOnDisconnect: TNotificationMode;
+    FNotifyOnConnectFailed: TNotificationMode;
+    FNotifyOnAutoConnect: TNotificationMode;
+  public
+    constructor Create;
+
+    // INotificationConfig
+    function GetNotifyOnConnect: TNotificationMode;
+    function GetNotifyOnDisconnect: TNotificationMode;
+    function GetNotifyOnConnectFailed: TNotificationMode;
+    function GetNotifyOnAutoConnect: TNotificationMode;
+    procedure SetNotifyOnConnect(AValue: TNotificationMode);
+    procedure SetNotifyOnDisconnect(AValue: TNotificationMode);
+    procedure SetNotifyOnConnectFailed(AValue: TNotificationMode);
+    procedure SetNotifyOnAutoConnect(AValue: TNotificationMode);
+
+    property NotifyOnConnect: TNotificationMode read FNotifyOnConnect write FNotifyOnConnect;
+    property NotifyOnDisconnect: TNotificationMode read FNotifyOnDisconnect write FNotifyOnDisconnect;
+    property NotifyOnConnectFailed: TNotificationMode read FNotifyOnConnectFailed write FNotifyOnConnectFailed;
+    property NotifyOnAutoConnect: TNotificationMode read FNotifyOnAutoConnect write FNotifyOnAutoConnect;
+  end;
+
+  /// <summary>
+  /// Mock implementation of ILogConfig for testing.
+  /// </summary>
+  TMockLogConfig = class(TInterfacedObject, ILogConfig)
+  private
+    FLogEnabled: Boolean;
+    FLogFilename: string;
+    FLogAppend: Boolean;
+    FLogLevel: TLogLevel;
+  public
+    constructor Create;
+
+    // ILogConfig
+    function GetLogEnabled: Boolean;
+    function GetLogFilename: string;
+    function GetLogAppend: Boolean;
+    function GetLogLevel: TLogLevel;
+    procedure SetLogEnabled(AValue: Boolean);
+    procedure SetLogFilename(const AValue: string);
+    procedure SetLogAppend(AValue: Boolean);
+    procedure SetLogLevel(AValue: TLogLevel);
+
+    property LogEnabled: Boolean read FLogEnabled write FLogEnabled;
+    property LogFilename: string read FLogFilename write FLogFilename;
+    property LogAppend: Boolean read FLogAppend write FLogAppend;
+    property LogLevel: TLogLevel read FLogLevel write FLogLevel;
+  end;
+
+  /// <summary>
   /// Mock implementation of IAppConfig for testing.
-  /// Provides minimal implementation for SaveIfModified tracking.
+  /// Provides sub-interface mocks for testability.
   /// </summary>
   TMockAppConfig = class(TInterfacedObject, IAppConfig)
   private
     FModified: Boolean;
     FSaveIfModifiedCount: Integer;
     FClearModifiedCount: Integer;
+    FSaveCount: Integer;
+    FLoadCount: Integer;
+
+    // Sub-interface mocks (created in constructor)
+    FGeneralConfig: IGeneralConfig;
+    FWindowConfig: IWindowConfig;
+    FPositionConfig: IPositionConfig;
+    FHotkeyConfig: IHotkeyConfig;
+    FPollingConfig: IPollingConfig;
+    FLogConfig: ILogConfig;
+    FAppearanceConfig: IAppearanceConfig;
+    FLayoutConfig: ILayoutConfig;
+    FConnectionConfig: IConnectionConfig;
+    FNotificationConfig: INotificationConfig;
+    FDeviceConfigProvider: IDeviceConfigProvider;
   public
     constructor Create;
 
@@ -533,6 +656,20 @@ type
     property Modified: Boolean read FModified write FModified;
     property SaveIfModifiedCount: Integer read FSaveIfModifiedCount;
     property ClearModifiedCount: Integer read FClearModifiedCount;
+    property SaveCount: Integer read FSaveCount;
+    property LoadCount: Integer read FLoadCount;
+
+    // Access to sub-config mocks for test setup
+    property GeneralConfig: IGeneralConfig read FGeneralConfig;
+    property WindowConfig: IWindowConfig read FWindowConfig;
+    property PositionConfig: IPositionConfig read FPositionConfig;
+    property HotkeyConfig: IHotkeyConfig read FHotkeyConfig;
+    property PollingConfig: IPollingConfig read FPollingConfig;
+    property LogConfig: ILogConfig read FLogConfig;
+    property AppearanceConfig: IAppearanceConfig read FAppearanceConfig;
+    property LayoutConfig: ILayoutConfig read FLayoutConfig;
+    property ConnectionConfig: IConnectionConfig read FConnectionConfig;
+    property NotificationConfig: INotificationConfig read FNotificationConfig;
   end;
 
 type
@@ -1905,6 +2042,199 @@ begin
   FMenuHideOnFocusLoss := AValue;
 end;
 
+{ TMockPositionConfig }
+
+constructor TMockPositionConfig.Create;
+begin
+  inherited Create;
+  FPositionMode := pmNearTray;
+  FPositionX := 0;
+  FPositionY := 0;
+  FPositionW := 350;
+  FPositionH := 400;
+end;
+
+function TMockPositionConfig.GetPositionMode: TPositionMode;
+begin
+  Result := FPositionMode;
+end;
+
+function TMockPositionConfig.GetPositionX: Integer;
+begin
+  Result := FPositionX;
+end;
+
+function TMockPositionConfig.GetPositionY: Integer;
+begin
+  Result := FPositionY;
+end;
+
+function TMockPositionConfig.GetPositionW: Integer;
+begin
+  Result := FPositionW;
+end;
+
+function TMockPositionConfig.GetPositionH: Integer;
+begin
+  Result := FPositionH;
+end;
+
+procedure TMockPositionConfig.SetPositionMode(AValue: TPositionMode);
+begin
+  FPositionMode := AValue;
+end;
+
+procedure TMockPositionConfig.SetPositionX(AValue: Integer);
+begin
+  FPositionX := AValue;
+end;
+
+procedure TMockPositionConfig.SetPositionY(AValue: Integer);
+begin
+  FPositionY := AValue;
+end;
+
+procedure TMockPositionConfig.SetPositionW(AValue: Integer);
+begin
+  FPositionW := AValue;
+end;
+
+procedure TMockPositionConfig.SetPositionH(AValue: Integer);
+begin
+  FPositionH := AValue;
+end;
+
+{ TMockHotkeyConfig }
+
+constructor TMockHotkeyConfig.Create;
+begin
+  inherited Create;
+  FHotkey := '';
+  FUseLowLevelHook := False;
+end;
+
+function TMockHotkeyConfig.GetHotkey: string;
+begin
+  Result := FHotkey;
+end;
+
+function TMockHotkeyConfig.GetUseLowLevelHook: Boolean;
+begin
+  Result := FUseLowLevelHook;
+end;
+
+procedure TMockHotkeyConfig.SetHotkey(const AValue: string);
+begin
+  FHotkey := AValue;
+end;
+
+procedure TMockHotkeyConfig.SetUseLowLevelHook(AValue: Boolean);
+begin
+  FUseLowLevelHook := AValue;
+end;
+
+{ TMockNotificationConfig }
+
+constructor TMockNotificationConfig.Create;
+begin
+  inherited Create;
+  FNotifyOnConnect := nmNone;
+  FNotifyOnDisconnect := nmNone;
+  FNotifyOnConnectFailed := nmNone;
+  FNotifyOnAutoConnect := nmNone;
+end;
+
+function TMockNotificationConfig.GetNotifyOnConnect: TNotificationMode;
+begin
+  Result := FNotifyOnConnect;
+end;
+
+function TMockNotificationConfig.GetNotifyOnDisconnect: TNotificationMode;
+begin
+  Result := FNotifyOnDisconnect;
+end;
+
+function TMockNotificationConfig.GetNotifyOnConnectFailed: TNotificationMode;
+begin
+  Result := FNotifyOnConnectFailed;
+end;
+
+function TMockNotificationConfig.GetNotifyOnAutoConnect: TNotificationMode;
+begin
+  Result := FNotifyOnAutoConnect;
+end;
+
+procedure TMockNotificationConfig.SetNotifyOnConnect(AValue: TNotificationMode);
+begin
+  FNotifyOnConnect := AValue;
+end;
+
+procedure TMockNotificationConfig.SetNotifyOnDisconnect(AValue: TNotificationMode);
+begin
+  FNotifyOnDisconnect := AValue;
+end;
+
+procedure TMockNotificationConfig.SetNotifyOnConnectFailed(AValue: TNotificationMode);
+begin
+  FNotifyOnConnectFailed := AValue;
+end;
+
+procedure TMockNotificationConfig.SetNotifyOnAutoConnect(AValue: TNotificationMode);
+begin
+  FNotifyOnAutoConnect := AValue;
+end;
+
+{ TMockLogConfig }
+
+constructor TMockLogConfig.Create;
+begin
+  inherited Create;
+  FLogEnabled := False;
+  FLogFilename := 'bqc.log';
+  FLogAppend := True;
+  FLogLevel := llInfo;
+end;
+
+function TMockLogConfig.GetLogEnabled: Boolean;
+begin
+  Result := FLogEnabled;
+end;
+
+function TMockLogConfig.GetLogFilename: string;
+begin
+  Result := FLogFilename;
+end;
+
+function TMockLogConfig.GetLogAppend: Boolean;
+begin
+  Result := FLogAppend;
+end;
+
+function TMockLogConfig.GetLogLevel: TLogLevel;
+begin
+  Result := FLogLevel;
+end;
+
+procedure TMockLogConfig.SetLogEnabled(AValue: Boolean);
+begin
+  FLogEnabled := AValue;
+end;
+
+procedure TMockLogConfig.SetLogFilename(const AValue: string);
+begin
+  FLogFilename := AValue;
+end;
+
+procedure TMockLogConfig.SetLogAppend(AValue: Boolean);
+begin
+  FLogAppend := AValue;
+end;
+
+procedure TMockLogConfig.SetLogLevel(AValue: TLogLevel);
+begin
+  FLogLevel := AValue;
+end;
+
 { TMockAppConfig }
 
 constructor TMockAppConfig.Create;
@@ -1913,6 +2243,21 @@ begin
   FModified := False;
   FSaveIfModifiedCount := 0;
   FClearModifiedCount := 0;
+  FSaveCount := 0;
+  FLoadCount := 0;
+
+  // Create sub-interface mocks
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FPositionConfig := TMockPositionConfig.Create;
+  FHotkeyConfig := TMockHotkeyConfig.Create;
+  FPollingConfig := TMockPollingConfig.Create;
+  FLogConfig := TMockLogConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FNotificationConfig := TMockNotificationConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
 end;
 
 function TMockAppConfig.GetConfigPath: string;
@@ -1927,11 +2272,12 @@ end;
 
 procedure TMockAppConfig.Load;
 begin
-  // Mock does nothing
+  Inc(FLoadCount);
 end;
 
 procedure TMockAppConfig.Save;
 begin
+  Inc(FSaveCount);
   FModified := False;
 end;
 
@@ -1950,57 +2296,57 @@ end;
 
 function TMockAppConfig.AsGeneralConfig: IGeneralConfig;
 begin
-  Result := nil;  // Not used in tests
+  Result := FGeneralConfig;
 end;
 
 function TMockAppConfig.AsWindowConfig: IWindowConfig;
 begin
-  Result := nil;
+  Result := FWindowConfig;
 end;
 
 function TMockAppConfig.AsPositionConfig: IPositionConfig;
 begin
-  Result := nil;
+  Result := FPositionConfig;
 end;
 
 function TMockAppConfig.AsHotkeyConfig: IHotkeyConfig;
 begin
-  Result := nil;
+  Result := FHotkeyConfig;
 end;
 
 function TMockAppConfig.AsPollingConfig: IPollingConfig;
 begin
-  Result := nil;
+  Result := FPollingConfig;
 end;
 
 function TMockAppConfig.AsLogConfig: ILogConfig;
 begin
-  Result := nil;
+  Result := FLogConfig;
 end;
 
 function TMockAppConfig.AsAppearanceConfig: IAppearanceConfig;
 begin
-  Result := nil;
+  Result := FAppearanceConfig;
 end;
 
 function TMockAppConfig.AsLayoutConfig: ILayoutConfig;
 begin
-  Result := nil;
+  Result := FLayoutConfig;
 end;
 
 function TMockAppConfig.AsConnectionConfig: IConnectionConfig;
 begin
-  Result := nil;
+  Result := FConnectionConfig;
 end;
 
 function TMockAppConfig.AsNotificationConfig: INotificationConfig;
 begin
-  Result := nil;
+  Result := FNotificationConfig;
 end;
 
 function TMockAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
 begin
-  Result := nil;
+  Result := FDeviceConfigProvider;
 end;
 
 { TMockEventDebouncer }

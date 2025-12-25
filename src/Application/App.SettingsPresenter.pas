@@ -317,6 +317,18 @@ type
     FAppConfig: IAppConfig;
     FModified: Boolean;
     FOnSettingsApplied: TNotifyEvent;
+
+    // Config interface fields (extracted once in constructor, eliminates duplicate extraction)
+    FGeneralConfig: IGeneralConfig;
+    FWindowConfig: IWindowConfig;
+    FPositionConfig: IPositionConfig;
+    FHotkeyConfig: IHotkeyConfig;
+    FAppearanceConfig: IAppearanceConfig;
+    FLayoutConfig: ILayoutConfig;
+    FConnectionConfig: IConnectionConfig;
+    FPollingConfig: IPollingConfig;
+    FNotificationConfig: INotificationConfig;
+    FLogConfig: ILogConfig;
   public
     constructor Create(
       AView: ISettingsView;
@@ -534,6 +546,18 @@ begin
   FAppConfig := AAppConfig;
   FModified := False;
 
+  // Extract config interfaces once (eliminates duplicate extraction in LoadSettings/SaveSettings)
+  FGeneralConfig := AAppConfig.AsGeneralConfig;
+  FWindowConfig := AAppConfig.AsWindowConfig;
+  FPositionConfig := AAppConfig.AsPositionConfig;
+  FHotkeyConfig := AAppConfig.AsHotkeyConfig;
+  FAppearanceConfig := AAppConfig.AsAppearanceConfig;
+  FLayoutConfig := AAppConfig.AsLayoutConfig;
+  FConnectionConfig := AAppConfig.AsConnectionConfig;
+  FPollingConfig := AAppConfig.AsPollingConfig;
+  FNotificationConfig := AAppConfig.AsNotificationConfig;
+  FLogConfig := AAppConfig.AsLogConfig;
+
   // Create device settings presenter with delegation
   FDevicePresenter := TDeviceSettingsPresenter.Create(ADeviceSettingsView, ADeviceConfigProvider);
 
@@ -549,17 +573,6 @@ end;
 
 procedure TSettingsPresenter.LoadSettings;
 var
-  AppCfg: IAppConfig;
-  GeneralCfg: IGeneralConfig;
-  WindowCfg: IWindowConfig;
-  PositionCfg: IPositionConfig;
-  HotkeyCfg: IHotkeyConfig;
-  AppearanceCfg: IAppearanceConfig;
-  LayoutCfg: ILayoutConfig;
-  ConnectionCfg: IConnectionConfig;
-  PollingCfg: IPollingConfig;
-  NotificationCfg: INotificationConfig;
-  LogCfg: ILogConfig;
   General: TGeneralViewSettings;
   Hotkey: THotkeyViewSettings;
   Appearance: TAppearanceViewSettings;
@@ -569,77 +582,64 @@ var
 begin
   LogDebug('LoadSettings', ClassName);
 
-  // Get interfaces from AppConfig
-  AppCfg := FAppConfig;
-  GeneralCfg := AppCfg.AsGeneralConfig;
-  WindowCfg := AppCfg.AsWindowConfig;
-  PositionCfg := AppCfg.AsPositionConfig;
-  HotkeyCfg := AppCfg.AsHotkeyConfig;
-  AppearanceCfg := AppCfg.AsAppearanceConfig;
-  LayoutCfg := AppCfg.AsLayoutConfig;
-  ConnectionCfg := AppCfg.AsConnectionConfig;
-  PollingCfg := AppCfg.AsPollingConfig;
-  NotificationCfg := AppCfg.AsNotificationConfig;
-  LogCfg := AppCfg.AsLogConfig;
-
-  // General settings
-  General.WindowMode := GeneralCfg.WindowMode;
-  General.OnTop := GeneralCfg.OnTop;
-  General.MinimizeToTray := WindowCfg.MinimizeToTray;
-  General.CloseToTray := WindowCfg.CloseToTray;
-  General.HideOnFocusLoss := WindowCfg.MenuHideOnFocusLoss;
-  General.Autostart := GeneralCfg.Autostart;
-  General.PositionMode := PositionCfg.PositionMode;
+  // General settings (uses stored config interfaces)
+  General.WindowMode := FGeneralConfig.WindowMode;
+  General.OnTop := FGeneralConfig.OnTop;
+  General.MinimizeToTray := FWindowConfig.MinimizeToTray;
+  General.CloseToTray := FWindowConfig.CloseToTray;
+  General.HideOnFocusLoss := FWindowConfig.MenuHideOnFocusLoss;
+  General.Autostart := FGeneralConfig.Autostart;
+  General.PositionMode := FPositionConfig.PositionMode;
   FView.SetGeneralSettings(General);
 
   // Hotkey settings
-  Hotkey.Hotkey := HotkeyCfg.Hotkey;
-  Hotkey.UseLowLevelHook := HotkeyCfg.UseLowLevelHook;
+  Hotkey.Hotkey := FHotkeyConfig.Hotkey;
+  Hotkey.UseLowLevelHook := FHotkeyConfig.UseLowLevelHook;
   FView.SetHotkeySettings(Hotkey);
 
   // Theme list (view gets available styles from TThemeManager)
-  FView.PopulateThemeList(AppearanceCfg.Theme);
+  FView.PopulateThemeList(FAppearanceConfig.Theme);
 
   // Appearance settings
-  Appearance.Theme := AppearanceCfg.Theme;
-  Appearance.VsfDir := AppearanceCfg.VsfDir;
-  Appearance.ShowAddresses := AppearanceCfg.ShowAddresses;
-  Appearance.ShowDeviceIcons := AppearanceCfg.ShowDeviceIcons;
-  Appearance.ShowLastSeen := AppearanceCfg.ShowLastSeen;
-  Appearance.LastSeenRelative := AppearanceCfg.LastSeenFormat = lsfRelative;
-  Appearance.ConnectedColor := TColor(AppearanceCfg.ConnectedColor);
+  Appearance.Theme := FAppearanceConfig.Theme;
+  Appearance.VsfDir := FAppearanceConfig.VsfDir;
+  Appearance.ShowAddresses := FAppearanceConfig.ShowAddresses;
+  Appearance.ShowDeviceIcons := FAppearanceConfig.ShowDeviceIcons;
+  Appearance.ShowLastSeen := FAppearanceConfig.ShowLastSeen;
+  Appearance.LastSeenRelative := FAppearanceConfig.LastSeenFormat = lsfRelative;
+  Appearance.ConnectedColor := TColor(FAppearanceConfig.ConnectedColor);
   FView.SetAppearanceSettings(Appearance);
 
   // Layout settings
-  Layout.ItemHeight := LayoutCfg.ItemHeight;
-  Layout.ItemPadding := LayoutCfg.ItemPadding;
-  Layout.ItemMargin := LayoutCfg.ItemMargin;
-  Layout.IconSize := LayoutCfg.IconSize;
-  Layout.CornerRadius := LayoutCfg.CornerRadius;
-  Layout.BorderWidth := LayoutCfg.ItemBorderWidth;
-  Layout.BorderColor := TColor(LayoutCfg.ItemBorderColor);
-  Layout.DeviceNameFontSize := LayoutCfg.DeviceNameFontSize;
-  Layout.StatusFontSize := LayoutCfg.StatusFontSize;
-  Layout.AddressFontSize := LayoutCfg.AddressFontSize;
-  Layout.IconFontSize := LayoutCfg.IconFontSize;
+  Layout.ItemHeight := FLayoutConfig.ItemHeight;
+  Layout.ItemPadding := FLayoutConfig.ItemPadding;
+  Layout.ItemMargin := FLayoutConfig.ItemMargin;
+  Layout.IconSize := FLayoutConfig.IconSize;
+  Layout.CornerRadius := FLayoutConfig.CornerRadius;
+  Layout.BorderWidth := FLayoutConfig.ItemBorderWidth;
+  Layout.BorderColor := TColor(FLayoutConfig.ItemBorderColor);
+  Layout.DeviceNameFontSize := FLayoutConfig.DeviceNameFontSize;
+  Layout.StatusFontSize := FLayoutConfig.StatusFontSize;
+  Layout.AddressFontSize := FLayoutConfig.AddressFontSize;
+  Layout.IconFontSize := FLayoutConfig.IconFontSize;
   FView.SetLayoutSettings(Layout);
 
   // Connection settings
-  Connection.Timeout := ConnectionCfg.ConnectionTimeout;
-  Connection.RetryCount := ConnectionCfg.ConnectionRetryCount;
-  Connection.PollingMode := PollingCfg.PollingMode;
-  Connection.PollingInterval := PollingCfg.PollingInterval;
-  Connection.NotifyOnConnect := NotificationCfg.NotifyOnConnect = nmBalloon;
-  Connection.NotifyOnDisconnect := NotificationCfg.NotifyOnDisconnect = nmBalloon;
-  Connection.NotifyOnConnectFailed := NotificationCfg.NotifyOnConnectFailed = nmBalloon;
-  Connection.NotifyOnAutoConnect := NotificationCfg.NotifyOnAutoConnect = nmBalloon;
+  Connection.Timeout := FConnectionConfig.ConnectionTimeout;
+  Connection.RetryCount := FConnectionConfig.ConnectionRetryCount;
+  Connection.PollingMode := FPollingConfig.PollingMode;
+  Connection.PollingInterval := FPollingConfig.PollingInterval;
+  Connection.NotifyOnConnect := FNotificationConfig.NotifyOnConnect = nmBalloon;
+  Connection.NotifyOnDisconnect := FNotificationConfig.NotifyOnDisconnect = nmBalloon;
+  Connection.NotifyOnConnectFailed := FNotificationConfig.NotifyOnConnectFailed = nmBalloon;
+  Connection.NotifyOnAutoConnect := FNotificationConfig.NotifyOnAutoConnect = nmBalloon;
   FView.SetConnectionSettings(Connection);
 
   // Logging settings
-  Logging.Enabled := LogCfg.LogEnabled;
-  Logging.Filename := LogCfg.LogFilename;
-  Logging.Append := LogCfg.LogAppend;
-  Logging.LevelIndex := Ord(LogCfg.LogLevel);
+  Logging.Enabled := FLogConfig.LogEnabled;
+  Logging.Filename := FLogConfig.LogFilename;
+  Logging.Append := FLogConfig.LogAppend;
+  Logging.LevelIndex := Ord(FLogConfig.LogLevel);
   FView.SetLoggingSettings(Logging);
 
   // Device list (delegated to device presenter)
@@ -651,17 +651,6 @@ end;
 
 function TSettingsPresenter.SaveSettings: Boolean;
 var
-  AppCfg: IAppConfig;
-  GeneralCfg: IGeneralConfig;
-  WindowCfg: IWindowConfig;
-  PositionCfg: IPositionConfig;
-  HotkeyCfg: IHotkeyConfig;
-  AppearanceCfg: IAppearanceConfig;
-  LayoutCfg: ILayoutConfig;
-  ConnectionCfg: IConnectionConfig;
-  PollingCfg: IPollingConfig;
-  NotificationCfg: INotificationConfig;
-  LogCfg: ILogConfig;
   General: TGeneralViewSettings;
   Hotkey: THotkeyViewSettings;
   Appearance: TAppearanceViewSettings;
@@ -675,90 +664,77 @@ begin
     // Save current device settings (delegated to device presenter)
     FDevicePresenter.SaveCurrentDevice;
 
-    // Get interfaces from AppConfig
-    AppCfg := FAppConfig;
-    GeneralCfg := AppCfg.AsGeneralConfig;
-    WindowCfg := AppCfg.AsWindowConfig;
-    PositionCfg := AppCfg.AsPositionConfig;
-    HotkeyCfg := AppCfg.AsHotkeyConfig;
-    AppearanceCfg := AppCfg.AsAppearanceConfig;
-    LayoutCfg := AppCfg.AsLayoutConfig;
-    ConnectionCfg := AppCfg.AsConnectionConfig;
-    PollingCfg := AppCfg.AsPollingConfig;
-    NotificationCfg := AppCfg.AsNotificationConfig;
-    LogCfg := AppCfg.AsLogConfig;
-
-    // General settings
+    // General settings (uses stored config interfaces)
     General := FView.GetGeneralSettings;
-    GeneralCfg.WindowMode := General.WindowMode;
-    GeneralCfg.OnTop := General.OnTop;
-    WindowCfg.MinimizeToTray := General.MinimizeToTray;
-    WindowCfg.CloseToTray := General.CloseToTray;
-    WindowCfg.MenuHideOnFocusLoss := General.HideOnFocusLoss;
-    GeneralCfg.Autostart := General.Autostart;
-    PositionCfg.PositionMode := General.PositionMode;
+    FGeneralConfig.WindowMode := General.WindowMode;
+    FGeneralConfig.OnTop := General.OnTop;
+    FWindowConfig.MinimizeToTray := General.MinimizeToTray;
+    FWindowConfig.CloseToTray := General.CloseToTray;
+    FWindowConfig.MenuHideOnFocusLoss := General.HideOnFocusLoss;
+    FGeneralConfig.Autostart := General.Autostart;
+    FPositionConfig.PositionMode := General.PositionMode;
 
     // Hotkey settings
     Hotkey := FView.GetHotkeySettings;
-    HotkeyCfg.Hotkey := Hotkey.Hotkey;
-    HotkeyCfg.UseLowLevelHook := Hotkey.UseLowLevelHook;
+    FHotkeyConfig.Hotkey := Hotkey.Hotkey;
+    FHotkeyConfig.UseLowLevelHook := Hotkey.UseLowLevelHook;
 
     // Appearance settings
     Appearance := FView.GetAppearanceSettings;
-    AppearanceCfg.Theme := Appearance.Theme;
-    AppearanceCfg.VsfDir := Appearance.VsfDir;
-    AppearanceCfg.ShowAddresses := Appearance.ShowAddresses;
-    AppearanceCfg.ShowDeviceIcons := Appearance.ShowDeviceIcons;
-    AppearanceCfg.ShowLastSeen := Appearance.ShowLastSeen;
+    FAppearanceConfig.Theme := Appearance.Theme;
+    FAppearanceConfig.VsfDir := Appearance.VsfDir;
+    FAppearanceConfig.ShowAddresses := Appearance.ShowAddresses;
+    FAppearanceConfig.ShowDeviceIcons := Appearance.ShowDeviceIcons;
+    FAppearanceConfig.ShowLastSeen := Appearance.ShowLastSeen;
     if Appearance.LastSeenRelative then
-      AppearanceCfg.LastSeenFormat := lsfRelative
+      FAppearanceConfig.LastSeenFormat := lsfRelative
     else
-      AppearanceCfg.LastSeenFormat := lsfAbsolute;
-    AppearanceCfg.ConnectedColor := Integer(Appearance.ConnectedColor);
+      FAppearanceConfig.LastSeenFormat := lsfAbsolute;
+    FAppearanceConfig.ConnectedColor := Integer(Appearance.ConnectedColor);
 
     // Layout settings
     Layout := FView.GetLayoutSettings;
-    LayoutCfg.ItemHeight := Layout.ItemHeight;
-    LayoutCfg.ItemPadding := Layout.ItemPadding;
-    LayoutCfg.ItemMargin := Layout.ItemMargin;
-    LayoutCfg.IconSize := Layout.IconSize;
-    LayoutCfg.CornerRadius := Layout.CornerRadius;
-    LayoutCfg.ItemBorderWidth := Layout.BorderWidth;
-    LayoutCfg.ItemBorderColor := Integer(Layout.BorderColor);
-    LayoutCfg.DeviceNameFontSize := Layout.DeviceNameFontSize;
-    LayoutCfg.StatusFontSize := Layout.StatusFontSize;
-    LayoutCfg.AddressFontSize := Layout.AddressFontSize;
-    LayoutCfg.IconFontSize := Layout.IconFontSize;
+    FLayoutConfig.ItemHeight := Layout.ItemHeight;
+    FLayoutConfig.ItemPadding := Layout.ItemPadding;
+    FLayoutConfig.ItemMargin := Layout.ItemMargin;
+    FLayoutConfig.IconSize := Layout.IconSize;
+    FLayoutConfig.CornerRadius := Layout.CornerRadius;
+    FLayoutConfig.ItemBorderWidth := Layout.BorderWidth;
+    FLayoutConfig.ItemBorderColor := Integer(Layout.BorderColor);
+    FLayoutConfig.DeviceNameFontSize := Layout.DeviceNameFontSize;
+    FLayoutConfig.StatusFontSize := Layout.StatusFontSize;
+    FLayoutConfig.AddressFontSize := Layout.AddressFontSize;
+    FLayoutConfig.IconFontSize := Layout.IconFontSize;
 
     // Connection settings
     Connection := FView.GetConnectionSettings;
-    ConnectionCfg.ConnectionTimeout := Connection.Timeout;
-    ConnectionCfg.ConnectionRetryCount := Connection.RetryCount;
-    PollingCfg.PollingMode := Connection.PollingMode;
-    PollingCfg.PollingInterval := Connection.PollingInterval;
+    FConnectionConfig.ConnectionTimeout := Connection.Timeout;
+    FConnectionConfig.ConnectionRetryCount := Connection.RetryCount;
+    FPollingConfig.PollingMode := Connection.PollingMode;
+    FPollingConfig.PollingInterval := Connection.PollingInterval;
     if Connection.NotifyOnConnect then
-      NotificationCfg.NotifyOnConnect := nmBalloon
+      FNotificationConfig.NotifyOnConnect := nmBalloon
     else
-      NotificationCfg.NotifyOnConnect := nmNone;
+      FNotificationConfig.NotifyOnConnect := nmNone;
     if Connection.NotifyOnDisconnect then
-      NotificationCfg.NotifyOnDisconnect := nmBalloon
+      FNotificationConfig.NotifyOnDisconnect := nmBalloon
     else
-      NotificationCfg.NotifyOnDisconnect := nmNone;
+      FNotificationConfig.NotifyOnDisconnect := nmNone;
     if Connection.NotifyOnConnectFailed then
-      NotificationCfg.NotifyOnConnectFailed := nmBalloon
+      FNotificationConfig.NotifyOnConnectFailed := nmBalloon
     else
-      NotificationCfg.NotifyOnConnectFailed := nmNone;
+      FNotificationConfig.NotifyOnConnectFailed := nmNone;
     if Connection.NotifyOnAutoConnect then
-      NotificationCfg.NotifyOnAutoConnect := nmBalloon
+      FNotificationConfig.NotifyOnAutoConnect := nmBalloon
     else
-      NotificationCfg.NotifyOnAutoConnect := nmNone;
+      FNotificationConfig.NotifyOnAutoConnect := nmNone;
 
     // Logging settings
     Logging := FView.GetLoggingSettings;
-    LogCfg.LogEnabled := Logging.Enabled;
-    LogCfg.LogFilename := Logging.Filename;
-    LogCfg.LogAppend := Logging.Append;
-    LogCfg.LogLevel := TLogLevel(Logging.LevelIndex);
+    FLogConfig.LogEnabled := Logging.Enabled;
+    FLogConfig.LogFilename := Logging.Filename;
+    FLogConfig.LogAppend := Logging.Append;
+    FLogConfig.LogLevel := TLogLevel(Logging.LevelIndex);
 
     // Save configuration to file
     FAppConfig.Save;
@@ -799,24 +775,18 @@ begin
 end;
 
 procedure TSettingsPresenter.OnResetSizeClicked;
-var
-  PositionCfg: IPositionConfig;
 begin
   LogDebug('OnResetSizeClicked', ClassName);
-  PositionCfg := FAppConfig.AsPositionConfig;
-  PositionCfg.PositionW := -1;
-  PositionCfg.PositionH := -1;
+  FPositionConfig.PositionW := -1;
+  FPositionConfig.PositionH := -1;
   FView.ShowInfo('Window size will be reset to default on next application start.');
 end;
 
 procedure TSettingsPresenter.OnResetPositionClicked;
-var
-  PositionCfg: IPositionConfig;
 begin
   LogDebug('OnResetPositionClicked', ClassName);
-  PositionCfg := FAppConfig.AsPositionConfig;
-  PositionCfg.PositionX := -1;
-  PositionCfg.PositionY := -1;
+  FPositionConfig.PositionX := -1;
+  FPositionConfig.PositionY := -1;
   FView.ShowInfo('Window position will be reset to default on next application start.');
 end;
 
