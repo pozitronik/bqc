@@ -20,7 +20,17 @@ uses
   System.Generics.Collections,
   App.ConfigEnums,
   App.ConfigInterfaces,
-  App.ConfigSections;
+  App.ConfigSectionTypes,
+  App.ConfigSection.General,
+  App.ConfigSection.Window,
+  App.ConfigSection.Position,
+  App.ConfigSection.Hotkey,
+  App.ConfigSection.Polling,
+  App.ConfigSection.Log,
+  App.ConfigSection.Appearance,
+  App.ConfigSection.Layout,
+  App.ConfigSection.Connection,
+  App.ConfigSection.Notification;
 
 type
   /// <summary>
