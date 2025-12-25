@@ -13,27 +13,40 @@ interface
 
 type
   /// <summary>
-  /// Manages application autostart via Windows Registry.
-  /// Uses HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run.
+  /// Interface for managing application autostart.
+  /// Abstracts registry access for testability.
   /// </summary>
-  TAutostartManager = class
-  public
-    /// <summary>
-    /// Enables or disables autostart by adding/removing registry entry.
-    /// </summary>
-    /// <param name="AEnabled">True to enable autostart, False to disable.</param>
-    class procedure Apply(AEnabled: Boolean);
+  IAutostartManager = interface
+    ['{C8D9E0F1-3333-4444-5555-666677778888}']
 
     /// <summary>
-    /// Checks if autostart is currently enabled in the registry.
+    /// Enables or disables autostart.
     /// </summary>
-    /// <returns>True if autostart registry entry exists.</returns>
-    class function IsEnabled: Boolean;
+    /// <param name="AEnabled">True to enable autostart, False to disable.</param>
+    procedure Apply(AEnabled: Boolean);
+
+    /// <summary>
+    /// Checks if autostart is currently enabled.
+    /// </summary>
+    /// <returns>True if autostart is enabled.</returns>
+    function IsEnabled: Boolean;
 
     /// <summary>
     /// Returns the path registered for autostart, or empty string if not registered.
     /// </summary>
-    class function GetRegisteredPath: string;
+    function GetRegisteredPath: string;
+  end;
+
+  /// <summary>
+  /// Implementation of IAutostartManager using Windows Registry.
+  /// Uses HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run.
+  /// </summary>
+  TAutostartManager = class(TInterfacedObject, IAutostartManager)
+  public
+    { IAutostartManager }
+    procedure Apply(AEnabled: Boolean);
+    function IsEnabled: Boolean;
+    function GetRegisteredPath: string;
   end;
 
 implementation
@@ -50,7 +63,7 @@ const
 
 { TAutostartManager }
 
-class procedure TAutostartManager.Apply(AEnabled: Boolean);
+procedure TAutostartManager.Apply(AEnabled: Boolean);
 var
   Reg: TRegistry;
   ExePath: string;
@@ -86,7 +99,7 @@ begin
   end;
 end;
 
-class function TAutostartManager.IsEnabled: Boolean;
+function TAutostartManager.IsEnabled: Boolean;
 var
   Reg: TRegistry;
 begin
@@ -107,7 +120,7 @@ begin
   end;
 end;
 
-class function TAutostartManager.GetRegisteredPath: string;
+function TAutostartManager.GetRegisteredPath: string;
 var
   Reg: TRegistry;
 begin

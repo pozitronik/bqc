@@ -36,6 +36,7 @@ uses
   Tests.WinAPI in 'Tests.WinAPI.pas',
   Tests.DeviceConverter in 'Tests.DeviceConverter.pas',
   Tests.RadioStateManager in 'Tests.RadioStateManager.pas',
+  Tests.AutostartManager in 'Tests.AutostartManager.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',

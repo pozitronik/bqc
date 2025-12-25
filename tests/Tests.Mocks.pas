@@ -19,6 +19,7 @@ uses
   App.ConfigInterfaces,
   App.MainViewInterfaces,
   App.SettingsPresenter,
+  App.Autostart,
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
@@ -715,6 +716,37 @@ type
     property StartWatchingCallCount: Integer read FStartWatchingCallCount;
     property StopWatchingCallCount: Integer read FStopWatchingCallCount;
     property LastSetStateValue: Boolean read FLastSetStateValue;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IAutostartManager for testing.
+  /// Tracks calls and allows configuring autostart state.
+  /// </summary>
+  TMockAutostartManager = class(TInterfacedObject, IAutostartManager)
+  private
+    FEnabled: Boolean;
+    FRegisteredPath: string;
+    FApplyCallCount: Integer;
+    FIsEnabledCallCount: Integer;
+    FGetRegisteredPathCallCount: Integer;
+    FLastApplyValue: Boolean;
+  public
+    constructor Create;
+
+    // IAutostartManager
+    procedure Apply(AEnabled: Boolean);
+    function IsEnabled: Boolean;
+    function GetRegisteredPath: string;
+
+    // Test setup properties
+    property Enabled: Boolean read FEnabled write FEnabled;
+    property RegisteredPath: string read FRegisteredPath write FRegisteredPath;
+
+    // Test verification
+    property ApplyCallCount: Integer read FApplyCallCount;
+    property IsEnabledCallCount: Integer read FIsEnabledCallCount;
+    property GetRegisteredPathCallCount: Integer read FGetRegisteredPathCallCount;
+    property LastApplyValue: Boolean read FLastApplyValue;
   end;
 
   /// <summary>
@@ -2017,6 +2049,42 @@ begin
   FRadioEnabled := AEnabled;
   if Assigned(FOnStateChanged) then
     FOnStateChanged(Self, AEnabled);
+end;
+
+{ TMockAutostartManager }
+
+constructor TMockAutostartManager.Create;
+begin
+  inherited Create;
+  FEnabled := False;
+  FRegisteredPath := '';
+  FApplyCallCount := 0;
+  FIsEnabledCallCount := 0;
+  FGetRegisteredPathCallCount := 0;
+  FLastApplyValue := False;
+end;
+
+procedure TMockAutostartManager.Apply(AEnabled: Boolean);
+begin
+  Inc(FApplyCallCount);
+  FLastApplyValue := AEnabled;
+  FEnabled := AEnabled;
+  if AEnabled then
+    FRegisteredPath := 'C:\MockPath\bqc.exe'
+  else
+    FRegisteredPath := '';
+end;
+
+function TMockAutostartManager.IsEnabled: Boolean;
+begin
+  Inc(FIsEnabledCallCount);
+  Result := FEnabled;
+end;
+
+function TMockAutostartManager.GetRegisteredPath: string;
+begin
+  Inc(FGetRegisteredPathCallCount);
+  Result := FRegisteredPath;
 end;
 
 { TMockThemeManager }

@@ -18,6 +18,7 @@ interface
 
 uses
   App.ConfigInterfaces,
+  App.Autostart,
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
   UI.Theme;
@@ -36,6 +37,7 @@ type
     FDeviceRepository: IDeviceConfigRepository;
     FStrategyFactory: IConnectionStrategyFactory;
     FRadioStateManager: IRadioStateManager;
+    FAutostartManager: IAutostartManager;
     function GetConfig: IAppConfig;
     procedure ApplySideEffects;
   public
@@ -79,6 +81,9 @@ type
 
     // Radio state management
     function RadioStateManager: IRadioStateManager;
+
+    // Autostart management
+    function AutostartManager: IAutostartManager;
   end;
 
 /// <summary>
@@ -102,7 +107,6 @@ uses
   App.SettingsRepository,
   App.DeviceConfigRepository,
   App.Logger,
-  App.Autostart,
   Bluetooth.ConnectionStrategies;
 
 function Bootstrap: TAppBootstrap;
@@ -129,6 +133,7 @@ end;
 
 destructor TAppBootstrap.Destroy;
 begin
+  FAutostartManager := nil;
   FRadioStateManager := nil;
   FStrategyFactory := nil;
   FDeviceRepository := nil;
@@ -192,7 +197,7 @@ begin
     LogCfg.LogLevel);
 
   // Ensure autostart registry matches config setting
-  TAutostartManager.Apply(GeneralCfg.Autostart);
+  AutostartManager.Apply(GeneralCfg.Autostart);
 end;
 
 function TAppBootstrap.AppConfig: IAppConfig;
@@ -279,6 +284,13 @@ begin
   if FRadioStateManager = nil then
     FRadioStateManager := TRadioStateManager.Create;
   Result := FRadioStateManager;
+end;
+
+function TAppBootstrap.AutostartManager: IAutostartManager;
+begin
+  if FAutostartManager = nil then
+    FAutostartManager := TAutostartManager.Create;
+  Result := FAutostartManager;
 end;
 
 end.
