@@ -22,6 +22,7 @@ uses
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.ConnectionStrategies,
+  Bluetooth.RadioControl,
   App.ConfigInterfaces,
   App.MainViewInterfaces,
   App.MainPresenter,
@@ -87,6 +88,7 @@ type
     FPollingConfig: IPollingConfig;
     FConnectionConfig: IConnectionConfig;
     FStrategyFactory: IConnectionStrategyFactory;
+    FRadioStateManager: IRadioStateManager;
     FDeviceConfigProvider: IDeviceConfigProvider;
     FThemeManager: IThemeManager;
 
@@ -151,6 +153,7 @@ type
       APollingConfig: IPollingConfig;
       AConnectionConfig: IConnectionConfig;
       AStrategyFactory: IConnectionStrategyFactory;
+      ARadioStateManager: IRadioStateManager;
       ADeviceConfigProvider: IDeviceConfigProvider;
       AThemeManager: IThemeManager
     );
@@ -189,6 +192,7 @@ procedure TFormMain.Setup(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
   AStrategyFactory: IConnectionStrategyFactory;
+  ARadioStateManager: IRadioStateManager;
   ADeviceConfigProvider: IDeviceConfigProvider;
   AThemeManager: IThemeManager);
 begin
@@ -202,6 +206,7 @@ begin
   FPollingConfig := APollingConfig;
   FConnectionConfig := AConnectionConfig;
   FStrategyFactory := AStrategyFactory;
+  FRadioStateManager := ARadioStateManager;
   FDeviceConfigProvider := ADeviceConfigProvider;
   FThemeManager := AThemeManager;
 end;
@@ -221,6 +226,7 @@ begin
     Bootstrap.PollingConfig,
     Bootstrap.ConnectionConfig,
     Bootstrap.ConnectionStrategyFactory,
+    Bootstrap.RadioStateManager,
     Bootstrap.DeviceConfigProvider,
     Bootstrap.ThemeManager
   );
@@ -450,7 +456,8 @@ begin
     FAppearanceConfig,
     FPollingConfig,
     FConnectionConfig,
-    FStrategyFactory
+    FStrategyFactory,
+    FRadioStateManager
   );
   FPresenter.Initialize;
 end;

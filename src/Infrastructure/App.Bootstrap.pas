@@ -19,6 +19,7 @@ interface
 uses
   App.ConfigInterfaces,
   Bluetooth.Interfaces,
+  Bluetooth.RadioControl,
   UI.Theme;
 
 type
@@ -34,6 +35,7 @@ type
     FConfig: IAppConfig;
     FDeviceRepository: IDeviceConfigRepository;
     FStrategyFactory: IConnectionStrategyFactory;
+    FRadioStateManager: IRadioStateManager;
     function GetConfig: IAppConfig;
     procedure ApplySideEffects;
   public
@@ -74,6 +76,9 @@ type
 
     // Service factories
     function ConnectionStrategyFactory: IConnectionStrategyFactory;
+
+    // Radio state management
+    function RadioStateManager: IRadioStateManager;
   end;
 
 /// <summary>
@@ -124,6 +129,7 @@ end;
 
 destructor TAppBootstrap.Destroy;
 begin
+  FRadioStateManager := nil;
   FStrategyFactory := nil;
   FDeviceRepository := nil;
   FConfig := nil;
@@ -266,6 +272,13 @@ begin
   if FStrategyFactory = nil then
     FStrategyFactory := CreateConnectionStrategyFactory;
   Result := FStrategyFactory;
+end;
+
+function TAppBootstrap.RadioStateManager: IRadioStateManager;
+begin
+  if FRadioStateManager = nil then
+    FRadioStateManager := TRadioStateManager.Create;
+  Result := FRadioStateManager;
 end;
 
 end.

@@ -21,6 +21,7 @@ uses
   App.SettingsPresenter,
   Bluetooth.Types,
   Bluetooth.Interfaces,
+  Bluetooth.RadioControl,
   UI.DeviceList,
   UI.Theme;
 
@@ -671,6 +672,49 @@ type
     property LastEventType: TDeviceEventType read FLastEventType;
     property LastConnectionState: TBluetoothConnectionState read FLastConnectionState;
     property DebounceMs: Integer read FDebounceMs write FDebounceMs;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IRadioStateManager for testing.
+  /// Allows configuring radio state and tracking calls.
+  /// </summary>
+  TMockRadioStateManager = class(TInterfacedObject, IRadioStateManager)
+  private
+    FRadioEnabled: Boolean;
+    FRadioAvailable: Boolean;
+    FSetStateResult: TRadioControlResult;
+    FOnStateChanged: TRadioStateChangedEvent;
+    FGetStateCallCount: Integer;
+    FSetStateCallCount: Integer;
+    FStartWatchingCallCount: Integer;
+    FStopWatchingCallCount: Integer;
+    FLastSetStateValue: Boolean;
+  public
+    constructor Create;
+
+    // IRadioStateManager
+    function GetState(out AEnabled: Boolean): Boolean;
+    function SetState(AEnable: Boolean): TRadioControlResult;
+    function SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+    procedure StartWatching;
+    procedure StopWatching;
+    function GetOnStateChanged: TRadioStateChangedEvent;
+    procedure SetOnStateChanged(AValue: TRadioStateChangedEvent);
+
+    // Test helpers
+    procedure SimulateStateChanged(AEnabled: Boolean);
+
+    // Test setup properties
+    property RadioEnabled: Boolean read FRadioEnabled write FRadioEnabled;
+    property RadioAvailable: Boolean read FRadioAvailable write FRadioAvailable;
+    property SetStateResult: TRadioControlResult read FSetStateResult write FSetStateResult;
+
+    // Test verification
+    property GetStateCallCount: Integer read FGetStateCallCount;
+    property SetStateCallCount: Integer read FSetStateCallCount;
+    property StartWatchingCallCount: Integer read FStartWatchingCallCount;
+    property StopWatchingCallCount: Integer read FStopWatchingCallCount;
+    property LastSetStateValue: Boolean read FLastSetStateValue;
   end;
 
   /// <summary>
@@ -1909,6 +1953,70 @@ end;
 procedure TMockEventDebouncer.SetDebounceMs(AValue: Integer);
 begin
   FDebounceMs := AValue;
+end;
+
+{ TMockRadioStateManager }
+
+constructor TMockRadioStateManager.Create;
+begin
+  inherited Create;
+  FRadioEnabled := True;
+  FRadioAvailable := True;
+  FSetStateResult := rcSuccess;
+  FGetStateCallCount := 0;
+  FSetStateCallCount := 0;
+  FStartWatchingCallCount := 0;
+  FStopWatchingCallCount := 0;
+  FLastSetStateValue := False;
+end;
+
+function TMockRadioStateManager.GetState(out AEnabled: Boolean): Boolean;
+begin
+  Inc(FGetStateCallCount);
+  AEnabled := FRadioEnabled;
+  Result := FRadioAvailable;
+end;
+
+function TMockRadioStateManager.SetState(AEnable: Boolean): TRadioControlResult;
+begin
+  Inc(FSetStateCallCount);
+  FLastSetStateValue := AEnable;
+  if FSetStateResult = rcSuccess then
+    FRadioEnabled := AEnable;
+  Result := FSetStateResult;
+end;
+
+function TMockRadioStateManager.SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+begin
+  Result.Result := SetState(AEnable);
+  Result.ErrorCode := 0;
+end;
+
+procedure TMockRadioStateManager.StartWatching;
+begin
+  Inc(FStartWatchingCallCount);
+end;
+
+procedure TMockRadioStateManager.StopWatching;
+begin
+  Inc(FStopWatchingCallCount);
+end;
+
+function TMockRadioStateManager.GetOnStateChanged: TRadioStateChangedEvent;
+begin
+  Result := FOnStateChanged;
+end;
+
+procedure TMockRadioStateManager.SetOnStateChanged(AValue: TRadioStateChangedEvent);
+begin
+  FOnStateChanged := AValue;
+end;
+
+procedure TMockRadioStateManager.SimulateStateChanged(AEnabled: Boolean);
+begin
+  FRadioEnabled := AEnabled;
+  if Assigned(FOnStateChanged) then
+    FOnStateChanged(Self, AEnabled);
 end;
 
 { TMockThemeManager }

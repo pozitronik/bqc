@@ -22,6 +22,7 @@ uses
   App.MainViewInterfaces,
   App.MainPresenter,
   Bluetooth.Types,
+  Bluetooth.RadioControl,
   UI.DeviceList,
   Tests.Mocks;
 
@@ -38,6 +39,7 @@ type
     FPollingConfig: TMockPollingConfig;
     FConnectionConfig: TMockConnectionConfig;
     FStrategyFactory: TMockConnectionStrategyFactory;
+    FRadioStateManager: TMockRadioStateManager;
     FPresenter: TMainPresenter;
 
     procedure CreatePresenter;
@@ -102,6 +104,7 @@ begin
   FPollingConfig := TMockPollingConfig.Create;
   FConnectionConfig := TMockConnectionConfig.Create;
   FStrategyFactory := TMockConnectionStrategyFactory.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
   FPresenter := nil;
 end;
 
@@ -125,7 +128,8 @@ begin
     FAppearanceConfig,
     FPollingConfig,
     FConnectionConfig,
-    FStrategyFactory
+    FStrategyFactory,
+    FRadioStateManager
   );
 end;
 

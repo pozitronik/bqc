@@ -83,7 +83,7 @@ type
     FPollingConfig: IPollingConfig;
     FConnectionConfig: IConnectionConfig;
     FStrategyFactory: IConnectionStrategyFactory;
-    FRadioWatcher: TBluetoothRadioWatcher;
+    FRadioStateManager: IRadioStateManager;
     FDevices: TBluetoothDeviceInfoArray;
     FDisplayItems: TDeviceDisplayItemArray;
     FDisplayItemBuilder: TDeviceDisplayItemBuilder;
@@ -131,6 +131,7 @@ type
     /// <param name="APollingConfig">Polling settings for device monitor.</param>
     /// <param name="AConnectionConfig">Connection settings.</param>
     /// <param name="AStrategyFactory">Connection strategy factory.</param>
+    /// <param name="ARadioStateManager">Bluetooth radio state manager.</param>
     constructor Create(
       ADeviceListView: IDeviceListView;
       AToggleView: IToggleView;
@@ -143,7 +144,8 @@ type
       AAppearanceConfig: IAppearanceConfig;
       APollingConfig: IPollingConfig;
       AConnectionConfig: IConnectionConfig;
-      AStrategyFactory: IConnectionStrategyFactory
+      AStrategyFactory: IConnectionStrategyFactory;
+      ARadioStateManager: IRadioStateManager
     );
 
     /// <summary>
@@ -232,7 +234,8 @@ constructor TMainPresenter.Create(
   AAppearanceConfig: IAppearanceConfig;
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
-  AStrategyFactory: IConnectionStrategyFactory
+  AStrategyFactory: IConnectionStrategyFactory;
+  ARadioStateManager: IRadioStateManager
 );
 begin
   inherited Create;
@@ -252,9 +255,9 @@ begin
   FPollingConfig := APollingConfig;
   FConnectionConfig := AConnectionConfig;
   FStrategyFactory := AStrategyFactory;
+  FRadioStateManager := ARadioStateManager;
 
   FBluetoothService := nil;
-  FRadioWatcher := nil;
   FDevices := nil;
   FDisplayItems := nil;
   FDisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
@@ -300,7 +303,7 @@ begin
   LogDebug('Initialize: Bluetooth service created', ClassName);
 
   // Check Bluetooth radio state
-  if GetBluetoothRadioState(RadioEnabled) then
+  if FRadioStateManager.GetState(RadioEnabled) then
   begin
     LogDebug('Initialize: Radio state: Enabled=%s', [BoolToStr(RadioEnabled, True)], ClassName);
 
@@ -319,9 +322,8 @@ begin
     end;
 
     // Start watching for radio state changes
-    FRadioWatcher := TBluetoothRadioWatcher.Create;
-    FRadioWatcher.OnStateChanged := HandleRadioStateChanged;
-    FRadioWatcher.Start;
+    FRadioStateManager.OnStateChanged := HandleRadioStateChanged;
+    FRadioStateManager.StartWatching;
     LogDebug('Initialize: Radio watcher started', ClassName);
   end
   else
@@ -347,13 +349,9 @@ begin
     FDelayedLoadTimer := nil;
   end;
 
-  // Stop and free radio watcher
-  if FRadioWatcher <> nil then
-  begin
-    FRadioWatcher.Stop;
-    FRadioWatcher.Free;
-    FRadioWatcher := nil;
-  end;
+  // Stop radio state watching
+  if FRadioStateManager <> nil then
+    FRadioStateManager.StopWatching;
 
   // Release service
   FBluetoothService := nil;
@@ -471,18 +469,20 @@ var
   LDeviceListView: IDeviceListView;
   LToggleView: IToggleView;
   LStatusView: IStatusView;
+  LRadioStateManager: IRadioStateManager;
 begin
   // Capture interface references for async thread
   LDeviceListView := FDeviceListView;
   LToggleView := FToggleView;
   LStatusView := FStatusView;
+  LRadioStateManager := FRadioStateManager;
 
   TThread.CreateAnonymousThread(
     procedure
     var
       LResult: TRadioControlResult;
     begin
-      LResult := SetBluetoothRadioState(AEnable);
+      LResult := LRadioStateManager.SetState(AEnable);
 
       TThread.Queue(nil,
         procedure

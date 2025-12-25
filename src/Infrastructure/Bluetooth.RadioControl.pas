@@ -44,6 +44,60 @@ type
   TRadioStateChangedEvent = procedure(Sender: TObject; AEnabled: Boolean) of object;
 
   /// <summary>
+  /// Interface for managing Bluetooth radio state.
+  /// Abstracts WinRT radio control API for testability.
+  /// </summary>
+  IRadioStateManager = interface
+    ['{B7E3C4D5-2222-3333-4444-555566667777}']
+
+    /// <summary>
+    /// Gets the current enabled state of the Bluetooth radio.
+    /// </summary>
+    /// <param name="AEnabled">Output: True if radio is on, False if off.</param>
+    /// <returns>True if state was successfully retrieved, False otherwise.</returns>
+    function GetState(out AEnabled: Boolean): Boolean;
+
+    /// <summary>
+    /// Sets the Bluetooth radio state.
+    /// </summary>
+    /// <param name="AEnable">True to enable, False to disable.</param>
+    /// <returns>Result of the operation.</returns>
+    function SetState(AEnable: Boolean): TRadioControlResult;
+
+    /// <summary>
+    /// Sets the Bluetooth radio state with extended result.
+    /// </summary>
+    /// <param name="AEnable">True to enable, False to disable.</param>
+    /// <returns>Extended result with error code.</returns>
+    function SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+
+    /// <summary>
+    /// Starts watching for radio state changes.
+    /// </summary>
+    procedure StartWatching;
+
+    /// <summary>
+    /// Stops watching for radio state changes.
+    /// </summary>
+    procedure StopWatching;
+
+    /// <summary>
+    /// Gets the OnStateChanged event handler.
+    /// </summary>
+    function GetOnStateChanged: TRadioStateChangedEvent;
+
+    /// <summary>
+    /// Sets the OnStateChanged event handler.
+    /// </summary>
+    procedure SetOnStateChanged(AValue: TRadioStateChangedEvent);
+
+    /// <summary>
+    /// Event fired when Bluetooth radio state changes.
+    /// </summary>
+    property OnStateChanged: TRadioStateChangedEvent read GetOnStateChanged write SetOnStateChanged;
+  end;
+
+  /// <summary>
   /// Watches for Bluetooth radio state changes using polling.
   /// </summary>
   TBluetoothRadioWatcher = class
@@ -73,6 +127,29 @@ type
     /// Event fired when Bluetooth radio state changes.
     /// </summary>
     property OnStateChanged: TRadioStateChangedEvent read FOnStateChanged write FOnStateChanged;
+  end;
+
+  /// <summary>
+  /// Implementation of IRadioStateManager.
+  /// Wraps WinRT radio control functions and provides state change watching.
+  /// </summary>
+  TRadioStateManager = class(TInterfacedObject, IRadioStateManager)
+  private
+    FWatcher: TBluetoothRadioWatcher;
+    FOnStateChanged: TRadioStateChangedEvent;
+    procedure HandleWatcherStateChanged(Sender: TObject; AEnabled: Boolean);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    { IRadioStateManager }
+    function GetState(out AEnabled: Boolean): Boolean;
+    function SetState(AEnable: Boolean): TRadioControlResult;
+    function SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+    procedure StartWatching;
+    procedure StopWatching;
+    function GetOnStateChanged: TRadioStateChangedEvent;
+    procedure SetOnStateChanged(AValue: TRadioStateChangedEvent);
   end;
 
 /// <summary>
@@ -511,6 +588,62 @@ begin
     FTimerID := 0;
   end;
   FLastStateKnown := False;
+end;
+
+{ TRadioStateManager }
+
+constructor TRadioStateManager.Create;
+begin
+  inherited Create;
+  FWatcher := TBluetoothRadioWatcher.Create;
+  FWatcher.OnStateChanged := HandleWatcherStateChanged;
+end;
+
+destructor TRadioStateManager.Destroy;
+begin
+  FWatcher.Free;
+  inherited Destroy;
+end;
+
+function TRadioStateManager.GetState(out AEnabled: Boolean): Boolean;
+begin
+  Result := GetBluetoothRadioState(AEnabled);
+end;
+
+function TRadioStateManager.SetState(AEnable: Boolean): TRadioControlResult;
+begin
+  Result := SetBluetoothRadioState(AEnable);
+end;
+
+function TRadioStateManager.SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+begin
+  Result := SetBluetoothRadioStateEx(AEnable);
+end;
+
+procedure TRadioStateManager.StartWatching;
+begin
+  FWatcher.Start;
+end;
+
+procedure TRadioStateManager.StopWatching;
+begin
+  FWatcher.Stop;
+end;
+
+function TRadioStateManager.GetOnStateChanged: TRadioStateChangedEvent;
+begin
+  Result := FOnStateChanged;
+end;
+
+procedure TRadioStateManager.SetOnStateChanged(AValue: TRadioStateChangedEvent);
+begin
+  FOnStateChanged := AValue;
+end;
+
+procedure TRadioStateManager.HandleWatcherStateChanged(Sender: TObject; AEnabled: Boolean);
+begin
+  if Assigned(FOnStateChanged) then
+    FOnStateChanged(Self, AEnabled);
 end;
 
 end.
