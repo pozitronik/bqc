@@ -583,20 +583,25 @@ end;
 
 procedure TMainPresenter.UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
 var
-  I: Integer;
+  I, J: Integer;
   NewDevices: TBluetoothDeviceInfoArray;
 begin
   // Copy-on-write pattern: create new array to avoid in-place modification
   // This ensures FDevices is always in a consistent state
+  //
+  // IMPORTANT: Do NOT use Move() for copying records with managed types (strings).
+  // Move() does raw byte copy without incrementing reference counts, causing
+  // use-after-free when the source array is deallocated.
 
   // First, check if device exists and update
   for I := 0 to High(FDevices) do
   begin
     if FDevices[I].AddressInt = ADevice.AddressInt then
     begin
-      // Create copy with updated element
+      // Create copy with updated element using proper assignment
       SetLength(NewDevices, Length(FDevices));
-      Move(FDevices[0], NewDevices[0], Length(FDevices) * SizeOf(TBluetoothDeviceInfo));
+      for J := 0 to High(FDevices) do
+        NewDevices[J] := FDevices[J];
       NewDevices[I] := ADevice;
       FDevices := NewDevices;
       LogDebug('UpdateOrAddDevice: Updated device at index %d', [I], ClassName);
@@ -604,10 +609,10 @@ begin
     end;
   end;
 
-  // Device not found, append to new array
+  // Device not found, append to new array using proper assignment
   SetLength(NewDevices, Length(FDevices) + 1);
-  if Length(FDevices) > 0 then
-    Move(FDevices[0], NewDevices[0], Length(FDevices) * SizeOf(TBluetoothDeviceInfo));
+  for J := 0 to High(FDevices) do
+    NewDevices[J] := FDevices[J];
   NewDevices[High(NewDevices)] := ADevice;
   FDevices := NewDevices;
   LogDebug('UpdateOrAddDevice: Added new device, total=%d', [Length(FDevices)], ClassName);
