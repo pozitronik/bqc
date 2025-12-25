@@ -352,6 +352,30 @@ type
     property GetAdapterNameCallCount: Integer read FGetAdapterNameCallCount;
   end;
 
+  /// <summary>
+  /// Mock implementation of IBluetoothDeviceQuery for testing.
+  /// Allows configuring devices to return from enumeration.
+  /// </summary>
+  TMockBluetoothDeviceQuery = class(TInterfacedObject, IBluetoothDeviceQuery)
+  private
+    FDevices: TBluetoothDeviceInfoArray;
+    FEnumerateCallCount: Integer;
+  public
+    constructor Create;
+
+    // IBluetoothDeviceQuery
+    function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
+
+    // Test setup
+    procedure SetDevices(const ADevices: TBluetoothDeviceInfoArray);
+    procedure AddDevice(const ADevice: TBluetoothDeviceInfo);
+    procedure ClearDevices;
+
+    // Test verification
+    property EnumerateCallCount: Integer read FEnumerateCallCount;
+    property Devices: TBluetoothDeviceInfoArray read FDevices;
+  end;
+
 /// <summary>
 /// Creates a TBluetoothDeviceInfo with minimal parameters for testing.
 /// </summary>
@@ -1492,6 +1516,37 @@ function TMockAdapterQuery.GetAdapterName: string;
 begin
   Inc(FGetAdapterNameCallCount);
   Result := FAdapterName;
+end;
+
+{ TMockBluetoothDeviceQuery }
+
+constructor TMockBluetoothDeviceQuery.Create;
+begin
+  inherited Create;
+  SetLength(FDevices, 0);
+  FEnumerateCallCount := 0;
+end;
+
+function TMockBluetoothDeviceQuery.EnumeratePairedDevices: TBluetoothDeviceInfoArray;
+begin
+  Inc(FEnumerateCallCount);
+  Result := FDevices;
+end;
+
+procedure TMockBluetoothDeviceQuery.SetDevices(const ADevices: TBluetoothDeviceInfoArray);
+begin
+  FDevices := ADevices;
+end;
+
+procedure TMockBluetoothDeviceQuery.AddDevice(const ADevice: TBluetoothDeviceInfo);
+begin
+  SetLength(FDevices, Length(FDevices) + 1);
+  FDevices[High(FDevices)] := ADevice;
+end;
+
+procedure TMockBluetoothDeviceQuery.ClearDevices;
+begin
+  SetLength(FDevices, 0);
 end;
 
 { Test Helper Functions }

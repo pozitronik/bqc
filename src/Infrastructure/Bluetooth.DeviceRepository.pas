@@ -4,6 +4,8 @@
 {       Device Repository Implementation                }
 {                                                       }
 {       Centralizes device cache and enumeration.       }
+{       Uses injected IBluetoothDeviceQuery for         }
+{       Windows API abstraction (testability).          }
 {                                                       }
 {       Copyright (c) 2024                              }
 {                                                       }
@@ -25,12 +27,22 @@ uses
 
 type
   /// <summary>
+  /// Windows API implementation of IBluetoothDeviceQuery.
+  /// Wraps BluetoothFindFirstDevice/Next/Close calls.
+  /// </summary>
+  TWindowsBluetoothDeviceQuery = class(TInterfacedObject, IBluetoothDeviceQuery)
+  public
+    function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
+  end;
+
+  /// <summary>
   /// Repository for Bluetooth device storage and retrieval.
-  /// Wraps internal cache and Windows API enumeration.
+  /// Uses injected IBluetoothDeviceQuery for enumeration (testable).
   /// </summary>
   TBluetoothDeviceRepository = class(TInterfacedObject, IDeviceRepository)
   private
     FDevices: TDictionary<UInt64, TBluetoothDeviceInfo>;
+    FDeviceQuery: IBluetoothDeviceQuery;
     FOnListChanged: TDeviceListChangedEvent;
 
     procedure DoListChanged;
@@ -52,31 +64,78 @@ type
     procedure SetOnListChanged(AValue: TDeviceListChangedEvent);
 
   public
-    constructor Create;
+    constructor Create(ADeviceQuery: IBluetoothDeviceQuery);
     destructor Destroy; override;
   end;
 
 /// <summary>
-/// Creates a device repository instance.
+/// Creates a device repository with Windows API query implementation.
 /// </summary>
 function CreateDeviceRepository: IDeviceRepository;
+
+/// <summary>
+/// Creates the default Windows API device query.
+/// </summary>
+function CreateBluetoothDeviceQuery: IBluetoothDeviceQuery;
 
 implementation
 
 uses
   App.Logger;
 
+function CreateBluetoothDeviceQuery: IBluetoothDeviceQuery;
+begin
+  Result := TWindowsBluetoothDeviceQuery.Create;
+end;
+
 function CreateDeviceRepository: IDeviceRepository;
 begin
-  Result := TBluetoothDeviceRepository.Create;
+  Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery);
+end;
+
+{ TWindowsBluetoothDeviceQuery }
+
+function TWindowsBluetoothDeviceQuery.EnumeratePairedDevices: TBluetoothDeviceInfoArray;
+var
+  SearchParams: BLUETOOTH_DEVICE_SEARCH_PARAMS;
+  DeviceInfo: BLUETOOTH_DEVICE_INFO;
+  FindHandle: HBLUETOOTH_DEVICE_FIND;
+  Device: TBluetoothDeviceInfo;
+  DeviceList: TList<TBluetoothDeviceInfo>;
+begin
+  DeviceList := TList<TBluetoothDeviceInfo>.Create;
+  try
+    InitDeviceSearchParams(SearchParams, 0);
+    InitDeviceInfo(DeviceInfo);
+
+    FindHandle := BluetoothFindFirstDevice(@SearchParams, DeviceInfo);
+
+    if FindHandle <> 0 then
+    begin
+      try
+        repeat
+          Device := ConvertBluetoothDeviceInfo(DeviceInfo);
+          DeviceList.Add(Device);
+          DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
+        until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
+      finally
+        BluetoothFindDeviceClose(FindHandle);
+      end;
+    end;
+
+    Result := DeviceList.ToArray;
+  finally
+    DeviceList.Free;
+  end;
 end;
 
 { TBluetoothDeviceRepository }
 
-constructor TBluetoothDeviceRepository.Create;
+constructor TBluetoothDeviceRepository.Create(ADeviceQuery: IBluetoothDeviceQuery);
 begin
   inherited Create;
   FDevices := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
+  FDeviceQuery := ADeviceQuery;
 end;
 
 destructor TBluetoothDeviceRepository.Destroy;
@@ -156,31 +215,16 @@ end;
 
 procedure TBluetoothDeviceRepository.Refresh;
 var
-  SearchParams: BLUETOOTH_DEVICE_SEARCH_PARAMS;
-  DeviceInfo: BLUETOOTH_DEVICE_INFO;
-  FindHandle: HBLUETOOTH_DEVICE_FIND;
+  Devices: TBluetoothDeviceInfoArray;
   Device: TBluetoothDeviceInfo;
 begin
   LogDebug('Refresh: Enumerating paired devices', ClassName);
   FDevices.Clear;
 
-  InitDeviceSearchParams(SearchParams, 0);
-  InitDeviceInfo(DeviceInfo);
-
-  FindHandle := BluetoothFindFirstDevice(@SearchParams, DeviceInfo);
-
-  if FindHandle <> 0 then
-  begin
-    try
-      repeat
-        Device := ConvertBluetoothDeviceInfo(DeviceInfo);
-        FDevices.AddOrSetValue(Device.AddressInt, Device);
-        DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
-      until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
-    finally
-      BluetoothFindDeviceClose(FindHandle);
-    end;
-  end;
+  // Use injected query for enumeration (testable)
+  Devices := FDeviceQuery.EnumeratePairedDevices;
+  for Device in Devices do
+    FDevices.AddOrSetValue(Device.AddressInt, Device);
 
   LogDebug('Refresh: Found %d paired devices', [FDevices.Count], ClassName);
   DoListChanged;

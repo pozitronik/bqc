@@ -119,6 +119,37 @@ type
     procedure GetByAddress_ReturnsDevice;
   end;
 
+  /// <summary>
+  /// Test fixture for TBluetoothDeviceRepository with injected mock query.
+  /// Tests the Refresh method using mock device enumeration.
+  /// </summary>
+  [TestFixture]
+  TDeviceRepositoryRefreshTests = class
+  private
+    FMockQuery: TMockBluetoothDeviceQuery;
+    FRepository: IDeviceRepository;
+    FListChangedCount: Integer;
+    procedure HandleListChanged(Sender: TObject);
+    function CreateTestDevice(AAddress: UInt64; const AName: string;
+      AState: TBluetoothConnectionState = csDisconnected): TBluetoothDeviceInfo;
+  public
+    [Setup]
+    procedure Setup;
+
+    [Test]
+    procedure Refresh_CallsEnumeratePairedDevices;
+    [Test]
+    procedure Refresh_PopulatesRepositoryFromQuery;
+    [Test]
+    procedure Refresh_ClearsExistingDevicesFirst;
+    [Test]
+    procedure Refresh_FiresListChanged;
+    [Test]
+    procedure Refresh_WithEmptyResult_ClearsRepository;
+    [Test]
+    procedure Refresh_MultipleDevices_AddsAll;
+  end;
+
 implementation
 
 { TDeviceRepositoryTests }
@@ -421,8 +452,130 @@ begin
   Assert.AreEqual('TestDevice', Retrieved.Name);
 end;
 
+{ TDeviceRepositoryRefreshTests }
+
+procedure TDeviceRepositoryRefreshTests.Setup;
+begin
+  FMockQuery := TMockBluetoothDeviceQuery.Create;
+  // Note: TBluetoothDeviceRepository takes ownership via interface
+  FRepository := TBluetoothDeviceRepository.Create(FMockQuery);
+  FRepository.OnListChanged := HandleListChanged;
+  FListChangedCount := 0;
+end;
+
+procedure TDeviceRepositoryRefreshTests.HandleListChanged(Sender: TObject);
+begin
+  Inc(FListChangedCount);
+end;
+
+function TDeviceRepositoryRefreshTests.CreateTestDevice(AAddress: UInt64;
+  const AName: string; AState: TBluetoothConnectionState): TBluetoothDeviceInfo;
+var
+  Address: TBluetoothAddress;
+begin
+  FillChar(Address, SizeOf(Address), 0);
+  Address[0] := AAddress and $FF;
+  Address[1] := (AAddress shr 8) and $FF;
+  Address[2] := (AAddress shr 16) and $FF;
+  Address[3] := (AAddress shr 24) and $FF;
+  Address[4] := (AAddress shr 32) and $FF;
+  Address[5] := (AAddress shr 40) and $FF;
+
+  Result := TBluetoothDeviceInfo.Create(
+    Address,
+    AAddress,
+    AName,
+    btAudioOutput,
+    AState,
+    True,  // IsPaired
+    True,  // IsAuthenticated
+    0,     // ClassOfDevice
+    Now,   // LastSeen
+    Now    // LastUsed
+  );
+end;
+
+procedure TDeviceRepositoryRefreshTests.Refresh_CallsEnumeratePairedDevices;
+begin
+  Assert.AreEqual(0, FMockQuery.EnumerateCallCount);
+
+  FRepository.Refresh;
+
+  Assert.AreEqual(1, FMockQuery.EnumerateCallCount);
+end;
+
+procedure TDeviceRepositoryRefreshTests.Refresh_PopulatesRepositoryFromQuery;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  FMockQuery.AddDevice(CreateTestDevice($AABBCCDDEEFF, 'TestHeadphones', csConnected));
+
+  FRepository.Refresh;
+
+  Assert.AreEqual(1, FRepository.Count);
+  Assert.IsTrue(FRepository.TryGetByAddress($AABBCCDDEEFF, Device));
+  Assert.AreEqual('TestHeadphones', Device.Name);
+  Assert.AreEqual(Ord(csConnected), Ord(Device.ConnectionState));
+end;
+
+procedure TDeviceRepositoryRefreshTests.Refresh_ClearsExistingDevicesFirst;
+begin
+  // Add device directly to repository
+  FRepository.AddOrUpdate(CreateTestDevice($111111111111, 'ExistingDevice'));
+  Assert.AreEqual(1, FRepository.Count);
+  FListChangedCount := 0;
+
+  // Setup mock to return different device
+  FMockQuery.AddDevice(CreateTestDevice($222222222222, 'NewDevice'));
+
+  FRepository.Refresh;
+
+  // Old device should be gone, only new device present
+  Assert.AreEqual(1, FRepository.Count);
+  Assert.IsFalse(FRepository.Contains($111111111111));
+  Assert.IsTrue(FRepository.Contains($222222222222));
+end;
+
+procedure TDeviceRepositoryRefreshTests.Refresh_FiresListChanged;
+begin
+  FMockQuery.AddDevice(CreateTestDevice($AABBCCDDEEFF, 'TestDevice'));
+  FListChangedCount := 0;
+
+  FRepository.Refresh;
+
+  Assert.AreEqual(1, FListChangedCount);
+end;
+
+procedure TDeviceRepositoryRefreshTests.Refresh_WithEmptyResult_ClearsRepository;
+begin
+  // Add device directly
+  FRepository.AddOrUpdate(CreateTestDevice($AABBCCDDEEFF, 'ExistingDevice'));
+  Assert.AreEqual(1, FRepository.Count);
+
+  // Mock returns empty - no devices configured
+
+  FRepository.Refresh;
+
+  Assert.AreEqual(0, FRepository.Count);
+end;
+
+procedure TDeviceRepositoryRefreshTests.Refresh_MultipleDevices_AddsAll;
+begin
+  FMockQuery.AddDevice(CreateTestDevice($111111111111, 'Device1'));
+  FMockQuery.AddDevice(CreateTestDevice($222222222222, 'Device2'));
+  FMockQuery.AddDevice(CreateTestDevice($333333333333, 'Device3'));
+
+  FRepository.Refresh;
+
+  Assert.AreEqual(3, FRepository.Count);
+  Assert.IsTrue(FRepository.Contains($111111111111));
+  Assert.IsTrue(FRepository.Contains($222222222222));
+  Assert.IsTrue(FRepository.Contains($333333333333));
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TDeviceRepositoryTests);
   TDUnitX.RegisterTestFixture(TMockDeviceRepositoryTests);
+  TDUnitX.RegisterTestFixture(TDeviceRepositoryRefreshTests);
 
 end.

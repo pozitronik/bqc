@@ -306,6 +306,21 @@ type
   end;
 
   /// <summary>
+  /// Low-level interface for querying paired Bluetooth devices from Windows API.
+  /// Used by IDeviceRepository to enumerate devices.
+  /// Separated for testability - allows mocking Windows API calls.
+  /// </summary>
+  IBluetoothDeviceQuery = interface
+    ['{B2C3D4E5-AAAA-BBBB-CCCC-DDDD11112222}']
+
+    /// <summary>
+    /// Enumerates all paired Bluetooth devices from Windows.
+    /// </summary>
+    /// <returns>Array of device information records.</returns>
+    function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
+  end;
+
+  /// <summary>
   /// Repository interface for device storage and retrieval.
   /// Centralizes device cache management and enumeration.
   /// </summary>
