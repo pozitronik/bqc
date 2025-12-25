@@ -688,14 +688,6 @@ object FormSettings: TFormSettings
           Style = csDropDownList
           TabOrder = 0
         end
-        object CheckPreviewTheme: TCheckBox
-          Left = 356
-          Top = 26
-          Width = 150
-          Height = 17
-          Caption = 'Preview on selection'
-          TabOrder = 3
-        end
         object EditVsfDir: TEdit
           Left = 94
           Top = 56

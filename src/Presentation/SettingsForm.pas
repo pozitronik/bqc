@@ -128,7 +128,6 @@ type
     LabelTheme: TLabel;
     LabelVsfDir: TLabel;
     ComboTheme: TComboBox;
-    CheckPreviewTheme: TCheckBox;
     EditVsfDir: TEdit;
     ButtonBrowseVsfDir: TButton;
 
@@ -249,7 +248,6 @@ type
   private
     FPresenter: TSettingsPresenter;
     FRecordingHotkey: Boolean;
-    FOriginalTheme: string;
 
     { Injected dependencies }
     FAppConfig: IAppConfig;
@@ -294,7 +292,6 @@ type
     procedure InitDeviceTypeCombo;
     procedure UpdateWindowModeControls;
     procedure HandleSettingChanged(Sender: TObject);
-    procedure HandleThemeComboChange(Sender: TObject);
     procedure ConnectChangeHandlers;
 
   protected
@@ -376,8 +373,6 @@ begin
   UpdateWindowModeControls;
   ConnectChangeHandlers;
   ButtonApply.Enabled := False;
-  // Store original theme for possible revert on cancel
-  FOriginalTheme := FThemeManager.CurrentStyleName;
 end;
 
 procedure TFormSettings.ButtonOKClick(Sender: TObject);
@@ -404,9 +399,6 @@ end;
 
 procedure TFormSettings.CloseWithCancel;
 begin
-  // Restore original theme if preview was used
-  if FThemeManager.CurrentStyleName <> FOriginalTheme then
-    FThemeManager.SetStyle(FOriginalTheme);
   ModalResult := mrCancel;
 end;
 
@@ -464,7 +456,8 @@ end;
 
 function TFormSettings.GetAppearanceSettings: TAppearanceViewSettings;
 begin
-  Result.Theme := ComboTheme.Text;
+  // Extract actual style name from display name (which may include filename)
+  Result.Theme := FThemeManager.GetStyleNameFromDisplay(ComboTheme.Text);
   Result.VsfDir := EditVsfDir.Text;
   Result.ShowAddresses := CheckShowAddresses.Checked;
   Result.ShowDeviceIcons := CheckShowDeviceIcons.Checked;
@@ -560,7 +553,7 @@ end;
 procedure TFormSettings.PopulateThemeList(const ACurrentTheme: string);
 var
   Styles: TArray<string>;
-  StyleName: string;
+  StyleName, DisplayName, CurrentDisplayName: string;
   Idx: Integer;
 begin
   // Get available styles from theme manager (injected dependency)
@@ -568,11 +561,21 @@ begin
   TArray.Sort<string>(Styles);
 
   ComboTheme.Items.Clear;
+  CurrentDisplayName := '';
   for StyleName in Styles do
-    ComboTheme.Items.Add(StyleName);
+  begin
+    DisplayName := FThemeManager.GetStyleDisplayName(StyleName);
+    ComboTheme.Items.Add(DisplayName);
+    if SameText(StyleName, ACurrentTheme) then
+      CurrentDisplayName := DisplayName;
+  end;
 
-  // Select current theme
-  Idx := ComboTheme.Items.IndexOf(ACurrentTheme);
+  // Select current theme by display name
+  if CurrentDisplayName <> '' then
+    Idx := ComboTheme.Items.IndexOf(CurrentDisplayName)
+  else
+    Idx := -1;
+
   if Idx >= 0 then
     ComboTheme.ItemIndex := Idx
   else if ComboTheme.Items.Count > 0 then
@@ -747,14 +750,6 @@ begin
     UpdateWindowModeControls;
 end;
 
-procedure TFormSettings.HandleThemeComboChange(Sender: TObject);
-begin
-  FPresenter.MarkModified;
-  // Apply theme immediately if preview is enabled
-  if CheckPreviewTheme.Checked and (ComboTheme.Text <> '') then
-    FThemeManager.SetStyle(ComboTheme.Text);
-end;
-
 procedure TFormSettings.ConnectChangeHandlers;
 begin
   // Tab: General
@@ -769,7 +764,7 @@ begin
   // Tab: Hotkey & Visuals
   EditHotkey.OnChange := HandleSettingChanged;
   CheckUseLowLevelHook.OnClick := HandleSettingChanged;
-  ComboTheme.OnChange := HandleThemeComboChange;
+  ComboTheme.OnChange := HandleSettingChanged;
   EditVsfDir.OnChange := HandleSettingChanged;
   CheckShowAddresses.OnClick := HandleSettingChanged;
 

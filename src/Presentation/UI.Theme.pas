@@ -39,6 +39,17 @@ type
     function GetAvailableStyles: TArray<string>;
 
     /// <summary>
+    /// Returns display name for a style (includes filename if loaded from file).
+    /// Format: "StyleName (filename.vsf)" or just "StyleName" for embedded styles.
+    /// </summary>
+    function GetStyleDisplayName(const AStyleName: string): string;
+
+    /// <summary>
+    /// Extracts actual style name from display name.
+    /// </summary>
+    function GetStyleNameFromDisplay(const ADisplayName: string): string;
+
+    /// <summary>
     /// Sets a specific VCL style by exact name.
     /// </summary>
     procedure SetStyle(const AStyleName: string);
@@ -61,10 +72,14 @@ type
     FInstance: IThemeManager;
   private
     FCurrentStyleName: string;
+    FStyleFilenames: TStringList;  // Maps style name -> filename
 
     function GetFirstAvailableStyle: string;
     function GetCurrentStyleName: string;
   public
+    constructor Create;
+    destructor Destroy; override;
+
     class function Instance: IThemeManager;
     class destructor Destroy;
 
@@ -78,6 +93,16 @@ type
     /// Returns list of all available style names (embedded + loaded from files).
     /// </summary>
     function GetAvailableStyles: TArray<string>;
+
+    /// <summary>
+    /// Returns display name for a style (includes filename if loaded from file).
+    /// </summary>
+    function GetStyleDisplayName(const AStyleName: string): string;
+
+    /// <summary>
+    /// Extracts actual style name from display name.
+    /// </summary>
+    function GetStyleNameFromDisplay(const ADisplayName: string): string;
 
     /// <summary>
     /// Sets a specific VCL style by exact name.
@@ -149,16 +174,24 @@ end;
 
 { TThemeManager }
 
+constructor TThemeManager.Create;
+begin
+  inherited Create;
+  FStyleFilenames := TStringList.Create;
+  FStyleFilenames.CaseSensitive := False;
+  FCurrentStyleName := TStyleManager.ActiveStyle.Name;
+end;
+
+destructor TThemeManager.Destroy;
+begin
+  FStyleFilenames.Free;
+  inherited Destroy;
+end;
+
 class function TThemeManager.Instance: IThemeManager;
-var
-  Manager: TThemeManager;
 begin
   if FInstance = nil then
-  begin
-    Manager := TThemeManager.Create;
-    Manager.FCurrentStyleName := TStyleManager.ActiveStyle.Name;
-    FInstance := Manager;
-  end;
+    FInstance := TThemeManager.Create;
   Result := FInstance;
 end;
 
@@ -236,6 +269,8 @@ begin
         if not IsStyleRegistered(StyleInfo.Name) then
         begin
           TStyleManager.LoadFromFile(FilePath);
+          // Track filename for display purposes
+          FStyleFilenames.Values[StyleInfo.Name] := FileName;
           LogDebug('LoadStylesFromDirectory: Loaded style "%s" from "%s"', [StyleInfo.Name, FileName], ClassName);
           Inc(LoadedCount);
         end;
@@ -255,6 +290,29 @@ end;
 function TThemeManager.GetAvailableStyles: TArray<string>;
 begin
   Result := SafeGetStyleNames;
+end;
+
+function TThemeManager.GetStyleDisplayName(const AStyleName: string): string;
+var
+  FileName: string;
+begin
+  FileName := FStyleFilenames.Values[AStyleName];
+  if FileName <> '' then
+    Result := Format('%s (%s)', [AStyleName, FileName])
+  else
+    Result := AStyleName;
+end;
+
+function TThemeManager.GetStyleNameFromDisplay(const ADisplayName: string): string;
+var
+  ParenPos: Integer;
+begin
+  // Extract style name from "StyleName (filename.vsf)" format
+  ParenPos := Pos(' (', ADisplayName);
+  if ParenPos > 0 then
+    Result := Copy(ADisplayName, 1, ParenPos - 1)
+  else
+    Result := ADisplayName;
 end;
 
 procedure TThemeManager.SetStyle(const AStyleName: string);
