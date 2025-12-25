@@ -199,10 +199,8 @@ var
   R: TRect;
 begin
   R := Rect(0, 0, 100, 100); // Square (width = height)
-  // Width > Height is false (100 > 100 is false), but width >= height should be considered
-  // The function uses Width > Height, so square returns false
-  // Actually: Width=100, Height=100, 100 > 100 = False
-  Assert.IsFalse(IsTaskbarHorizontal(R));
+  // With >= comparison, square taskbar is treated as horizontal (edge case)
+  Assert.IsTrue(IsTaskbarHorizontal(R));
 end;
 
 procedure TTaskbarUtilsTests.IsTaskbarHorizontal_TypicalBottomTaskbar_ReturnsTrue;
@@ -229,10 +227,9 @@ procedure TTaskbarUtilsTests.IsTaskbarHorizontal_ZeroSizeRect_ReturnsTrue;
 var
   R: TRect;
 begin
-  // Edge case: zero-sized rect
+  // Edge case: zero-sized rect (0 >= 0 is True)
   R := Rect(0, 0, 0, 0);
-  // Width = 0, Height = 0, 0 > 0 = False
-  Assert.IsFalse(IsTaskbarHorizontal(R));
+  Assert.IsTrue(IsTaskbarHorizontal(R));
 end;
 
 { TCoordinatesPositionerTests }

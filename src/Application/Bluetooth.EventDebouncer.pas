@@ -83,9 +83,13 @@ constructor TDeviceEventDebouncer.Create(ADebounceMs: Integer);
 begin
   inherited Create;
   FLastEvents := TDictionary<string, TDateTime>.Create;
-  FDebounceMs := ADebounceMs;
+  // Clamp negative values to 0 (no debounce)
+  if ADebounceMs < 0 then
+    FDebounceMs := 0
+  else
+    FDebounceMs := ADebounceMs;
   FLock := TObject.Create;
-  LogDebug('Created with debounce interval=%d ms', [ADebounceMs], ClassName);
+  LogDebug('Created with debounce interval=%d ms', [FDebounceMs], ClassName);
 end;
 
 destructor TDeviceEventDebouncer.Destroy;
@@ -102,7 +106,11 @@ end;
 
 procedure TDeviceEventDebouncer.SetDebounceMs(AValue: Integer);
 begin
-  FDebounceMs := AValue;
+  // Clamp negative values to 0 (no debounce)
+  if AValue < 0 then
+    FDebounceMs := 0
+  else
+    FDebounceMs := AValue;
 end;
 
 function TDeviceEventDebouncer.MakeKey(AAddress: UInt64;

@@ -204,14 +204,16 @@ procedure TDeviceEventDebouncerTests.Create_NegativeDebounceMs_BehavesAsZero;
 var
   Debouncer: TDeviceEventDebouncer;
 begin
-  // Negative debounce should work like zero or allow immediate reprocessing
+  // Negative debounce should be clamped to 0 (no debounce)
   Debouncer := TDeviceEventDebouncer.Create(-100);
   try
+    // Verify negative value was clamped to 0
+    Assert.AreEqual(0, Debouncer.DebounceMs, 'Negative value should be clamped to 0');
+
+    // With 0 debounce, all events should be processed
     Assert.IsTrue(Debouncer.ShouldProcess(TEST_ADDRESS_1, detConnect, csConnected));
-    // Depending on implementation, negative might be treated differently
-    // The key is it shouldn't crash
-    Debouncer.ShouldProcess(TEST_ADDRESS_1, detConnect, csConnected);
-    Assert.Pass; // If we get here without exception, test passes
+    Assert.IsTrue(Debouncer.ShouldProcess(TEST_ADDRESS_1, detConnect, csConnected),
+      'With 0 debounce, duplicate events should be allowed');
   finally
     Debouncer.Free;
   end;

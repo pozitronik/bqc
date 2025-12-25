@@ -145,7 +145,8 @@ var
 begin
   TaskbarWidth := ARect.Right - ARect.Left;
   TaskbarHeight := ARect.Bottom - ARect.Top;
-  Result := TaskbarWidth > TaskbarHeight;
+  // Use >= to treat square taskbars as horizontal (edge case)
+  Result := TaskbarWidth >= TaskbarHeight;
 end;
 
 { TPositionContext }
