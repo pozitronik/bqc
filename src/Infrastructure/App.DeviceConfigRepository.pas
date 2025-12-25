@@ -136,20 +136,28 @@ begin
   if IsNew then
   begin
     // Create new device config with defaults
+    // LastSeen starts at 0 ("Never") - will be updated when device actually connects
     DeviceConfig := TDeviceConfig.Default(AAddress);
     DeviceConfig.Name := AName;
-    DeviceConfig.LastSeen := ALastSeen;
+    DeviceConfig.LastSeen := 0;
     FDevices.Add(AAddress, DeviceConfig);
     FModified := True;
     LogDebug('RegisterDevice: New device registered: %s ($%.12X)', [AName, AAddress], ClassName);
   end
   else
   begin
-    // Update existing device: always update LastSeen, update Name if changed
-    if (DeviceConfig.Name <> AName) or (DeviceConfig.LastSeen < ALastSeen) then
+    // Update existing device
+    // Only update Name if non-empty and different
+    // Only update LastSeen if new value is greater (more recent) AND valid (> 0)
+    if (AName <> '') and (DeviceConfig.Name <> AName) then
     begin
-      if (AName <> '') and (DeviceConfig.Name <> AName) then
-        DeviceConfig.Name := AName;
+      DeviceConfig.Name := AName;
+      FDevices[AAddress] := DeviceConfig;
+      FModified := True;
+    end;
+
+    if (ALastSeen > 0) and (ALastSeen > DeviceConfig.LastSeen) then
+    begin
       DeviceConfig.LastSeen := ALastSeen;
       FDevices[AAddress] := DeviceConfig;
       FModified := True;

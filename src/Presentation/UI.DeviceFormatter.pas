@@ -136,7 +136,7 @@ end;
 class function TDeviceFormatter.FormatLastSeenAbsolute(ALastSeen: TDateTime): string;
 begin
   if ALastSeen <= 0 then
-    Result := 'Never'
+    Result := ''  // Don't show anything for "never seen" in absolute format
   else
     Result := FormatDateTime('yyyy-mm-dd hh:nn', ALastSeen);
 end;

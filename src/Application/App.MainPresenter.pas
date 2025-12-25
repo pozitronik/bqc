@@ -376,8 +376,9 @@ begin
       LogDebug('LoadDevices: Device[%d] Address=$%.12X, Name="%s", Connected=%s', [
         I, FDevices[I].AddressInt, FDevices[I].Name, BoolToStr(FDevices[I].IsConnected, True)
       ], ClassName);
-      // Register device with current timestamp
-      FDeviceConfigProvider.RegisterDevice(FDevices[I].AddressInt, FDevices[I].Name, Now);
+      // Register device but don't update LastSeen (pass 0)
+      // LastSeen is only updated when device actually connects
+      FDeviceConfigProvider.RegisterDevice(FDevices[I].AddressInt, FDevices[I].Name, 0);
     end;
 
     // Save config if any new devices were registered
@@ -645,8 +646,13 @@ begin
       // Update local cache using copy-on-write pattern
       UpdateOrAddDevice(LDevice);
 
-      // Update LastSeen timestamp in persistent config
-      FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
+      // Update device in persistent config
+      // Only update LastSeen when device actually connects - this is when the app "sees" it
+      // For other state changes, pass 0 to preserve existing LastSeen value
+      if LDevice.ConnectionState = csConnected then
+        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now)
+      else
+        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, 0);
       FAppConfig.SaveIfModified;
 
       // Rebuild display items (device may have moved groups due to state change)
