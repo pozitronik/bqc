@@ -37,6 +37,9 @@ uses
   Tests.DeviceConverter in 'Tests.DeviceConverter.pas',
   Tests.RadioStateManager in 'Tests.RadioStateManager.pas',
   Tests.AutostartManager in 'Tests.AutostartManager.pas',
+  Tests.EventDebouncer in 'Tests.EventDebouncer.pas',
+  Tests.DeviceConfigProvider in 'Tests.DeviceConfigProvider.pas',
+  Tests.WindowPositioner in 'Tests.WindowPositioner.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
@@ -85,7 +88,8 @@ uses
   UI.DeviceFormatter in '..\src\Presentation\UI.DeviceFormatter.pas',
   UI.DeviceSorter in '..\src\Presentation\UI.DeviceSorter.pas',
   UI.DeviceDisplayItemBuilder in '..\src\Presentation\UI.DeviceDisplayItemBuilder.pas',
-  UI.Theme in '..\src\Presentation\UI.Theme.pas';
+  UI.Theme in '..\src\Presentation\UI.Theme.pas',
+  UI.WindowPositioner in '..\src\Presentation\UI.WindowPositioner.pas';
 
 
 {$IFNDEF TESTINSIGHT}

@@ -101,6 +101,12 @@ type
     procedure IsConnected_WhenDisconnected_ReturnsFalse;
     [Test]
     procedure IsConnected_WhenConnecting_ReturnsFalse;
+    [Test]
+    procedure IsConnected_WhenDisconnecting_ReturnsFalse;
+    [Test]
+    procedure IsConnected_WhenError_ReturnsFalse;
+    [Test]
+    procedure IsConnected_WhenUnknown_ReturnsFalse;
 
     // IsAudioDevice tests
     [Test]
@@ -113,6 +119,12 @@ type
     procedure IsAudioDevice_Keyboard_ReturnsFalse;
     [Test]
     procedure IsAudioDevice_Unknown_ReturnsFalse;
+    [Test]
+    procedure IsAudioDevice_Computer_ReturnsFalse;
+    [Test]
+    procedure IsAudioDevice_Phone_ReturnsFalse;
+    [Test]
+    procedure IsAudioDevice_Mouse_ReturnsFalse;
 
     // IsInputDevice tests
     [Test]
@@ -125,6 +137,14 @@ type
     procedure IsInputDevice_HID_ReturnsTrue;
     [Test]
     procedure IsInputDevice_AudioOutput_ReturnsFalse;
+    [Test]
+    procedure IsInputDevice_Computer_ReturnsFalse;
+    [Test]
+    procedure IsInputDevice_Phone_ReturnsFalse;
+    [Test]
+    procedure IsInputDevice_Headset_ReturnsFalse;
+    [Test]
+    procedure IsInputDevice_Unknown_ReturnsFalse;
 
     // WithConnectionState tests
     [Test]
@@ -137,6 +157,10 @@ type
     procedure WithName_ReturnsNewRecordWithUpdatedName;
     [Test]
     procedure WithName_PreservesOtherFields;
+    [Test]
+    procedure WithName_EmptyString_SetsEmptyName;
+    [Test]
+    procedure WithName_UnicodeCharacters_PreservesUnicode;
   end;
 
   /// <summary>
@@ -438,6 +462,30 @@ begin
   Assert.IsFalse(Device.IsConnected);
 end;
 
+procedure TBluetoothDeviceInfoTests.IsConnected_WhenDisconnecting_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btAudioOutput, csDisconnecting);
+  Assert.IsFalse(Device.IsConnected);
+end;
+
+procedure TBluetoothDeviceInfoTests.IsConnected_WhenError_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btAudioOutput, csError);
+  Assert.IsFalse(Device.IsConnected);
+end;
+
+procedure TBluetoothDeviceInfoTests.IsConnected_WhenUnknown_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btAudioOutput, csUnknown);
+  Assert.IsFalse(Device.IsConnected);
+end;
+
 procedure TBluetoothDeviceInfoTests.IsAudioDevice_AudioOutput_ReturnsTrue;
 var
   Device: TBluetoothDeviceInfo;
@@ -478,6 +526,30 @@ begin
   Assert.IsFalse(Device.IsAudioDevice);
 end;
 
+procedure TBluetoothDeviceInfoTests.IsAudioDevice_Computer_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btComputer, csDisconnected);
+  Assert.IsFalse(Device.IsAudioDevice);
+end;
+
+procedure TBluetoothDeviceInfoTests.IsAudioDevice_Phone_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btPhone, csDisconnected);
+  Assert.IsFalse(Device.IsAudioDevice);
+end;
+
+procedure TBluetoothDeviceInfoTests.IsAudioDevice_Mouse_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btMouse, csDisconnected);
+  Assert.IsFalse(Device.IsAudioDevice);
+end;
+
 procedure TBluetoothDeviceInfoTests.IsInputDevice_Keyboard_ReturnsTrue;
 var
   Device: TBluetoothDeviceInfo;
@@ -515,6 +587,38 @@ var
   Device: TBluetoothDeviceInfo;
 begin
   Device := CreateTestDevice(btAudioOutput, csDisconnected);
+  Assert.IsFalse(Device.IsInputDevice);
+end;
+
+procedure TBluetoothDeviceInfoTests.IsInputDevice_Computer_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btComputer, csDisconnected);
+  Assert.IsFalse(Device.IsInputDevice);
+end;
+
+procedure TBluetoothDeviceInfoTests.IsInputDevice_Phone_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btPhone, csDisconnected);
+  Assert.IsFalse(Device.IsInputDevice);
+end;
+
+procedure TBluetoothDeviceInfoTests.IsInputDevice_Headset_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btHeadset, csDisconnected);
+  Assert.IsFalse(Device.IsInputDevice);
+end;
+
+procedure TBluetoothDeviceInfoTests.IsInputDevice_Unknown_ReturnsFalse;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(btUnknown, csDisconnected);
   Assert.IsFalse(Device.IsInputDevice);
 end;
 
@@ -565,6 +669,26 @@ begin
   Assert.AreEqual(Original.ConnectionState, Updated.ConnectionState);
   Assert.AreEqual(Original.DeviceType, Updated.DeviceType);
   Assert.AreEqual(Original.IsPaired, Updated.IsPaired);
+end;
+
+procedure TBluetoothDeviceInfoTests.WithName_EmptyString_SetsEmptyName;
+var
+  Original, Updated: TBluetoothDeviceInfo;
+begin
+  Original := CreateTestDevice(btAudioOutput, csDisconnected);
+  Updated := Original.WithName('');
+
+  Assert.AreEqual('', Updated.Name);
+end;
+
+procedure TBluetoothDeviceInfoTests.WithName_UnicodeCharacters_PreservesUnicode;
+var
+  Original, Updated: TBluetoothDeviceInfo;
+begin
+  Original := CreateTestDevice(btAudioOutput, csDisconnected);
+  Updated := Original.WithName('Test Device - russkiy');
+
+  Assert.AreEqual('Test Device - russkiy', Updated.Name);
 end;
 
 { TBluetoothExceptionTests }
