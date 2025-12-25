@@ -128,6 +128,7 @@ type
     LabelTheme: TLabel;
     LabelVsfDir: TLabel;
     ComboTheme: TComboBox;
+    CheckPreviewTheme: TCheckBox;
     EditVsfDir: TEdit;
     ButtonBrowseVsfDir: TButton;
 
@@ -248,6 +249,7 @@ type
   private
     FPresenter: TSettingsPresenter;
     FRecordingHotkey: Boolean;
+    FOriginalTheme: string;
 
     { Injected dependencies }
     FAppConfig: IAppConfig;
@@ -292,6 +294,7 @@ type
     procedure InitDeviceTypeCombo;
     procedure UpdateWindowModeControls;
     procedure HandleSettingChanged(Sender: TObject);
+    procedure HandleThemeComboChange(Sender: TObject);
     procedure ConnectChangeHandlers;
 
   protected
@@ -317,6 +320,7 @@ implementation
 
 uses
   ShellAPI,
+  System.Generics.Collections,
   Vcl.FileCtrl,
   App.Logger,
   App.Config,
@@ -372,6 +376,8 @@ begin
   UpdateWindowModeControls;
   ConnectChangeHandlers;
   ButtonApply.Enabled := False;
+  // Store original theme for possible revert on cancel
+  FOriginalTheme := FThemeManager.CurrentStyleName;
 end;
 
 procedure TFormSettings.ButtonOKClick(Sender: TObject);
@@ -398,6 +404,9 @@ end;
 
 procedure TFormSettings.CloseWithCancel;
 begin
+  // Restore original theme if preview was used
+  if FThemeManager.CurrentStyleName <> FOriginalTheme then
+    FThemeManager.SetStyle(FOriginalTheme);
   ModalResult := mrCancel;
 end;
 
@@ -556,6 +565,7 @@ var
 begin
   // Get available styles from theme manager (injected dependency)
   Styles := FThemeManager.GetAvailableStyles;
+  TArray.Sort<string>(Styles);
 
   ComboTheme.Items.Clear;
   for StyleName in Styles do
@@ -737,6 +747,14 @@ begin
     UpdateWindowModeControls;
 end;
 
+procedure TFormSettings.HandleThemeComboChange(Sender: TObject);
+begin
+  FPresenter.MarkModified;
+  // Apply theme immediately if preview is enabled
+  if CheckPreviewTheme.Checked and (ComboTheme.Text <> '') then
+    FThemeManager.SetStyle(ComboTheme.Text);
+end;
+
 procedure TFormSettings.ConnectChangeHandlers;
 begin
   // Tab: General
@@ -751,7 +769,7 @@ begin
   // Tab: Hotkey & Visuals
   EditHotkey.OnChange := HandleSettingChanged;
   CheckUseLowLevelHook.OnClick := HandleSettingChanged;
-  ComboTheme.OnChange := HandleSettingChanged;
+  ComboTheme.OnChange := HandleThemeComboChange;
   EditVsfDir.OnChange := HandleSettingChanged;
   CheckShowAddresses.OnClick := HandleSettingChanged;
 
