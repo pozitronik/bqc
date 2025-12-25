@@ -134,6 +134,15 @@ type
     procedure IVisibilityView.ForceClose = DoForceClose;
     procedure DoForceClose;
 
+    { Settings application helpers (extracted from ApplyAllSettings for SRP) }
+    procedure ApplyHotkeySettings;
+    procedure ApplyThemeSettings;
+    procedure ApplyWindowModeSettings;
+    procedure ApplyTaskbarVisibility;
+    procedure ApplyOnTopSetting;
+    procedure ApplyDeviceListSettings;
+    procedure NotifyPresenterOfChanges;
+
   protected
     procedure WMSysCommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
     procedure WMHotkey(var Msg: TMessage); message WM_HOTKEY;
@@ -484,40 +493,43 @@ begin
   end;
 end;
 
-procedure TFormMain.ApplyAllSettings;
-var
-  ExStyle: LONG_PTR;
-begin
-  LogDebug('ApplyAllSettings: Applying configuration changes', ClassName);
+{ Settings application helpers }
 
-  // Re-register hotkey (unregister first, then register with new settings)
+procedure TFormMain.ApplyHotkeySettings;
+begin
   FHotkeyManager.Unregister;
   FHotkeyManager.Register(Handle, FHotkeyConfig.Hotkey, FHotkeyConfig.UseLowLevelHook);
-  LogDebug('ApplyAllSettings: Hotkey re-registered: %s', [FHotkeyConfig.Hotkey], ClassName);
+  LogDebug('ApplyHotkeySettings: Hotkey re-registered: %s', [FHotkeyConfig.Hotkey], ClassName);
+end;
 
-  // Reload styles from directory (loads any new styles, skips already loaded)
+procedure TFormMain.ApplyThemeSettings;
+begin
   FThemeManager.LoadStylesFromDirectory(FAppearanceConfig.VsfDir);
-
-  // Apply theme
   FThemeManager.SetStyle(FAppearanceConfig.Theme);
   ApplyTheme;
-  LogDebug('ApplyAllSettings: Theme applied: %s', [FAppearanceConfig.Theme], ClassName);
+  LogDebug('ApplyThemeSettings: Theme applied: %s', [FAppearanceConfig.Theme], ClassName);
+end;
 
-  // Apply window mode (border style and icons)
+procedure TFormMain.ApplyWindowModeSettings;
+begin
   if FGeneralConfig.WindowMode = wmMenu then
   begin
     BorderStyle := bsNone;
     BorderIcons := [];
-    LogDebug('ApplyAllSettings: Applied Menu mode', ClassName);
+    LogDebug('ApplyWindowModeSettings: Applied Menu mode', ClassName);
   end
   else
   begin
     BorderStyle := bsSizeable;
     BorderIcons := [biSystemMenu, biMinimize];
-    LogDebug('ApplyAllSettings: Applied Window mode', ClassName);
+    LogDebug('ApplyWindowModeSettings: Applied Window mode', ClassName);
   end;
+end;
 
-  // Apply taskbar visibility based on window mode
+procedure TFormMain.ApplyTaskbarVisibility;
+var
+  ExStyle: LONG_PTR;
+begin
   // Must hide window before changing style, then show again to update taskbar
   ExStyle := GetWindowLongPtr(Handle, GWL_EXSTYLE);
   if FGeneralConfig.WindowMode = wmMenu then
@@ -536,29 +548,47 @@ begin
     SetWindowLongPtr(Handle, GWL_EXSTYLE, ExStyle);
     ShowWindow(Handle, SW_SHOW);
   end;
-  LogDebug('ApplyAllSettings: Taskbar visibility updated', ClassName);
+  LogDebug('ApplyTaskbarVisibility: Taskbar visibility updated', ClassName);
+end;
 
-  // Apply OnTop setting
+procedure TFormMain.ApplyOnTopSetting;
+begin
   if FGeneralConfig.OnTop or (FGeneralConfig.WindowMode = wmMenu) then
     FormStyle := fsStayOnTop
   else
     FormStyle := fsNormal;
-  LogDebug('ApplyAllSettings: OnTop=%s', [BoolToStr(FGeneralConfig.OnTop, True)], ClassName);
+  LogDebug('ApplyOnTopSetting: OnTop=%s', [BoolToStr(FGeneralConfig.OnTop, True)], ClassName);
+end;
 
-  // Apply ShowAddresses to device list
+procedure TFormMain.ApplyDeviceListSettings;
+begin
   if FDeviceList <> nil then
   begin
     FDeviceList.ShowAddresses := FAppearanceConfig.ShowAddresses;
     FDeviceList.Invalidate;
   end;
+end;
 
-  // Notify presenter to refresh if needed (for polling changes, etc.)
+procedure TFormMain.NotifyPresenterOfChanges;
+begin
   if FPresenter <> nil then
   begin
     FPresenter.OnSettingsChanged;
-    // Refresh device list to apply pinned/hidden changes
     FPresenter.OnRefreshRequested;
   end;
+end;
+
+procedure TFormMain.ApplyAllSettings;
+begin
+  LogDebug('ApplyAllSettings: Applying configuration changes', ClassName);
+
+  ApplyHotkeySettings;
+  ApplyThemeSettings;
+  ApplyWindowModeSettings;
+  ApplyTaskbarVisibility;
+  ApplyOnTopSetting;
+  ApplyDeviceListSettings;
+  NotifyPresenterOfChanges;
 
   LogDebug('ApplyAllSettings: Complete', ClassName);
 end;
