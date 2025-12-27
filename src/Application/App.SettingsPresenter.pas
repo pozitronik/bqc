@@ -115,6 +115,27 @@ type
     NotifyDisconnectIndex: Integer;
     NotifyFailedIndex: Integer;
     NotifyAutoIndex: Integer;
+    // Battery tray per-device overrides
+    BatteryTrayIconIndex: Integer;   // 0=Default, 1=No, 2=Yes
+    BatteryIconColor: Integer;       // -1=Default, or TColor value
+    BatteryBackgroundColor: Integer; // -1=Default, or TColor value
+    BatteryShowNumericIndex: Integer; // 0=Default, 1=No, 2=Yes
+    BatteryThreshold: Integer;       // -1=Default, or 0-100
+    BatteryNotifyLowIndex: Integer;  // 0=Default, 1=No, 2=Yes
+    BatteryNotifyFullIndex: Integer; // 0=Default, 1=No, 2=Yes
+  end;
+
+  /// <summary>
+  /// Battery tray global settings.
+  /// </summary>
+  TBatteryTrayViewSettings = record
+    ShowBatteryTrayIcons: Boolean;
+    DefaultIconColor: TColor;
+    DefaultBackgroundColor: TColor;
+    DefaultShowNumericValue: Boolean;
+    DefaultLowBatteryThreshold: Integer;
+    DefaultNotifyLowBattery: Boolean;
+    DefaultNotifyFullyCharged: Boolean;
   end;
 
   //----------------------------------------------------------------------------
@@ -201,6 +222,15 @@ type
     procedure ClearDeviceSettings;
   end;
 
+  /// <summary>
+  /// Battery tray settings view operations.
+  /// </summary>
+  IBatteryTraySettingsView = interface
+    ['{E1F2A3B4-C5D6-7890-ABCD-EF0123456789}']
+    function GetBatteryTraySettings: TBatteryTrayViewSettings;
+    procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
+  end;
+
   //----------------------------------------------------------------------------
   // ISettingsView - Combined interface for backward compatibility
   //----------------------------------------------------------------------------
@@ -243,6 +273,10 @@ type
     // Logging settings (from ILoggingSettingsView)
     function GetLoggingSettings: TLoggingViewSettings;
     procedure SetLoggingSettings(const ASettings: TLoggingViewSettings);
+
+    // Battery tray settings (from IBatteryTraySettingsView)
+    function GetBatteryTraySettings: TBatteryTrayViewSettings;
+    procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
   end;
 
   //----------------------------------------------------------------------------
@@ -330,12 +364,14 @@ type
     FPollingConfig: IPollingConfig;
     FNotificationConfig: INotificationConfig;
     FLogConfig: ILogConfig;
+    FBatteryTrayConfig: IBatteryTrayConfig;
   public
     constructor Create(
       AView: ISettingsView;
       ADeviceSettingsView: IDeviceSettingsView;
       AAppConfig: IAppConfig;
-      ADeviceConfigProvider: IDeviceConfigProvider
+      ADeviceConfigProvider: IDeviceConfigProvider;
+      ABatteryTrayConfig: IBatteryTrayConfig
     );
     destructor Destroy; override;
 
@@ -469,6 +505,14 @@ begin
   Settings.NotifyDisconnectIndex := DeviceConfig.Notifications.OnDisconnect + UI_DEFAULT_ITEM_OFFSET;
   Settings.NotifyFailedIndex := DeviceConfig.Notifications.OnConnectFailed + UI_DEFAULT_ITEM_OFFSET;
   Settings.NotifyAutoIndex := DeviceConfig.Notifications.OnAutoConnect + UI_DEFAULT_ITEM_OFFSET;
+  // Battery tray per-device settings
+  Settings.BatteryTrayIconIndex := DeviceConfig.BatteryTray.ShowTrayIcon + UI_DEFAULT_ITEM_OFFSET;
+  Settings.BatteryIconColor := DeviceConfig.BatteryTray.IconColor;
+  Settings.BatteryBackgroundColor := DeviceConfig.BatteryTray.BackgroundColor;
+  Settings.BatteryShowNumericIndex := DeviceConfig.BatteryTray.ShowNumericValue + UI_DEFAULT_ITEM_OFFSET;
+  Settings.BatteryThreshold := DeviceConfig.BatteryTray.LowBatteryThreshold;
+  Settings.BatteryNotifyLowIndex := DeviceConfig.BatteryTray.NotifyLowBattery + UI_DEFAULT_ITEM_OFFSET;
+  Settings.BatteryNotifyFullIndex := DeviceConfig.BatteryTray.NotifyFullyCharged + UI_DEFAULT_ITEM_OFFSET;
 
   FView.SetDeviceSettings(Settings);
 end;
@@ -497,6 +541,14 @@ begin
   DeviceConfig.Notifications.OnDisconnect := Settings.NotifyDisconnectIndex - UI_DEFAULT_ITEM_OFFSET;
   DeviceConfig.Notifications.OnConnectFailed := Settings.NotifyFailedIndex - UI_DEFAULT_ITEM_OFFSET;
   DeviceConfig.Notifications.OnAutoConnect := Settings.NotifyAutoIndex - UI_DEFAULT_ITEM_OFFSET;
+  // Battery tray per-device settings
+  DeviceConfig.BatteryTray.ShowTrayIcon := Settings.BatteryTrayIconIndex - UI_DEFAULT_ITEM_OFFSET;
+  DeviceConfig.BatteryTray.IconColor := Settings.BatteryIconColor;
+  DeviceConfig.BatteryTray.BackgroundColor := Settings.BatteryBackgroundColor;
+  DeviceConfig.BatteryTray.ShowNumericValue := Settings.BatteryShowNumericIndex - UI_DEFAULT_ITEM_OFFSET;
+  DeviceConfig.BatteryTray.LowBatteryThreshold := Settings.BatteryThreshold;
+  DeviceConfig.BatteryTray.NotifyLowBattery := Settings.BatteryNotifyLowIndex - UI_DEFAULT_ITEM_OFFSET;
+  DeviceConfig.BatteryTray.NotifyFullyCharged := Settings.BatteryNotifyFullIndex - UI_DEFAULT_ITEM_OFFSET;
 
   FDeviceConfigProvider.SetDeviceConfig(DeviceConfig);
 end;
@@ -539,7 +591,8 @@ constructor TSettingsPresenter.Create(
   AView: ISettingsView;
   ADeviceSettingsView: IDeviceSettingsView;
   AAppConfig: IAppConfig;
-  ADeviceConfigProvider: IDeviceConfigProvider
+  ADeviceConfigProvider: IDeviceConfigProvider;
+  ABatteryTrayConfig: IBatteryTrayConfig
 );
 begin
   inherited Create;
@@ -558,6 +611,7 @@ begin
   FPollingConfig := AAppConfig.AsPollingConfig;
   FNotificationConfig := AAppConfig.AsNotificationConfig;
   FLogConfig := AAppConfig.AsLogConfig;
+  FBatteryTrayConfig := ABatteryTrayConfig;
 
   // Create device settings presenter with delegation
   FDevicePresenter := TDeviceSettingsPresenter.Create(ADeviceSettingsView, ADeviceConfigProvider);
@@ -644,6 +698,20 @@ begin
   Logging.LevelIndex := Ord(FLogConfig.LogLevel);
   FView.SetLoggingSettings(Logging);
 
+  // Battery tray settings
+  if Assigned(FBatteryTrayConfig) then
+  begin
+    var BatteryTray: TBatteryTrayViewSettings;
+    BatteryTray.ShowBatteryTrayIcons := FBatteryTrayConfig.ShowBatteryTrayIcons;
+    BatteryTray.DefaultIconColor := FBatteryTrayConfig.DefaultIconColor;
+    BatteryTray.DefaultBackgroundColor := FBatteryTrayConfig.DefaultBackgroundColor;
+    BatteryTray.DefaultShowNumericValue := FBatteryTrayConfig.DefaultShowNumericValue;
+    BatteryTray.DefaultLowBatteryThreshold := FBatteryTrayConfig.DefaultLowBatteryThreshold;
+    BatteryTray.DefaultNotifyLowBattery := FBatteryTrayConfig.DefaultNotifyLowBattery;
+    BatteryTray.DefaultNotifyFullyCharged := FBatteryTrayConfig.DefaultNotifyFullyCharged;
+    FView.SetBatteryTraySettings(BatteryTray);
+  end;
+
   // Device list (delegated to device presenter)
   FDevicePresenter.LoadDeviceList;
 
@@ -659,6 +727,7 @@ var
   Layout: TLayoutViewSettings;
   Connection: TConnectionViewSettings;
   Logging: TLoggingViewSettings;
+  BatteryTray: TBatteryTrayViewSettings;
 begin
   LogDebug('SaveSettings', ClassName);
   Result := True;
@@ -738,6 +807,19 @@ begin
     FLogConfig.LogFilename := Logging.Filename;
     FLogConfig.LogAppend := Logging.Append;
     FLogConfig.LogLevel := TLogLevel(Logging.LevelIndex);
+
+    // Battery tray settings
+    if Assigned(FBatteryTrayConfig) then
+    begin
+      BatteryTray := FView.GetBatteryTraySettings;
+      FBatteryTrayConfig.ShowBatteryTrayIcons := BatteryTray.ShowBatteryTrayIcons;
+      FBatteryTrayConfig.DefaultIconColor := BatteryTray.DefaultIconColor;
+      FBatteryTrayConfig.DefaultBackgroundColor := BatteryTray.DefaultBackgroundColor;
+      FBatteryTrayConfig.DefaultShowNumericValue := BatteryTray.DefaultShowNumericValue;
+      FBatteryTrayConfig.DefaultLowBatteryThreshold := BatteryTray.DefaultLowBatteryThreshold;
+      FBatteryTrayConfig.DefaultNotifyLowBattery := BatteryTray.DefaultNotifyLowBattery;
+      FBatteryTrayConfig.DefaultNotifyFullyCharged := BatteryTray.DefaultNotifyFullyCharged;
+    end;
 
     // Save configuration to file
     FAppConfig.Save;

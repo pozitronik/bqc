@@ -61,6 +61,7 @@ const
   SEC_LAYOUT = 'Layout';
   SEC_DEVICE = 'Device';
   SEC_DEVICE_PREFIX = 'Device.';
+  SEC_BATTERY_TRAY = 'BatteryTray';
 
   // INI key names - [General]
   KEY_WINDOW = 'Window';
@@ -126,6 +127,15 @@ const
   KEY_NOTIFY_ON_CONNECT_FAILED = 'NotifyOnConnectFailed';
   KEY_NOTIFY_ON_AUTO_CONNECT = 'NotifyOnAutoConnect';
 
+  // INI key names - [BatteryTray]
+  KEY_SHOW_BATTERY_TRAY_ICONS = 'ShowBatteryTrayIcons';
+  KEY_DEFAULT_ICON_COLOR = 'DefaultIconColor';
+  KEY_DEFAULT_BACKGROUND_COLOR = 'DefaultBackgroundColor';
+  KEY_DEFAULT_SHOW_NUMERIC_VALUE = 'DefaultShowNumericValue';
+  KEY_DEFAULT_LOW_BATTERY_THRESHOLD = 'DefaultLowBatteryThreshold';
+  KEY_DEFAULT_NOTIFY_LOW_BATTERY = 'DefaultNotifyLowBattery';
+  KEY_DEFAULT_NOTIFY_FULLY_CHARGED = 'DefaultNotifyFullyCharged';
+
   // Default values
   DEF_WINDOW_MODE = wmWindow;
   DEF_ON_TOP = False;
@@ -160,7 +170,8 @@ const
 implementation
 
 uses
-  App.Config;
+  App.Config,
+  App.ConfigSection.BatteryTray;
 
 { TIniSettingsRepository }
 
@@ -219,6 +230,7 @@ var
   LayoutCfg: ILayoutConfig;
   ConnectionCfg: IConnectionConfig;
   NotificationCfg: INotificationConfig;
+  BatteryTrayCfg: IBatteryTrayConfig;
 begin
   GeneralCfg := AConfig.AsGeneralConfig;
   WindowCfg := AConfig.AsWindowConfig;
@@ -230,6 +242,7 @@ begin
   LayoutCfg := AConfig.AsLayoutConfig;
   ConnectionCfg := AConfig.AsConnectionConfig;
   NotificationCfg := AConfig.AsNotificationConfig;
+  BatteryTrayCfg := AConfig.AsBatteryTrayConfig;
 
   // [General]
   GeneralCfg.WindowMode := TWindowMode(AIni.ReadInteger(SEC_GENERAL, KEY_WINDOW, Ord(DEF_WINDOW_MODE)));
@@ -295,6 +308,15 @@ begin
   NotificationCfg.NotifyOnDisconnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(DEF_NOTIFY_ON_DISCONNECT)));
   NotificationCfg.NotifyOnConnectFailed := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
   NotificationCfg.NotifyOnAutoConnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
+
+  // [BatteryTray] - battery tray icon defaults
+  BatteryTrayCfg.ShowBatteryTrayIcons := AIni.ReadBool(SEC_BATTERY_TRAY, KEY_SHOW_BATTERY_TRAY_ICONS, DEF_SHOW_BATTERY_TRAY_ICONS);
+  BatteryTrayCfg.DefaultIconColor := AIni.ReadInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_ICON_COLOR, DEF_BATTERY_ICON_COLOR);
+  BatteryTrayCfg.DefaultBackgroundColor := AIni.ReadInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_BACKGROUND_COLOR, DEF_BATTERY_BACKGROUND_COLOR);
+  BatteryTrayCfg.DefaultShowNumericValue := AIni.ReadBool(SEC_BATTERY_TRAY, KEY_DEFAULT_SHOW_NUMERIC_VALUE, DEF_SHOW_NUMERIC_VALUE);
+  BatteryTrayCfg.DefaultLowBatteryThreshold := AIni.ReadInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_LOW_BATTERY_THRESHOLD, DEF_LOW_BATTERY_THRESHOLD);
+  BatteryTrayCfg.DefaultNotifyLowBattery := AIni.ReadBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_LOW_BATTERY, DEF_NOTIFY_LOW_BATTERY);
+  BatteryTrayCfg.DefaultNotifyFullyCharged := AIni.ReadBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_FULLY_CHARGED, DEF_NOTIFY_FULLY_CHARGED);
 end;
 
 procedure TIniSettingsRepository.ValidateRanges(AConfig: IAppConfig);
@@ -353,6 +375,7 @@ var
   LayoutCfg: ILayoutConfig;
   ConnectionCfg: IConnectionConfig;
   NotificationCfg: INotificationConfig;
+  BatteryTrayCfg: IBatteryTrayConfig;
 begin
   GeneralCfg := AConfig.AsGeneralConfig;
   WindowCfg := AConfig.AsWindowConfig;
@@ -364,6 +387,7 @@ begin
   LayoutCfg := AConfig.AsLayoutConfig;
   ConnectionCfg := AConfig.AsConnectionConfig;
   NotificationCfg := AConfig.AsNotificationConfig;
+  BatteryTrayCfg := AConfig.AsBatteryTrayConfig;
 
   // [General]
   AIni.WriteInteger(SEC_GENERAL, KEY_WINDOW, Ord(GeneralCfg.WindowMode));
@@ -429,6 +453,15 @@ begin
   AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(NotificationCfg.NotifyOnDisconnect));
   AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(NotificationCfg.NotifyOnConnectFailed));
   AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(NotificationCfg.NotifyOnAutoConnect));
+
+  // [BatteryTray] - battery tray icon defaults
+  AIni.WriteBool(SEC_BATTERY_TRAY, KEY_SHOW_BATTERY_TRAY_ICONS, BatteryTrayCfg.ShowBatteryTrayIcons);
+  AIni.WriteInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_ICON_COLOR, BatteryTrayCfg.DefaultIconColor);
+  AIni.WriteInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_BACKGROUND_COLOR, BatteryTrayCfg.DefaultBackgroundColor);
+  AIni.WriteBool(SEC_BATTERY_TRAY, KEY_DEFAULT_SHOW_NUMERIC_VALUE, BatteryTrayCfg.DefaultShowNumericValue);
+  AIni.WriteInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_LOW_BATTERY_THRESHOLD, BatteryTrayCfg.DefaultLowBatteryThreshold);
+  AIni.WriteBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_LOW_BATTERY, BatteryTrayCfg.DefaultNotifyLowBattery);
+  AIni.WriteBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_FULLY_CHARGED, BatteryTrayCfg.DefaultNotifyFullyCharged);
 end;
 
 end.

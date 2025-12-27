@@ -29,7 +29,8 @@ uses
   UI.Theme,
   UI.DeviceList,
   UI.TrayManager,
-  UI.HotkeyManager;
+  UI.HotkeyManager,
+  UI.BatteryTrayManager;
 
 const
   WM_DPICHANGED = $02E0;
@@ -74,6 +75,7 @@ type
     FPresenter: TMainPresenter;
     FDeviceList: TDeviceListBox;
     FTrayManager: TTrayManager;
+    FBatteryTrayManager: TBatteryTrayManager;
     FHotkeyManager: THotkeyManager;
     FForceClose: Boolean;
 
@@ -87,6 +89,7 @@ type
     FLayoutConfig: ILayoutConfig;
     FPollingConfig: IPollingConfig;
     FConnectionConfig: IConnectionConfig;
+    FBatteryTrayConfig: IBatteryTrayConfig;
     FStrategyFactory: IConnectionStrategyFactory;
     FRadioStateManager: IRadioStateManager;
     FDeviceConfigProvider: IDeviceConfigProvider;
@@ -116,6 +119,8 @@ type
     procedure HandleTrayExitRequest(Sender: TObject);
     procedure HandleApplicationDeactivate(Sender: TObject);
     procedure HandleSettingsApplied(Sender: TObject);
+    procedure HandleBatteryNotification(Sender: TObject; AAddress: UInt64;
+      const ADeviceName: string; ALevel: Integer; AIsLowBattery: Boolean);
 
     { View interfaces implementation }
     procedure ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
@@ -161,6 +166,7 @@ type
       ALayoutConfig: ILayoutConfig;
       APollingConfig: IPollingConfig;
       AConnectionConfig: IConnectionConfig;
+      ABatteryTrayConfig: IBatteryTrayConfig;
       AStrategyFactory: IConnectionStrategyFactory;
       ARadioStateManager: IRadioStateManager;
       ADeviceConfigProvider: IDeviceConfigProvider;
@@ -200,6 +206,7 @@ procedure TFormMain.Setup(
   ALayoutConfig: ILayoutConfig;
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
+  ABatteryTrayConfig: IBatteryTrayConfig;
   AStrategyFactory: IConnectionStrategyFactory;
   ARadioStateManager: IRadioStateManager;
   ADeviceConfigProvider: IDeviceConfigProvider;
@@ -214,6 +221,7 @@ begin
   FLayoutConfig := ALayoutConfig;
   FPollingConfig := APollingConfig;
   FConnectionConfig := AConnectionConfig;
+  FBatteryTrayConfig := ABatteryTrayConfig;
   FStrategyFactory := AStrategyFactory;
   FRadioStateManager := ARadioStateManager;
   FDeviceConfigProvider := ADeviceConfigProvider;
@@ -234,6 +242,7 @@ begin
     Bootstrap.LayoutConfig,
     Bootstrap.PollingConfig,
     Bootstrap.ConnectionConfig,
+    Bootstrap.BatteryTrayConfig,
     Bootstrap.ConnectionStrategyFactory,
     Bootstrap.RadioStateManager,
     Bootstrap.DeviceConfigProvider,
@@ -273,6 +282,14 @@ begin
     FPresenter.Shutdown;
     FPresenter.Free;
     FPresenter := nil;
+  end;
+
+  // Free battery tray manager
+  if FBatteryTrayManager <> nil then
+  begin
+    FBatteryTrayManager.ClearAll;
+    FBatteryTrayManager.Free;
+    FBatteryTrayManager := nil;
   end;
 
   // Free hotkey manager
@@ -444,6 +461,14 @@ begin
   FTrayManager.OnToggleVisibility := HandleTrayToggleVisibility;
   FTrayManager.OnSettingsRequest := HandleTraySettingsRequest;
   FTrayManager.OnExitRequest := HandleTrayExitRequest;
+
+  // Create battery tray manager for per-device battery icons
+  FBatteryTrayManager := TBatteryTrayManager.Create(
+    Handle,
+    FBatteryTrayConfig,
+    FDeviceConfigProvider
+  );
+  FBatteryTrayManager.OnBatteryNotification := HandleBatteryNotification;
 
   // Apply configuration to device list
   FDeviceList.ShowAddresses := FAppearanceConfig.ShowAddresses;
@@ -618,6 +643,7 @@ begin
       FAppConfig,
       FAppConfig.AsLogConfig,
       FDeviceConfigProvider,
+      FBatteryTrayConfig,
       FThemeManager
     );
     SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
@@ -645,6 +671,26 @@ end;
 procedure TFormMain.HandleSettingsApplied(Sender: TObject);
 begin
   ApplyAllSettings;
+end;
+
+procedure TFormMain.HandleBatteryNotification(Sender: TObject; AAddress: UInt64;
+  const ADeviceName: string; ALevel: Integer; AIsLowBattery: Boolean);
+var
+  Title, Message: string;
+begin
+  // Show battery notification via tray manager
+  if AIsLowBattery then
+  begin
+    Title := ADeviceName;
+    Message := Format('Low battery: %d%%', [ALevel]);
+    FTrayManager.ShowNotification(Title, Message, bfWarning);
+  end
+  else
+  begin
+    Title := ADeviceName;
+    Message := 'Fully charged';
+    FTrayManager.ShowNotification(Title, Message, bfInfo);
+  end;
 end;
 
 procedure TFormMain.HandleHotkeyTriggered(Sender: TObject);
@@ -703,8 +749,31 @@ end;
 { View interfaces implementation }
 
 procedure TFormMain.ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
+var
+  I: Integer;
+  Item: TDeviceDisplayItem;
 begin
   FDeviceList.SetDisplayItems(AItems);
+
+  // Update battery tray icons for devices with battery info
+  if Assigned(FBatteryTrayManager) then
+  begin
+    for I := 0 to High(AItems) do
+    begin
+      Item := AItems[I];
+      // Only update tray icons for connected devices with valid battery level
+      if Item.Device.IsConnected and (Item.BatteryStatus.Level >= 0) then
+        FBatteryTrayManager.UpdateDevice(
+          Item.Device.AddressInt,
+          Item.DisplayName,
+          Item.BatteryStatus.Level,
+          True
+        )
+      else
+        // Remove tray icon for disconnected devices
+        FBatteryTrayManager.RemoveDevice(Item.Device.AddressInt);
+    end;
+  end;
 end;
 
 procedure TFormMain.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
@@ -715,6 +784,9 @@ end;
 procedure TFormMain.ClearDevices;
 begin
   FDeviceList.Clear;
+  // Also clear battery tray icons
+  if Assigned(FBatteryTrayManager) then
+    FBatteryTrayManager.ClearAll;
 end;
 
 procedure TFormMain.SetToggleState(AEnabled: Boolean);

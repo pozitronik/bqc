@@ -159,7 +159,20 @@
         <DCCReference Include="src\Infrastructure\App.ConnectionConfigIntf.pas"/>
         <DCCReference Include="src\Infrastructure\App.NotificationConfigIntf.pas"/>
         <DCCReference Include="src\Infrastructure\App.LogConfigIntf.pas"/>
+        <DCCReference Include="src\Infrastructure\App.BatteryTrayConfigIntf.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigInterfaces.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSectionTypes.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.General.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Window.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Position.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Hotkey.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Polling.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Log.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Appearance.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Layout.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Connection.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Notification.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.BatteryTray.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigSections.pas"/>
         <DCCReference Include="src\Infrastructure\App.Config.pas"/>
         <DCCReference Include="src\Infrastructure\App.SettingsRepository.pas"/>
@@ -178,6 +191,8 @@
         <DCCReference Include="src\Presentation\UI.WindowPositioner.pas"/>
         <DCCReference Include="src\Presentation\UI.TrayManager.pas"/>
         <DCCReference Include="src\Presentation\UI.HotkeyManager.pas"/>
+        <DCCReference Include="src\Presentation\UI.BatteryIconRenderer.pas"/>
+        <DCCReference Include="src\Presentation\UI.BatteryTrayManager.pas"/>
         <DCCReference Include="src\Presentation\SettingsForm.pas">
             <Form>FormSettings</Form>
         </DCCReference>

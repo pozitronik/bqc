@@ -70,6 +70,7 @@ type
     function LayoutConfig: ILayoutConfig;
     function ConnectionConfig: IConnectionConfig;
     function NotificationConfig: INotificationConfig;
+    function BatteryTrayConfig: IBatteryTrayConfig;
     function DeviceConfigProvider: IDeviceConfigProvider;
 
     // Services
@@ -257,6 +258,11 @@ end;
 function TAppBootstrap.NotificationConfig: INotificationConfig;
 begin
   Result := GetConfig.AsNotificationConfig;
+end;
+
+function TAppBootstrap.BatteryTrayConfig: IBatteryTrayConfig;
+begin
+  Result := GetConfig.AsBatteryTrayConfig;
 end;
 
 function TAppBootstrap.DeviceConfigProvider: IDeviceConfigProvider;

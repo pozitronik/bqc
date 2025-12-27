@@ -73,6 +73,14 @@ const
   KEY_NOTIFY_ON_AUTO_CONNECT = 'NotifyOnAutoConnect';
   KEY_DEVICE_TYPE_OVERRIDE = 'DeviceTypeOverride';
   KEY_LAST_SEEN = 'LastSeen';
+  // Battery tray icon keys
+  KEY_BATTERY_TRAY_ICON = 'BatteryTrayIcon';
+  KEY_BATTERY_ICON_COLOR = 'BatteryIconColor';
+  KEY_BATTERY_BACKGROUND_COLOR = 'BatteryBackgroundColor';
+  KEY_BATTERY_SHOW_NUMERIC = 'BatteryShowNumeric';
+  KEY_BATTERY_LOW_THRESHOLD = 'BatteryLowThreshold';
+  KEY_BATTERY_NOTIFY_LOW = 'BatteryNotifyLow';
+  KEY_BATTERY_NOTIFY_FULL = 'BatteryNotifyFull';
 
 /// <summary>
 /// Creates a device configuration repository.
@@ -223,6 +231,14 @@ begin
           DeviceConfig.Notifications.OnDisconnect := AIni.ReadInteger(Section, KEY_NOTIFY_ON_DISCONNECT, -1);
           DeviceConfig.Notifications.OnConnectFailed := AIni.ReadInteger(Section, KEY_NOTIFY_ON_CONNECT_FAILED, -1);
           DeviceConfig.Notifications.OnAutoConnect := AIni.ReadInteger(Section, KEY_NOTIFY_ON_AUTO_CONNECT, -1);
+          // Per-device battery tray overrides (-1 = use global)
+          DeviceConfig.BatteryTray.ShowTrayIcon := AIni.ReadInteger(Section, KEY_BATTERY_TRAY_ICON, -1);
+          DeviceConfig.BatteryTray.IconColor := AIni.ReadInteger(Section, KEY_BATTERY_ICON_COLOR, -1);
+          DeviceConfig.BatteryTray.BackgroundColor := AIni.ReadInteger(Section, KEY_BATTERY_BACKGROUND_COLOR, -1);
+          DeviceConfig.BatteryTray.ShowNumericValue := AIni.ReadInteger(Section, KEY_BATTERY_SHOW_NUMERIC, -1);
+          DeviceConfig.BatteryTray.LowBatteryThreshold := AIni.ReadInteger(Section, KEY_BATTERY_LOW_THRESHOLD, -1);
+          DeviceConfig.BatteryTray.NotifyLowBattery := AIni.ReadInteger(Section, KEY_BATTERY_NOTIFY_LOW, -1);
+          DeviceConfig.BatteryTray.NotifyFullyCharged := AIni.ReadInteger(Section, KEY_BATTERY_NOTIFY_FULL, -1);
           DeviceConfig.DeviceTypeOverride := AIni.ReadInteger(Section, KEY_DEVICE_TYPE_OVERRIDE, -1);
           // Parse LastSeen as ISO 8601 datetime string
           LastSeenStr := AIni.ReadString(Section, KEY_LAST_SEEN, '');
@@ -288,6 +304,22 @@ begin
       AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_CONNECT_FAILED, Pair.Value.Notifications.OnConnectFailed);
     if Pair.Value.Notifications.OnAutoConnect >= 0 then
       AIni.WriteInteger(SectionName, KEY_NOTIFY_ON_AUTO_CONNECT, Pair.Value.Notifications.OnAutoConnect);
+    // Only save battery tray settings if they override globals
+    if Pair.Value.BatteryTray.ShowTrayIcon >= 0 then
+      AIni.WriteInteger(SectionName, KEY_BATTERY_TRAY_ICON, Pair.Value.BatteryTray.ShowTrayIcon);
+    if Pair.Value.BatteryTray.IconColor >= 0 then
+      AIni.WriteInteger(SectionName, KEY_BATTERY_ICON_COLOR, Pair.Value.BatteryTray.IconColor);
+    // Save if custom color (>= 0) or transparent (-2), skip if default (-1)
+    if (Pair.Value.BatteryTray.BackgroundColor >= 0) or (Pair.Value.BatteryTray.BackgroundColor = -2) then
+      AIni.WriteInteger(SectionName, KEY_BATTERY_BACKGROUND_COLOR, Pair.Value.BatteryTray.BackgroundColor);
+    if Pair.Value.BatteryTray.ShowNumericValue >= 0 then
+      AIni.WriteInteger(SectionName, KEY_BATTERY_SHOW_NUMERIC, Pair.Value.BatteryTray.ShowNumericValue);
+    if Pair.Value.BatteryTray.LowBatteryThreshold >= 0 then
+      AIni.WriteInteger(SectionName, KEY_BATTERY_LOW_THRESHOLD, Pair.Value.BatteryTray.LowBatteryThreshold);
+    if Pair.Value.BatteryTray.NotifyLowBattery >= 0 then
+      AIni.WriteInteger(SectionName, KEY_BATTERY_NOTIFY_LOW, Pair.Value.BatteryTray.NotifyLowBattery);
+    if Pair.Value.BatteryTray.NotifyFullyCharged >= 0 then
+      AIni.WriteInteger(SectionName, KEY_BATTERY_NOTIFY_FULL, Pair.Value.BatteryTray.NotifyFullyCharged);
     // Only save DeviceTypeOverride if it's set (not auto-detect)
     if Pair.Value.DeviceTypeOverride >= 0 then
       AIni.WriteInteger(SectionName, KEY_DEVICE_TYPE_OVERRIDE, Pair.Value.DeviceTypeOverride);

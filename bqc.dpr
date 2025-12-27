@@ -31,6 +31,7 @@ uses
   App.ConnectionConfigIntf in 'src\Infrastructure\App.ConnectionConfigIntf.pas',
   App.NotificationConfigIntf in 'src\Infrastructure\App.NotificationConfigIntf.pas',
   App.LogConfigIntf in 'src\Infrastructure\App.LogConfigIntf.pas',
+  App.BatteryTrayConfigIntf in 'src\Infrastructure\App.BatteryTrayConfigIntf.pas',
   App.ConfigInterfaces in 'src\Infrastructure\App.ConfigInterfaces.pas',
   App.ConfigSectionTypes in 'src\Infrastructure\App.ConfigSectionTypes.pas',
   App.ConfigSection.General in 'src\Infrastructure\App.ConfigSection.General.pas',
@@ -43,6 +44,7 @@ uses
   App.ConfigSection.Layout in 'src\Infrastructure\App.ConfigSection.Layout.pas',
   App.ConfigSection.Connection in 'src\Infrastructure\App.ConfigSection.Connection.pas',
   App.ConfigSection.Notification in 'src\Infrastructure\App.ConfigSection.Notification.pas',
+  App.ConfigSection.BatteryTray in 'src\Infrastructure\App.ConfigSection.BatteryTray.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',
   App.SettingsRepository in 'src\Infrastructure\App.SettingsRepository.pas',
   App.DeviceConfigRepository in 'src\Infrastructure\App.DeviceConfigRepository.pas',
@@ -58,6 +60,8 @@ uses
   UI.WindowPositioner in 'src\Presentation\UI.WindowPositioner.pas',
   UI.TrayManager in 'src\Presentation\UI.TrayManager.pas',
   UI.HotkeyManager in 'src\Presentation\UI.HotkeyManager.pas',
+  UI.BatteryIconRenderer in 'src\Presentation\UI.BatteryIconRenderer.pas',
+  UI.BatteryTrayManager in 'src\Presentation\UI.BatteryTrayManager.pas',
   SettingsForm in 'src\Presentation\SettingsForm.pas' {FormSettings};
 
 

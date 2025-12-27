@@ -35,6 +35,7 @@ type
     IConnectionSettingsView,
     ILoggingSettingsView,
     IDeviceSettingsView,
+    IBatteryTraySettingsView,
     ISettingsView)
     PanelBottom: TPanel;
     ButtonOK: TButton;
@@ -165,13 +166,6 @@ type
     ButtonRefreshDevices: TButton;
     PanelDeviceSettings: TPanel;
     GroupDeviceInfo: TGroupBox;
-    LabelDeviceAlias: TLabel;
-    EditDeviceAlias: TEdit;
-    LabelDeviceType: TLabel;
-    ComboDeviceType: TComboBox;
-    CheckDevicePinned: TCheckBox;
-    CheckDeviceHidden: TCheckBox;
-    CheckDeviceAutoConnect: TCheckBox;
     GroupDeviceConnection: TGroupBox;
     LabelDeviceTimeout: TLabel;
     LabelDeviceTimeoutMs: TLabel;
@@ -189,6 +183,43 @@ type
     ComboDeviceNotifyDisconnect: TComboBox;
     ComboDeviceNotifyFailed: TComboBox;
     ComboDeviceNotifyAuto: TComboBox;
+    GroupDeviceBatteryTray: TGroupBox;
+    LabelDeviceBatteryTrayIcon: TLabel;
+    LabelDeviceBatteryColor: TLabel;
+    LabelDeviceBatteryBackground: TLabel;
+    LabelDeviceBatteryThreshold: TLabel;
+    LabelDeviceBatteryNumeric: TLabel;
+    LabelDeviceBatteryNotifyLow: TLabel;
+    LabelDeviceBatteryNotifyFull: TLabel;
+    ComboDeviceBatteryTrayIcon: TComboBox;
+    ComboDeviceBatteryColorMode: TComboBox;
+    ComboDeviceBatteryBackgroundMode: TComboBox;
+    ComboDeviceBatteryNumeric: TComboBox;
+    ComboDeviceBatteryNotifyLow: TComboBox;
+    ComboDeviceBatteryNotifyFull: TComboBox;
+    EditDeviceBatteryThreshold: TEdit;
+    UpDownDeviceBatteryThreshold: TUpDown;
+    ShapeDeviceBatteryColor: TShape;
+    ShapeDeviceBatteryBackground: TShape;
+
+    { Tab: Battery Tray }
+    TabBatteryTray: TTabSheet;
+    GroupBatteryTrayGlobal: TGroupBox;
+    CheckShowBatteryTrayIcons: TCheckBox;
+    LabelDefaultBatteryColor: TLabel;
+    ShapeDefaultBatteryColor: TShape;
+    LabelDefaultBackgroundColor: TLabel;
+    ShapeDefaultBackgroundColor: TShape;
+    CheckTransparentBackground: TCheckBox;
+    LabelDefaultBatteryThreshold: TLabel;
+    EditDefaultBatteryThreshold: TEdit;
+    UpDownDefaultBatteryThreshold: TUpDown;
+    LabelDefaultBatteryThresholdPct: TLabel;
+    CheckShowNumericValue: TCheckBox;
+    CheckAutoColorOnLow: TCheckBox;
+    GroupBatteryNotifications: TGroupBox;
+    CheckDefaultNotifyLowBattery: TCheckBox;
+    CheckDefaultNotifyFullyCharged: TCheckBox;
 
     { Tab: Diagnostics }
     TabAdvanced: TTabSheet;
@@ -207,6 +238,14 @@ type
 
     { Common dialogs }
     ColorDialogConnected: TColorDialog;
+    GroupDeviceGeneral: TGroupBox;
+    LabelDeviceAlias: TLabel;
+    LabelDeviceType: TLabel;
+    EditDeviceAlias: TEdit;
+    ComboDeviceType: TComboBox;
+    CheckDevicePinned: TCheckBox;
+    CheckDeviceHidden: TCheckBox;
+    CheckDeviceAutoConnect: TCheckBox;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
@@ -245,6 +284,11 @@ type
     procedure ButtonResetLayoutClick(Sender: TObject);
     procedure HandleShapeColorMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
+    procedure HandleTransparentCheckboxClick(Sender: TObject);
+
+    { Device battery tray events }
+    procedure ComboDeviceBatteryColorModeChange(Sender: TObject);
+    procedure ComboDeviceBatteryBackgroundModeChange(Sender: TObject);
 
   private
     FPresenter: TSettingsPresenter;
@@ -254,6 +298,7 @@ type
     FAppConfig: IAppConfig;
     FLogConfig: ILogConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
+    FBatteryTrayConfig: IBatteryTrayConfig;
     FThemeManager: IThemeManager;
 
     { ISettingsView implementation - Dialog control }
@@ -288,6 +333,10 @@ type
     procedure SetDeviceSettings(const ASettings: TDeviceViewSettings);
     procedure ClearDeviceSettings;
 
+    { IBatteryTraySettingsView implementation }
+    function GetBatteryTraySettings: TBatteryTrayViewSettings;
+    procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
+
     { UI helpers }
     procedure InitUpDownLimits;
     procedure InitDeviceTypeCombo;
@@ -304,6 +353,7 @@ type
       AAppConfig: IAppConfig;
       ALogConfig: ILogConfig;
       ADeviceConfigProvider: IDeviceConfigProvider;
+      ABatteryTrayConfig: IBatteryTrayConfig;
       AThemeManager: IThemeManager
     );
     function GetOnSettingsApplied: TNotifyEvent;
@@ -342,12 +392,14 @@ procedure TFormSettings.Setup(
   AAppConfig: IAppConfig;
   ALogConfig: ILogConfig;
   ADeviceConfigProvider: IDeviceConfigProvider;
+  ABatteryTrayConfig: IBatteryTrayConfig;
   AThemeManager: IThemeManager
 );
 begin
   FAppConfig := AAppConfig;
   FLogConfig := ALogConfig;
   FDeviceConfigProvider := ADeviceConfigProvider;
+  FBatteryTrayConfig := ABatteryTrayConfig;
   FThemeManager := AThemeManager;
 
   // Create presenter with injected dependencies
@@ -355,7 +407,8 @@ begin
     Self as ISettingsView,
     Self as IDeviceSettingsView,
     FAppConfig,
-    FDeviceConfigProvider
+    FDeviceConfigProvider,
+    FBatteryTrayConfig
   );
 end;
 
@@ -622,6 +675,25 @@ begin
   Result.NotifyDisconnectIndex := ComboDeviceNotifyDisconnect.ItemIndex;
   Result.NotifyFailedIndex := ComboDeviceNotifyFailed.ItemIndex;
   Result.NotifyAutoIndex := ComboDeviceNotifyAuto.ItemIndex;
+  // Battery tray per-device settings
+  Result.BatteryTrayIconIndex := ComboDeviceBatteryTrayIcon.ItemIndex;
+  // Icon color: -1 = Default, otherwise use shape color
+  if ComboDeviceBatteryColorMode.ItemIndex = 0 then  // Default
+    Result.BatteryIconColor := -1
+  else
+    Result.BatteryIconColor := Integer(ShapeDeviceBatteryColor.Brush.Color);
+  // Background: -1 = Default, -2 = Transparent, otherwise use shape color
+  case ComboDeviceBatteryBackgroundMode.ItemIndex of
+    0: Result.BatteryBackgroundColor := -1;  // Default
+    1: Result.BatteryBackgroundColor := Integer(ShapeDeviceBatteryBackground.Brush.Color);  // Custom
+    2: Result.BatteryBackgroundColor := -2;  // Transparent
+  else
+    Result.BatteryBackgroundColor := -1;
+  end;
+  Result.BatteryShowNumericIndex := ComboDeviceBatteryNumeric.ItemIndex;
+  Result.BatteryThreshold := UpDownDeviceBatteryThreshold.Position;
+  Result.BatteryNotifyLowIndex := ComboDeviceBatteryNotifyLow.ItemIndex;
+  Result.BatteryNotifyFullIndex := ComboDeviceBatteryNotifyFull.ItemIndex;
 end;
 
 procedure TFormSettings.SetDeviceSettings(const ASettings: TDeviceViewSettings);
@@ -637,6 +709,42 @@ begin
   ComboDeviceNotifyDisconnect.ItemIndex := ASettings.NotifyDisconnectIndex;
   ComboDeviceNotifyFailed.ItemIndex := ASettings.NotifyFailedIndex;
   ComboDeviceNotifyAuto.ItemIndex := ASettings.NotifyAutoIndex;
+  // Battery tray per-device settings
+  ComboDeviceBatteryTrayIcon.ItemIndex := ASettings.BatteryTrayIconIndex;
+  // Icon color: -1 = Default, else Custom with color
+  if ASettings.BatteryIconColor < 0 then
+  begin
+    ComboDeviceBatteryColorMode.ItemIndex := 0;  // Default
+    ShapeDeviceBatteryColor.Brush.Color := clGreen;  // Show default color
+    ShapeDeviceBatteryColor.Visible := False;
+  end
+  else
+  begin
+    ComboDeviceBatteryColorMode.ItemIndex := 1;  // Custom
+    ShapeDeviceBatteryColor.Brush.Color := TColor(ASettings.BatteryIconColor);
+    ShapeDeviceBatteryColor.Visible := True;
+  end;
+  // Background: -1 = Default, -2 = Transparent, else Custom with color
+  if ASettings.BatteryBackgroundColor = -2 then
+  begin
+    ComboDeviceBatteryBackgroundMode.ItemIndex := 2;  // Transparent
+    ShapeDeviceBatteryBackground.Visible := False;
+  end
+  else if ASettings.BatteryBackgroundColor < 0 then
+  begin
+    ComboDeviceBatteryBackgroundMode.ItemIndex := 0;  // Default
+    ShapeDeviceBatteryBackground.Visible := False;
+  end
+  else
+  begin
+    ComboDeviceBatteryBackgroundMode.ItemIndex := 1;  // Custom
+    ShapeDeviceBatteryBackground.Brush.Color := TColor(ASettings.BatteryBackgroundColor);
+    ShapeDeviceBatteryBackground.Visible := True;
+  end;
+  ComboDeviceBatteryNumeric.ItemIndex := ASettings.BatteryShowNumericIndex;
+  UpDownDeviceBatteryThreshold.Position := ASettings.BatteryThreshold;
+  ComboDeviceBatteryNotifyLow.ItemIndex := ASettings.BatteryNotifyLowIndex;
+  ComboDeviceBatteryNotifyFull.ItemIndex := ASettings.BatteryNotifyFullIndex;
 end;
 
 procedure TFormSettings.ClearDeviceSettings;
@@ -652,6 +760,56 @@ begin
   ComboDeviceNotifyDisconnect.ItemIndex := 0;
   ComboDeviceNotifyFailed.ItemIndex := 0;
   ComboDeviceNotifyAuto.ItemIndex := 0;
+  // Battery tray per-device settings
+  ComboDeviceBatteryTrayIcon.ItemIndex := 0;
+  ComboDeviceBatteryColorMode.ItemIndex := 0;  // Default
+  ShapeDeviceBatteryColor.Brush.Color := clGreen;
+  ShapeDeviceBatteryColor.Visible := False;
+  ComboDeviceBatteryBackgroundMode.ItemIndex := 0;  // Default
+  ShapeDeviceBatteryBackground.Brush.Color := clWhite;
+  ShapeDeviceBatteryBackground.Visible := False;
+  ComboDeviceBatteryNumeric.ItemIndex := 0;
+  UpDownDeviceBatteryThreshold.Position := -1;
+  ComboDeviceBatteryNotifyLow.ItemIndex := 0;
+  ComboDeviceBatteryNotifyFull.ItemIndex := 0;
+end;
+
+{ IBatteryTraySettingsView implementation }
+
+function TFormSettings.GetBatteryTraySettings: TBatteryTrayViewSettings;
+begin
+  Result.ShowBatteryTrayIcons := CheckShowBatteryTrayIcons.Checked;
+  Result.DefaultIconColor := ShapeDefaultBatteryColor.Brush.Color;
+  // Background color: transparent if checkbox is checked, otherwise use shape color
+  if CheckTransparentBackground.Checked then
+    Result.DefaultBackgroundColor := TColor($1FFFFFFF)  // Transparent
+  else
+    Result.DefaultBackgroundColor := ShapeDefaultBackgroundColor.Brush.Color;
+  Result.DefaultShowNumericValue := CheckShowNumericValue.Checked;
+  Result.DefaultLowBatteryThreshold := UpDownDefaultBatteryThreshold.Position;
+  Result.DefaultNotifyLowBattery := CheckDefaultNotifyLowBattery.Checked;
+  Result.DefaultNotifyFullyCharged := CheckDefaultNotifyFullyCharged.Checked;
+end;
+
+procedure TFormSettings.SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
+var
+  IsTransparent: Boolean;
+begin
+  CheckShowBatteryTrayIcons.Checked := ASettings.ShowBatteryTrayIcons;
+  ShapeDefaultBatteryColor.Brush.Color := ASettings.DefaultIconColor;
+  // Background color: check if transparent
+  IsTransparent := (ASettings.DefaultBackgroundColor = clNone) or
+                   (ASettings.DefaultBackgroundColor > $1000000);
+  CheckTransparentBackground.Checked := IsTransparent;
+  if IsTransparent then
+    ShapeDefaultBackgroundColor.Brush.Color := clWhite  // Show white when transparent
+  else
+    ShapeDefaultBackgroundColor.Brush.Color := ASettings.DefaultBackgroundColor;
+  ShapeDefaultBackgroundColor.Enabled := not IsTransparent;
+  CheckShowNumericValue.Checked := ASettings.DefaultShowNumericValue;
+  UpDownDefaultBatteryThreshold.Position := ASettings.DefaultLowBatteryThreshold;
+  CheckDefaultNotifyLowBattery.Checked := ASettings.DefaultNotifyLowBattery;
+  CheckDefaultNotifyFullyCharged.Checked := ASettings.DefaultNotifyFullyCharged;
 end;
 
 { UI helpers - Initialization }
@@ -795,6 +953,25 @@ begin
   ComboDeviceNotifyDisconnect.OnChange := HandleSettingChanged;
   ComboDeviceNotifyFailed.OnChange := HandleSettingChanged;
   ComboDeviceNotifyAuto.OnChange := HandleSettingChanged;
+  // Device battery tray settings
+  ComboDeviceBatteryTrayIcon.OnChange := HandleSettingChanged;
+  ShapeDeviceBatteryColor.OnMouseDown := HandleShapeColorMouseDown;
+  ShapeDeviceBatteryBackground.OnMouseDown := HandleShapeColorMouseDown;
+  ComboDeviceBatteryNumeric.OnChange := HandleSettingChanged;
+  EditDeviceBatteryThreshold.OnChange := HandleSettingChanged;
+  ComboDeviceBatteryNotifyLow.OnChange := HandleSettingChanged;
+  ComboDeviceBatteryNotifyFull.OnChange := HandleSettingChanged;
+
+  // Tab: Battery Tray (global)
+  CheckShowBatteryTrayIcons.OnClick := HandleSettingChanged;
+  ShapeDefaultBatteryColor.OnMouseDown := HandleShapeColorMouseDown;
+  ShapeDefaultBackgroundColor.OnMouseDown := HandleShapeColorMouseDown;
+  CheckTransparentBackground.OnClick := HandleTransparentCheckboxClick;
+  EditDefaultBatteryThreshold.OnChange := HandleSettingChanged;
+  CheckShowNumericValue.OnClick := HandleSettingChanged;
+  CheckAutoColorOnLow.OnClick := HandleSettingChanged;
+  CheckDefaultNotifyLowBattery.OnClick := HandleSettingChanged;
+  CheckDefaultNotifyFullyCharged.OnClick := HandleSettingChanged;
 
   // Tab: Advanced
   CheckLogEnabled.OnClick := HandleSettingChanged;
@@ -985,6 +1162,17 @@ begin
   if not (Sender is TShape) then
     Exit;
   Shape := TShape(Sender);
+
+  // Special handling for background color shape: uncheck transparent when clicked
+  if Shape = ShapeDefaultBackgroundColor then
+  begin
+    if CheckTransparentBackground.Checked then
+    begin
+      CheckTransparentBackground.Checked := False;
+      Shape.Enabled := True;
+    end;
+  end;
+
   ColorDialogConnected.Color := Shape.Brush.Color;
   if ColorDialogConnected.Execute then
   begin
@@ -993,9 +1181,46 @@ begin
   end;
 end;
 
+procedure TFormSettings.HandleTransparentCheckboxClick(Sender: TObject);
+begin
+  // Enable/disable the background color shape based on checkbox state
+  ShapeDefaultBackgroundColor.Enabled := not CheckTransparentBackground.Checked;
+  if CheckTransparentBackground.Checked then
+    ShapeDefaultBackgroundColor.Brush.Color := clWhite;
+  FPresenter.MarkModified;
+end;
+
 procedure TFormSettings.ButtonResetLayoutClick(Sender: TObject);
 begin
   FPresenter.OnResetLayoutClicked;
+end;
+
+procedure TFormSettings.ComboDeviceBatteryColorModeChange(Sender: TObject);
+begin
+  // Show color picker only when "Custom" is selected
+  ShapeDeviceBatteryColor.Visible := (ComboDeviceBatteryColorMode.ItemIndex = 1);
+  if ShapeDeviceBatteryColor.Visible and (ShapeDeviceBatteryColor.Brush.Color = clGreen) then
+  begin
+    // Open color dialog immediately when switching to Custom
+    ColorDialogConnected.Color := clGreen;
+    if ColorDialogConnected.Execute then
+      ShapeDeviceBatteryColor.Brush.Color := ColorDialogConnected.Color;
+  end;
+  FPresenter.MarkModified;
+end;
+
+procedure TFormSettings.ComboDeviceBatteryBackgroundModeChange(Sender: TObject);
+begin
+  // Show color picker only when "Custom" is selected (index 1)
+  ShapeDeviceBatteryBackground.Visible := (ComboDeviceBatteryBackgroundMode.ItemIndex = 1);
+  if ShapeDeviceBatteryBackground.Visible and (ShapeDeviceBatteryBackground.Brush.Color = clWhite) then
+  begin
+    // Open color dialog immediately when switching to Custom
+    ColorDialogConnected.Color := clWhite;
+    if ColorDialogConnected.Execute then
+      ShapeDeviceBatteryBackground.Brush.Color := ColorDialogConnected.Color;
+  end;
+  FPresenter.MarkModified;
 end;
 
 end.

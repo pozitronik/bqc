@@ -31,7 +31,8 @@ uses
   App.AppearanceConfigIntf,
   App.ConnectionConfigIntf,
   App.NotificationConfigIntf,
-  App.LogConfigIntf;
+  App.LogConfigIntf,
+  App.BatteryTrayConfigIntf;
 
 type
   // Re-export enums for backwards compatibility
@@ -44,6 +45,7 @@ type
 
   // Re-export device config types for backwards compatibility
   TDeviceNotificationConfig = App.DeviceConfigTypes.TDeviceNotificationConfig;
+  TDeviceBatteryConfig = App.DeviceConfigTypes.TDeviceBatteryConfig;
   TDeviceConfig = App.DeviceConfigTypes.TDeviceConfig;
 
   // Re-export interfaces for backwards compatibility
@@ -52,6 +54,7 @@ type
   IConnectionConfig = App.ConnectionConfigIntf.IConnectionConfig;
   IPollingConfig = App.ConnectionConfigIntf.IPollingConfig;
   INotificationConfig = App.NotificationConfigIntf.INotificationConfig;
+  IBatteryTrayConfig = App.BatteryTrayConfigIntf.IBatteryTrayConfig;
   ILogConfig = App.LogConfigIntf.ILogConfig;
   ILogger = App.LogConfigIntf.ILogger;
 
@@ -354,6 +357,7 @@ type
     function AsLayoutConfig: ILayoutConfig;
     function AsConnectionConfig: IConnectionConfig;
     function AsNotificationConfig: INotificationConfig;
+    function AsBatteryTrayConfig: IBatteryTrayConfig;
     function AsDeviceConfigProvider: IDeviceConfigProvider;
 
     property ConfigPath: string read GetConfigPath;
