@@ -15,7 +15,8 @@ uses
   Winapi.Windows,
   Winapi.Messages,
   System.SysUtils,
-  System.Classes;
+  System.Classes,
+  System.SyncObjs;
 
 const
   /// <summary>
@@ -130,17 +131,46 @@ type
 var
   // Global state for low-level keyboard hook
   // Only one hotkey manager can use the low-level hook at a time
+  // Using Integer types for TInterlocked compatibility
   GKeyboardHook: HHOOK = 0;
-  GHotkeyModifiers: Cardinal = 0;
-  GHotkeyVirtualKey: Cardinal = 0;
-  GHotkeyFormHandle: HWND = 0;
-  GCurrentModifiers: Cardinal = 0;
+  GHotkeyModifiers: Integer = 0;
+  GHotkeyVirtualKey: Integer = 0;
+  GHotkeyFormHandle: NativeInt = 0;  // NativeInt for HWND on both 32/64-bit
+  GCurrentModifiers: Integer = 0;
+
+/// <summary>
+/// Atomically sets bits in Target using compare-exchange loop.
+/// </summary>
+procedure AtomicOr(var Target: Integer; Mask: Integer);
+var
+  OldValue, NewValue: Integer;
+begin
+  repeat
+    OldValue := TInterlocked.CompareExchange(Target, 0, 0); // Atomic read
+    NewValue := OldValue or Mask;
+  until TInterlocked.CompareExchange(Target, NewValue, OldValue) = OldValue;
+end;
+
+/// <summary>
+/// Atomically clears bits in Target using compare-exchange loop.
+/// </summary>
+procedure AtomicAnd(var Target: Integer; Mask: Integer);
+var
+  OldValue, NewValue: Integer;
+begin
+  repeat
+    OldValue := TInterlocked.CompareExchange(Target, 0, 0); // Atomic read
+    NewValue := OldValue and Mask;
+  until TInterlocked.CompareExchange(Target, NewValue, OldValue) = OldValue;
+end;
 
 function LowLevelKeyboardProc(nCode: Integer; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
 var
   KbdStruct: PKBDLLHOOKSTRUCT;
   VK: Cardinal;
   IsKeyDown: Boolean;
+  LocalVirtualKey, LocalModifiers, LocalCurrentMods: Integer;
+  LocalFormHandle: NativeInt;
 begin
   if nCode < 0 then
   begin
@@ -152,38 +182,44 @@ begin
   VK := KbdStruct^.vkCode;
   IsKeyDown := (KbdStruct^.flags and LLKHF_UP) = 0;
 
-  // Track modifier key states
+  // Track modifier key states using atomic operations
   case VK of
     VK_LWIN, VK_RWIN:
       if IsKeyDown then
-        GCurrentModifiers := GCurrentModifiers or MOD_WIN
+        AtomicOr(GCurrentModifiers, MOD_WIN)
       else
-        GCurrentModifiers := GCurrentModifiers and (not MOD_WIN);
+        AtomicAnd(GCurrentModifiers, not MOD_WIN);
     VK_LCONTROL, VK_RCONTROL:
       if IsKeyDown then
-        GCurrentModifiers := GCurrentModifiers or MOD_CONTROL
+        AtomicOr(GCurrentModifiers, MOD_CONTROL)
       else
-        GCurrentModifiers := GCurrentModifiers and (not MOD_CONTROL);
+        AtomicAnd(GCurrentModifiers, not MOD_CONTROL);
     VK_LMENU, VK_RMENU:
       if IsKeyDown then
-        GCurrentModifiers := GCurrentModifiers or MOD_ALT
+        AtomicOr(GCurrentModifiers, MOD_ALT)
       else
-        GCurrentModifiers := GCurrentModifiers and (not MOD_ALT);
+        AtomicAnd(GCurrentModifiers, not MOD_ALT);
     VK_LSHIFT, VK_RSHIFT:
       if IsKeyDown then
-        GCurrentModifiers := GCurrentModifiers or MOD_SHIFT
+        AtomicOr(GCurrentModifiers, MOD_SHIFT)
       else
-        GCurrentModifiers := GCurrentModifiers and (not MOD_SHIFT);
+        AtomicAnd(GCurrentModifiers, not MOD_SHIFT);
   end;
 
+  // Atomic reads of configuration - ensures we see consistent values
+  LocalVirtualKey := TInterlocked.CompareExchange(GHotkeyVirtualKey, 0, 0);
+  LocalModifiers := TInterlocked.CompareExchange(GHotkeyModifiers, 0, 0);
+  LocalCurrentMods := TInterlocked.CompareExchange(GCurrentModifiers, 0, 0);
+  LocalFormHandle := TInterlocked.Read(GHotkeyFormHandle);
+
   // Check if our hotkey is triggered (on key down, not modifiers themselves)
-  if IsKeyDown and (GHotkeyVirtualKey <> 0) then
+  if IsKeyDown and (LocalVirtualKey <> 0) then
   begin
     // Check if this is the main key (not a modifier) and modifiers match
-    if (VK = GHotkeyVirtualKey) and (GCurrentModifiers = GHotkeyModifiers) then
+    if (Integer(VK) = LocalVirtualKey) and (LocalCurrentMods = LocalModifiers) then
     begin
       // Post message to form and consume the key
-      PostMessage(GHotkeyFormHandle, WM_HOTKEY_DETECTED, 0, 0);
+      PostMessage(HWND(LocalFormHandle), WM_HOTKEY_DETECTED, 0, 0);
       Result := 1;  // Consume the key, don't pass to system
       Exit;
     end;
@@ -423,10 +459,11 @@ begin
   if AUseLowLevelHook then
   begin
     // Use low-level keyboard hook (can override system hotkeys)
-    GHotkeyModifiers := Modifiers;
-    GHotkeyVirtualKey := VirtualKey;
-    GHotkeyFormHandle := AWindowHandle;
-    GCurrentModifiers := 0;
+    // Use atomic writes to ensure hook thread sees consistent values
+    TInterlocked.Exchange(GHotkeyModifiers, Integer(Modifiers));
+    TInterlocked.Exchange(GHotkeyVirtualKey, Integer(VirtualKey));
+    TInterlocked.Exchange(GHotkeyFormHandle, NativeInt(AWindowHandle));
+    TInterlocked.Exchange(GCurrentModifiers, 0);
 
     GKeyboardHook := SetWindowsHookEx(WH_KEYBOARD_LL, @LowLevelKeyboardProc, HInstance, 0);
     if GKeyboardHook <> 0 then
@@ -468,9 +505,10 @@ begin
       begin
         UnhookWindowsHookEx(GKeyboardHook);
         GKeyboardHook := 0;
-        GHotkeyModifiers := 0;
-        GHotkeyVirtualKey := 0;
-        GHotkeyFormHandle := 0;
+        // Use atomic writes to ensure hook thread (if still running briefly) sees zeros
+        TInterlocked.Exchange(GHotkeyModifiers, 0);
+        TInterlocked.Exchange(GHotkeyVirtualKey, 0);
+        TInterlocked.Exchange(GHotkeyFormHandle, 0);
         LogInfo('Unregister: Uninstalled low-level hook', ClassName);
       end;
     end
