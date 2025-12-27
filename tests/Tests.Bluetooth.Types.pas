@@ -13,7 +13,8 @@ interface
 
 uses
   DUnitX.TestFramework,
-  Bluetooth.Types;
+  Bluetooth.Types,
+  Bluetooth.Interfaces;
 
 type
   /// <summary>
@@ -161,6 +162,24 @@ type
     procedure WithName_EmptyString_SetsEmptyName;
     [Test]
     procedure WithName_UnicodeCharacters_PreservesUnicode;
+
+    // Edge case tests
+    [Test]
+    procedure Create_WithEmptyName_Succeeds;
+    [Test]
+    procedure Create_WithZeroAddress_Succeeds;
+    [Test]
+    procedure Create_WithMaxDateTime_Succeeds;
+    [Test]
+    procedure WithName_VeryLongString_Handles1000Chars;
+    [Test]
+    procedure WithName_SpecialCharacters_HandlesControlChars;
+    [Test]
+    procedure WithConnectionState_AllStates_ChainMultipleCalls;
+    [Test]
+    procedure AddressString_VerifyUppercaseFormat;
+    [Test]
+    procedure AddressString_VerifyColonPositions;
   end;
 
   /// <summary>
@@ -179,6 +198,14 @@ type
     procedure EBluetoothAdapterNotFound_IsBluetoothException;
     [Test]
     procedure EBluetoothDeviceError_IsBluetoothException;
+
+    // Edge case tests
+    [Test]
+    procedure EBluetoothException_EmptyMessage_Handles;
+    [Test]
+    procedure EBluetoothException_VeryLongMessage_Handles;
+    [Test]
+    procedure EBluetoothException_MaxErrorCode_Handles;
   end;
 
   /// <summary>
@@ -219,6 +246,22 @@ type
     procedure Create_NegativeLevel_ClampsToZero;
     [Test]
     procedure Create_OverHundred_ClampsToHundred;
+
+    // Edge case tests
+    [Test]
+    procedure Create_BoundaryValueMinus1_ClampsCorrectly;
+    [Test]
+    procedure Create_BoundaryValue101_ClampsTo100;
+    [Test]
+    procedure Create_ExtremeValueMinus1000_Handles;
+    [Test]
+    procedure Create_ExtremeValue1000_Handles;
+    [Test]
+    procedure NotSupported_VerifyExactLevel_IsMinus1;
+    [Test]
+    procedure Unknown_VerifyExactLevel_IsMinus1;
+    [Test]
+    procedure HasLevel_BoundaryBetween0And1_ReturnsTrue;
   end;
 
   /// <summary>
@@ -255,12 +298,52 @@ type
     procedure FormatAddressAsMAC_SingleByte_ReturnsCorrectFormat;
     [Test]
     procedure FormatAddressAsMAC_MatchesAddressString;
+
+    // Edge case tests
+    [Test]
+    procedure UInt64ToBluetoothAddress_AllOnes_MaxValue;
+    [Test]
+    procedure BluetoothAddressToUInt64_AllFF_Returns48BitMax;
+    [Test]
+    procedure FormatAddressAsMAC_LeadingZeros_PadsCorrectly;
+  end;
+
+  /// <summary>
+  /// Test fixture for TConnectionResult record.
+  /// Tests factory methods and result handling.
+  /// </summary>
+  [TestFixture]
+  TConnectionResultTests = class
+  public
+    [Test]
+    procedure Ok_ReturnsSuccessTrue;
+    [Test]
+    procedure Ok_ReturnsErrorCodeZero;
+    [Test]
+    procedure Fail_ReturnsSuccessFalse;
+    [Test]
+    procedure Fail_PreservesErrorCode;
+    [Test]
+    procedure Fail_WithZeroErrorCode_EdgeCase;
+  end;
+
+  /// <summary>
+  /// Additional edge case tests for DetermineDeviceType function.
+  /// </summary>
+  [TestFixture]
+  TDetermineDeviceTypeEdgeCaseTests = class
+  public
+    [Test]
+    procedure DetermineDeviceType_AllBitsSet_FFFFFFFF;
+    [Test]
+    procedure DetermineDeviceType_MinorClassBoundary;
   end;
 
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  System.DateUtils;
 
 { TDetermineDeviceTypeTests }
 
@@ -731,6 +814,142 @@ begin
   Assert.AreEqual('Test Device - russkiy', Updated.Name);
 end;
 
+procedure TBluetoothDeviceInfoTests.Create_WithEmptyName_Succeeds;
+var
+  Address: TBluetoothAddress;
+  Device: TBluetoothDeviceInfo;
+begin
+  FillChar(Address, SizeOf(Address), 0);
+  Device := TBluetoothDeviceInfo.Create(
+    Address, $123456789ABC, '', btUnknown, csDisconnected,
+    False, False, 0, 0, 0
+  );
+
+  Assert.AreEqual('', Device.Name);
+  Assert.AreEqual(UInt64($123456789ABC), Device.AddressInt);
+end;
+
+procedure TBluetoothDeviceInfoTests.Create_WithZeroAddress_Succeeds;
+var
+  Address: TBluetoothAddress;
+  Device: TBluetoothDeviceInfo;
+begin
+  FillChar(Address, SizeOf(Address), 0);
+  Device := TBluetoothDeviceInfo.Create(
+    Address, 0, 'Zero Address Device', btUnknown, csDisconnected,
+    False, False, 0, 0, 0
+  );
+
+  Assert.AreEqual(UInt64(0), Device.AddressInt);
+  Assert.AreEqual('00:00:00:00:00:00', Device.AddressString);
+end;
+
+procedure TBluetoothDeviceInfoTests.Create_WithMaxDateTime_Succeeds;
+var
+  Address: TBluetoothAddress;
+  Device: TBluetoothDeviceInfo;
+  MaxDate: TDateTime;
+begin
+  FillChar(Address, SizeOf(Address), 0);
+  MaxDate := MaxDateTime;
+
+  Device := TBluetoothDeviceInfo.Create(
+    Address, 0, 'Max Date Device', btUnknown, csDisconnected,
+    False, False, 0, MaxDate, MaxDate
+  );
+
+  Assert.AreEqual(MaxDate, Device.LastSeen);
+  Assert.AreEqual(MaxDate, Device.LastUsed);
+end;
+
+procedure TBluetoothDeviceInfoTests.WithName_VeryLongString_Handles1000Chars;
+var
+  Original, Updated: TBluetoothDeviceInfo;
+  LongName: string;
+  I: Integer;
+begin
+  Original := CreateTestDevice(btAudioOutput, csDisconnected);
+
+  // Create a 1000 character string
+  SetLength(LongName, 1000);
+  for I := 1 to 1000 do
+    LongName[I] := Char(Ord('A') + (I mod 26));
+
+  Updated := Original.WithName(LongName);
+
+  Assert.AreEqual(1000, Length(Updated.Name));
+  Assert.AreEqual(LongName, Updated.Name);
+end;
+
+procedure TBluetoothDeviceInfoTests.WithName_SpecialCharacters_HandlesControlChars;
+var
+  Original, Updated: TBluetoothDeviceInfo;
+  SpecialName: string;
+begin
+  Original := CreateTestDevice(btAudioOutput, csDisconnected);
+
+  // Create string with control characters: NUL, TAB, CR, LF
+  SpecialName := 'Test' + #0 + 'With' + #9 + 'Control' + #13#10 + 'Chars';
+
+  Updated := Original.WithName(SpecialName);
+
+  Assert.AreEqual(SpecialName, Updated.Name);
+  Assert.IsTrue(Pos(#0, Updated.Name) > 0, 'NUL character should be preserved');
+  Assert.IsTrue(Pos(#9, Updated.Name) > 0, 'TAB character should be preserved');
+  Assert.IsTrue(Pos(#13, Updated.Name) > 0, 'CR character should be preserved');
+  Assert.IsTrue(Pos(#10, Updated.Name) > 0, 'LF character should be preserved');
+end;
+
+procedure TBluetoothDeviceInfoTests.WithConnectionState_AllStates_ChainMultipleCalls;
+var
+  Original, Updated: TBluetoothDeviceInfo;
+begin
+  Original := CreateTestDevice(btAudioOutput, csDisconnected);
+
+  // Chain multiple state changes
+  Updated := Original
+    .WithConnectionState(csConnecting)
+    .WithConnectionState(csConnected)
+    .WithConnectionState(csDisconnecting)
+    .WithConnectionState(csDisconnected);
+
+  Assert.AreEqual(csDisconnected, Updated.ConnectionState);
+  // Original should remain unchanged
+  Assert.AreEqual(csDisconnected, Original.ConnectionState);
+end;
+
+procedure TBluetoothDeviceInfoTests.AddressString_VerifyUppercaseFormat;
+var
+  Device: TBluetoothDeviceInfo;
+  AddressStr: string;
+  I: Integer;
+begin
+  Device := CreateTestDevice(btAudioOutput, csConnected);
+  AddressStr := Device.AddressString;
+
+  // Verify all hex characters are uppercase
+  for I := 1 to Length(AddressStr) do
+    if CharInSet(AddressStr[I], ['a'..'f']) then
+      Assert.Fail('Address should use uppercase hex: ' + AddressStr);
+end;
+
+procedure TBluetoothDeviceInfoTests.AddressString_VerifyColonPositions;
+var
+  Device: TBluetoothDeviceInfo;
+  AddressStr: string;
+begin
+  Device := CreateTestDevice(btAudioOutput, csConnected);
+  AddressStr := Device.AddressString;
+
+  // Verify format: XX:XX:XX:XX:XX:XX (17 chars total)
+  Assert.AreEqual(17, Length(AddressStr), 'Address string should be 17 characters');
+  Assert.AreEqual(':', AddressStr[3], 'Colon at position 3');
+  Assert.AreEqual(':', AddressStr[6], 'Colon at position 6');
+  Assert.AreEqual(':', AddressStr[9], 'Colon at position 9');
+  Assert.AreEqual(':', AddressStr[12], 'Colon at position 12');
+  Assert.AreEqual(':', AddressStr[15], 'Colon at position 15');
+end;
+
 { TBluetoothExceptionTests }
 
 procedure TBluetoothExceptionTests.EBluetoothException_StoresMessage;
@@ -788,6 +1007,53 @@ begin
   E := EBluetoothDeviceError.Create('Device error', 0);
   try
     Assert.IsTrue(E is EBluetoothException);
+  finally
+    E.Free;
+  end;
+end;
+
+procedure TBluetoothExceptionTests.EBluetoothException_EmptyMessage_Handles;
+var
+  E: EBluetoothException;
+begin
+  E := EBluetoothException.Create('', 0);
+  try
+    Assert.AreEqual('', E.Message);
+    Assert.AreEqual(Cardinal(0), E.ErrorCode);
+  finally
+    E.Free;
+  end;
+end;
+
+procedure TBluetoothExceptionTests.EBluetoothException_VeryLongMessage_Handles;
+var
+  E: EBluetoothException;
+  LongMessage: string;
+  I: Integer;
+begin
+  // Create a 10000 character message
+  SetLength(LongMessage, 10000);
+  for I := 1 to 10000 do
+    LongMessage[I] := Char(Ord('A') + (I mod 26));
+
+  E := EBluetoothException.Create(LongMessage, 42);
+  try
+    Assert.AreEqual(10000, Length(E.Message));
+    Assert.AreEqual(LongMessage, E.Message);
+    Assert.AreEqual(Cardinal(42), E.ErrorCode);
+  finally
+    E.Free;
+  end;
+end;
+
+procedure TBluetoothExceptionTests.EBluetoothException_MaxErrorCode_Handles;
+var
+  E: EBluetoothException;
+begin
+  // Test with maximum Cardinal value ($FFFFFFFF)
+  E := EBluetoothException.Create('Max error code test', $FFFFFFFF);
+  try
+    Assert.AreEqual(Cardinal($FFFFFFFF), E.ErrorCode);
   finally
     E.Free;
   end;
@@ -899,6 +1165,78 @@ var
 begin
   Status := TBatteryStatus.Create(150);
   Assert.AreEqual(100, Status.Level);
+end;
+
+procedure TBatteryStatusTests.Create_BoundaryValueMinus1_ClampsCorrectly;
+var
+  Status: TBatteryStatus;
+begin
+  // -1 should be clamped to 0
+  Status := TBatteryStatus.Create(-1);
+  Assert.AreEqual(0, Status.Level);
+  Assert.IsTrue(Status.IsSupported);
+  Assert.IsTrue(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Create_BoundaryValue101_ClampsTo100;
+var
+  Status: TBatteryStatus;
+begin
+  // 101 should be clamped to 100
+  Status := TBatteryStatus.Create(101);
+  Assert.AreEqual(100, Status.Level);
+  Assert.IsTrue(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Create_ExtremeValueMinus1000_Handles;
+var
+  Status: TBatteryStatus;
+begin
+  // Extreme negative value should be clamped to 0
+  Status := TBatteryStatus.Create(-1000);
+  Assert.AreEqual(0, Status.Level);
+  Assert.IsTrue(Status.IsSupported);
+  Assert.IsTrue(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Create_ExtremeValue1000_Handles;
+var
+  Status: TBatteryStatus;
+begin
+  // Extreme positive value should be clamped to 100
+  Status := TBatteryStatus.Create(1000);
+  Assert.AreEqual(100, Status.Level);
+  Assert.IsTrue(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.NotSupported_VerifyExactLevel_IsMinus1;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.NotSupported;
+  Assert.AreEqual(-1, Status.Level);
+end;
+
+procedure TBatteryStatusTests.Unknown_VerifyExactLevel_IsMinus1;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Unknown;
+  Assert.AreEqual(-1, Status.Level);
+end;
+
+procedure TBatteryStatusTests.HasLevel_BoundaryBetween0And1_ReturnsTrue;
+var
+  Status0, Status1: TBatteryStatus;
+begin
+  // Test boundary values 0 and 1 - both should have valid levels
+  Status0 := TBatteryStatus.Create(0);
+  Status1 := TBatteryStatus.Create(1);
+
+  Assert.IsTrue(Status0.HasLevel, 'Level 0 should be valid');
+  Assert.IsTrue(Status1.HasLevel, 'Level 1 should be valid');
+  Assert.AreEqual(0, Status0.Level);
+  Assert.AreEqual(1, Status1.Level);
 end;
 
 { TAddressConversionTests }
@@ -1062,11 +1400,131 @@ begin
     'FormatAddressAsMAC should produce same result as TBluetoothDeviceInfo.AddressString');
 end;
 
+procedure TAddressConversionTests.UInt64ToBluetoothAddress_AllOnes_MaxValue;
+var
+  Address: TBluetoothAddress;
+begin
+  // Test with maximum 48-bit value (all ones)
+  Address := UInt64ToBluetoothAddress($FFFFFFFFFFFF);
+
+  Assert.AreEqual(Byte($FF), Address[0]);
+  Assert.AreEqual(Byte($FF), Address[1]);
+  Assert.AreEqual(Byte($FF), Address[2]);
+  Assert.AreEqual(Byte($FF), Address[3]);
+  Assert.AreEqual(Byte($FF), Address[4]);
+  Assert.AreEqual(Byte($FF), Address[5]);
+end;
+
+procedure TAddressConversionTests.BluetoothAddressToUInt64_AllFF_Returns48BitMax;
+var
+  Address: TBluetoothAddress;
+  Value: UInt64;
+begin
+  // All bytes set to $FF
+  FillChar(Address, SizeOf(Address), $FF);
+  Value := BluetoothAddressToUInt64(Address);
+
+  // Should return $FFFFFFFFFFFF (48 bits all set)
+  Assert.AreEqual(UInt64($FFFFFFFFFFFF), Value);
+end;
+
+procedure TAddressConversionTests.FormatAddressAsMAC_LeadingZeros_PadsCorrectly;
+begin
+  // Test that leading zeros are properly padded
+  // Address with zeros in high bytes
+  Assert.AreEqual('00:01:02:03:04:05', FormatAddressAsMAC($000102030405));
+
+  // Address with zeros in low bytes
+  Assert.AreEqual('AB:00:00:00:00:00', FormatAddressAsMAC(UInt64($AB) shl 40));
+
+  // Mixed zeros
+  Assert.AreEqual('0A:00:0B:00:0C:00', FormatAddressAsMAC($0A000B000C00));
+end;
+
+{ TConnectionResultTests }
+
+procedure TConnectionResultTests.Ok_ReturnsSuccessTrue;
+var
+  Result: TConnectionResult;
+begin
+  Result := TConnectionResult.Ok;
+  Assert.IsTrue(Result.Success);
+end;
+
+procedure TConnectionResultTests.Ok_ReturnsErrorCodeZero;
+var
+  Result: TConnectionResult;
+begin
+  Result := TConnectionResult.Ok;
+  Assert.AreEqual(Cardinal(0), Result.ErrorCode);
+end;
+
+procedure TConnectionResultTests.Fail_ReturnsSuccessFalse;
+var
+  Result: TConnectionResult;
+begin
+  Result := TConnectionResult.Fail(42);
+  Assert.IsFalse(Result.Success);
+end;
+
+procedure TConnectionResultTests.Fail_PreservesErrorCode;
+var
+  Result: TConnectionResult;
+begin
+  Result := TConnectionResult.Fail(12345);
+  Assert.AreEqual(Cardinal(12345), Result.ErrorCode);
+
+  // Test with maximum Cardinal value
+  Result := TConnectionResult.Fail($FFFFFFFF);
+  Assert.AreEqual(Cardinal($FFFFFFFF), Result.ErrorCode);
+end;
+
+procedure TConnectionResultTests.Fail_WithZeroErrorCode_EdgeCase;
+var
+  Result: TConnectionResult;
+begin
+  // Edge case: Fail with zero error code - still fails but error code is 0
+  Result := TConnectionResult.Fail(0);
+  Assert.IsFalse(Result.Success);
+  Assert.AreEqual(Cardinal(0), Result.ErrorCode);
+end;
+
+{ TDetermineDeviceTypeEdgeCaseTests }
+
+procedure TDetermineDeviceTypeEdgeCaseTests.DetermineDeviceType_AllBitsSet_FFFFFFFF;
+var
+  DeviceType: TBluetoothDeviceType;
+begin
+  // With all bits set ($FFFFFFFF):
+  // Major class = ($FFFFFFFF shr 8) and $1F = $1F = 31 (not a recognized major class)
+  // Should return btUnknown
+  DeviceType := DetermineDeviceType($FFFFFFFF);
+  Assert.AreEqual(btUnknown, DeviceType);
+end;
+
+procedure TDetermineDeviceTypeEdgeCaseTests.DetermineDeviceType_MinorClassBoundary;
+var
+  DeviceType: TBluetoothDeviceType;
+begin
+  // Test minor class at boundary (maximum 6-bit value = $3F = 63)
+  // Major class = Audio/Video ($04), minor class at maximum value
+  // Audio/Video with unknown minor should default to btAudioOutput
+  DeviceType := DetermineDeviceType($0400 or $FC); // Major=$04, Minor=$3F (63)
+  Assert.AreEqual(btAudioOutput, DeviceType, 'Unknown minor in Audio/Video should default to AudioOutput');
+
+  // Test peripheral with no specific type bits set
+  // Major class = Peripheral ($05), minor class = 0
+  DeviceType := DetermineDeviceType($0500);
+  Assert.AreEqual(btHID, DeviceType, 'Peripheral with no type bits should return HID');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TDetermineDeviceTypeTests);
+  TDUnitX.RegisterTestFixture(TDetermineDeviceTypeEdgeCaseTests);
   TDUnitX.RegisterTestFixture(TBluetoothDeviceInfoTests);
   TDUnitX.RegisterTestFixture(TBluetoothExceptionTests);
   TDUnitX.RegisterTestFixture(TBatteryStatusTests);
   TDUnitX.RegisterTestFixture(TAddressConversionTests);
+  TDUnitX.RegisterTestFixture(TConnectionResultTests);
 
 end.

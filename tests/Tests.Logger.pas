@@ -186,6 +186,47 @@ type
     { Error Handling }
     [Test]
     procedure Log_InvalidPath_RaisesELoggerError;
+
+    { Thread Safety Tests }
+    [Test]
+    procedure ThreadSafety_ConcurrentLogging_NoDataLoss;
+
+    [Test]
+    procedure ThreadSafety_ConfigurationDuringLogging;
+
+    { Unicode Tests }
+    [Test]
+    procedure Unicode_CyrillicCharacters;
+
+    [Test]
+    procedure Unicode_ChineseCharacters;
+
+    [Test]
+    procedure Unicode_MixedWithAscii;
+
+    { Format Specifier Tests }
+    [Test]
+    procedure Format_FloatingPointNumbers;
+
+    [Test]
+    procedure Format_HexadecimalValues;
+
+    [Test]
+    procedure Format_NegativeNumbers;
+
+    [Test]
+    procedure Format_MismatchedArguments;
+
+    { Special Characters and Control Tests }
+    [Test]
+    procedure Message_EmbeddedNewlines;
+
+    [Test]
+    procedure SpecialCharacters_ControlCharacters;
+
+    { Dynamic Configuration Tests }
+    [Test]
+    procedure DynamicLevelChange_MidSession;
   end;
 
 implementation
@@ -799,6 +840,374 @@ begin
   finally
     InvalidLogger.Free;
   end;
+end;
+
+{ Thread Safety Tests }
+
+procedure TLoggerTests.ThreadSafety_ConcurrentLogging_NoDataLoss;
+const
+  THREAD_COUNT = 10;
+  MESSAGES_PER_THREAD = 100;
+  TOTAL_MESSAGES = THREAD_COUNT * MESSAGES_PER_THREAD;
+var
+  Threads: array[0..THREAD_COUNT - 1] of TThread;
+  ThreadLogger: TLogger;
+  I, J: Integer;
+  Content: string;
+  MessageCount: Integer;
+  AllThreadsCompleted: Boolean;
+begin
+  ThreadLogger := TLogger.Create;
+  try
+    ThreadLogger.Configure(True, FTestLogFile, False, llDebug);
+
+    // Create and start threads
+    for I := 0 to THREAD_COUNT - 1 do
+    begin
+      Threads[I] := TThread.CreateAnonymousThread(
+        procedure
+        var
+          ThreadIdx, MsgIdx: Integer;
+        begin
+          // Capture I value at thread creation time
+          ThreadIdx := TThread.Current.ThreadID mod THREAD_COUNT;
+          for MsgIdx := 0 to MESSAGES_PER_THREAD - 1 do
+            ThreadLogger.Info(Format('Thread_%d_Message_%d', [ThreadIdx, MsgIdx]), 'ThreadTest');
+        end
+      );
+      Threads[I].FreeOnTerminate := False;
+    end;
+
+    // Start all threads
+    for I := 0 to THREAD_COUNT - 1 do
+      Threads[I].Start;
+
+    // Wait for all threads to complete with timeout
+    AllThreadsCompleted := True;
+    for I := 0 to THREAD_COUNT - 1 do
+    begin
+      if Threads[I].WaitFor <> 0 then
+        AllThreadsCompleted := False;
+    end;
+
+    // Free threads
+    for I := 0 to THREAD_COUNT - 1 do
+      Threads[I].Free;
+
+    Assert.IsTrue(AllThreadsCompleted, 'All threads should complete successfully');
+
+    // Verify all messages were written
+    Content := ReadLogFile;
+    MessageCount := 0;
+
+    // Count occurrences of 'Thread_' pattern (each message has one)
+    I := 1;
+    while I <= Length(Content) do
+    begin
+      J := Pos('_Message_', Content, I);
+      if J > 0 then
+      begin
+        Inc(MessageCount);
+        I := J + 1;
+      end
+      else
+        Break;
+    end;
+
+    Assert.AreEqual(TOTAL_MESSAGES, MessageCount,
+      Format('Expected %d messages but found %d', [TOTAL_MESSAGES, MessageCount]));
+
+    // Verify log format is intact (check for proper timestamp patterns)
+    Assert.IsTrue(TRegEx.IsMatch(Content, '\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]'),
+      'Log entries should maintain proper timestamp format');
+  finally
+    ThreadLogger.Free;
+  end;
+end;
+
+procedure TLoggerTests.ThreadSafety_ConfigurationDuringLogging;
+const
+  LOG_ITERATIONS = 50;
+  CONFIG_ITERATIONS = 20;
+var
+  LogThread, ConfigThread: TThread;
+  ThreadLogger: TLogger;
+  LoggingCompleted, ConfigCompleted: Boolean;
+  ExceptionOccurred: Boolean;
+  ExceptionMessage: string;
+begin
+  ThreadLogger := TLogger.Create;
+  try
+    ThreadLogger.Configure(True, FTestLogFile, False, llDebug);
+    LoggingCompleted := False;
+    ConfigCompleted := False;
+    ExceptionOccurred := False;
+    ExceptionMessage := '';
+
+    // Thread that continuously logs messages
+    LogThread := TThread.CreateAnonymousThread(
+      procedure
+      var
+        I: Integer;
+      begin
+        try
+          for I := 0 to LOG_ITERATIONS - 1 do
+          begin
+            ThreadLogger.Info(Format('Logging message %d', [I]), 'LogThread');
+            Sleep(1); // Small delay to increase interleaving
+          end;
+          LoggingCompleted := True;
+        except
+          on E: Exception do
+          begin
+            ExceptionOccurred := True;
+            ExceptionMessage := E.Message;
+          end;
+        end;
+      end
+    );
+    LogThread.FreeOnTerminate := False;
+
+    // Thread that continuously reconfigures the logger
+    ConfigThread := TThread.CreateAnonymousThread(
+      procedure
+      var
+        I: Integer;
+      begin
+        try
+          for I := 0 to CONFIG_ITERATIONS - 1 do
+          begin
+            // Toggle between different configurations
+            if I mod 2 = 0 then
+              ThreadLogger.Configure(True, FTestLogFile, True, llDebug)
+            else
+              ThreadLogger.Configure(True, FTestLogFile, True, llInfo);
+            Sleep(2); // Slightly longer delay for config changes
+          end;
+          ConfigCompleted := True;
+        except
+          on E: Exception do
+          begin
+            ExceptionOccurred := True;
+            ExceptionMessage := E.Message;
+          end;
+        end;
+      end
+    );
+    ConfigThread.FreeOnTerminate := False;
+
+    // Start both threads
+    LogThread.Start;
+    ConfigThread.Start;
+
+    // Wait for completion
+    LogThread.WaitFor;
+    ConfigThread.WaitFor;
+
+    // Free threads
+    LogThread.Free;
+    ConfigThread.Free;
+
+    // Verify no crashes occurred
+    Assert.IsFalse(ExceptionOccurred,
+      Format('No exceptions should occur during concurrent logging and configuration. Got: %s',
+        [ExceptionMessage]));
+    Assert.IsTrue(LoggingCompleted, 'Logging thread should complete');
+    Assert.IsTrue(ConfigCompleted, 'Configuration thread should complete');
+
+    // Verify file was created and has content
+    Assert.IsTrue(TFile.Exists(FTestLogFile), 'Log file should exist');
+  finally
+    ThreadLogger.Free;
+  end;
+end;
+
+{ Unicode Tests }
+
+procedure TLoggerTests.Unicode_CyrillicCharacters;
+const
+  CyrillicText = 'Cyrillic: ' + #$041F#$0440#$0438#$0432#$0435#$0442 + ' ' +  // Cyrillic for 'Privet'
+                 #$041C#$0438#$0440;  // Cyrillic for 'Mir'
+begin
+  FLogger.Debug(CyrillicText, 'Unicode');
+
+  Assert.IsTrue(TFile.Exists(FTestLogFile), 'Log file should be created with Cyrillic characters');
+  // Verify the file was written successfully (content verification may vary by encoding)
+  Assert.IsTrue(Length(ReadLogFile) > 0, 'Log file should have content');
+end;
+
+procedure TLoggerTests.Unicode_ChineseCharacters;
+const
+  ChineseText = 'Chinese: ' + #$4E2D#$6587#$6D4B#$8BD5;  // Chinese characters
+begin
+  FLogger.Debug(ChineseText, 'Unicode');
+
+  Assert.IsTrue(TFile.Exists(FTestLogFile), 'Log file should be created with Chinese characters');
+  Assert.IsTrue(Length(ReadLogFile) > 0, 'Log file should have content');
+end;
+
+procedure TLoggerTests.Unicode_MixedWithAscii;
+const
+  MixedText = 'ASCII: Hello, Cyrillic: ' + #$041F#$0440#$0438#$0432#$0435#$0442 +
+              ', Chinese: ' + #$4E2D#$6587;
+begin
+  FLogger.Debug(MixedText, 'Unicode');
+
+  Assert.IsTrue(TFile.Exists(FTestLogFile), 'Log file should be created with mixed scripts');
+
+  // Verify ASCII portions are preserved
+  var Content := ReadLogFile;
+  Assert.Contains(Content, 'ASCII: Hello', 'ASCII portion should be preserved');
+end;
+
+{ Format Specifier Tests }
+
+procedure TLoggerTests.Format_FloatingPointNumbers;
+var
+  ExpectedFloat: string;
+begin
+  FLogger.Debug('Float value: %.2f', [3.14159], 'Format');
+  FLogger.Debug('Scientific: %e', [12345.6789], 'Format');
+  FLogger.Debug('General: %g', [0.000123], 'Format');
+
+  var Content := ReadLogFile;
+  // Use locale-aware expected value (decimal separator varies by system locale)
+  ExpectedFloat := Format('Float value: %.2f', [3.14159]);
+  Assert.Contains(Content, ExpectedFloat, 'Float formatting should work');
+  Assert.Contains(Content, 'Scientific:', 'Scientific notation should work');
+  Assert.Contains(Content, 'General:', 'General format should work');
+end;
+
+procedure TLoggerTests.Format_HexadecimalValues;
+begin
+  FLogger.Debug('Hex lowercase: %x', [255], 'Format');
+  FLogger.Debug('Hex uppercase: %X', [255], 'Format');
+  FLogger.Debug('Hex with width: %08X', [$DEADBEEF], 'Format');
+
+  var Content := ReadLogFile;
+  Assert.Contains(Content, 'Hex lowercase: ff', 'Lowercase hex should work');
+  Assert.Contains(Content, 'Hex uppercase: FF', 'Uppercase hex should work');
+  Assert.Contains(Content, 'DEADBEEF', 'Wide hex value should work');
+end;
+
+procedure TLoggerTests.Format_NegativeNumbers;
+var
+  ExpectedFloat: string;
+begin
+  FLogger.Debug('Negative integer: %d', [-42], 'Format');
+  FLogger.Debug('Negative float: %.3f', [-123.456], 'Format');
+  FLogger.Debug('Large negative: %d', [-2147483648], 'Format');
+
+  var Content := ReadLogFile;
+  Assert.Contains(Content, 'Negative integer: -42', 'Negative integer should work');
+  // Use locale-aware expected value (decimal separator varies by system locale)
+  ExpectedFloat := Format('Negative float: %.3f', [-123.456]);
+  Assert.Contains(Content, ExpectedFloat, 'Negative float should work');
+  Assert.Contains(Content, 'Large negative: -2147483648', 'Large negative should work');
+end;
+
+procedure TLoggerTests.Format_MismatchedArguments;
+var
+  ExceptionRaised: Boolean;
+begin
+  ExceptionRaised := False;
+
+  try
+    // Attempt to format with mismatched arguments (expecting 2, providing 1)
+    FLogger.Debug('Value1: %s, Value2: %s', ['OnlyOne'], 'Format');
+  except
+    on E: Exception do
+      ExceptionRaised := True;
+  end;
+
+  Assert.IsTrue(ExceptionRaised,
+    'Mismatched format arguments should raise an exception');
+end;
+
+{ Special Characters and Control Tests }
+
+procedure TLoggerTests.Message_EmbeddedNewlines;
+var
+  Content: string;
+  Lines: TArray<string>;
+begin
+  FLogger.Debug('Line1' + #13#10 + 'Line2' + #13#10 + 'Line3', 'Newline');
+
+  Content := ReadLogFile;
+  Lines := Content.Split([sLineBreak]);
+
+  // The message with embedded newlines should create multiple lines in the file
+  // Find the lines containing our test content
+  var FoundLine1 := False;
+  var FoundLine2 := False;
+  var FoundLine3 := False;
+
+  for var Line in Lines do
+  begin
+    if Line.Contains('Line1') then FoundLine1 := True;
+    if Line.Contains('Line2') then FoundLine2 := True;
+    if Line.Contains('Line3') then FoundLine3 := True;
+  end;
+
+  Assert.IsTrue(FoundLine1, 'Line1 should be present');
+  Assert.IsTrue(FoundLine2, 'Line2 should be present');
+  Assert.IsTrue(FoundLine3, 'Line3 should be present');
+end;
+
+procedure TLoggerTests.SpecialCharacters_ControlCharacters;
+var
+  Content: string;
+begin
+  // Test tab character (ASCII 9)
+  FLogger.Debug('Before' + #9 + 'Tab' + #9 + 'After', 'Control');
+
+  Content := ReadLogFile;
+  Assert.IsTrue(TFile.Exists(FTestLogFile), 'Log file should be created');
+
+  // The content should contain tab-separated text
+  Assert.Contains(Content, 'Before', 'Text before tab should be present');
+  Assert.Contains(Content, 'Tab', 'Text between tabs should be present');
+  Assert.Contains(Content, 'After', 'Text after tab should be present');
+end;
+
+{ Dynamic Configuration Tests }
+
+procedure TLoggerTests.DynamicLevelChange_MidSession;
+var
+  Content: string;
+begin
+  // Start with Debug level
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
+  FLogger.Debug('Debug message 1', 'Dynamic');
+  FLogger.Info('Info message 1', 'Dynamic');
+
+  // Change to Warning level mid-session
+  FLogger.Configure(True, FTestLogFile, True, llWarning);  // Append mode to keep previous
+  FLogger.Debug('Debug message 2', 'Dynamic');  // Should be filtered
+  FLogger.Info('Info message 2', 'Dynamic');    // Should be filtered
+  FLogger.Warning('Warning message 1', 'Dynamic');  // Should appear
+  FLogger.Error('Error message 1', 'Dynamic');      // Should appear
+
+  // Change to Error level
+  FLogger.Configure(True, FTestLogFile, True, llError);
+  FLogger.Warning('Warning message 2', 'Dynamic');  // Should be filtered
+  FLogger.Error('Error message 2', 'Dynamic');      // Should appear
+
+  Content := ReadLogFile;
+
+  // Verify messages from first configuration (Debug level)
+  Assert.Contains(Content, 'Debug message 1', 'First debug should appear (Debug level)');
+  Assert.Contains(Content, 'Info message 1', 'First info should appear (Debug level)');
+
+  // Verify messages from second configuration (Warning level)
+  Assert.DoesNotContain(Content, 'Debug message 2', 'Second debug should be filtered (Warning level)');
+  Assert.DoesNotContain(Content, 'Info message 2', 'Second info should be filtered (Warning level)');
+  Assert.Contains(Content, 'Warning message 1', 'First warning should appear (Warning level)');
+  Assert.Contains(Content, 'Error message 1', 'First error should appear (Warning level)');
+
+  // Verify messages from third configuration (Error level)
+  Assert.DoesNotContain(Content, 'Warning message 2', 'Second warning should be filtered (Error level)');
+  Assert.Contains(Content, 'Error message 2', 'Second error should appear (Error level)');
 end;
 
 initialization

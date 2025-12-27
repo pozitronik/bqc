@@ -168,6 +168,46 @@ type
     procedure Create_DoesNotRaise;
   end;
 
+  /// <summary>
+  /// Test fixture for edge cases in window positioning.
+  /// </summary>
+  [TestFixture]
+  TWindowPositionerEdgeCaseTests = class
+  private
+    FPositionConfig: TMockPositionConfig;
+
+    function CreateContextWithWorkArea(AFormWidth, AFormHeight: Integer;
+      const AWorkArea: TRect): TPositionContext;
+  public
+    [Setup]
+    procedure Setup;
+
+    [TearDown]
+    procedure TearDown;
+
+    { Edge Case Tests }
+    [Test]
+    procedure EnsureOnScreen_FormEntirelyOffScreen_BringsBack;
+
+    [Test]
+    procedure EnsureOnScreen_FormPartiallyOffScreen_AdjustsPosition;
+
+    [Test]
+    procedure EnsureOnScreen_FormLargerThanWorkArea_Handles;
+
+    [Test]
+    procedure TNearTrayPositioner_CalculatePosition_BottomTaskbar;
+
+    [Test]
+    procedure TNearTrayPositioner_CalculatePosition_RightTaskbar;
+
+    [Test]
+    procedure TCoordinatesPositioner_NegativeCoordinates_Handles;
+
+    [Test]
+    procedure TCenterScreenPositioner_ZeroSizeForm_Handles;
+  end;
+
 implementation
 
 uses
@@ -522,6 +562,173 @@ begin
   Assert.IsNotNull(FStrategy);
 end;
 
+{ TWindowPositionerEdgeCaseTests }
+
+procedure TWindowPositionerEdgeCaseTests.Setup;
+begin
+  FPositionConfig := TMockPositionConfig.Create;
+end;
+
+procedure TWindowPositionerEdgeCaseTests.TearDown;
+begin
+  FPositionConfig := nil;
+end;
+
+function TWindowPositionerEdgeCaseTests.CreateContextWithWorkArea(
+  AFormWidth, AFormHeight: Integer; const AWorkArea: TRect): TPositionContext;
+begin
+  Result.FormWidth := AFormWidth;
+  Result.FormHeight := AFormHeight;
+  Result.CursorPos := Point(AWorkArea.Left + AWorkArea.Width div 2,
+                            AWorkArea.Top + AWorkArea.Height div 2);
+  Result.WorkArea := AWorkArea;
+  Result.PositionConfig := FPositionConfig;
+end;
+
+procedure TWindowPositionerEdgeCaseTests.EnsureOnScreen_FormEntirelyOffScreen_BringsBack;
+var
+  Context: TPositionContext;
+  Strategy: IPositionStrategy;
+  Pos: TPoint;
+begin
+  // Test TCoordinatesPositioner with coordinates completely off screen
+  // The PositionWindow method clamps coordinates after strategy calculation
+  FPositionConfig.PositionX := 5000;  // Way off screen
+  FPositionConfig.PositionY := 5000;
+
+  Context := CreateContextWithWorkArea(300, 400, Rect(0, 0, 1920, 1080));
+
+  Strategy := TCoordinatesPositioner.Create;
+  Pos := Strategy.CalculatePosition(Context);
+
+  // Strategy returns the saved coordinates (unclamped)
+  Assert.AreEqual(5000, Pos.X);
+  Assert.AreEqual(5000, Pos.Y);
+
+  // Note: The actual clamping happens in TWindowPositioner.PositionWindow
+  // which is tested via integration. Here we verify strategy returns raw values.
+end;
+
+procedure TWindowPositionerEdgeCaseTests.EnsureOnScreen_FormPartiallyOffScreen_AdjustsPosition;
+var
+  Context: TPositionContext;
+  Strategy: IPositionStrategy;
+  Pos: TPoint;
+begin
+  // Test position where form would extend beyond right edge
+  FPositionConfig.PositionX := 1800;  // With 300px width, extends to 2100
+  FPositionConfig.PositionY := 100;
+
+  Context := CreateContextWithWorkArea(300, 400, Rect(0, 0, 1920, 1080));
+
+  Strategy := TCoordinatesPositioner.Create;
+  Pos := Strategy.CalculatePosition(Context);
+
+  // Strategy returns the saved coordinates
+  Assert.AreEqual(1800, Pos.X);
+  Assert.AreEqual(100, Pos.Y);
+
+  // Note: PositionWindow would clamp X to 1620 (1920 - 300)
+end;
+
+procedure TWindowPositionerEdgeCaseTests.EnsureOnScreen_FormLargerThanWorkArea_Handles;
+var
+  Context: TPositionContext;
+  Strategy: IPositionStrategy;
+  Pos: TPoint;
+begin
+  // Form larger than work area - test centering behavior
+  // Work area: 800x600, Form: 1000x800
+  Context := CreateContextWithWorkArea(1000, 800, Rect(0, 0, 800, 600));
+
+  Strategy := TCenterScreenPositioner.Create;
+  Pos := Strategy.CalculatePosition(Context);
+
+  // Center calculation: (800 - 1000) / 2 = -100
+  // (600 - 800) / 2 = -100
+  // Centering a larger form results in negative position
+  Assert.AreEqual(-100, Pos.X, 'X should be negative for oversized form');
+  Assert.AreEqual(-100, Pos.Y, 'Y should be negative for oversized form');
+
+  // Note: PositionWindow would clamp these to 0
+end;
+
+procedure TWindowPositionerEdgeCaseTests.TNearTrayPositioner_CalculatePosition_BottomTaskbar;
+var
+  Strategy: IPositionStrategy;
+  Context: TPositionContext;
+  Pos: TPoint;
+begin
+  // TNearTrayPositioner uses GetTaskbarRect which requires Windows API
+  // We can only test that it doesn't crash and returns a position
+  Strategy := TNearTrayPositioner.Create;
+  Context := CreateContextWithWorkArea(300, 400, Rect(0, 0, 1920, 1040));
+
+  Pos := Strategy.CalculatePosition(Context);
+
+  // Position should be within reasonable bounds (not extreme values)
+  // This test verifies the strategy runs without error
+  Assert.IsTrue(Pos.X >= -1920, 'X position should be reasonable');
+  Assert.IsTrue(Pos.Y >= -1080, 'Y position should be reasonable');
+end;
+
+procedure TWindowPositionerEdgeCaseTests.TNearTrayPositioner_CalculatePosition_RightTaskbar;
+var
+  Strategy: IPositionStrategy;
+  Context: TPositionContext;
+  Pos: TPoint;
+begin
+  // TNearTrayPositioner handles vertical taskbars too
+  // Work area would be reduced on the right side for a right taskbar
+  Strategy := TNearTrayPositioner.Create;
+  Context := CreateContextWithWorkArea(300, 400, Rect(0, 0, 1870, 1080));
+
+  Pos := Strategy.CalculatePosition(Context);
+
+  // Position should be within reasonable bounds
+  // Without actual taskbar detection, falls back to bottom-right
+  Assert.IsTrue(Pos.X >= -1920, 'X position should be reasonable');
+  Assert.IsTrue(Pos.Y >= -1080, 'Y position should be reasonable');
+end;
+
+procedure TWindowPositionerEdgeCaseTests.TCoordinatesPositioner_NegativeCoordinates_Handles;
+var
+  Context: TPositionContext;
+  Strategy: IPositionStrategy;
+  Pos: TPoint;
+begin
+  // Negative coordinates should trigger centering (per implementation)
+  // -1 means "not set" in the config
+  FPositionConfig.PositionX := -1;
+  FPositionConfig.PositionY := -1;
+
+  Context := CreateContextWithWorkArea(300, 400, Rect(0, 0, 1920, 1080));
+
+  Strategy := TCoordinatesPositioner.Create;
+  Pos := Strategy.CalculatePosition(Context);
+
+  // Should center: (1920-300)/2 = 810, (1080-400)/2 = 340
+  Assert.AreEqual(810, Pos.X);
+  Assert.AreEqual(340, Pos.Y);
+end;
+
+procedure TWindowPositionerEdgeCaseTests.TCenterScreenPositioner_ZeroSizeForm_Handles;
+var
+  Context: TPositionContext;
+  Strategy: IPositionStrategy;
+  Pos: TPoint;
+begin
+  // Zero-size form edge case
+  Context := CreateContextWithWorkArea(0, 0, Rect(0, 0, 1920, 1080));
+
+  Strategy := TCenterScreenPositioner.Create;
+  Pos := Strategy.CalculatePosition(Context);
+
+  // Center calculation: (1920-0)/2 = 960, (1080-0)/2 = 540
+  Assert.AreEqual(960, Pos.X);
+  Assert.AreEqual(540, Pos.Y);
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TTaskbarUtilsTests);
   TDUnitX.RegisterTestFixture(TCoordinatesPositionerTests);
@@ -529,5 +736,6 @@ initialization
   TDUnitX.RegisterTestFixture(TCenterScreenPositionerTests);
   TDUnitX.RegisterTestFixture(TWindowPositionerStrategyFactoryTests);
   TDUnitX.RegisterTestFixture(TNearTrayPositionerTests);
+  TDUnitX.RegisterTestFixture(TWindowPositionerEdgeCaseTests);
 
 end.

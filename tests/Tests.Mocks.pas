@@ -1017,6 +1017,89 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IBluetoothService for testing.
+  /// Allows configuring return values, tracking call counts, and simulating events.
+  /// </summary>
+  TMockBluetoothService = class(TInterfacedObject, IBluetoothService)
+  private
+    // Configurable return values
+    FConnectResult: TConnectionResult;
+    FDisconnectResult: TConnectionResult;
+    FDevices: TBluetoothDeviceInfoArray;
+    FAdapterAvailable: Boolean;
+    FAdapterName: string;
+
+    // Event handlers
+    FOnDeviceStateChanged: TDeviceStateChangedEvent;
+    FOnDeviceListChanged: TDeviceListChangedEvent;
+    FOnError: TBluetoothErrorEvent;
+
+    // Call counters
+    FConnectCallCount: Integer;
+    FDisconnectCallCount: Integer;
+    FToggleConnectionCallCount: Integer;
+    FRefreshAllDevicesCallCount: Integer;
+    FGetDevicesCallCount: Integer;
+    FIsAdapterAvailableCallCount: Integer;
+
+    // Last parameters
+    FLastConnectDevice: TBluetoothDeviceInfo;
+    FLastDisconnectDevice: TBluetoothDeviceInfo;
+    FLastToggleDevice: TBluetoothDeviceInfo;
+
+    // IBluetoothService event property accessors
+    function GetOnDeviceStateChanged: TDeviceStateChangedEvent;
+    procedure SetOnDeviceStateChanged(AValue: TDeviceStateChangedEvent);
+    function GetOnDeviceListChanged: TDeviceListChangedEvent;
+    procedure SetOnDeviceListChanged(AValue: TDeviceListChangedEvent);
+    function GetOnError: TBluetoothErrorEvent;
+    procedure SetOnError(AValue: TBluetoothErrorEvent);
+  public
+    constructor Create;
+
+    // IBluetoothService implementation
+    function IsAdapterAvailable: Boolean;
+    function GetPairedDevices: TBluetoothDeviceInfoArray;
+    function RefreshAllDevices: TBluetoothDeviceInfoArray;
+    function Connect(const ADevice: TBluetoothDeviceInfo): Boolean;
+    function Disconnect(const ADevice: TBluetoothDeviceInfo): Boolean;
+    function ToggleConnection(const ADevice: TBluetoothDeviceInfo): Boolean;
+
+    // Simulation methods
+    procedure SimulateDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
+    procedure SimulateDeviceListChanged;
+    procedure SimulateError(const AMessage: string; AErrorCode: Cardinal);
+
+    // Test setup - configurable behaviors
+    property ConnectResult: TConnectionResult read FConnectResult write FConnectResult;
+    property DisconnectResult: TConnectionResult read FDisconnectResult write FDisconnectResult;
+    property Devices: TBluetoothDeviceInfoArray read FDevices write FDevices;
+    property AdapterAvailable: Boolean read FAdapterAvailable write FAdapterAvailable;
+    property AdapterName: string read FAdapterName write FAdapterName;
+
+    // Test verification - call counts
+    property ConnectCallCount: Integer read FConnectCallCount;
+    property DisconnectCallCount: Integer read FDisconnectCallCount;
+    property ToggleConnectionCallCount: Integer read FToggleConnectionCallCount;
+    property RefreshAllDevicesCallCount: Integer read FRefreshAllDevicesCallCount;
+    property GetDevicesCallCount: Integer read FGetDevicesCallCount;
+    property IsAdapterAvailableCallCount: Integer read FIsAdapterAvailableCallCount;
+
+    // Test verification - last parameters
+    property LastConnectDevice: TBluetoothDeviceInfo read FLastConnectDevice;
+    property LastDisconnectDevice: TBluetoothDeviceInfo read FLastDisconnectDevice;
+    property LastToggleDevice: TBluetoothDeviceInfo read FLastToggleDevice;
+
+    // Event properties for test setup
+    property OnDeviceStateChanged: TDeviceStateChangedEvent
+      read GetOnDeviceStateChanged write SetOnDeviceStateChanged;
+    property OnDeviceListChanged: TDeviceListChangedEvent
+      read GetOnDeviceListChanged write SetOnDeviceListChanged;
+    property OnError: TBluetoothErrorEvent
+      read GetOnError write SetOnError;
+  end;
+
+  /// <summary>
   /// Mock implementation of IThemeManager for testing.
   /// Tracks calls and allows configuring available styles.
   /// </summary>
@@ -1048,6 +1131,62 @@ type
     property LastLoadedDirectory: string read FLastLoadedDirectory;
     property SetStyleCallCount: Integer read FSetStyleCallCount;
     property LastSetStyle: string read FLastSetStyle;
+  end;
+
+  /// <summary>
+  /// Mock implementation of ILogger for testing.
+  /// Records all logged messages by level for verification.
+  /// </summary>
+  TMockLogger = class(TInterfacedObject, ILogger)
+  private
+    FDebugMessages: TArray<string>;
+    FInfoMessages: TArray<string>;
+    FWarningMessages: TArray<string>;
+    FErrorMessages: TArray<string>;
+    FEnabled: Boolean;
+    FMinLevel: TLogLevel;
+    FDebugCallCount: Integer;
+    FInfoCallCount: Integer;
+    FWarningCallCount: Integer;
+    FErrorCallCount: Integer;
+    FConfigureCallCount: Integer;
+  public
+    constructor Create;
+
+    // ILogger
+    procedure Debug(const AMessage: string; const ASource: string = '');
+    procedure Info(const AMessage: string; const ASource: string = '');
+    procedure Warning(const AMessage: string; const ASource: string = '');
+    procedure Error(const AMessage: string; const ASource: string = '');
+    function IsEnabled: Boolean;
+    function GetMinLevel: TLogLevel;
+
+    // Configuration
+    procedure Configure(AEnabled: Boolean; AMinLevel: TLogLevel = llDebug);
+
+    // Helper methods
+    procedure Clear;
+    function ContainsMessage(const AText: string): Boolean;
+    function GetLastMessage: string;
+    function GetAllMessages: TArray<string>;
+
+    // Recorded messages by level
+    property DebugMessages: TArray<string> read FDebugMessages;
+    property InfoMessages: TArray<string> read FInfoMessages;
+    property WarningMessages: TArray<string> read FWarningMessages;
+    property ErrorMessages: TArray<string> read FErrorMessages;
+    property AllMessages: TArray<string> read GetAllMessages;
+
+    // Call counts
+    property DebugCallCount: Integer read FDebugCallCount;
+    property InfoCallCount: Integer read FInfoCallCount;
+    property WarningCallCount: Integer read FWarningCallCount;
+    property ErrorCallCount: Integer read FErrorCallCount;
+    property ConfigureCallCount: Integer read FConfigureCallCount;
+
+    // Configurable state
+    property Enabled: Boolean read FEnabled write FEnabled;
+    property MinLevel: TLogLevel read FMinLevel write FMinLevel;
   end;
 
 implementation
@@ -1193,7 +1332,7 @@ begin
   FLastSeenFormat := lsfRelative;
   FShowDeviceIcons := True;
   FConnectedColor := $0000AA00;  // Green
-  FShowBatteryLevel := True;
+  FShowBatteryLevel := False;  // Default to False to avoid async battery cache operations in tests
 end;
 
 function TMockAppearanceConfig.GetShowAddresses: Boolean;
@@ -2699,6 +2838,118 @@ begin
     FOnQueryCompleted(Self, AAddress, AStatus);
 end;
 
+{ TMockBluetoothService }
+
+constructor TMockBluetoothService.Create;
+begin
+  inherited Create;
+  // Default to successful results
+  FConnectResult := TConnectionResult.Ok;
+  FDisconnectResult := TConnectionResult.Ok;
+  FAdapterAvailable := True;
+  FAdapterName := 'Mock Adapter';
+  // Initialize arrays
+  SetLength(FDevices, 0);
+  // Initialize counters
+  FConnectCallCount := 0;
+  FDisconnectCallCount := 0;
+  FToggleConnectionCallCount := 0;
+  FRefreshAllDevicesCallCount := 0;
+  FGetDevicesCallCount := 0;
+  FIsAdapterAvailableCallCount := 0;
+end;
+
+function TMockBluetoothService.IsAdapterAvailable: Boolean;
+begin
+  Inc(FIsAdapterAvailableCallCount);
+  Result := FAdapterAvailable;
+end;
+
+function TMockBluetoothService.GetPairedDevices: TBluetoothDeviceInfoArray;
+begin
+  Inc(FGetDevicesCallCount);
+  Result := FDevices;
+end;
+
+function TMockBluetoothService.RefreshAllDevices: TBluetoothDeviceInfoArray;
+begin
+  Inc(FRefreshAllDevicesCallCount);
+  Result := FDevices;
+end;
+
+function TMockBluetoothService.Connect(const ADevice: TBluetoothDeviceInfo): Boolean;
+begin
+  Inc(FConnectCallCount);
+  FLastConnectDevice := ADevice;
+  Result := FConnectResult.Success;
+end;
+
+function TMockBluetoothService.Disconnect(const ADevice: TBluetoothDeviceInfo): Boolean;
+begin
+  Inc(FDisconnectCallCount);
+  FLastDisconnectDevice := ADevice;
+  Result := FDisconnectResult.Success;
+end;
+
+function TMockBluetoothService.ToggleConnection(const ADevice: TBluetoothDeviceInfo): Boolean;
+begin
+  Inc(FToggleConnectionCallCount);
+  FLastToggleDevice := ADevice;
+  // Toggle based on current state - if connected, use disconnect result, otherwise use connect
+  if ADevice.ConnectionState = csConnected then
+    Result := FDisconnectResult.Success
+  else
+    Result := FConnectResult.Success;
+end;
+
+function TMockBluetoothService.GetOnDeviceStateChanged: TDeviceStateChangedEvent;
+begin
+  Result := FOnDeviceStateChanged;
+end;
+
+procedure TMockBluetoothService.SetOnDeviceStateChanged(AValue: TDeviceStateChangedEvent);
+begin
+  FOnDeviceStateChanged := AValue;
+end;
+
+function TMockBluetoothService.GetOnDeviceListChanged: TDeviceListChangedEvent;
+begin
+  Result := FOnDeviceListChanged;
+end;
+
+procedure TMockBluetoothService.SetOnDeviceListChanged(AValue: TDeviceListChangedEvent);
+begin
+  FOnDeviceListChanged := AValue;
+end;
+
+function TMockBluetoothService.GetOnError: TBluetoothErrorEvent;
+begin
+  Result := FOnError;
+end;
+
+procedure TMockBluetoothService.SetOnError(AValue: TBluetoothErrorEvent);
+begin
+  FOnError := AValue;
+end;
+
+procedure TMockBluetoothService.SimulateDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
+begin
+  if Assigned(FOnDeviceStateChanged) then
+    FOnDeviceStateChanged(Self, ADevice);
+end;
+
+procedure TMockBluetoothService.SimulateDeviceListChanged;
+begin
+  if Assigned(FOnDeviceListChanged) then
+    FOnDeviceListChanged(Self);
+end;
+
+procedure TMockBluetoothService.SimulateError(const AMessage: string; AErrorCode: Cardinal);
+begin
+  if Assigned(FOnError) then
+    FOnError(Self, AMessage, AErrorCode);
+end;
+
 { TMockThemeManager }
 
 constructor TMockThemeManager.Create;
@@ -2829,6 +3080,175 @@ end;
 procedure TMockBatteryTrayConfig.SetDefaultNotifyFullyCharged(AValue: Boolean);
 begin
   FDefaultNotifyFullyCharged := AValue;
+end;
+
+{ TMockLogger }
+
+constructor TMockLogger.Create;
+begin
+  inherited Create;
+  FEnabled := True;
+  FMinLevel := llDebug;
+  FDebugCallCount := 0;
+  FInfoCallCount := 0;
+  FWarningCallCount := 0;
+  FErrorCallCount := 0;
+  FConfigureCallCount := 0;
+  SetLength(FDebugMessages, 0);
+  SetLength(FInfoMessages, 0);
+  SetLength(FWarningMessages, 0);
+  SetLength(FErrorMessages, 0);
+end;
+
+procedure TMockLogger.Debug(const AMessage: string; const ASource: string);
+var
+  FullMessage: string;
+begin
+  Inc(FDebugCallCount);
+  if ASource <> '' then
+    FullMessage := Format('[%s] %s', [ASource, AMessage])
+  else
+    FullMessage := AMessage;
+  SetLength(FDebugMessages, Length(FDebugMessages) + 1);
+  FDebugMessages[High(FDebugMessages)] := FullMessage;
+end;
+
+procedure TMockLogger.Info(const AMessage: string; const ASource: string);
+var
+  FullMessage: string;
+begin
+  Inc(FInfoCallCount);
+  if ASource <> '' then
+    FullMessage := Format('[%s] %s', [ASource, AMessage])
+  else
+    FullMessage := AMessage;
+  SetLength(FInfoMessages, Length(FInfoMessages) + 1);
+  FInfoMessages[High(FInfoMessages)] := FullMessage;
+end;
+
+procedure TMockLogger.Warning(const AMessage: string; const ASource: string);
+var
+  FullMessage: string;
+begin
+  Inc(FWarningCallCount);
+  if ASource <> '' then
+    FullMessage := Format('[%s] %s', [ASource, AMessage])
+  else
+    FullMessage := AMessage;
+  SetLength(FWarningMessages, Length(FWarningMessages) + 1);
+  FWarningMessages[High(FWarningMessages)] := FullMessage;
+end;
+
+procedure TMockLogger.Error(const AMessage: string; const ASource: string);
+var
+  FullMessage: string;
+begin
+  Inc(FErrorCallCount);
+  if ASource <> '' then
+    FullMessage := Format('[%s] %s', [ASource, AMessage])
+  else
+    FullMessage := AMessage;
+  SetLength(FErrorMessages, Length(FErrorMessages) + 1);
+  FErrorMessages[High(FErrorMessages)] := FullMessage;
+end;
+
+function TMockLogger.IsEnabled: Boolean;
+begin
+  Result := FEnabled;
+end;
+
+function TMockLogger.GetMinLevel: TLogLevel;
+begin
+  Result := FMinLevel;
+end;
+
+procedure TMockLogger.Configure(AEnabled: Boolean; AMinLevel: TLogLevel);
+begin
+  Inc(FConfigureCallCount);
+  FEnabled := AEnabled;
+  FMinLevel := AMinLevel;
+end;
+
+procedure TMockLogger.Clear;
+begin
+  SetLength(FDebugMessages, 0);
+  SetLength(FInfoMessages, 0);
+  SetLength(FWarningMessages, 0);
+  SetLength(FErrorMessages, 0);
+  FDebugCallCount := 0;
+  FInfoCallCount := 0;
+  FWarningCallCount := 0;
+  FErrorCallCount := 0;
+end;
+
+function TMockLogger.ContainsMessage(const AText: string): Boolean;
+var
+  Msg: string;
+begin
+  Result := False;
+
+  for Msg in FDebugMessages do
+    if Pos(AText, Msg) > 0 then
+      Exit(True);
+
+  for Msg in FInfoMessages do
+    if Pos(AText, Msg) > 0 then
+      Exit(True);
+
+  for Msg in FWarningMessages do
+    if Pos(AText, Msg) > 0 then
+      Exit(True);
+
+  for Msg in FErrorMessages do
+    if Pos(AText, Msg) > 0 then
+      Exit(True);
+end;
+
+function TMockLogger.GetLastMessage: string;
+var
+  AllMsgs: TArray<string>;
+begin
+  AllMsgs := GetAllMessages;
+  if Length(AllMsgs) > 0 then
+    Result := AllMsgs[High(AllMsgs)]
+  else
+    Result := '';
+end;
+
+function TMockLogger.GetAllMessages: TArray<string>;
+var
+  TotalLen, Idx: Integer;
+  Msg: string;
+begin
+  TotalLen := Length(FDebugMessages) + Length(FInfoMessages) +
+              Length(FWarningMessages) + Length(FErrorMessages);
+  SetLength(Result, TotalLen);
+
+  Idx := 0;
+
+  for Msg in FDebugMessages do
+  begin
+    Result[Idx] := Msg;
+    Inc(Idx);
+  end;
+
+  for Msg in FInfoMessages do
+  begin
+    Result[Idx] := Msg;
+    Inc(Idx);
+  end;
+
+  for Msg in FWarningMessages do
+  begin
+    Result[Idx] := Msg;
+    Inc(Idx);
+  end;
+
+  for Msg in FErrorMessages do
+  begin
+    Result[Idx] := Msg;
+    Inc(Idx);
+  end;
 end;
 
 end.

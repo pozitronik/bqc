@@ -167,6 +167,31 @@ type
 
     [Test]
     procedure FormatBatteryLevel_Unknown_ReturnsEmpty;
+
+    { Edge Case Tests }
+    [Test]
+    procedure GetDisplayName_VeryLongName_Over255Chars;
+
+    [Test]
+    procedure GetDisplayName_SpecialCharacters_Unicode;
+
+    [Test]
+    procedure GetDisplayName_EmptyAlias_ReturnsName;
+
+    [Test]
+    procedure FormatLastSeen_Exactly24HoursAgo_Boundary;
+
+    [Test]
+    procedure FormatLastSeen_Exactly7DaysAgo_Boundary;
+
+    [Test]
+    procedure FormatLastSeen_FutureDate_Handles;
+
+    [Test]
+    procedure FormatBatteryLevel_InvalidLevel_Above100;
+
+    [Test]
+    procedure FormatBatteryLevel_InvalidLevel_BelowZero;
   end;
 
 implementation
@@ -512,6 +537,121 @@ var
 begin
   Status := TBatteryStatus.Unknown;
   Assert.AreEqual('', TDeviceFormatter.FormatBatteryLevel(Status));
+end;
+
+{ TDeviceFormatterTests - Edge Cases }
+
+procedure TDeviceFormatterTests.GetDisplayName_VeryLongName_Over255Chars;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+  LongName: string;
+  Result: string;
+begin
+  // Create a name over 255 characters
+  LongName := StringOfChar('A', 300);
+  Device := CreateTestDevice($001122334455, LongName, btAudioOutput, csConnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := '';
+
+  Result := TDeviceFormatter.GetDisplayName(Device, Config);
+
+  // Should return the full name without truncation (no max length enforcement)
+  Assert.AreEqual(300, Length(Result));
+  Assert.AreEqual(LongName, Result);
+end;
+
+procedure TDeviceFormatterTests.GetDisplayName_SpecialCharacters_Unicode;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+  UnicodeName: string;
+begin
+  // Test with various Unicode characters including emoji, CJK, and special symbols
+  UnicodeName := 'Device'#$00E9' Test'#$4E2D#$6587' '#$1F3A7; // e-acute, Chinese chars, headphone emoji
+  Device := CreateTestDevice($001122334455, UnicodeName, btAudioOutput, csConnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := '';
+
+  Assert.AreEqual(UnicodeName, TDeviceFormatter.GetDisplayName(Device, Config));
+end;
+
+procedure TDeviceFormatterTests.GetDisplayName_EmptyAlias_ReturnsName;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  // This is already tested but included for explicit edge case coverage
+  Device := CreateTestDevice($001122334455, 'Original Device Name', btAudioOutput, csConnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := '';
+
+  Assert.AreEqual('Original Device Name', TDeviceFormatter.GetDisplayName(Device, Config));
+end;
+
+procedure TDeviceFormatterTests.FormatLastSeen_Exactly24HoursAgo_Boundary;
+var
+  TestTime: TDateTime;
+  Result: string;
+begin
+  // Exactly 24 hours ago is the boundary between "X hr ago" and "Yesterday"
+  TestTime := IncHour(Now, -24);
+  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime);
+
+  // At exactly 24 hours, Days = 1, so should show "Yesterday"
+  Assert.AreEqual('Yesterday', Result);
+end;
+
+procedure TDeviceFormatterTests.FormatLastSeen_Exactly7DaysAgo_Boundary;
+var
+  TestTime: TDateTime;
+  Result: string;
+begin
+  // Exactly 7 days ago is the boundary between "X days ago" and "1 weeks ago"
+  TestTime := IncDay(Now, -7);
+  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime);
+
+  // At exactly 7 days, Days = 7, so should show "1 weeks ago" (7 div 7 = 1)
+  Assert.AreEqual('1 weeks ago', Result);
+end;
+
+procedure TDeviceFormatterTests.FormatLastSeen_FutureDate_Handles;
+var
+  TestTime: TDateTime;
+  Result: string;
+begin
+  // Future dates should still be handled (edge case - system clock issues)
+  TestTime := IncHour(Now, 5);  // 5 hours in the future
+  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime);
+
+  // Diff will be negative, so should show "Just now" (Minutes < 1 check fails,
+  // but the implementation may handle it differently)
+  // The current implementation: Diff = Now - ALastSeen is negative
+  // Days = Trunc(-0.2) = 0, Hours and Minutes using HoursBetween/MinutesBetween
+  // which return absolute values
+  Assert.IsNotEmpty(Result, 'Future dates should return a non-empty string');
+end;
+
+procedure TDeviceFormatterTests.FormatBatteryLevel_InvalidLevel_Above100;
+var
+  Status: TBatteryStatus;
+begin
+  // TBatteryStatus.Create clamps values to 0-100 range
+  Status := TBatteryStatus.Create(150);
+
+  // Should be clamped to 100%
+  Assert.AreEqual('100%', TDeviceFormatter.FormatBatteryLevel(Status));
+end;
+
+procedure TDeviceFormatterTests.FormatBatteryLevel_InvalidLevel_BelowZero;
+var
+  Status: TBatteryStatus;
+begin
+  // TBatteryStatus.Create clamps values to 0-100 range
+  Status := TBatteryStatus.Create(-50);
+
+  // Should be clamped to 0%
+  Assert.AreEqual('0%', TDeviceFormatter.FormatBatteryLevel(Status));
 end;
 
 initialization
