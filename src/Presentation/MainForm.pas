@@ -658,8 +658,12 @@ begin
 end;
 
 procedure TFormMain.HandleWindowsSettingsClick(Sender: TObject);
+var
+  Result: HINST;
 begin
-  ShellExecute(0, 'open', WINDOWS_BLUETOOTH_SETTINGS_URI, nil, nil, SW_SHOWNORMAL);
+  Result := ShellExecute(0, 'open', WINDOWS_BLUETOOTH_SETTINGS_URI, nil, nil, SW_SHOWNORMAL);
+  if Result <= 32 then
+    LogWarning('Failed to open Windows Bluetooth settings, error code: %d', [Result], ClassName);
 end;
 
 procedure TFormMain.HandleRefreshClick(Sender: TObject);
