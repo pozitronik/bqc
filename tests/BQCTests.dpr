@@ -43,7 +43,12 @@ uses
   Tests.BatteryIconRenderer in 'Tests.BatteryIconRenderer.pas',
   Tests.BatteryTrayManager in 'Tests.BatteryTrayManager.pas',
   Tests.ConfigSection.BatteryTray in 'Tests.ConfigSection.BatteryTray.pas',
+  Tests.HotkeyManager in 'Tests.HotkeyManager.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
+  Tests.Mocks.Config in 'Tests.Mocks.Config.pas',
+  Tests.Mocks.View in 'Tests.Mocks.View.pas',
+  Tests.Mocks.Bluetooth in 'Tests.Mocks.Bluetooth.pas',
+  Tests.Mocks.Infrastructure in 'Tests.Mocks.Infrastructure.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in '..\src\Application\Bluetooth.ConnectionStrategies.pas',
@@ -96,6 +101,7 @@ uses
   UI.WindowPositioner in '..\src\Presentation\UI.WindowPositioner.pas',
   UI.BatteryIconRenderer in '..\src\Presentation\UI.BatteryIconRenderer.pas',
   UI.BatteryTrayManager in '..\src\Presentation\UI.BatteryTrayManager.pas',
+  UI.HotkeyManager in '..\src\Presentation\UI.HotkeyManager.pas',
   App.BatteryTrayConfigIntf in '..\src\Infrastructure\App.BatteryTrayConfigIntf.pas',
   App.ConfigSection.BatteryTray in '..\src\Infrastructure\App.ConfigSection.BatteryTray.pas';
 
