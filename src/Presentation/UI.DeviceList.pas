@@ -261,7 +261,6 @@ const
 
   // Layout spacing constants
   FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
-  PIN_ICON_WIDTH = 12;         // Width reserved for pin icon
   PIN_ICON_FONT_SIZE = 10;     // Font size for pin icon
   ADDRESS_SPACING = 8;         // Space between device name and address
   BATTERY_SPACING = 4;         // Space between battery text and icon
@@ -772,9 +771,7 @@ var
   Style: TCustomStyleServices;
   AddrLeft, NameHeight, AddrOffset: Integer;
   RightEdge: Integer;
-  BatteryIconChar: Char;
-  BatteryIconWidth, BatteryTextWidth: Integer;
-  NameLineHeight, BatteryOffset: Integer;
+  PinIconWidth: Integer;
 begin
   Style := TStyleManager.ActiveStyle;
 
@@ -788,44 +785,18 @@ begin
     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
 
-  // Calculate name line height for vertical centering of smaller elements
-  NameLineHeight := ACanvas.TextHeight('Ay');
+  // Start from right edge of text area (already has padding applied)
+  RightEdge := AContext.TextRect.Right;
 
-  // Start from right edge and work backwards
-  RightEdge := AContext.TextRect.Right + AContext.ItemPadding;
-
-  // Draw pin indicator (rightmost)
+  // Draw pin indicator (rightmost on top line)
   if AItem.IsPinned then
   begin
     ACanvas.Font.Name := FONT_ICONS;
     ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    RightEdge := RightEdge - PIN_ICON_WIDTH;
+    PinIconWidth := ACanvas.TextWidth(ICON_PIN);
+    RightEdge := RightEdge - PinIconWidth;
     ACanvas.TextOut(RightEdge, AContext.NameLineTop, ICON_PIN);
-    RightEdge := RightEdge - BATTERY_SPACING;
-  end;
-
-  // Draw battery indicator (before pin)
-  if AItem.BatteryStatus.HasLevel then
-  begin
-    // Draw battery icon first (right side of battery display)
-    BatteryIconChar := GetBatteryIconChar(AItem.BatteryStatus.Level);
-    ACanvas.Font.Name := FONT_ICONS;
-    ACanvas.Font.Size := BATTERY_ICON_FONT_SIZE;
-    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    BatteryIconWidth := ACanvas.TextWidth(BatteryIconChar);
-    RightEdge := RightEdge - BatteryIconWidth;
-    BatteryOffset := (NameLineHeight - ACanvas.TextHeight(BatteryIconChar)) div 2;
-    ACanvas.TextOut(RightEdge, AContext.NameLineTop + BatteryOffset, BatteryIconChar);
-
-    // Draw battery percentage text (left of icon)
-    ACanvas.Font.Name := FONT_UI;
-    ACanvas.Font.Size := BATTERY_FONT_SIZE;
-    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    BatteryTextWidth := ACanvas.TextWidth(AItem.BatteryText);
-    RightEdge := RightEdge - BATTERY_SPACING - BatteryTextWidth;
-    BatteryOffset := (NameLineHeight - ACanvas.TextHeight(AItem.BatteryText)) div 2;
-    ACanvas.TextOut(RightEdge, AContext.NameLineTop + BatteryOffset, AItem.BatteryText);
   end;
 
   // Restore font for name
@@ -857,7 +828,9 @@ procedure TDeviceListBox.DrawItemBottomLine(ACanvas: TCanvas;
 var
   Style: TCustomStyleServices;
   StatusText: string;
-  LastSeenWidth: Integer;
+  BatteryIconChar: Char;
+  BatteryIconWidth, BatteryTextWidth: Integer;
+  StatusLineHeight, BatteryOffset: Integer;
 begin
   Style := TStyleManager.ActiveStyle;
 
@@ -865,8 +838,14 @@ begin
   ACanvas.Font.Size := AContext.StatusFontSize;
   ACanvas.Font.Style := [];
 
+  StatusLineHeight := ACanvas.TextHeight('Ay');
+
   // Connection status (left-aligned)
+  // For disconnected devices, append LastSeen if enabled
   StatusText := TDeviceFormatter.FormatConnectionState(AItem.Device.ConnectionState);
+  if AContext.ShowLastSeen and (not AItem.Device.IsConnected) and (AItem.LastSeenText <> '') then
+    StatusText := StatusText + '. ' + AItem.LastSeenText;
+
   if AItem.Device.IsConnected then
     ACanvas.Font.Color := AContext.ConnectedColor
   else
@@ -874,13 +853,27 @@ begin
 
   ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
 
-  // LastSeen (right-aligned)
-  if AContext.ShowLastSeen then
+  // Battery indicator (right-aligned on bottom line)
+  if AItem.BatteryStatus.HasLevel then
   begin
+    // Draw battery icon (rightmost)
+    BatteryIconChar := GetBatteryIconChar(AItem.BatteryStatus.Level);
+    ACanvas.Font.Name := FONT_ICONS;
+    ACanvas.Font.Size := BATTERY_ICON_FONT_SIZE;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    LastSeenWidth := ACanvas.TextWidth(AItem.LastSeenText);
-    ACanvas.TextOut(AContext.TextRect.Right - LastSeenWidth,
-      AContext.StatusLineTop, AItem.LastSeenText);
+    BatteryIconWidth := ACanvas.TextWidth(BatteryIconChar);
+    BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(BatteryIconChar)) div 2;
+    ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth,
+      AContext.StatusLineTop + BatteryOffset, BatteryIconChar);
+
+    // Draw battery percentage text (left of icon)
+    ACanvas.Font.Name := FONT_UI;
+    ACanvas.Font.Size := BATTERY_FONT_SIZE;
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+    BatteryTextWidth := ACanvas.TextWidth(AItem.BatteryText);
+    BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(AItem.BatteryText)) div 2;
+    ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth - BATTERY_SPACING - BatteryTextWidth,
+      AContext.StatusLineTop + BatteryOffset, AItem.BatteryText);
   end;
 end;
 

@@ -674,8 +674,8 @@ begin
       UpdateOrAddDevice(LDevice);
 
       // Update device in persistent config
-      // Only update LastSeen when device actually connects - this is when the app "sees" it
-      // For other state changes, pass 0 to preserve existing LastSeen value
+      // Update LastSeen when device connects or disconnects - the moment we last "saw" it active
+      // For other state changes (connecting, disconnecting), pass 0 to preserve existing value
       if LDevice.ConnectionState = csConnected then
       begin
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
@@ -683,6 +683,9 @@ begin
         if (FBatteryCache <> nil) and FAppearanceConfig.ShowBatteryLevel then
           FBatteryCache.RequestRefresh(LDevice.AddressInt);
       end
+      else if LDevice.ConnectionState = csDisconnected then
+        // Update LastSeen on disconnect - this is the last time device was active
+        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now)
       else
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, 0);
       FAppConfig.SaveIfModified;
