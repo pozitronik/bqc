@@ -136,10 +136,13 @@ begin
   if IsNew then
   begin
     // Create new device config with defaults
-    // LastSeen starts at 0 ("Never") - will be updated when device actually connects
     DeviceConfig := TDeviceConfig.Default(AAddress);
     DeviceConfig.Name := AName;
-    DeviceConfig.LastSeen := 0;
+    // Only set LastSeen if a valid value is provided (> 0)
+    if ALastSeen > 0 then
+      DeviceConfig.LastSeen := ALastSeen
+    else
+      DeviceConfig.LastSeen := 0;
     FDevices.Add(AAddress, DeviceConfig);
     FModified := True;
     LogDebug('RegisterDevice: New device registered: %s ($%.12X)', [AName, AAddress], ClassName);
