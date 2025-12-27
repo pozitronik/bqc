@@ -535,21 +535,31 @@ var
 begin
   Result := False;
   if AAsyncInfo = nil then
+  begin
+    LogDebug('WaitForAsyncOperation: AAsyncInfo is nil', LOG_SOURCE);
     Exit;
+  end;
 
   StartTime := GetTickCount;
   repeat
     if Failed(AAsyncInfo.get_Status(Status)) then
+    begin
+      LogDebug('WaitForAsyncOperation: get_Status failed', LOG_SOURCE);
       Exit;
+    end;
 
     if Status <> AsyncStatus_Started then
     begin
       Result := (Status = AsyncStatus_Completed);
+      if not Result then
+        LogDebug('WaitForAsyncOperation: Async status=%d (not completed)', [Status], LOG_SOURCE);
       Exit;
     end;
 
     Sleep(10);
   until (GetTickCount - StartTime) > ATimeoutMs;
+
+  LogDebug('WaitForAsyncOperation: Timeout after %dms', [ATimeoutMs], LOG_SOURCE);
 end;
 
 /// <summary>
