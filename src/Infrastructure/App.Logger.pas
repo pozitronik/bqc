@@ -400,7 +400,9 @@ initialization
   GLoggerLock := TCriticalSection.Create;
 
 finalization
-  GLogger.Free;
-  GLoggerLock.Free;
+  if Assigned(GLogger) then
+    GLogger.Free;
+  if Assigned(GLoggerLock) then
+    GLoggerLock.Free;
 
 end.
