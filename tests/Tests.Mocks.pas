@@ -98,6 +98,7 @@ type
     FLastSeenFormat: TLastSeenFormat;
     FShowDeviceIcons: Boolean;
     FConnectedColor: Integer;
+    FShowBatteryLevel: Boolean;
   public
     constructor Create;
 
@@ -109,6 +110,7 @@ type
     function GetLastSeenFormat: TLastSeenFormat;
     function GetShowDeviceIcons: Boolean;
     function GetConnectedColor: Integer;
+    function GetShowBatteryLevel: Boolean;
 
     // IAppearanceConfig - setters
     procedure SetShowAddresses(AValue: Boolean);
@@ -118,6 +120,7 @@ type
     procedure SetLastSeenFormat(AValue: TLastSeenFormat);
     procedure SetShowDeviceIcons(AValue: Boolean);
     procedure SetConnectedColor(AValue: Integer);
+    procedure SetShowBatteryLevel(AValue: Boolean);
 
     // Test setup properties
     property ShowAddresses: Boolean read FShowAddresses write FShowAddresses;
@@ -127,6 +130,7 @@ type
     property LastSeenFormat: TLastSeenFormat read FLastSeenFormat write FLastSeenFormat;
     property ShowDeviceIcons: Boolean read FShowDeviceIcons write FShowDeviceIcons;
     property ConnectedColor: Integer read FConnectedColor write FConnectedColor;
+    property ShowBatteryLevel: Boolean read FShowBatteryLevel write FShowBatteryLevel;
   end;
 
   /// <summary>
@@ -911,6 +915,46 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IBatteryCache for testing.
+  /// Allows configuring battery statuses and tracking refresh calls.
+  /// </summary>
+  TMockBatteryCache = class(TInterfacedObject, IBatteryCache)
+  private
+    FCache: TDictionary<UInt64, TBatteryStatus>;
+    FOnQueryCompleted: TBatteryQueryCompletedEvent;
+    FRequestRefreshCallCount: Integer;
+    FRequestRefreshAllCallCount: Integer;
+    FClearCallCount: Integer;
+    FLastRefreshAddress: UInt64;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    // IBatteryCache
+    function GetBatteryStatus(ADeviceAddress: UInt64): TBatteryStatus;
+    procedure SetBatteryStatus(ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
+    function HasCachedStatus(ADeviceAddress: UInt64): Boolean;
+    procedure RequestRefresh(ADeviceAddress: UInt64);
+    procedure RequestRefreshAll(const ADeviceAddresses: TArray<UInt64>);
+    procedure Clear;
+    procedure Remove(ADeviceAddress: UInt64);
+    function GetOnQueryCompleted: TBatteryQueryCompletedEvent;
+    procedure SetOnQueryCompleted(AValue: TBatteryQueryCompletedEvent);
+
+    // Test helpers
+    procedure SimulateQueryCompleted(AAddress: UInt64; const AStatus: TBatteryStatus);
+
+    // Test setup and verification
+    property Cache: TDictionary<UInt64, TBatteryStatus> read FCache;
+    property RequestRefreshCallCount: Integer read FRequestRefreshCallCount;
+    property RequestRefreshAllCallCount: Integer read FRequestRefreshAllCallCount;
+    property ClearCallCount: Integer read FClearCallCount;
+    property LastRefreshAddress: UInt64 read FLastRefreshAddress;
+    property OnQueryCompleted: TBatteryQueryCompletedEvent
+      read GetOnQueryCompleted write SetOnQueryCompleted;
+  end;
+
+  /// <summary>
   /// Mock implementation of IThemeManager for testing.
   /// Tracks calls and allows configuring available styles.
   /// </summary>
@@ -930,6 +974,8 @@ type
     function GetAvailableStyles: TArray<string>;
     procedure SetStyle(const AStyleName: string);
     function GetCurrentStyleName: string;
+    function GetStyleDisplayName(const AStyleName: string): string;
+    function GetStyleNameFromDisplay(const ADisplayName: string): string;
 
     // Test setup
     property AvailableStyles: TArray<string> read FAvailableStyles write FAvailableStyles;
@@ -1085,6 +1131,7 @@ begin
   FLastSeenFormat := lsfRelative;
   FShowDeviceIcons := True;
   FConnectedColor := $0000AA00;  // Green
+  FShowBatteryLevel := True;
 end;
 
 function TMockAppearanceConfig.GetShowAddresses: Boolean;
@@ -1122,6 +1169,11 @@ begin
   Result := FConnectedColor;
 end;
 
+function TMockAppearanceConfig.GetShowBatteryLevel: Boolean;
+begin
+  Result := FShowBatteryLevel;
+end;
+
 procedure TMockAppearanceConfig.SetShowAddresses(AValue: Boolean);
 begin
   FShowAddresses := AValue;
@@ -1155,6 +1207,11 @@ end;
 procedure TMockAppearanceConfig.SetConnectedColor(AValue: Integer);
 begin
   FConnectedColor := AValue;
+end;
+
+procedure TMockAppearanceConfig.SetShowBatteryLevel(AValue: Boolean);
+begin
+  FShowBatteryLevel := AValue;
 end;
 
 { TMockDeviceConfigProvider }
@@ -2488,6 +2545,81 @@ begin
   Result := FRegisteredPath;
 end;
 
+{ TMockBatteryCache }
+
+constructor TMockBatteryCache.Create;
+begin
+  inherited Create;
+  FCache := TDictionary<UInt64, TBatteryStatus>.Create;
+  FRequestRefreshCallCount := 0;
+  FRequestRefreshAllCallCount := 0;
+  FClearCallCount := 0;
+  FLastRefreshAddress := 0;
+end;
+
+destructor TMockBatteryCache.Destroy;
+begin
+  FCache.Free;
+  inherited Destroy;
+end;
+
+function TMockBatteryCache.GetBatteryStatus(ADeviceAddress: UInt64): TBatteryStatus;
+begin
+  if not FCache.TryGetValue(ADeviceAddress, Result) then
+    Result := TBatteryStatus.NotSupported;
+end;
+
+procedure TMockBatteryCache.SetBatteryStatus(ADeviceAddress: UInt64;
+  const AStatus: TBatteryStatus);
+begin
+  FCache.AddOrSetValue(ADeviceAddress, AStatus);
+end;
+
+function TMockBatteryCache.HasCachedStatus(ADeviceAddress: UInt64): Boolean;
+begin
+  Result := FCache.ContainsKey(ADeviceAddress);
+end;
+
+procedure TMockBatteryCache.RequestRefresh(ADeviceAddress: UInt64);
+begin
+  Inc(FRequestRefreshCallCount);
+  FLastRefreshAddress := ADeviceAddress;
+end;
+
+procedure TMockBatteryCache.RequestRefreshAll(const ADeviceAddresses: TArray<UInt64>);
+begin
+  Inc(FRequestRefreshAllCallCount);
+end;
+
+procedure TMockBatteryCache.Clear;
+begin
+  Inc(FClearCallCount);
+  FCache.Clear;
+end;
+
+procedure TMockBatteryCache.Remove(ADeviceAddress: UInt64);
+begin
+  FCache.Remove(ADeviceAddress);
+end;
+
+function TMockBatteryCache.GetOnQueryCompleted: TBatteryQueryCompletedEvent;
+begin
+  Result := FOnQueryCompleted;
+end;
+
+procedure TMockBatteryCache.SetOnQueryCompleted(AValue: TBatteryQueryCompletedEvent);
+begin
+  FOnQueryCompleted := AValue;
+end;
+
+procedure TMockBatteryCache.SimulateQueryCompleted(AAddress: UInt64;
+  const AStatus: TBatteryStatus);
+begin
+  FCache.AddOrSetValue(AAddress, AStatus);
+  if Assigned(FOnQueryCompleted) then
+    FOnQueryCompleted(Self, AAddress, AStatus);
+end;
+
 { TMockThemeManager }
 
 constructor TMockThemeManager.Create;
@@ -2522,6 +2654,18 @@ end;
 function TMockThemeManager.GetCurrentStyleName: string;
 begin
   Result := FCurrentStyleName;
+end;
+
+function TMockThemeManager.GetStyleDisplayName(const AStyleName: string): string;
+begin
+  // Mock simply returns the style name as-is
+  Result := AStyleName;
+end;
+
+function TMockThemeManager.GetStyleNameFromDisplay(const ADisplayName: string): string;
+begin
+  // Mock simply returns the display name as-is
+  Result := ADisplayName;
 end;
 
 end.

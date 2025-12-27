@@ -150,6 +150,22 @@ type
 
     [Test]
     procedure FormatDeviceType_Unknown;
+
+    { FormatBatteryLevel Tests }
+    [Test]
+    procedure FormatBatteryLevel_HasLevel_ReturnsPercentage;
+
+    [Test]
+    procedure FormatBatteryLevel_ZeroLevel_ReturnsZeroPercent;
+
+    [Test]
+    procedure FormatBatteryLevel_FullLevel_ReturnsHundredPercent;
+
+    [Test]
+    procedure FormatBatteryLevel_NotSupported_ReturnsEmpty;
+
+    [Test]
+    procedure FormatBatteryLevel_Unknown_ReturnsEmpty;
   end;
 
 implementation
@@ -231,12 +247,14 @@ end;
 
 procedure TDeviceFormatterTests.FormatLastSeenAbsolute_ZeroDateTime_ReturnsNever;
 begin
-  Assert.AreEqual('Never', TDeviceFormatter.FormatLastSeenAbsolute(0));
+  // Absolute format returns empty string for "never seen" (not shown in UI)
+  Assert.AreEqual('', TDeviceFormatter.FormatLastSeenAbsolute(0));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenAbsolute_NegativeDateTime_ReturnsNever;
 begin
-  Assert.AreEqual('Never', TDeviceFormatter.FormatLastSeenAbsolute(-1));
+  // Absolute format returns empty string for invalid dates
+  Assert.AreEqual('', TDeviceFormatter.FormatLastSeenAbsolute(-1));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenAbsolute_ValidDateTime_ReturnsFormattedString;
@@ -451,6 +469,48 @@ end;
 procedure TDeviceFormatterTests.FormatDeviceType_Unknown;
 begin
   Assert.AreEqual('Unknown', TDeviceFormatter.FormatDeviceType(btUnknown));
+end;
+
+{ TDeviceFormatterTests - FormatBatteryLevel }
+
+procedure TDeviceFormatterTests.FormatBatteryLevel_HasLevel_ReturnsPercentage;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(75);
+  Assert.AreEqual('75%', TDeviceFormatter.FormatBatteryLevel(Status));
+end;
+
+procedure TDeviceFormatterTests.FormatBatteryLevel_ZeroLevel_ReturnsZeroPercent;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(0);
+  Assert.AreEqual('0%', TDeviceFormatter.FormatBatteryLevel(Status));
+end;
+
+procedure TDeviceFormatterTests.FormatBatteryLevel_FullLevel_ReturnsHundredPercent;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(100);
+  Assert.AreEqual('100%', TDeviceFormatter.FormatBatteryLevel(Status));
+end;
+
+procedure TDeviceFormatterTests.FormatBatteryLevel_NotSupported_ReturnsEmpty;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.NotSupported;
+  Assert.AreEqual('', TDeviceFormatter.FormatBatteryLevel(Status));
+end;
+
+procedure TDeviceFormatterTests.FormatBatteryLevel_Unknown_ReturnsEmpty;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Unknown;
+  Assert.AreEqual('', TDeviceFormatter.FormatBatteryLevel(Status));
 end;
 
 initialization

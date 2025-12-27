@@ -94,7 +94,9 @@ begin
     btAudioOutput,
     '',
     ALastSeen,
-    SortGroup
+    SortGroup,
+    TBatteryStatus.NotSupported,
+    ''
   );
 end;
 

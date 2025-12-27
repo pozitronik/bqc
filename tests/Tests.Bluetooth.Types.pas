@@ -182,6 +182,46 @@ type
   end;
 
   /// <summary>
+  /// Test fixture for TBatteryStatus record.
+  /// Tests factory methods and property accessors.
+  /// </summary>
+  [TestFixture]
+  TBatteryStatusTests = class
+  public
+    // NotSupported tests
+    [Test]
+    procedure NotSupported_IsNotSupported;
+    [Test]
+    procedure NotSupported_LevelIsNegative;
+    [Test]
+    procedure NotSupported_HasLevelReturnsFalse;
+
+    // Unknown tests
+    [Test]
+    procedure Unknown_IsSupported;
+    [Test]
+    procedure Unknown_LevelIsNegative;
+    [Test]
+    procedure Unknown_HasLevelReturnsFalse;
+
+    // Create tests
+    [Test]
+    procedure Create_ValidLevel_SetsLevel;
+    [Test]
+    procedure Create_ValidLevel_IsSupported;
+    [Test]
+    procedure Create_ValidLevel_HasLevelReturnsTrue;
+    [Test]
+    procedure Create_ZeroLevel_IsValid;
+    [Test]
+    procedure Create_HundredLevel_IsValid;
+    [Test]
+    procedure Create_NegativeLevel_ClampsToZero;
+    [Test]
+    procedure Create_OverHundred_ClampsToHundred;
+  end;
+
+  /// <summary>
   /// Test fixture for address conversion functions.
   /// </summary>
   [TestFixture]
@@ -753,6 +793,114 @@ begin
   end;
 end;
 
+{ TBatteryStatusTests }
+
+procedure TBatteryStatusTests.NotSupported_IsNotSupported;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.NotSupported;
+  Assert.IsFalse(Status.IsSupported);
+end;
+
+procedure TBatteryStatusTests.NotSupported_LevelIsNegative;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.NotSupported;
+  Assert.IsTrue(Status.Level < 0);
+end;
+
+procedure TBatteryStatusTests.NotSupported_HasLevelReturnsFalse;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.NotSupported;
+  Assert.IsFalse(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Unknown_IsSupported;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Unknown;
+  Assert.IsTrue(Status.IsSupported);
+end;
+
+procedure TBatteryStatusTests.Unknown_LevelIsNegative;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Unknown;
+  Assert.IsTrue(Status.Level < 0);
+end;
+
+procedure TBatteryStatusTests.Unknown_HasLevelReturnsFalse;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Unknown;
+  Assert.IsFalse(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Create_ValidLevel_SetsLevel;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(75);
+  Assert.AreEqual(75, Status.Level);
+end;
+
+procedure TBatteryStatusTests.Create_ValidLevel_IsSupported;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(50);
+  Assert.IsTrue(Status.IsSupported);
+end;
+
+procedure TBatteryStatusTests.Create_ValidLevel_HasLevelReturnsTrue;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(50);
+  Assert.IsTrue(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Create_ZeroLevel_IsValid;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(0);
+  Assert.AreEqual(0, Status.Level);
+  Assert.IsTrue(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Create_HundredLevel_IsValid;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(100);
+  Assert.AreEqual(100, Status.Level);
+  Assert.IsTrue(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Create_NegativeLevel_ClampsToZero;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(-10);
+  Assert.AreEqual(0, Status.Level);
+end;
+
+procedure TBatteryStatusTests.Create_OverHundred_ClampsToHundred;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(150);
+  Assert.AreEqual(100, Status.Level);
+end;
+
 { TAddressConversionTests }
 
 procedure TAddressConversionTests.UInt64ToBluetoothAddress_ZeroValue_ReturnsZeroBytes;
@@ -918,6 +1066,7 @@ initialization
   TDUnitX.RegisterTestFixture(TDetermineDeviceTypeTests);
   TDUnitX.RegisterTestFixture(TBluetoothDeviceInfoTests);
   TDUnitX.RegisterTestFixture(TBluetoothExceptionTests);
+  TDUnitX.RegisterTestFixture(TBatteryStatusTests);
   TDUnitX.RegisterTestFixture(TAddressConversionTests);
 
 end.

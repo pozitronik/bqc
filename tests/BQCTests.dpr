@@ -54,6 +54,7 @@ uses
   Bluetooth.DeviceConverter in '..\src\Infrastructure\Bluetooth.DeviceConverter.pas',
   Bluetooth.DeviceWatcher in '..\src\Infrastructure\Bluetooth.DeviceWatcher.pas',
   Bluetooth.RadioControl in '..\src\Infrastructure\Bluetooth.RadioControl.pas',
+  Bluetooth.BatteryQuery in '..\src\Infrastructure\Bluetooth.BatteryQuery.pas',
   App.ConfigEnums in '..\src\Infrastructure\App.ConfigEnums.pas',
   App.DeviceConfigTypes in '..\src\Infrastructure\App.DeviceConfigTypes.pas',
   App.LayoutConfigIntf in '..\src\Infrastructure\App.LayoutConfigIntf.pas',
