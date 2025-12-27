@@ -149,18 +149,33 @@ var
   GLoggerLock: TCriticalSection = nil;
 
 function GetLogger: TLogger;
+var
+  NewLogger: TLogger;
+  CurrentLogger: Pointer;
 begin
-  if GLogger = nil then
+  // Atomic read with memory barrier - ensures we see fully constructed object
+  CurrentLogger := TInterlocked.CompareExchange(Pointer(GLogger), nil, nil);
+  Result := TLogger(CurrentLogger);
+
+  if Result = nil then
   begin
     GLoggerLock.Enter;
     try
+      // Re-check inside lock
       if GLogger = nil then
-        GLogger := TLogger.Create;
+      begin
+        NewLogger := TLogger.Create;
+        // Atomic write with full memory barrier ensures object is fully
+        // constructed before other threads can see the non-nil pointer
+        TInterlocked.Exchange(Pointer(GLogger), Pointer(NewLogger));
+        Result := NewLogger;
+      end
+      else
+        Result := GLogger;
     finally
       GLoggerLock.Leave;
     end;
   end;
-  Result := GLogger;
 end;
 
 function Logger: ILogger;
