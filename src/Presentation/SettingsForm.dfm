@@ -24,8 +24,6 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitTop = 526
-    ExplicitWidth = 550
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -61,18 +59,16 @@ object FormSettings: TFormSettings
     Top = 0
     Width = 544
     Height = 547
-    ActivePage = TabBatteryTray
+    ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
-    ExplicitLeft = -42
-    ExplicitTop = 2
     object TabGeneral: TTabSheet
       Caption = 'Window'
       object GroupWindowMode: TGroupBox
         Left = 0
         Top = 0
         Width = 536
-        Height = 183
+        Height = 165
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
@@ -96,12 +92,16 @@ object FormSettings: TFormSettings
             'Menu (popup)')
         end
         object GroupWindowOptions: TGroupBox
-          Left = 12
-          Top = 57
-          Width = 518
+          Left = 2
+          Top = 53
+          Width = 532
           Height = 55
+          Align = alBottom
           Caption = 'When it'#39's window:'
           TabOrder = 1
+          ExplicitLeft = 8
+          ExplicitTop = 55
+          ExplicitWidth = 518
           object CheckMinimizeToTray: TCheckBox
             Left = 12
             Top = 25
@@ -120,12 +120,16 @@ object FormSettings: TFormSettings
           end
         end
         object GroupMenuOptions: TGroupBox
-          Left = 12
-          Top = 114
-          Width = 518
+          Left = 2
+          Top = 108
+          Width = 532
           Height = 55
+          Align = alBottom
           Caption = 'When it'#39's menu:'
           TabOrder = 2
+          ExplicitLeft = 8
+          ExplicitTop = 112
+          ExplicitWidth = 518
           object CheckHideOnFocusLoss: TCheckBox
             Left = 12
             Top = 25
@@ -138,14 +142,13 @@ object FormSettings: TFormSettings
       end
       object GroupPosition: TGroupBox
         Left = 0
-        Top = 183
+        Top = 165
         Width = 536
         Height = 95
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
-        ExplicitTop = 165
-        ExplicitWidth = 542
+        ExplicitTop = 183
         object LabelPositionMode: TLabel
           Left = 12
           Top = 28
@@ -213,7 +216,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Display Options'
         TabOrder = 0
-        ExplicitWidth = 542
         object LabelConnectedColor: TLabel
           Left = 274
           Top = 24
@@ -285,7 +287,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Layout'
         TabOrder = 1
-        ExplicitWidth = 542
         object LabelItemHeight: TLabel
           Left = 12
           Top = 24
@@ -511,7 +512,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Font Sizes (pt)'
         TabOrder = 2
-        ExplicitWidth = 542
         object LabelDeviceNameSize: TLabel
           Left = 12
           Top = 24
@@ -629,7 +629,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Global Hotkey'
         TabOrder = 0
-        ExplicitWidth = 542
         object LabelHotkey: TLabel
           Left = 12
           Top = 27
@@ -684,7 +683,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Theme'
         TabOrder = 0
-        ExplicitWidth = 542
         object LabelTheme: TLabel
           Left = 12
           Top = 27
@@ -736,7 +734,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Default Connection Settings'
         TabOrder = 0
-        ExplicitWidth = 542
         object LabelTimeout: TLabel
           Left = 12
           Top = 27
@@ -802,7 +799,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
-        ExplicitWidth = 542
         object LabelPollingMode: TLabel
           Left = 12
           Top = 27
@@ -879,7 +875,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
-        ExplicitWidth = 542
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24
@@ -911,468 +906,6 @@ object FormSettings: TFormSettings
           Height = 17
           Caption = 'On auto-connect'
           TabOrder = 3
-        end
-      end
-    end
-    object TabDevices: TTabSheet
-      Caption = 'Devices'
-      ImageIndex = 4
-      object PanelDeviceList: TPanel
-        Left = 0
-        Top = 0
-        Width = 200
-        Height = 517
-        Align = alLeft
-        BevelOuter = bvNone
-        TabOrder = 0
-        ExplicitHeight = 496
-        object ListDevices: TListBox
-          Left = 0
-          Top = 0
-          Width = 200
-          Height = 485
-          Align = alClient
-          ItemHeight = 15
-          TabOrder = 0
-          OnClick = ListDevicesClick
-          ExplicitHeight = 464
-        end
-        object PanelDeviceButtons: TPanel
-          Left = 0
-          Top = 485
-          Width = 200
-          Height = 32
-          Align = alBottom
-          BevelOuter = bvNone
-          TabOrder = 1
-          ExplicitTop = 464
-          object ButtonForgetDevice: TButton
-            Left = 0
-            Top = 4
-            Width = 95
-            Height = 23
-            Caption = 'Forget'
-            TabOrder = 0
-            OnClick = ButtonForgetDeviceClick
-          end
-          object ButtonRefreshDevices: TButton
-            Left = 104
-            Top = 4
-            Width = 95
-            Height = 23
-            Caption = 'Refresh'
-            TabOrder = 1
-            OnClick = ButtonRefreshDevicesClick
-          end
-        end
-      end
-      object PanelDeviceSettings: TPanel
-        Left = 200
-        Top = 0
-        Width = 336
-        Height = 517
-        Align = alClient
-        BevelOuter = bvNone
-        TabOrder = 1
-        ExplicitWidth = 342
-        ExplicitHeight = 496
-        object GroupDeviceInfo: TGroupBox
-          Left = 0
-          Top = 0
-          Width = 336
-          Height = 517
-          Align = alClient
-          Caption = 'Device Settings'
-          TabOrder = 0
-          ExplicitWidth = 342
-          ExplicitHeight = 496
-          object GroupDeviceConnection: TGroupBox
-            Left = 2
-            Top = 151
-            Width = 332
-            Height = 95
-            Align = alTop
-            Caption = 'Connection (overrides global parameters)'
-            TabOrder = 0
-            ExplicitLeft = 6
-            ExplicitTop = 132
-            ExplicitWidth = 330
-            object LabelDeviceTimeout: TLabel
-              Left = 12
-              Top = 25
-              Width = 48
-              Height = 15
-              Caption = 'Timeout:'
-            end
-            object LabelDeviceTimeoutMs: TLabel
-              Left = 206
-              Top = 25
-              Width = 16
-              Height = 15
-              Caption = 'ms'
-            end
-            object LabelDeviceRetry: TLabel
-              Left = 12
-              Top = 57
-              Width = 80
-              Height = 15
-              Caption = 'Retry attempts:'
-            end
-            object EditDeviceTimeout: TEdit
-              Left = 110
-              Top = 22
-              Width = 75
-              Height = 23
-              TabOrder = 0
-              Text = '-1'
-            end
-            object UpDownDeviceTimeout: TUpDown
-              Left = 185
-              Top = 22
-              Width = 16
-              Height = 22
-              Associate = EditDeviceTimeout
-              Min = -1
-              Max = 60000
-              Increment = 1000
-              Position = -1
-              TabOrder = 1
-            end
-            object EditDeviceRetryCount: TEdit
-              Left = 110
-              Top = 54
-              Width = 75
-              Height = 23
-              TabOrder = 2
-              Text = '-1'
-            end
-            object UpDownDeviceRetryCount: TUpDown
-              Left = 185
-              Top = 54
-              Width = 16
-              Height = 23
-              Associate = EditDeviceRetryCount
-              Min = -1
-              Max = 10
-              Position = -1
-              TabOrder = 3
-            end
-          end
-          object GroupDeviceNotifications: TGroupBox
-            Left = 2
-            Top = 246
-            Width = 332
-            Height = 95
-            Align = alTop
-            Caption = 'Notifications (overrides global parameters)'
-            TabOrder = 1
-            ExplicitWidth = 357
-            object LabelDeviceNotifyConnect: TLabel
-              Left = 12
-              Top = 27
-              Width = 48
-              Height = 15
-              Caption = 'Connect:'
-            end
-            object LabelDeviceNotifyDisconnect: TLabel
-              Left = 12
-              Top = 58
-              Width = 62
-              Height = 16
-              Caption = 'Disconnect:'
-            end
-            object LabelDeviceNotifyFailed: TLabel
-              Left = 170
-              Top = 27
-              Width = 34
-              Height = 15
-              Caption = 'Failed:'
-            end
-            object LabelDeviceNotifyAuto: TLabel
-              Left = 170
-              Top = 59
-              Width = 77
-              Height = 16
-              Caption = 'Auto-connect:'
-            end
-            object ComboDeviceNotifyConnect: TComboBox
-              Left = 80
-              Top = 24
-              Width = 70
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 0
-              Items.Strings = (
-                'Default'
-                'None'
-                'Balloon')
-            end
-            object ComboDeviceNotifyFailed: TComboBox
-              Left = 256
-              Top = 24
-              Width = 70
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 1
-              Items.Strings = (
-                'Default'
-                'None'
-                'Balloon')
-            end
-            object ComboDeviceNotifyDisconnect: TComboBox
-              Left = 80
-              Top = 56
-              Width = 70
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 2
-              Items.Strings = (
-                'Default'
-                'None'
-                'Balloon')
-            end
-            object ComboDeviceNotifyAuto: TComboBox
-              Left = 256
-              Top = 56
-              Width = 70
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 3
-              Items.Strings = (
-                'Default'
-                'None'
-                'Balloon')
-            end
-          end
-          object GroupDeviceBatteryTray: TGroupBox
-            Left = 2
-            Top = 341
-            Width = 332
-            Height = 175
-            Align = alTop
-            Caption = 'Battery Tray Icon (overrides global parameters)'
-            TabOrder = 2
-            object LabelDeviceBatteryTrayIcon: TLabel
-              Left = 12
-              Top = 24
-              Width = 58
-              Height = 15
-              Caption = 'Show icon:'
-            end
-            object LabelDeviceBatteryColor: TLabel
-              Left = 12
-              Top = 52
-              Width = 56
-              Height = 15
-              Caption = 'Icon color:'
-            end
-            object LabelDeviceBatteryBackground: TLabel
-              Left = 12
-              Top = 80
-              Width = 67
-              Height = 15
-              Caption = 'Background:'
-            end
-            object LabelDeviceBatteryThreshold: TLabel
-              Left = 12
-              Top = 108
-              Width = 78
-              Height = 15
-              Caption = 'Low threshold:'
-            end
-            object LabelDeviceBatteryNumeric: TLabel
-              Left = 176
-              Top = 108
-              Width = 49
-              Height = 15
-              Caption = 'Numeric:'
-            end
-            object LabelDeviceBatteryNotifyLow: TLabel
-              Left = 12
-              Top = 136
-              Width = 58
-              Height = 15
-              Caption = 'Notify low:'
-            end
-            object LabelDeviceBatteryNotifyFull: TLabel
-              Left = 176
-              Top = 136
-              Width = 56
-              Height = 15
-              Caption = 'Notify full:'
-            end
-            object ShapeDeviceBatteryColor: TShape
-              Left = 256
-              Top = 50
-              Width = 70
-              Height = 20
-              Cursor = crHandPoint
-              OnMouseDown = HandleShapeColorMouseDown
-            end
-            object ShapeDeviceBatteryBackground: TShape
-              Left = 256
-              Top = 78
-              Width = 70
-              Height = 20
-              Cursor = crHandPoint
-              OnMouseDown = HandleShapeColorMouseDown
-            end
-            object ComboDeviceBatteryTrayIcon: TComboBox
-              Left = 97
-              Top = 21
-              Width = 70
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 0
-              Items.Strings = (
-                'Default'
-                'No'
-                'Yes')
-            end
-            object ComboDeviceBatteryColorMode: TComboBox
-              Left = 97
-              Top = 49
-              Width = 150
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 1
-              OnChange = ComboDeviceBatteryColorModeChange
-              Items.Strings = (
-                'Default'
-                'Custom')
-            end
-            object ComboDeviceBatteryBackgroundMode: TComboBox
-              Left = 97
-              Top = 77
-              Width = 150
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 2
-              OnChange = ComboDeviceBatteryBackgroundModeChange
-              Items.Strings = (
-                'Default'
-                'Custom'
-                'Transparent')
-            end
-            object EditDeviceBatteryThreshold: TEdit
-              Left = 97
-              Top = 105
-              Width = 45
-              Height = 23
-              NumbersOnly = True
-              TabOrder = 3
-              Text = '-1'
-            end
-            object UpDownDeviceBatteryThreshold: TUpDown
-              Left = 142
-              Top = 105
-              Width = 17
-              Height = 23
-              Associate = EditDeviceBatteryThreshold
-              Min = -1
-              Position = -1
-              TabOrder = 4
-            end
-            object ComboDeviceBatteryNumeric: TComboBox
-              Left = 256
-              Top = 105
-              Width = 70
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 5
-              Items.Strings = (
-                'Default'
-                'No'
-                'Yes')
-            end
-            object ComboDeviceBatteryNotifyLow: TComboBox
-              Left = 97
-              Top = 134
-              Width = 70
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 6
-              Items.Strings = (
-                'Default'
-                'No'
-                'Yes')
-            end
-            object ComboDeviceBatteryNotifyFull: TComboBox
-              Left = 256
-              Top = 133
-              Width = 70
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 7
-              Items.Strings = (
-                'Default'
-                'No'
-                'Yes')
-            end
-          end
-          object GroupDeviceGeneral: TGroupBox
-            Left = 2
-            Top = 17
-            Width = 332
-            Height = 134
-            Align = alTop
-            Caption = 'General'
-            TabOrder = 3
-            ExplicitWidth = 357
-            object LabelDeviceAlias: TLabel
-              Left = 12
-              Top = 25
-              Width = 28
-              Height = 15
-              Caption = 'Alias:'
-            end
-            object LabelDeviceType: TLabel
-              Left = 12
-              Top = 55
-              Width = 28
-              Height = 35
-              Caption = 'Type:'
-            end
-            object EditDeviceAlias: TEdit
-              Left = 76
-              Top = 22
-              Width = 250
-              Height = 23
-              TabOrder = 0
-            end
-            object ComboDeviceType: TComboBox
-              Left = 76
-              Top = 52
-              Width = 250
-              Height = 23
-              Style = csDropDownList
-              TabOrder = 1
-            end
-            object CheckDevicePinned: TCheckBox
-              Left = 12
-              Top = 80
-              Width = 140
-              Height = 17
-              Caption = 'Pin to top of list'
-              TabOrder = 2
-            end
-            object CheckDeviceHidden: TCheckBox
-              Left = 135
-              Top = 80
-              Width = 140
-              Height = 17
-              Caption = 'Hide from list'
-              TabOrder = 3
-            end
-            object CheckDeviceAutoConnect: TCheckBox
-              Left = 12
-              Top = 103
-              Width = 140
-              Height = 17
-              Caption = 'Auto-connect on start'
-              TabOrder = 4
-            end
-          end
         end
       end
     end
@@ -1492,8 +1025,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Default Notifications'
         TabOrder = 1
-        ExplicitTop = 160
-        ExplicitWidth = 542
         object CheckDefaultNotifyLowBattery: TCheckBox
           Left = 12
           Top = 24
@@ -1512,6 +1043,456 @@ object FormSettings: TFormSettings
         end
       end
     end
+    object TabDevices: TTabSheet
+      Caption = 'Devices'
+      ImageIndex = 5
+      object PanelDeviceList: TPanel
+        Left = 0
+        Top = 0
+        Width = 200
+        Height = 517
+        Align = alLeft
+        BevelOuter = bvNone
+        TabOrder = 0
+        object ListDevices: TListBox
+          Left = 0
+          Top = 0
+          Width = 200
+          Height = 485
+          Align = alClient
+          ItemHeight = 15
+          TabOrder = 0
+          OnClick = ListDevicesClick
+        end
+        object PanelDeviceButtons: TPanel
+          Left = 0
+          Top = 485
+          Width = 200
+          Height = 32
+          Align = alBottom
+          BevelOuter = bvNone
+          TabOrder = 1
+          object ButtonForgetDevice: TButton
+            Left = 0
+            Top = 4
+            Width = 95
+            Height = 23
+            Caption = 'Forget'
+            TabOrder = 0
+            OnClick = ButtonForgetDeviceClick
+          end
+          object ButtonRefreshDevices: TButton
+            Left = 104
+            Top = 4
+            Width = 95
+            Height = 23
+            Caption = 'Refresh'
+            TabOrder = 1
+            OnClick = ButtonRefreshDevicesClick
+          end
+        end
+      end
+      object PanelDeviceSettings: TPanel
+        Left = 200
+        Top = 0
+        Width = 336
+        Height = 517
+        Align = alClient
+        BevelOuter = bvNone
+        TabOrder = 1
+        object GroupDeviceInfo: TGroupBox
+          Left = 0
+          Top = 0
+          Width = 336
+          Height = 517
+          Align = alClient
+          Caption = 'Device Settings'
+          TabOrder = 0
+          object GroupDeviceConnection: TGroupBox
+            Left = 2
+            Top = 151
+            Width = 332
+            Height = 95
+            Align = alTop
+            Caption = 'Connection (overrides global parameters)'
+            TabOrder = 1
+            object LabelDeviceTimeout: TLabel
+              Left = 12
+              Top = 25
+              Width = 48
+              Height = 15
+              Caption = 'Timeout:'
+            end
+            object LabelDeviceTimeoutMs: TLabel
+              Left = 206
+              Top = 25
+              Width = 16
+              Height = 15
+              Caption = 'ms'
+            end
+            object LabelDeviceRetry: TLabel
+              Left = 12
+              Top = 57
+              Width = 80
+              Height = 15
+              Caption = 'Retry attempts:'
+            end
+            object EditDeviceTimeout: TEdit
+              Left = 110
+              Top = 22
+              Width = 75
+              Height = 23
+              TabOrder = 0
+              Text = '-1'
+            end
+            object UpDownDeviceTimeout: TUpDown
+              Left = 185
+              Top = 22
+              Width = 16
+              Height = 23
+              Associate = EditDeviceTimeout
+              Min = -1
+              Max = 60000
+              Increment = 1000
+              Position = -1
+              TabOrder = 1
+            end
+            object EditDeviceRetryCount: TEdit
+              Left = 110
+              Top = 54
+              Width = 75
+              Height = 23
+              TabOrder = 2
+              Text = '-1'
+            end
+            object UpDownDeviceRetryCount: TUpDown
+              Left = 185
+              Top = 54
+              Width = 16
+              Height = 23
+              Associate = EditDeviceRetryCount
+              Min = -1
+              Max = 10
+              Position = -1
+              TabOrder = 3
+            end
+          end
+          object GroupDeviceNotifications: TGroupBox
+            Left = 2
+            Top = 246
+            Width = 332
+            Height = 95
+            Align = alTop
+            Caption = 'Notifications (overrides global parameters)'
+            TabOrder = 2
+            object LabelDeviceNotifyConnect: TLabel
+              Left = 12
+              Top = 27
+              Width = 48
+              Height = 15
+              Caption = 'Connect:'
+            end
+            object LabelDeviceNotifyDisconnect: TLabel
+              Left = 12
+              Top = 58
+              Width = 62
+              Height = 15
+              Caption = 'Disconnect:'
+            end
+            object LabelDeviceNotifyFailed: TLabel
+              Left = 170
+              Top = 27
+              Width = 34
+              Height = 15
+              Caption = 'Failed:'
+            end
+            object LabelDeviceNotifyAuto: TLabel
+              Left = 170
+              Top = 59
+              Width = 77
+              Height = 15
+              Caption = 'Auto-connect:'
+            end
+            object ComboDeviceNotifyConnect: TComboBox
+              Left = 80
+              Top = 24
+              Width = 70
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 0
+              Items.Strings = (
+                'Default'
+                'None'
+                'Balloon')
+            end
+            object ComboDeviceNotifyFailed: TComboBox
+              Left = 256
+              Top = 24
+              Width = 70
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 1
+              Items.Strings = (
+                'Default'
+                'None'
+                'Balloon')
+            end
+            object ComboDeviceNotifyDisconnect: TComboBox
+              Left = 80
+              Top = 56
+              Width = 70
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 2
+              Items.Strings = (
+                'Default'
+                'None'
+                'Balloon')
+            end
+            object ComboDeviceNotifyAuto: TComboBox
+              Left = 256
+              Top = 56
+              Width = 70
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 3
+              Items.Strings = (
+                'Default'
+                'None'
+                'Balloon')
+            end
+          end
+          object GroupDeviceBatteryTray: TGroupBox
+            Left = 2
+            Top = 341
+            Width = 332
+            Height = 175
+            Align = alTop
+            Caption = 'Battery Tray Icon (overrides global parameters)'
+            TabOrder = 3
+            object LabelDeviceBatteryTrayIcon: TLabel
+              Left = 12
+              Top = 24
+              Width = 58
+              Height = 15
+              Caption = 'Show icon:'
+            end
+            object LabelDeviceBatteryColor: TLabel
+              Left = 12
+              Top = 52
+              Width = 56
+              Height = 15
+              Caption = 'Icon color:'
+            end
+            object LabelDeviceBatteryBackground: TLabel
+              Left = 12
+              Top = 80
+              Width = 67
+              Height = 15
+              Caption = 'Background:'
+            end
+            object LabelDeviceBatteryThreshold: TLabel
+              Left = 12
+              Top = 108
+              Width = 78
+              Height = 15
+              Caption = 'Low threshold:'
+            end
+            object LabelDeviceBatteryNumeric: TLabel
+              Left = 176
+              Top = 108
+              Width = 49
+              Height = 15
+              Caption = 'Numeric:'
+            end
+            object LabelDeviceBatteryNotifyLow: TLabel
+              Left = 12
+              Top = 136
+              Width = 58
+              Height = 15
+              Caption = 'Notify low:'
+            end
+            object LabelDeviceBatteryNotifyFull: TLabel
+              Left = 176
+              Top = 136
+              Width = 56
+              Height = 15
+              Caption = 'Notify full:'
+            end
+            object ShapeDeviceBatteryColor: TShape
+              Left = 256
+              Top = 52
+              Width = 70
+              Height = 20
+              Cursor = crHandPoint
+              OnMouseDown = HandleShapeColorMouseDown
+            end
+            object ShapeDeviceBatteryBackground: TShape
+              Left = 256
+              Top = 80
+              Width = 70
+              Height = 20
+              Cursor = crHandPoint
+              OnMouseDown = HandleShapeColorMouseDown
+            end
+            object ComboDeviceBatteryTrayIcon: TComboBox
+              Left = 97
+              Top = 21
+              Width = 70
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 0
+              Items.Strings = (
+                'Default'
+                'No'
+                'Yes')
+            end
+            object ComboDeviceBatteryColorMode: TComboBox
+              Left = 97
+              Top = 49
+              Width = 150
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 1
+              OnChange = ComboDeviceBatteryColorModeChange
+              Items.Strings = (
+                'Default'
+                'Custom')
+            end
+            object ComboDeviceBatteryBackgroundMode: TComboBox
+              Left = 97
+              Top = 77
+              Width = 150
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 2
+              OnChange = ComboDeviceBatteryBackgroundModeChange
+              Items.Strings = (
+                'Default'
+                'Custom'
+                'Transparent')
+            end
+            object EditDeviceBatteryThreshold: TEdit
+              Left = 97
+              Top = 105
+              Width = 45
+              Height = 23
+              NumbersOnly = True
+              TabOrder = 3
+              Text = '-1'
+            end
+            object UpDownDeviceBatteryThreshold: TUpDown
+              Left = 142
+              Top = 105
+              Width = 17
+              Height = 23
+              Associate = EditDeviceBatteryThreshold
+              Min = -1
+              Position = -1
+              TabOrder = 4
+            end
+            object ComboDeviceBatteryNumeric: TComboBox
+              Left = 256
+              Top = 105
+              Width = 70
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 5
+              Items.Strings = (
+                'Default'
+                'No'
+                'Yes')
+            end
+            object ComboDeviceBatteryNotifyLow: TComboBox
+              Left = 97
+              Top = 134
+              Width = 70
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 6
+              Items.Strings = (
+                'Default'
+                'No'
+                'Yes')
+            end
+            object ComboDeviceBatteryNotifyFull: TComboBox
+              Left = 256
+              Top = 134
+              Width = 70
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 7
+              Items.Strings = (
+                'Default'
+                'No'
+                'Yes')
+            end
+          end
+          object GroupDeviceGeneral: TGroupBox
+            Left = 2
+            Top = 17
+            Width = 332
+            Height = 134
+            Align = alTop
+            Caption = 'General'
+            TabOrder = 0
+            object LabelDeviceAlias: TLabel
+              Left = 12
+              Top = 25
+              Width = 28
+              Height = 15
+              Caption = 'Alias:'
+            end
+            object LabelDeviceType: TLabel
+              Left = 12
+              Top = 55
+              Width = 28
+              Height = 15
+              Caption = 'Type:'
+            end
+            object EditDeviceAlias: TEdit
+              Left = 76
+              Top = 22
+              Width = 250
+              Height = 23
+              TabOrder = 0
+            end
+            object ComboDeviceType: TComboBox
+              Left = 76
+              Top = 52
+              Width = 250
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 1
+            end
+            object CheckDevicePinned: TCheckBox
+              Left = 12
+              Top = 80
+              Width = 140
+              Height = 17
+              Caption = 'Pin to top of list'
+              TabOrder = 2
+            end
+            object CheckDeviceHidden: TCheckBox
+              Left = 135
+              Top = 80
+              Width = 140
+              Height = 17
+              Caption = 'Hide from list'
+              TabOrder = 3
+            end
+            object CheckDeviceAutoConnect: TCheckBox
+              Left = 12
+              Top = 103
+              Width = 140
+              Height = 17
+              Caption = 'Auto-connect on start'
+              TabOrder = 4
+            end
+          end
+        end
+      end
+    end
     object TabAdvanced: TTabSheet
       Caption = 'Diagnostics'
       ImageIndex = 7
@@ -1523,7 +1504,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Logging'
         TabOrder = 0
-        ExplicitWidth = 542
         object LabelLogFilename: TLabel
           Left = 12
           Top = 90
@@ -1601,7 +1581,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Actions'
         TabOrder = 1
-        ExplicitWidth = 542
         object ButtonOpenConfig: TButton
           Left = 12
           Top = 24
