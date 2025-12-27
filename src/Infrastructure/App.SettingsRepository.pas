@@ -171,7 +171,100 @@ implementation
 
 uses
   App.Config,
-  App.ConfigSection.BatteryTray;
+  App.ConfigSection.BatteryTray,
+  App.Logger;
+
+{ Helper functions for safe enum reading }
+
+function SafeReadWindowMode(AIni: TMemIniFile; const ASection, AKey: string;
+  ADefault: TWindowMode): TWindowMode;
+var
+  Value: Integer;
+begin
+  Value := AIni.ReadInteger(ASection, AKey, Ord(ADefault));
+  if (Value >= Ord(Low(TWindowMode))) and (Value <= Ord(High(TWindowMode))) then
+    Result := TWindowMode(Value)
+  else
+  begin
+    LogWarning('Invalid WindowMode value %d in INI, using default', [Value], 'SettingsRepository');
+    Result := ADefault;
+  end;
+end;
+
+function SafeReadPositionMode(AIni: TMemIniFile; const ASection, AKey: string;
+  ADefault: TPositionMode): TPositionMode;
+var
+  Value: Integer;
+begin
+  Value := AIni.ReadInteger(ASection, AKey, Ord(ADefault));
+  if (Value >= Ord(Low(TPositionMode))) and (Value <= Ord(High(TPositionMode))) then
+    Result := TPositionMode(Value)
+  else
+  begin
+    LogWarning('Invalid PositionMode value %d in INI, using default', [Value], 'SettingsRepository');
+    Result := ADefault;
+  end;
+end;
+
+function SafeReadPollingMode(AIni: TMemIniFile; const ASection, AKey: string;
+  ADefault: TPollingMode): TPollingMode;
+var
+  Value: Integer;
+begin
+  Value := AIni.ReadInteger(ASection, AKey, Ord(ADefault));
+  if (Value >= Ord(Low(TPollingMode))) and (Value <= Ord(High(TPollingMode))) then
+    Result := TPollingMode(Value)
+  else
+  begin
+    LogWarning('Invalid PollingMode value %d in INI, using default', [Value], 'SettingsRepository');
+    Result := ADefault;
+  end;
+end;
+
+function SafeReadLogLevel(AIni: TMemIniFile; const ASection, AKey: string;
+  ADefault: TLogLevel): TLogLevel;
+var
+  Value: Integer;
+begin
+  Value := AIni.ReadInteger(ASection, AKey, Ord(ADefault));
+  if (Value >= Ord(Low(TLogLevel))) and (Value <= Ord(High(TLogLevel))) then
+    Result := TLogLevel(Value)
+  else
+  begin
+    LogWarning('Invalid LogLevel value %d in INI, using default', [Value], 'SettingsRepository');
+    Result := ADefault;
+  end;
+end;
+
+function SafeReadLastSeenFormat(AIni: TMemIniFile; const ASection, AKey: string;
+  ADefault: TLastSeenFormat): TLastSeenFormat;
+var
+  Value: Integer;
+begin
+  Value := AIni.ReadInteger(ASection, AKey, Ord(ADefault));
+  if (Value >= Ord(Low(TLastSeenFormat))) and (Value <= Ord(High(TLastSeenFormat))) then
+    Result := TLastSeenFormat(Value)
+  else
+  begin
+    LogWarning('Invalid LastSeenFormat value %d in INI, using default', [Value], 'SettingsRepository');
+    Result := ADefault;
+  end;
+end;
+
+function SafeReadNotificationMode(AIni: TMemIniFile; const ASection, AKey: string;
+  ADefault: TNotificationMode): TNotificationMode;
+var
+  Value: Integer;
+begin
+  Value := AIni.ReadInteger(ASection, AKey, Ord(ADefault));
+  if (Value >= Ord(Low(TNotificationMode))) and (Value <= Ord(High(TNotificationMode))) then
+    Result := TNotificationMode(Value)
+  else
+  begin
+    LogWarning('Invalid NotificationMode value %d in INI for key %s, using default', [Value, AKey], 'SettingsRepository');
+    Result := ADefault;
+  end;
+end;
 
 { TIniSettingsRepository }
 
@@ -245,7 +338,7 @@ begin
   BatteryTrayCfg := AConfig.AsBatteryTrayConfig;
 
   // [General]
-  GeneralCfg.WindowMode := TWindowMode(AIni.ReadInteger(SEC_GENERAL, KEY_WINDOW, Ord(DEF_WINDOW_MODE)));
+  GeneralCfg.WindowMode := SafeReadWindowMode(AIni, SEC_GENERAL, KEY_WINDOW, DEF_WINDOW_MODE);
   GeneralCfg.OnTop := AIni.ReadBool(SEC_GENERAL, KEY_ON_TOP, DEF_ON_TOP);
   GeneralCfg.Autostart := AIni.ReadBool(SEC_GENERAL, KEY_AUTOSTART, DEF_AUTOSTART);
 
@@ -261,14 +354,14 @@ begin
   HotkeyCfg.UseLowLevelHook := AIni.ReadBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, DEF_USE_LOW_LEVEL_HOOK);
 
   // [Position]
-  PositionCfg.PositionMode := TPositionMode(AIni.ReadInteger(SEC_POSITION, KEY_MODE, Ord(DEF_POSITION_MODE)));
+  PositionCfg.PositionMode := SafeReadPositionMode(AIni, SEC_POSITION, KEY_MODE, DEF_POSITION_MODE);
   PositionCfg.PositionX := AIni.ReadInteger(SEC_POSITION, KEY_X, DEF_POSITION_X);
   PositionCfg.PositionY := AIni.ReadInteger(SEC_POSITION, KEY_Y, DEF_POSITION_Y);
   PositionCfg.PositionW := AIni.ReadInteger(SEC_POSITION, KEY_W, DEF_POSITION_W);
   PositionCfg.PositionH := AIni.ReadInteger(SEC_POSITION, KEY_H, DEF_POSITION_H);
 
   // [Polling]
-  PollingCfg.PollingMode := TPollingMode(AIni.ReadInteger(SEC_POLLING, KEY_MODE, Ord(DEF_POLLING_MODE)));
+  PollingCfg.PollingMode := SafeReadPollingMode(AIni, SEC_POLLING, KEY_MODE, DEF_POLLING_MODE);
   PollingCfg.PollingInterval := AIni.ReadInteger(SEC_POLLING, KEY_INTERVAL, DEF_POLLING_INTERVAL);
   PollingCfg.EventDebounceMs := AIni.ReadInteger(SEC_POLLING, KEY_EVENT_DEBOUNCE_MS, DEF_EVENT_DEBOUNCE_MS);
 
@@ -276,14 +369,14 @@ begin
   LogCfg.LogEnabled := AIni.ReadBool(SEC_LOG, KEY_ENABLED, DEF_LOG_ENABLED);
   LogCfg.LogFilename := AIni.ReadString(SEC_LOG, KEY_FILENAME, DEF_LOG_FILENAME);
   LogCfg.LogAppend := AIni.ReadBool(SEC_LOG, KEY_APPEND, DEF_LOG_APPEND);
-  LogCfg.LogLevel := TLogLevel(AIni.ReadInteger(SEC_LOG, KEY_LEVEL, Ord(DEF_LOG_LEVEL)));
+  LogCfg.LogLevel := SafeReadLogLevel(AIni, SEC_LOG, KEY_LEVEL, DEF_LOG_LEVEL);
 
   // [Appearance]
   AppearanceCfg.ShowAddresses := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_ADDRESSES, DEF_SHOW_ADDRESSES);
   AppearanceCfg.Theme := AIni.ReadString(SEC_APPEARANCE, KEY_THEME, DEF_THEME);
   AppearanceCfg.VsfDir := AIni.ReadString(SEC_APPEARANCE, KEY_VSF_DIR, DEF_VSF_DIR);
   AppearanceCfg.ShowLastSeen := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_LAST_SEEN, DEF_SHOW_LAST_SEEN);
-  AppearanceCfg.LastSeenFormat := TLastSeenFormat(AIni.ReadInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(DEF_LAST_SEEN_FORMAT)));
+  AppearanceCfg.LastSeenFormat := SafeReadLastSeenFormat(AIni, SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, DEF_LAST_SEEN_FORMAT);
   AppearanceCfg.ShowDeviceIcons := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, DEF_SHOW_DEVICE_ICONS);
   AppearanceCfg.ConnectedColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, DEF_CONNECTED_COLOR);
   AppearanceCfg.ShowBatteryLevel := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_BATTERY_LEVEL, DEF_SHOW_BATTERY_LEVEL);
@@ -304,10 +397,10 @@ begin
   // [Device] - global defaults
   ConnectionCfg.ConnectionTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
   ConnectionCfg.ConnectionRetryCount := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, DEF_CONNECTION_RETRY_COUNT);
-  NotificationCfg.NotifyOnConnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(DEF_NOTIFY_ON_CONNECT)));
-  NotificationCfg.NotifyOnDisconnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(DEF_NOTIFY_ON_DISCONNECT)));
-  NotificationCfg.NotifyOnConnectFailed := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(DEF_NOTIFY_ON_CONNECT_FAILED)));
-  NotificationCfg.NotifyOnAutoConnect := TNotificationMode(AIni.ReadInteger(SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, Ord(DEF_NOTIFY_ON_AUTO_CONNECT)));
+  NotificationCfg.NotifyOnConnect := SafeReadNotificationMode(AIni, SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, DEF_NOTIFY_ON_CONNECT);
+  NotificationCfg.NotifyOnDisconnect := SafeReadNotificationMode(AIni, SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, DEF_NOTIFY_ON_DISCONNECT);
+  NotificationCfg.NotifyOnConnectFailed := SafeReadNotificationMode(AIni, SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, DEF_NOTIFY_ON_CONNECT_FAILED);
+  NotificationCfg.NotifyOnAutoConnect := SafeReadNotificationMode(AIni, SEC_DEVICE, KEY_NOTIFY_ON_AUTO_CONNECT, DEF_NOTIFY_ON_AUTO_CONNECT);
 
   // [BatteryTray] - battery tray icon defaults
   BatteryTrayCfg.ShowBatteryTrayIcons := AIni.ReadBool(SEC_BATTERY_TRAY, KEY_SHOW_BATTERY_TRAY_ICONS, DEF_SHOW_BATTERY_TRAY_ICONS);
