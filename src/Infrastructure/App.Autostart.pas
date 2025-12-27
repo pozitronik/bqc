@@ -93,7 +93,7 @@ begin
       end;
     end
     else
-      LogInfo('Failed to open registry key', ClassName);
+      LogWarning('Apply: Failed to open registry key for writing', ClassName);
   finally
     Reg.Free;
   end;
@@ -114,7 +114,9 @@ begin
       finally
         Reg.CloseKey;
       end;
-    end;
+    end
+    else
+      LogWarning('IsEnabled: Failed to open registry key for reading', ClassName);
   finally
     Reg.Free;
   end;
@@ -136,7 +138,9 @@ begin
       finally
         Reg.CloseKey;
       end;
-    end;
+    end
+    else
+      LogWarning('GetRegisteredPath: Failed to open registry key for reading', ClassName);
   finally
     Reg.Free;
   end;
