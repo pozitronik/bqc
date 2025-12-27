@@ -56,6 +56,8 @@ type
     FBatteryQuery: IBatteryQuery;
     FOnQueryCompleted: TBatteryQueryCompletedEvent;
     FLock: TCriticalSection;
+    FShuttingDown: Integer;   // Atomic flag: 0 = running, 1 = shutting down
+    FPendingQueries: Integer; // Atomic counter of in-flight background queries
   public
     constructor Create(ABatteryQuery: IBatteryQuery);
     destructor Destroy; override;
@@ -1175,12 +1177,33 @@ begin
   FCache := TDictionary<UInt64, TBatteryStatus>.Create;
   FLock := TCriticalSection.Create;
   FOnQueryCompleted := nil;
+  FShuttingDown := 0;
+  FPendingQueries := 0;
 end;
 
 destructor TBatteryCache.Destroy;
+const
+  MAX_WAIT_MS = 5000;
+  POLL_INTERVAL_MS = 50;
+var
+  WaitedMs: Integer;
 begin
+  // Signal shutdown to background threads
+  TInterlocked.Exchange(FShuttingDown, 1);
   FOnQueryCompleted := nil;
   FBatteryQuery := nil;
+
+  // Wait for pending queries to complete (with timeout)
+  WaitedMs := 0;
+  while (TInterlocked.Read(FPendingQueries) > 0) and (WaitedMs < MAX_WAIT_MS) do
+  begin
+    Sleep(POLL_INTERVAL_MS);
+    Inc(WaitedMs, POLL_INTERVAL_MS);
+  end;
+
+  if TInterlocked.Read(FPendingQueries) > 0 then
+    LogWarning('BatteryCache destroyed with %d pending queries', [FPendingQueries], LOG_SOURCE);
+
   FLock.Free;
   FCache.Free;
   inherited;
@@ -1225,10 +1248,17 @@ var
   LOnCompleted: TBatteryQueryCompletedEvent;
   LSelf: TBatteryCache;
 begin
+  // Check if shutting down before starting new query
+  if TInterlocked.Read(FShuttingDown) <> 0 then
+    Exit;
+
   LAddress := ADeviceAddress;
   LQuery := FBatteryQuery;
   LOnCompleted := FOnQueryCompleted;
   LSelf := Self;
+
+  // Track pending query
+  TInterlocked.Increment(FPendingQueries);
 
   TThread.CreateAnonymousThread(
     procedure
@@ -1236,33 +1266,43 @@ begin
       Status: TBatteryStatus;
     begin
       try
-        Status := LQuery.GetBatteryLevel(LAddress);
-      except
-        on E: Exception do
-        begin
-          LogError('RequestRefresh: Exception querying $%.12X: %s', [LAddress, E.Message], LOG_SOURCE);
-          Status := TBatteryStatus.Unknown;
-        end;
-      end;
-
-      // Update cache thread-safely
-      LSelf.FLock.Enter;
-      try
-        LSelf.FCache.AddOrSetValue(LAddress, Status);
-      finally
-        LSelf.FLock.Leave;
-      end;
-
-      // Notify on main thread
-      if Assigned(LOnCompleted) then
-      begin
-        TThread.Queue(nil,
-          procedure
+        try
+          Status := LQuery.GetBatteryLevel(LAddress);
+        except
+          on E: Exception do
           begin
-            if Assigned(LOnCompleted) then
-              LOnCompleted(LSelf, LAddress, Status);
-          end
-        );
+            LogError('RequestRefresh: Exception querying $%.12X: %s', [LAddress, E.Message], LOG_SOURCE);
+            Status := TBatteryStatus.Unknown;
+          end;
+        end;
+
+        // Check if shutting down before accessing cache
+        if TInterlocked.Read(LSelf.FShuttingDown) = 0 then
+        begin
+          // Update cache thread-safely
+          LSelf.FLock.Enter;
+          try
+            LSelf.FCache.AddOrSetValue(LAddress, Status);
+          finally
+            LSelf.FLock.Leave;
+          end;
+
+          // Notify on main thread (only if not shutting down)
+          if Assigned(LOnCompleted) and (TInterlocked.Read(LSelf.FShuttingDown) = 0) then
+          begin
+            TThread.Queue(nil,
+              procedure
+              begin
+                // Double-check callback and shutdown state
+                if Assigned(LOnCompleted) and (TInterlocked.Read(LSelf.FShuttingDown) = 0) then
+                  LOnCompleted(LSelf, LAddress, Status);
+              end
+            );
+          end;
+        end;
+      finally
+        // Always decrement pending counter
+        TInterlocked.Decrement(LSelf.FPendingQueries);
       end;
     end
   ).Start;
