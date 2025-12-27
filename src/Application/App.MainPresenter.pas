@@ -121,6 +121,12 @@ type
     /// </summary>
     procedure UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
 
+    /// <summary>
+    /// Sets toggle state while preventing recursive event handling.
+    /// Wraps the state change with FUpdatingToggle guard.
+    /// </summary>
+    procedure SetToggleStateSafe(AState: Boolean);
+
   public
     /// <summary>
     /// Creates the presenter with injected dependencies.
@@ -532,33 +538,18 @@ begin
             rcAccessDenied:
               begin
                 LStatusView.ShowStatus('Access denied - check Windows settings');
-                FUpdatingToggle := True;
-                try
-                  LToggleView.SetToggleState(not AEnable);
-                finally
-                  FUpdatingToggle := False;
-                end;
+                SetToggleStateSafe(not AEnable);
               end;
             rcDeviceNotFound:
               begin
                 LStatusView.ShowStatus('Bluetooth adapter not found');
-                FUpdatingToggle := True;
-                try
-                  LToggleView.SetToggleState(False);
-                finally
-                  FUpdatingToggle := False;
-                end;
+                SetToggleStateSafe(False);
                 LToggleView.SetToggleEnabled(False);
               end;
           else
             begin
               LStatusView.ShowStatus('Failed to change Bluetooth state');
-              FUpdatingToggle := True;
-              try
-                LToggleView.SetToggleState(not AEnable);
-              finally
-                FUpdatingToggle := False;
-              end;
+              SetToggleStateSafe(not AEnable);
             end;
           end;
         end
@@ -646,6 +637,16 @@ begin
   LogDebug('UpdateOrAddDevice: Added new device, total=%d', [Length(FDevices)], ClassName);
 end;
 
+procedure TMainPresenter.SetToggleStateSafe(AState: Boolean);
+begin
+  FUpdatingToggle := True;
+  try
+    FToggleView.SetToggleState(AState);
+  finally
+    FUpdatingToggle := False;
+  end;
+end;
+
 { Service event handlers }
 
 procedure TMainPresenter.HandleDeviceStateChanged(Sender: TObject;
@@ -727,12 +728,7 @@ procedure TMainPresenter.HandleRadioStateChanged(Sender: TObject; AEnabled: Bool
 begin
   LogInfo('HandleRadioStateChanged: Enabled=%s', [BoolToStr(AEnabled, True)], ClassName);
 
-  FUpdatingToggle := True;
-  try
-    FToggleView.SetToggleState(AEnabled);
-  finally
-    FUpdatingToggle := False;
-  end;
+  SetToggleStateSafe(AEnabled);
 
   if AEnabled then
   begin
