@@ -116,61 +116,9 @@ implementation
 
 class function TBatteryIconRenderer.CreateBatteryIcon(ALevel: Integer;
   AColor: TColor): TIcon;
-var
-  Bitmap: TBitmap;
-  MaskBmp: TBitmap;
-  BatteryRect: TRect;
-  IconInfo: TIconInfo;
 begin
-  Result := TIcon.Create;
-  Bitmap := TBitmap.Create;
-  MaskBmp := TBitmap.Create;
-  try
-    // Setup color bitmap
-    Bitmap.PixelFormat := pf32bit;
-    Bitmap.SetSize(BATTERY_ICON_SIZE, BATTERY_ICON_SIZE);
-    Bitmap.Canvas.Brush.Color := clBlack;
-    Bitmap.Canvas.FillRect(Rect(0, 0, BATTERY_ICON_SIZE, BATTERY_ICON_SIZE));
-
-    // Setup mask bitmap (all white = transparent background, black = opaque)
-    MaskBmp.PixelFormat := pf1bit;
-    MaskBmp.Monochrome := True;
-    MaskBmp.SetSize(BATTERY_ICON_SIZE, BATTERY_ICON_SIZE);
-    MaskBmp.Canvas.Brush.Color := clWhite;
-    MaskBmp.Canvas.FillRect(Rect(0, 0, BATTERY_ICON_SIZE, BATTERY_ICON_SIZE));
-
-    BatteryRect := Rect(BATTERY_LEFT, BATTERY_TOP,
-      BATTERY_LEFT + BATTERY_WIDTH, BATTERY_TOP + BATTERY_HEIGHT);
-
-    // Draw battery components on color bitmap
-    DrawBatteryOutline(Bitmap.Canvas, BatteryRect);
-    DrawBatteryFill(Bitmap.Canvas, BatteryRect, ALevel, AColor);
-
-    // Draw mask (battery shape = black = opaque)
-    MaskBmp.Canvas.Brush.Color := clBlack;
-    MaskBmp.Canvas.Pen.Color := clBlack;
-    // Main battery body
-    MaskBmp.Canvas.Rectangle(BatteryRect);
-    // Battery cap
-    MaskBmp.Canvas.Rectangle(
-      BatteryRect.Right,
-      BatteryRect.Top + (BATTERY_HEIGHT - BATTERY_CAP_HEIGHT) div 2,
-      BatteryRect.Right + BATTERY_CAP_WIDTH,
-      BatteryRect.Top + (BATTERY_HEIGHT + BATTERY_CAP_HEIGHT) div 2
-    );
-
-    // Create icon from bitmaps
-    IconInfo.fIcon := True;
-    IconInfo.xHotspot := 0;
-    IconInfo.yHotspot := 0;
-    IconInfo.hbmMask := MaskBmp.Handle;
-    IconInfo.hbmColor := Bitmap.Handle;
-
-    Result.Handle := CreateIconIndirect(IconInfo);
-  finally
-    MaskBmp.Free;
-    Bitmap.Free;
-  end;
+  // Delegate to overload with transparent background
+  Result := CreateBatteryIcon(ALevel, AColor, clNone);
 end;
 
 class function TBatteryIconRenderer.CreateBatteryIconAuto(ALevel: Integer;
