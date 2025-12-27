@@ -19,7 +19,8 @@ uses
   System.RegularExpressions,
   App.Logger,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.LogConfigIntf;
 
 type
   /// <summary>

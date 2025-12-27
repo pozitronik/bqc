@@ -27,7 +27,7 @@ type
   /// <summary>
   /// Tests for TSettingsPresenter view interaction.
   /// Note: Full integration tests require Bootstrap initialization.
-  /// These tests verify the presenter correctly interacts with ISettingsView.
+  /// These tests verify the presenter correctly interacts with the view interfaces.
   /// </summary>
   [TestFixture]
   TSettingsPresenterTests = class
@@ -108,7 +108,7 @@ type
   end;
 
   /// <summary>
-  /// Tests for ISettingsView data record types.
+  /// Tests for settings view data record types.
   /// Verifies record field assignment and copying works correctly.
   /// </summary>
   [TestFixture]
@@ -138,7 +138,7 @@ type
 
   /// <summary>
   /// Tests for TMockSettingsView.
-  /// Verifies the mock correctly implements ISettingsView.
+  /// Verifies the mock correctly implements the settings view interfaces.
   /// </summary>
   [TestFixture]
   TMockSettingsViewTests = class
@@ -201,7 +201,14 @@ begin
   // Note: The mocks are TInterfacedObjects, but we need to prevent premature destruction
   // by keeping references. The presenter takes interface references.
   FPresenter := TSettingsPresenter.Create(
-    FMockView as ISettingsView,
+    FMockView as ISettingsDialogView,
+    FMockView as IGeneralSettingsView,
+    FMockView as IHotkeySettingsView,
+    FMockView as IAppearanceSettingsView,
+    FMockView as ILayoutSettingsView,
+    FMockView as IConnectionSettingsView,
+    FMockView as ILoggingSettingsView,
+    FMockView as IBatteryTraySettingsView,
     FMockView as IDeviceSettingsView,
     FMockAppConfig,
     FMockDeviceConfigProvider,

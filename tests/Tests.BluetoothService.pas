@@ -21,6 +21,7 @@ uses
   Bluetooth.Interfaces,
   Bluetooth.Service,
   App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
   Tests.Mocks;
 
 type

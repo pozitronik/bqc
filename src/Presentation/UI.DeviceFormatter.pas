@@ -19,7 +19,8 @@ uses
   Bluetooth.Types,
   App.ConfigEnums,
   App.ConfigInterfaces,
-  App.AppearanceConfigIntf;
+  App.AppearanceConfigIntf,
+  App.DeviceConfigTypes;
 
 type
   /// <summary>

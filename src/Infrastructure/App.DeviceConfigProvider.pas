@@ -18,6 +18,9 @@ interface
 uses
   App.ConfigEnums,
   App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
+  App.NotificationConfigIntf,
+  App.BatteryTrayConfigIntf,
   App.DeviceConfigTypes;
 
 type

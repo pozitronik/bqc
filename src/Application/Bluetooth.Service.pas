@@ -22,7 +22,9 @@ uses
   Bluetooth.Interfaces,
   Bluetooth.ConnectionStrategies,
   App.Logger,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.DeviceConfigTypes,
+  App.ConnectionConfigIntf;
 
 type
   /// <summary>

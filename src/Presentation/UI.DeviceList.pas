@@ -26,7 +26,9 @@ uses
   Vcl.StdCtrls,
   Vcl.Themes,
   Bluetooth.Types,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.LayoutConfigIntf,
+  App.AppearanceConfigIntf;
 
 type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;

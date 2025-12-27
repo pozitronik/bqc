@@ -18,6 +18,12 @@ interface
 
 uses
   App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
+  App.LogConfigIntf,
+  App.AppearanceConfigIntf,
+  App.LayoutConfigIntf,
+  App.NotificationConfigIntf,
+  App.BatteryTrayConfigIntf,
   App.Autostart,
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,

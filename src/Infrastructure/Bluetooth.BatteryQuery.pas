@@ -58,6 +58,11 @@ type
     FLock: TCriticalSection;
     FShuttingDown: Integer;   // Atomic flag: 0 = running, 1 = shutting down
     FPendingQueries: Integer; // Atomic counter of in-flight background queries
+    function IsShuttingDown: Boolean;
+    function GetPendingQueries: Integer;
+    procedure DecrementPendingQueries;
+    procedure NotifyOnMainThread(ACallback: TBatteryQueryCompletedEvent;
+      AAddress: UInt64; AStatus: TBatteryStatus);
   public
     constructor Create(ABatteryQuery: IBatteryQuery);
     destructor Destroy; override;
@@ -1195,18 +1200,59 @@ begin
 
   // Wait for pending queries to complete (with timeout)
   WaitedMs := 0;
-  while (TInterlocked.Read(FPendingQueries) > 0) and (WaitedMs < MAX_WAIT_MS) do
+  while (GetPendingQueries > 0) and (WaitedMs < MAX_WAIT_MS) do
   begin
     Sleep(POLL_INTERVAL_MS);
     Inc(WaitedMs, POLL_INTERVAL_MS);
   end;
 
-  if TInterlocked.Read(FPendingQueries) > 0 then
+  if GetPendingQueries > 0 then
     LogWarning('BatteryCache destroyed with %d pending queries', [FPendingQueries], LOG_SOURCE);
 
   FLock.Free;
   FCache.Free;
   inherited;
+end;
+
+function TBatteryCache.IsShuttingDown: Boolean;
+begin
+  // Use CompareExchange to atomically read - returns current value without modifying
+  Result := TInterlocked.CompareExchange(FShuttingDown, 0, 0) <> 0;
+end;
+
+function TBatteryCache.GetPendingQueries: Integer;
+begin
+  // Use CompareExchange to atomically read - returns current value without modifying
+  Result := TInterlocked.CompareExchange(FPendingQueries, 0, 0);
+end;
+
+procedure TBatteryCache.DecrementPendingQueries;
+begin
+  TInterlocked.Decrement(FPendingQueries);
+end;
+
+procedure TBatteryCache.NotifyOnMainThread(ACallback: TBatteryQueryCompletedEvent;
+  AAddress: UInt64; AStatus: TBatteryStatus);
+var
+  LCallback: TBatteryQueryCompletedEvent;
+  LAddress: UInt64;
+  LStatus: TBatteryStatus;
+  LSelf: TBatteryCache;
+begin
+  // Capture values locally to avoid closure issues
+  LCallback := ACallback;
+  LAddress := AAddress;
+  LStatus := AStatus;
+  LSelf := Self;
+
+  TThread.Queue(nil,
+    procedure
+    begin
+      // Double-check callback and shutdown state
+      if Assigned(LCallback) and (not LSelf.IsShuttingDown) then
+        LCallback(LSelf, LAddress, LStatus);
+    end
+  );
 end;
 
 function TBatteryCache.GetBatteryStatus(ADeviceAddress: UInt64): TBatteryStatus;
@@ -1249,7 +1295,7 @@ var
   LSelf: TBatteryCache;
 begin
   // Check if shutting down before starting new query
-  if TInterlocked.Read(FShuttingDown) <> 0 then
+  if IsShuttingDown then
     Exit;
 
   LAddress := ADeviceAddress;
@@ -1277,7 +1323,7 @@ begin
         end;
 
         // Check if shutting down before accessing cache
-        if TInterlocked.Read(LSelf.FShuttingDown) = 0 then
+        if not LSelf.IsShuttingDown then
         begin
           // Update cache thread-safely
           LSelf.FLock.Enter;
@@ -1288,21 +1334,12 @@ begin
           end;
 
           // Notify on main thread (only if not shutting down)
-          if Assigned(LOnCompleted) and (TInterlocked.Read(LSelf.FShuttingDown) = 0) then
-          begin
-            TThread.Queue(nil,
-              procedure
-              begin
-                // Double-check callback and shutdown state
-                if Assigned(LOnCompleted) and (TInterlocked.Read(LSelf.FShuttingDown) = 0) then
-                  LOnCompleted(LSelf, LAddress, Status);
-              end
-            );
-          end;
+          if Assigned(LOnCompleted) and (not LSelf.IsShuttingDown) then
+            LSelf.NotifyOnMainThread(LOnCompleted, LAddress, Status);
         end;
       finally
         // Always decrement pending counter
-        TInterlocked.Decrement(LSelf.FPendingQueries);
+        LSelf.DecrementPendingQueries;
       end;
     end
   ).Start;

@@ -8,16 +8,12 @@
 {*******************************************************}
 
 /// <summary>
-/// Central configuration interfaces unit.
-/// Re-exports types from domain-specific units for backwards compatibility.
-/// New code should consider using specific units directly:
-///   - App.ConfigEnums: TWindowMode, TPositionMode, TPollingMode, etc.
-///   - App.DeviceConfigTypes: TDeviceConfig, TDeviceNotificationConfig
-///   - App.LayoutConfigIntf: ILayoutConfig
-///   - App.AppearanceConfigIntf: IAppearanceConfig
-///   - App.ConnectionConfigIntf: IConnectionConfig, IPollingConfig
-///   - App.NotificationConfigIntf: INotificationConfig
-///   - App.LogConfigIntf: ILogConfig, ILogger
+/// Core configuration interfaces for the application.
+/// Contains interfaces that don't belong to specific domain units:
+///   - IGeneralConfig, IWindowConfig, IPositionConfig, IHotkeyConfig
+///   - IDeviceConfigQuery, IDeviceConfigMutation, IDeviceConfigProvider
+///   - ISettingsRepository, IDeviceConfigStorage, IDeviceConfigPersistence
+///   - IDeviceConfigRepository, IAppConfig
 /// </summary>
 unit App.ConfigInterfaces;
 
@@ -35,29 +31,6 @@ uses
   App.BatteryTrayConfigIntf;
 
 type
-  // Re-export enums for backwards compatibility
-  TWindowMode = App.ConfigEnums.TWindowMode;
-  TPositionMode = App.ConfigEnums.TPositionMode;
-  TPollingMode = App.ConfigEnums.TPollingMode;
-  TLastSeenFormat = App.ConfigEnums.TLastSeenFormat;
-  TNotificationMode = App.ConfigEnums.TNotificationMode;
-  TNotificationEvent = App.ConfigEnums.TNotificationEvent;
-
-  // Re-export device config types for backwards compatibility
-  TDeviceNotificationConfig = App.DeviceConfigTypes.TDeviceNotificationConfig;
-  TDeviceBatteryConfig = App.DeviceConfigTypes.TDeviceBatteryConfig;
-  TDeviceConfig = App.DeviceConfigTypes.TDeviceConfig;
-
-  // Re-export interfaces for backwards compatibility
-  ILayoutConfig = App.LayoutConfigIntf.ILayoutConfig;
-  IAppearanceConfig = App.AppearanceConfigIntf.IAppearanceConfig;
-  IConnectionConfig = App.ConnectionConfigIntf.IConnectionConfig;
-  IPollingConfig = App.ConnectionConfigIntf.IPollingConfig;
-  INotificationConfig = App.NotificationConfigIntf.INotificationConfig;
-  IBatteryTrayConfig = App.BatteryTrayConfigIntf.IBatteryTrayConfig;
-  ILogConfig = App.LogConfigIntf.ILogConfig;
-  ILogger = App.LogConfigIntf.ILogger;
-
   // Forward declaration for IAppConfig (used by ISettingsRepository and IDeviceConfigRepository)
   IAppConfig = interface;
 

@@ -13,7 +13,8 @@ interface
 
 uses
   DUnitX.TestFramework,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.DeviceConfigTypes;
 
 type
   /// <summary>

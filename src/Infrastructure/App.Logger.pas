@@ -19,7 +19,8 @@ uses
   System.Classes,
   System.SyncObjs,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.LogConfigIntf;
 
 type
   /// <summary>

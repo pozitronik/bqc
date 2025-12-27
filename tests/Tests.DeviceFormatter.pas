@@ -18,6 +18,7 @@ uses
   Bluetooth.Types,
   App.ConfigEnums,
   App.ConfigInterfaces,
+  App.DeviceConfigTypes,
   UI.DeviceFormatter,
   Tests.Mocks;
 

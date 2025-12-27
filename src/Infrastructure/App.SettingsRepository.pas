@@ -23,7 +23,13 @@ uses
   System.DateUtils,
   System.Generics.Collections,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
+  App.LogConfigIntf,
+  App.AppearanceConfigIntf,
+  App.LayoutConfigIntf,
+  App.NotificationConfigIntf,
+  App.BatteryTrayConfigIntf;
 
 type
   /// <summary>

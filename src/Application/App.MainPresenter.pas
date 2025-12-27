@@ -56,6 +56,7 @@ uses
   App.MainViewInterfaces,
   App.ConfigInterfaces,
   App.AppearanceConfigIntf,
+  App.ConnectionConfigIntf,
   UI.DeviceList,
   UI.DeviceDisplayItemBuilder;
 
@@ -235,6 +236,7 @@ implementation
 uses
   App.Logger,
   App.ConfigEnums,
+  App.DeviceConfigTypes,
   Bluetooth.Service,
   Bluetooth.BatteryQuery,
   UI.DeviceFormatter;

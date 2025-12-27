@@ -22,7 +22,8 @@ uses
   System.DateUtils,
   System.Generics.Collections,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.DeviceConfigTypes;
 
 type
   /// <summary>

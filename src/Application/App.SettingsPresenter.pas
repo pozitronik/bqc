@@ -17,7 +17,13 @@ uses
   System.UITypes,
   System.Generics.Collections,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
+  App.LogConfigIntf,
+  App.AppearanceConfigIntf,
+  App.LayoutConfigIntf,
+  App.NotificationConfigIntf,
+  App.BatteryTrayConfigIntf;
 
 type
   //----------------------------------------------------------------------------
@@ -232,54 +238,6 @@ type
   end;
 
   //----------------------------------------------------------------------------
-  // ISettingsView - Combined interface for backward compatibility
-  //----------------------------------------------------------------------------
-
-  /// <summary>
-  /// Combined settings view interface (implemented by SettingsForm).
-  /// Includes all settings categories for components that need full access.
-  /// For focused access, use the individual interfaces above.
-  /// </summary>
-  ISettingsView = interface
-    ['{B2C3D4E5-F6A7-8901-BCDE-F23456789012}']
-    // Dialog control (from ISettingsDialogView)
-    procedure CloseWithOK;
-    procedure CloseWithCancel;
-    procedure ShowError(const AMessage: string);
-    procedure ShowInfo(const AMessage: string);
-    procedure SetApplyEnabled(AEnabled: Boolean);
-    procedure PopulateThemeList(const ACurrentTheme: string);
-
-    // General settings (from IGeneralSettingsView)
-    function GetGeneralSettings: TGeneralViewSettings;
-    procedure SetGeneralSettings(const ASettings: TGeneralViewSettings);
-
-    // Hotkey settings (from IHotkeySettingsView)
-    function GetHotkeySettings: THotkeyViewSettings;
-    procedure SetHotkeySettings(const ASettings: THotkeyViewSettings);
-
-    // Appearance settings (from IAppearanceSettingsView)
-    function GetAppearanceSettings: TAppearanceViewSettings;
-    procedure SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
-
-    // Layout settings (from ILayoutSettingsView)
-    function GetLayoutSettings: TLayoutViewSettings;
-    procedure SetLayoutSettings(const ASettings: TLayoutViewSettings);
-
-    // Connection settings (from IConnectionSettingsView)
-    function GetConnectionSettings: TConnectionViewSettings;
-    procedure SetConnectionSettings(const ASettings: TConnectionViewSettings);
-
-    // Logging settings (from ILoggingSettingsView)
-    function GetLoggingSettings: TLoggingViewSettings;
-    procedure SetLoggingSettings(const ASettings: TLoggingViewSettings);
-
-    // Battery tray settings (from IBatteryTraySettingsView)
-    function GetBatteryTraySettings: TBatteryTrayViewSettings;
-    procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
-  end;
-
-  //----------------------------------------------------------------------------
   // TDeviceSettingsPresenter - Device settings presenter (SRP-compliant)
   //----------------------------------------------------------------------------
 
@@ -347,7 +305,16 @@ type
   /// </summary>
   TSettingsPresenter = class
   private
-    FView: ISettingsView;
+    // View interfaces (ISP-compliant)
+    FDialogView: ISettingsDialogView;
+    FGeneralSettingsView: IGeneralSettingsView;
+    FHotkeySettingsView: IHotkeySettingsView;
+    FAppearanceSettingsView: IAppearanceSettingsView;
+    FLayoutSettingsView: ILayoutSettingsView;
+    FConnectionSettingsView: IConnectionSettingsView;
+    FLoggingSettingsView: ILoggingSettingsView;
+    FBatteryTraySettingsView: IBatteryTraySettingsView;
+
     FDevicePresenter: TDeviceSettingsPresenter;
     FAppConfig: IAppConfig;
     FModified: Boolean;
@@ -367,7 +334,14 @@ type
     FBatteryTrayConfig: IBatteryTrayConfig;
   public
     constructor Create(
-      AView: ISettingsView;
+      ADialogView: ISettingsDialogView;
+      AGeneralSettingsView: IGeneralSettingsView;
+      AHotkeySettingsView: IHotkeySettingsView;
+      AAppearanceSettingsView: IAppearanceSettingsView;
+      ALayoutSettingsView: ILayoutSettingsView;
+      AConnectionSettingsView: IConnectionSettingsView;
+      ALoggingSettingsView: ILoggingSettingsView;
+      ABatteryTraySettingsView: IBatteryTraySettingsView;
       ADeviceSettingsView: IDeviceSettingsView;
       AAppConfig: IAppConfig;
       ADeviceConfigProvider: IDeviceConfigProvider;
@@ -400,6 +374,7 @@ implementation
 uses
   App.Logger,
   App.Config,  // For DEF_* constants
+  App.DeviceConfigTypes,
   Bluetooth.Types;
 
 const
@@ -588,7 +563,14 @@ end;
 { TSettingsPresenter }
 
 constructor TSettingsPresenter.Create(
-  AView: ISettingsView;
+  ADialogView: ISettingsDialogView;
+  AGeneralSettingsView: IGeneralSettingsView;
+  AHotkeySettingsView: IHotkeySettingsView;
+  AAppearanceSettingsView: IAppearanceSettingsView;
+  ALayoutSettingsView: ILayoutSettingsView;
+  AConnectionSettingsView: IConnectionSettingsView;
+  ALoggingSettingsView: ILoggingSettingsView;
+  ABatteryTraySettingsView: IBatteryTraySettingsView;
   ADeviceSettingsView: IDeviceSettingsView;
   AAppConfig: IAppConfig;
   ADeviceConfigProvider: IDeviceConfigProvider;
@@ -596,7 +578,17 @@ constructor TSettingsPresenter.Create(
 );
 begin
   inherited Create;
-  FView := AView;
+
+  // Store view interfaces
+  FDialogView := ADialogView;
+  FGeneralSettingsView := AGeneralSettingsView;
+  FHotkeySettingsView := AHotkeySettingsView;
+  FAppearanceSettingsView := AAppearanceSettingsView;
+  FLayoutSettingsView := ALayoutSettingsView;
+  FConnectionSettingsView := AConnectionSettingsView;
+  FLoggingSettingsView := ALoggingSettingsView;
+  FBatteryTraySettingsView := ABatteryTraySettingsView;
+
   FAppConfig := AAppConfig;
   FModified := False;
 
@@ -645,15 +637,15 @@ begin
   General.HideOnFocusLoss := FWindowConfig.MenuHideOnFocusLoss;
   General.Autostart := FGeneralConfig.Autostart;
   General.PositionMode := FPositionConfig.PositionMode;
-  FView.SetGeneralSettings(General);
+  FGeneralSettingsView.SetGeneralSettings(General);
 
   // Hotkey settings
   Hotkey.Hotkey := FHotkeyConfig.Hotkey;
   Hotkey.UseLowLevelHook := FHotkeyConfig.UseLowLevelHook;
-  FView.SetHotkeySettings(Hotkey);
+  FHotkeySettingsView.SetHotkeySettings(Hotkey);
 
   // Theme list (view gets available styles from TThemeManager)
-  FView.PopulateThemeList(FAppearanceConfig.Theme);
+  FDialogView.PopulateThemeList(FAppearanceConfig.Theme);
 
   // Appearance settings
   Appearance.Theme := FAppearanceConfig.Theme;
@@ -664,7 +656,7 @@ begin
   Appearance.LastSeenRelative := FAppearanceConfig.LastSeenFormat = lsfRelative;
   Appearance.ShowBatteryLevel := FAppearanceConfig.ShowBatteryLevel;
   Appearance.ConnectedColor := TColor(FAppearanceConfig.ConnectedColor);
-  FView.SetAppearanceSettings(Appearance);
+  FAppearanceSettingsView.SetAppearanceSettings(Appearance);
 
   // Layout settings
   Layout.ItemHeight := FLayoutConfig.ItemHeight;
@@ -678,7 +670,7 @@ begin
   Layout.StatusFontSize := FLayoutConfig.StatusFontSize;
   Layout.AddressFontSize := FLayoutConfig.AddressFontSize;
   Layout.IconFontSize := FLayoutConfig.IconFontSize;
-  FView.SetLayoutSettings(Layout);
+  FLayoutSettingsView.SetLayoutSettings(Layout);
 
   // Connection settings
   Connection.Timeout := FConnectionConfig.ConnectionTimeout;
@@ -689,14 +681,14 @@ begin
   Connection.NotifyOnDisconnect := FNotificationConfig.NotifyOnDisconnect = nmBalloon;
   Connection.NotifyOnConnectFailed := FNotificationConfig.NotifyOnConnectFailed = nmBalloon;
   Connection.NotifyOnAutoConnect := FNotificationConfig.NotifyOnAutoConnect = nmBalloon;
-  FView.SetConnectionSettings(Connection);
+  FConnectionSettingsView.SetConnectionSettings(Connection);
 
   // Logging settings
   Logging.Enabled := FLogConfig.LogEnabled;
   Logging.Filename := FLogConfig.LogFilename;
   Logging.Append := FLogConfig.LogAppend;
   Logging.LevelIndex := Ord(FLogConfig.LogLevel);
-  FView.SetLoggingSettings(Logging);
+  FLoggingSettingsView.SetLoggingSettings(Logging);
 
   // Battery tray settings
   if Assigned(FBatteryTrayConfig) then
@@ -709,7 +701,7 @@ begin
     BatteryTray.DefaultLowBatteryThreshold := FBatteryTrayConfig.DefaultLowBatteryThreshold;
     BatteryTray.DefaultNotifyLowBattery := FBatteryTrayConfig.DefaultNotifyLowBattery;
     BatteryTray.DefaultNotifyFullyCharged := FBatteryTrayConfig.DefaultNotifyFullyCharged;
-    FView.SetBatteryTraySettings(BatteryTray);
+    FBatteryTraySettingsView.SetBatteryTraySettings(BatteryTray);
   end;
 
   // Device list (delegated to device presenter)
@@ -736,7 +728,7 @@ begin
     FDevicePresenter.SaveCurrentDevice;
 
     // General settings (uses stored config interfaces)
-    General := FView.GetGeneralSettings;
+    General := FGeneralSettingsView.GetGeneralSettings;
     FGeneralConfig.WindowMode := General.WindowMode;
     FGeneralConfig.OnTop := General.OnTop;
     FWindowConfig.MinimizeToTray := General.MinimizeToTray;
@@ -746,12 +738,12 @@ begin
     FPositionConfig.PositionMode := General.PositionMode;
 
     // Hotkey settings
-    Hotkey := FView.GetHotkeySettings;
+    Hotkey := FHotkeySettingsView.GetHotkeySettings;
     FHotkeyConfig.Hotkey := Hotkey.Hotkey;
     FHotkeyConfig.UseLowLevelHook := Hotkey.UseLowLevelHook;
 
     // Appearance settings
-    Appearance := FView.GetAppearanceSettings;
+    Appearance := FAppearanceSettingsView.GetAppearanceSettings;
     FAppearanceConfig.Theme := Appearance.Theme;
     FAppearanceConfig.VsfDir := Appearance.VsfDir;
     FAppearanceConfig.ShowAddresses := Appearance.ShowAddresses;
@@ -765,7 +757,7 @@ begin
     FAppearanceConfig.ConnectedColor := Integer(Appearance.ConnectedColor);
 
     // Layout settings
-    Layout := FView.GetLayoutSettings;
+    Layout := FLayoutSettingsView.GetLayoutSettings;
     FLayoutConfig.ItemHeight := Layout.ItemHeight;
     FLayoutConfig.ItemPadding := Layout.ItemPadding;
     FLayoutConfig.ItemMargin := Layout.ItemMargin;
@@ -779,7 +771,7 @@ begin
     FLayoutConfig.IconFontSize := Layout.IconFontSize;
 
     // Connection settings
-    Connection := FView.GetConnectionSettings;
+    Connection := FConnectionSettingsView.GetConnectionSettings;
     FConnectionConfig.ConnectionTimeout := Connection.Timeout;
     FConnectionConfig.ConnectionRetryCount := Connection.RetryCount;
     FPollingConfig.PollingMode := Connection.PollingMode;
@@ -802,7 +794,7 @@ begin
       FNotificationConfig.NotifyOnAutoConnect := nmNone;
 
     // Logging settings
-    Logging := FView.GetLoggingSettings;
+    Logging := FLoggingSettingsView.GetLoggingSettings;
     FLogConfig.LogEnabled := Logging.Enabled;
     FLogConfig.LogFilename := Logging.Filename;
     FLogConfig.LogAppend := Logging.Append;
@@ -811,7 +803,7 @@ begin
     // Battery tray settings
     if Assigned(FBatteryTrayConfig) then
     begin
-      BatteryTray := FView.GetBatteryTraySettings;
+      BatteryTray := FBatteryTraySettingsView.GetBatteryTraySettings;
       FBatteryTrayConfig.ShowBatteryTrayIcons := BatteryTray.ShowBatteryTrayIcons;
       FBatteryTrayConfig.DefaultIconColor := BatteryTray.DefaultIconColor;
       FBatteryTrayConfig.DefaultBackgroundColor := BatteryTray.DefaultBackgroundColor;
@@ -833,7 +825,7 @@ begin
     on E: Exception do
     begin
       LogError('SaveSettings: Error - %s', [E.Message], ClassName);
-      FView.ShowError('Failed to save settings: ' + E.Message);
+      FDialogView.ShowError('Failed to save settings: ' + E.Message);
       Result := False;
     end;
   end;
@@ -843,20 +835,20 @@ procedure TSettingsPresenter.OnOKClicked;
 begin
   LogDebug('OnOKClicked', ClassName);
   if SaveSettings then
-    FView.CloseWithOK;
+    FDialogView.CloseWithOK;
 end;
 
 procedure TSettingsPresenter.OnCancelClicked;
 begin
   LogDebug('OnCancelClicked', ClassName);
-  FView.CloseWithCancel;
+  FDialogView.CloseWithCancel;
 end;
 
 procedure TSettingsPresenter.OnApplyClicked;
 begin
   LogDebug('OnApplyClicked', ClassName);
   if SaveSettings then
-    FView.SetApplyEnabled(False);
+    FDialogView.SetApplyEnabled(False);
 end;
 
 procedure TSettingsPresenter.OnResetSizeClicked;
@@ -864,7 +856,7 @@ begin
   LogDebug('OnResetSizeClicked', ClassName);
   FPositionConfig.PositionW := -1;
   FPositionConfig.PositionH := -1;
-  FView.ShowInfo('Window size will be reset to default on next application start.');
+  FDialogView.ShowInfo('Window size will be reset to default on next application start.');
 end;
 
 procedure TSettingsPresenter.OnResetPositionClicked;
@@ -872,7 +864,7 @@ begin
   LogDebug('OnResetPositionClicked', ClassName);
   FPositionConfig.PositionX := -1;
   FPositionConfig.PositionY := -1;
-  FView.ShowInfo('Window position will be reset to default on next application start.');
+  FDialogView.ShowInfo('Window position will be reset to default on next application start.');
 end;
 
 procedure TSettingsPresenter.OnDeviceSelected(AIndex: Integer);
@@ -902,10 +894,10 @@ begin
     FAppConfig.Load;
     LoadSettings;
 
-    FView.ShowInfo('Settings have been reset to defaults.');
+    FDialogView.ShowInfo('Settings have been reset to defaults.');
   except
     on E: Exception do
-      FView.ShowError('Failed to reset settings: ' + E.Message);
+      FDialogView.ShowError('Failed to reset settings: ' + E.Message);
   end;
 end;
 
@@ -928,12 +920,12 @@ begin
   Layout.StatusFontSize := DEF_STATUS_FONT_SIZE;
   Layout.AddressFontSize := DEF_ADDRESS_FONT_SIZE;
   Layout.IconFontSize := DEF_ICON_FONT_SIZE;
-  FView.SetLayoutSettings(Layout);
+  FLayoutSettingsView.SetLayoutSettings(Layout);
 
   // Reset connected color (in appearance settings)
-  Appearance := FView.GetAppearanceSettings;
+  Appearance := FAppearanceSettingsView.GetAppearanceSettings;
   Appearance.ConnectedColor := TColor(DEF_CONNECTED_COLOR);
-  FView.SetAppearanceSettings(Appearance);
+  FAppearanceSettingsView.SetAppearanceSettings(Appearance);
 
   MarkModified;
 end;
@@ -941,7 +933,7 @@ end;
 procedure TSettingsPresenter.MarkModified;
 begin
   FModified := True;
-  FView.SetApplyEnabled(True);
+  FDialogView.SetApplyEnabled(True);
 end;
 
 end.

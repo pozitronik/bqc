@@ -18,7 +18,10 @@ interface
 uses
   Bluetooth.Types,
   Bluetooth.Interfaces,
+  App.ConfigEnums,
   App.ConfigInterfaces,
+  App.DeviceConfigTypes,
+  App.AppearanceConfigIntf,
   UI.DeviceList;
 
 type

@@ -25,7 +25,8 @@ uses
   Bluetooth.WinAPI,
   Bluetooth.DeviceWatcher,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.ConnectionConfigIntf;
 
 type
   /// <summary>

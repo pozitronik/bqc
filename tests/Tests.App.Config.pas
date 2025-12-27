@@ -14,7 +14,8 @@ interface
 uses
   DUnitX.TestFramework,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.DeviceConfigTypes;
 
 type
   /// <summary>

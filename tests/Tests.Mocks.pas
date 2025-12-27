@@ -18,6 +18,12 @@ uses
   Vcl.Graphics,
   App.ConfigEnums,
   App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
+  App.LogConfigIntf,
+  App.AppearanceConfigIntf,
+  App.LayoutConfigIntf,
+  App.NotificationConfigIntf,
+  App.DeviceConfigTypes,
   App.BatteryTrayConfigIntf,
   App.MainViewInterfaces,
   App.SettingsPresenter,
@@ -728,7 +734,7 @@ type
   /// <summary>
   /// Mock implementation of settings view interfaces for testing TSettingsPresenter.
   /// Records all calls made by the presenter for verification.
-  /// Implements all focused interfaces and combined ISettingsView for ISP compliance.
+  /// Implements all focused interfaces following ISP.
   /// </summary>
   TMockSettingsView = class(TInterfacedObject,
     ISettingsDialogView,
@@ -739,8 +745,7 @@ type
     IConnectionSettingsView,
     ILoggingSettingsView,
     IDeviceSettingsView,
-    IBatteryTraySettingsView,
-    ISettingsView)
+    IBatteryTraySettingsView)
   private
     // Stored settings
     FGeneralSettings: TGeneralViewSettings;
@@ -773,14 +778,14 @@ type
   public
     constructor Create;
 
-    // ISettingsView - Dialog control
+    // ISettingsDialogView - Dialog control
     procedure CloseWithOK;
     procedure CloseWithCancel;
     procedure ShowError(const AMessage: string);
     procedure ShowInfo(const AMessage: string);
     procedure SetApplyEnabled(AEnabled: Boolean);
 
-    // ISettingsView - Settings access
+    // Individual settings interfaces
     function GetGeneralSettings: TGeneralViewSettings;
     procedure SetGeneralSettings(const ASettings: TGeneralViewSettings);
     function GetHotkeySettings: THotkeyViewSettings;
@@ -798,7 +803,7 @@ type
     function GetBatteryTraySettings: TBatteryTrayViewSettings;
     procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
 
-    // ISettingsView - Theme management
+    // IAppearanceSettingsView - Theme management
     procedure PopulateThemeList(const ACurrentTheme: string);
 
     // IDeviceSettingsView - Device management

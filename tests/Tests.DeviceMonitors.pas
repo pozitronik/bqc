@@ -19,6 +19,7 @@ uses
   Bluetooth.DeviceMonitors,
   App.ConfigEnums,
   App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
   Tests.Mocks;
 
 type

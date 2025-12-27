@@ -27,6 +27,8 @@ uses
   Vcl.Forms,
   Vcl.Menus,
   App.ConfigInterfaces,
+  App.DeviceConfigTypes,
+  App.BatteryTrayConfigIntf,
   UI.BatteryIconRenderer;
 
 const

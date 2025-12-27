@@ -18,6 +18,7 @@ uses
   System.SysUtils,
   App.ConfigEnums,
   App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
   App.ConfigSectionTypes;
 
 type

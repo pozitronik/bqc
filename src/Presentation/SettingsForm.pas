@@ -16,7 +16,10 @@ uses
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
   Vcl.ComCtrls,
+  App.ConfigEnums,
   App.ConfigInterfaces,
+  App.LogConfigIntf,
+  App.BatteryTrayConfigIntf,
   App.SettingsPresenter,
   UI.Theme;
 
@@ -24,7 +27,6 @@ type
   /// <summary>
   /// Settings dialog form.
   /// Implements focused settings interfaces for ISP compliance.
-  /// Also implements combined ISettingsView for backward compatibility.
   /// </summary>
   TFormSettings = class(TForm,
     ISettingsDialogView,
@@ -35,8 +37,7 @@ type
     IConnectionSettingsView,
     ILoggingSettingsView,
     IDeviceSettingsView,
-    IBatteryTraySettingsView,
-    ISettingsView)
+    IBatteryTraySettingsView)
     PanelBottom: TPanel;
     ButtonOK: TButton;
     ButtonCancel: TButton;
@@ -301,31 +302,39 @@ type
     FBatteryTrayConfig: IBatteryTrayConfig;
     FThemeManager: IThemeManager;
 
-    { ISettingsView implementation - Dialog control }
+    { ISettingsDialogView implementation }
     procedure CloseWithOK;
     procedure CloseWithCancel;
     procedure ShowError(const AMessage: string);
     procedure ShowInfo(const AMessage: string);
     procedure SetApplyEnabled(AEnabled: Boolean);
 
-    { ISettingsView implementation - Settings access }
+    { IGeneralSettingsView implementation }
     function GetGeneralSettings: TGeneralViewSettings;
     procedure SetGeneralSettings(const ASettings: TGeneralViewSettings);
+
+    { IHotkeySettingsView implementation }
     function GetHotkeySettings: THotkeyViewSettings;
     procedure SetHotkeySettings(const ASettings: THotkeyViewSettings);
+
+    { IAppearanceSettingsView implementation }
     function GetAppearanceSettings: TAppearanceViewSettings;
     procedure SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
+    procedure PopulateThemeList(const ACurrentTheme: string);
+
+    { ILayoutSettingsView implementation }
     function GetLayoutSettings: TLayoutViewSettings;
     procedure SetLayoutSettings(const ASettings: TLayoutViewSettings);
+
+    { IConnectionSettingsView implementation }
     function GetConnectionSettings: TConnectionViewSettings;
     procedure SetConnectionSettings(const ASettings: TConnectionViewSettings);
+
+    { ILoggingSettingsView implementation }
     function GetLoggingSettings: TLoggingViewSettings;
     procedure SetLoggingSettings(const ASettings: TLoggingViewSettings);
 
-    { ISettingsView implementation - Theme management }
-    procedure PopulateThemeList(const ACurrentTheme: string);
-
-    { ISettingsView implementation - Device management }
+    { IDeviceSettingsView implementation }
     procedure PopulateDeviceList(const AItems: TArray<string>);
     function GetSelectedDeviceIndex: Integer;
     procedure SetSelectedDeviceIndex(AIndex: Integer);
@@ -404,7 +413,14 @@ begin
 
   // Create presenter with injected dependencies
   FPresenter := TSettingsPresenter.Create(
-    Self as ISettingsView,
+    Self as ISettingsDialogView,
+    Self as IGeneralSettingsView,
+    Self as IHotkeySettingsView,
+    Self as IAppearanceSettingsView,
+    Self as ILayoutSettingsView,
+    Self as IConnectionSettingsView,
+    Self as ILoggingSettingsView,
+    Self as IBatteryTraySettingsView,
     Self as IDeviceSettingsView,
     FAppConfig,
     FDeviceConfigProvider,
@@ -444,7 +460,7 @@ begin
   FPresenter.OnApplyClicked;
 end;
 
-{ ISettingsView implementation }
+{ ISettingsDialogView implementation }
 
 procedure TFormSettings.CloseWithOK;
 begin
@@ -471,7 +487,7 @@ begin
   ButtonApply.Enabled := AEnabled;
 end;
 
-{ ISettingsView implementation - Settings access }
+{ IGeneralSettingsView implementation }
 
 function TFormSettings.GetGeneralSettings: TGeneralViewSettings;
 begin
@@ -604,7 +620,7 @@ begin
   ComboLogLevel.ItemIndex := ASettings.LevelIndex;
 end;
 
-{ ISettingsView implementation - Theme management }
+{ IAppearanceSettingsView - Theme management }
 
 procedure TFormSettings.PopulateThemeList(const ACurrentTheme: string);
 var
@@ -638,7 +654,7 @@ begin
     ComboTheme.ItemIndex := 0;
 end;
 
-{ ISettingsView implementation - Device management }
+{ IDeviceSettingsView implementation }
 
 procedure TFormSettings.PopulateDeviceList(const AItems: TArray<string>);
 var
