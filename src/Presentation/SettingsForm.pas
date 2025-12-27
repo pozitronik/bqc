@@ -860,7 +860,6 @@ var
   I: Integer;
 begin
   ComboDeviceType.Items.Clear;
-  ComboDeviceType.Items.Add('Auto-detect');
   for I := Low(DeviceTypeNames) to High(DeviceTypeNames) do
     ComboDeviceType.Items.Add(DeviceTypeNames[I]);
   ComboDeviceType.Style := csDropDownList;
