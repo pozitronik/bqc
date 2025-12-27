@@ -29,6 +29,14 @@ uses
   App.ConfigInterfaces,
   UI.BatteryIconRenderer;
 
+const
+  /// <summary>
+  /// Callback message for all battery tray icons.
+  /// Icons are distinguished by uID field passed in wParam.
+  /// Using WM_USER + 200 to avoid conflict with WM_HOTKEY_DETECTED (WM_USER + 100).
+  /// </summary>
+  WM_BATTERYTRAY_CALLBACK = WM_USER + 200;
+
 type
   /// <summary>
   /// Notification state for a device to prevent repeated notifications.
@@ -310,7 +318,7 @@ begin
   Result.Wnd := FOwnerHandle;
   Result.uID := GetNextIconId;
   Result.uFlags := NIF_ICON or NIF_TIP or NIF_MESSAGE;
-  Result.uCallbackMessage := WM_USER + 100 + Result.uID; // Unique message per icon
+  Result.uCallbackMessage := WM_BATTERYTRAY_CALLBACK; // Same message for all icons, uID distinguishes them
 
   // Create battery icon (numeric or graphical)
   Threshold := GetEffectiveThreshold(AAddress);
