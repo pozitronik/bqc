@@ -308,7 +308,9 @@ procedure TFormMain.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftSta
 begin
   case Key of
     VK_ESCAPE:
-      Close;
+      // Only close on Escape in menu mode
+      if FGeneralConfig.WindowMode = wmMenu then
+        Close;
     VK_F5:
       FPresenter.OnRefreshRequested;
   end;
