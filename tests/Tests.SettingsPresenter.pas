@@ -204,7 +204,8 @@ begin
     FMockView as ISettingsView,
     FMockView as IDeviceSettingsView,
     FMockAppConfig,
-    FMockDeviceConfigProvider
+    FMockDeviceConfigProvider,
+    FMockAppConfig.AsBatteryTrayConfig
   );
 end;
 

@@ -40,6 +40,9 @@ uses
   Tests.EventDebouncer in 'Tests.EventDebouncer.pas',
   Tests.DeviceConfigProvider in 'Tests.DeviceConfigProvider.pas',
   Tests.WindowPositioner in 'Tests.WindowPositioner.pas',
+  Tests.BatteryIconRenderer in 'Tests.BatteryIconRenderer.pas',
+  Tests.BatteryTrayManager in 'Tests.BatteryTrayManager.pas',
+  Tests.ConfigSection.BatteryTray in 'Tests.ConfigSection.BatteryTray.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
@@ -90,7 +93,11 @@ uses
   UI.DeviceSorter in '..\src\Presentation\UI.DeviceSorter.pas',
   UI.DeviceDisplayItemBuilder in '..\src\Presentation\UI.DeviceDisplayItemBuilder.pas',
   UI.Theme in '..\src\Presentation\UI.Theme.pas',
-  UI.WindowPositioner in '..\src\Presentation\UI.WindowPositioner.pas';
+  UI.WindowPositioner in '..\src\Presentation\UI.WindowPositioner.pas',
+  UI.BatteryIconRenderer in '..\src\Presentation\UI.BatteryIconRenderer.pas',
+  UI.BatteryTrayManager in '..\src\Presentation\UI.BatteryTrayManager.pas',
+  App.BatteryTrayConfigIntf in '..\src\Infrastructure\App.BatteryTrayConfigIntf.pas',
+  App.ConfigSection.BatteryTray in '..\src\Infrastructure\App.ConfigSection.BatteryTray.pas';
 
 
 {$IFNDEF TESTINSIGHT}

@@ -15,8 +15,10 @@ uses
   Winapi.Windows,
   System.SysUtils,
   System.Generics.Collections,
+  Vcl.Graphics,
   App.ConfigEnums,
   App.ConfigInterfaces,
+  App.BatteryTrayConfigIntf,
   App.MainViewInterfaces,
   App.SettingsPresenter,
   App.Autostart,
@@ -161,6 +163,49 @@ type
     procedure AddDeviceConfig(AAddress: UInt64; const AConfig: TDeviceConfig);
     procedure Clear;
     property DeviceConfigs: TDictionary<UInt64, TDeviceConfig> read FDeviceConfigs;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IBatteryTrayConfig for testing battery tray features.
+  /// </summary>
+  TMockBatteryTrayConfig = class(TInterfacedObject, IBatteryTrayConfig)
+  private
+    FShowBatteryTrayIcons: Boolean;
+    FDefaultIconColor: TColor;
+    FDefaultBackgroundColor: TColor;
+    FDefaultShowNumericValue: Boolean;
+    FDefaultLowBatteryThreshold: Integer;
+    FDefaultNotifyLowBattery: Boolean;
+    FDefaultNotifyFullyCharged: Boolean;
+  public
+    constructor Create;
+
+    // IBatteryTrayConfig - getters
+    function GetShowBatteryTrayIcons: Boolean;
+    function GetDefaultIconColor: TColor;
+    function GetDefaultBackgroundColor: TColor;
+    function GetDefaultShowNumericValue: Boolean;
+    function GetDefaultLowBatteryThreshold: Integer;
+    function GetDefaultNotifyLowBattery: Boolean;
+    function GetDefaultNotifyFullyCharged: Boolean;
+
+    // IBatteryTrayConfig - setters
+    procedure SetShowBatteryTrayIcons(AValue: Boolean);
+    procedure SetDefaultIconColor(AValue: TColor);
+    procedure SetDefaultBackgroundColor(AValue: TColor);
+    procedure SetDefaultShowNumericValue(AValue: Boolean);
+    procedure SetDefaultLowBatteryThreshold(AValue: Integer);
+    procedure SetDefaultNotifyLowBattery(AValue: Boolean);
+    procedure SetDefaultNotifyFullyCharged(AValue: Boolean);
+
+    // Direct access properties for testing
+    property ShowBatteryTrayIcons: Boolean read FShowBatteryTrayIcons write FShowBatteryTrayIcons;
+    property DefaultIconColor: TColor read FDefaultIconColor write FDefaultIconColor;
+    property DefaultBackgroundColor: TColor read FDefaultBackgroundColor write FDefaultBackgroundColor;
+    property DefaultShowNumericValue: Boolean read FDefaultShowNumericValue write FDefaultShowNumericValue;
+    property DefaultLowBatteryThreshold: Integer read FDefaultLowBatteryThreshold write FDefaultLowBatteryThreshold;
+    property DefaultNotifyLowBattery: Boolean read FDefaultNotifyLowBattery write FDefaultNotifyLowBattery;
+    property DefaultNotifyFullyCharged: Boolean read FDefaultNotifyFullyCharged write FDefaultNotifyFullyCharged;
   end;
 
   /// <summary>
@@ -633,6 +678,7 @@ type
     FLayoutConfig: ILayoutConfig;
     FConnectionConfig: IConnectionConfig;
     FNotificationConfig: INotificationConfig;
+    FBatteryTrayConfig: IBatteryTrayConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
   public
     constructor Create;
@@ -654,6 +700,7 @@ type
     function AsLayoutConfig: ILayoutConfig;
     function AsConnectionConfig: IConnectionConfig;
     function AsNotificationConfig: INotificationConfig;
+    function AsBatteryTrayConfig: IBatteryTrayConfig;
     function AsDeviceConfigProvider: IDeviceConfigProvider;
 
     // Test verification
@@ -674,6 +721,7 @@ type
     property LayoutConfig: ILayoutConfig read FLayoutConfig;
     property ConnectionConfig: IConnectionConfig read FConnectionConfig;
     property NotificationConfig: INotificationConfig read FNotificationConfig;
+    property BatteryTrayConfig: IBatteryTrayConfig read FBatteryTrayConfig;
   end;
 
 type
@@ -691,6 +739,7 @@ type
     IConnectionSettingsView,
     ILoggingSettingsView,
     IDeviceSettingsView,
+    IBatteryTraySettingsView,
     ISettingsView)
   private
     // Stored settings
@@ -701,6 +750,7 @@ type
     FConnectionSettings: TConnectionViewSettings;
     FLoggingSettings: TLoggingViewSettings;
     FDeviceSettings: TDeviceViewSettings;
+    FBatteryTraySettings: TBatteryTrayViewSettings;
     FSelectedDeviceIndex: Integer;
     FDeviceListItems: TArray<string>;
     FCurrentTheme: string;
@@ -719,6 +769,7 @@ type
     FSetLoggingCount: Integer;
     FSetDeviceCount: Integer;
     FClearDeviceCount: Integer;
+    FSetBatteryTrayCount: Integer;
   public
     constructor Create;
 
@@ -742,6 +793,10 @@ type
     procedure SetConnectionSettings(const ASettings: TConnectionViewSettings);
     function GetLoggingSettings: TLoggingViewSettings;
     procedure SetLoggingSettings(const ASettings: TLoggingViewSettings);
+
+    // IBatteryTraySettingsView
+    function GetBatteryTraySettings: TBatteryTrayViewSettings;
+    procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
 
     // ISettingsView - Theme management
     procedure PopulateThemeList(const ACurrentTheme: string);
@@ -768,6 +823,7 @@ type
     property SetLoggingCount: Integer read FSetLoggingCount;
     property SetDeviceCount: Integer read FSetDeviceCount;
     property ClearDeviceCount: Integer read FClearDeviceCount;
+    property SetBatteryTrayCount: Integer read FSetBatteryTrayCount;
 
     // Direct access for test setup
     property GeneralSettings: TGeneralViewSettings read FGeneralSettings write FGeneralSettings;
@@ -777,6 +833,7 @@ type
     property ConnectionSettings: TConnectionViewSettings read FConnectionSettings write FConnectionSettings;
     property LoggingSettings: TLoggingViewSettings read FLoggingSettings write FLoggingSettings;
     property DeviceSettings: TDeviceViewSettings read FDeviceSettings write FDeviceSettings;
+    property BatteryTraySettings: TBatteryTrayViewSettings read FBatteryTraySettings write FBatteryTraySettings;
     property DeviceListItems: TArray<string> read FDeviceListItems;
     property CurrentTheme: string read FCurrentTheme;
   end;
@@ -1876,6 +1933,17 @@ begin
   Inc(FSetLoggingCount);
 end;
 
+function TMockSettingsView.GetBatteryTraySettings: TBatteryTrayViewSettings;
+begin
+  Result := FBatteryTraySettings;
+end;
+
+procedure TMockSettingsView.SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
+begin
+  FBatteryTraySettings := ASettings;
+  Inc(FSetBatteryTrayCount);
+end;
+
 procedure TMockSettingsView.PopulateThemeList(const ACurrentTheme: string);
 begin
   // Mock doesn't fetch actual themes - just stores the current theme
@@ -2314,6 +2382,7 @@ begin
   FLayoutConfig := TMockLayoutConfig.Create;
   FConnectionConfig := TMockConnectionConfig.Create;
   FNotificationConfig := TMockNotificationConfig.Create;
+  FBatteryTrayConfig := TMockBatteryTrayConfig.Create;
   FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
 end;
 
@@ -2399,6 +2468,11 @@ end;
 function TMockAppConfig.AsNotificationConfig: INotificationConfig;
 begin
   Result := FNotificationConfig;
+end;
+
+function TMockAppConfig.AsBatteryTrayConfig: IBatteryTrayConfig;
+begin
+  Result := FBatteryTrayConfig;
 end;
 
 function TMockAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
@@ -2666,6 +2740,90 @@ function TMockThemeManager.GetStyleNameFromDisplay(const ADisplayName: string): 
 begin
   // Mock simply returns the display name as-is
   Result := ADisplayName;
+end;
+
+{ TMockBatteryTrayConfig }
+
+constructor TMockBatteryTrayConfig.Create;
+begin
+  inherited Create;
+  FShowBatteryTrayIcons := True;
+  FDefaultIconColor := clGreen;
+  FDefaultBackgroundColor := clNone;  // Transparent
+  FDefaultShowNumericValue := False;
+  FDefaultLowBatteryThreshold := 20;
+  FDefaultNotifyLowBattery := True;
+  FDefaultNotifyFullyCharged := False;
+end;
+
+function TMockBatteryTrayConfig.GetShowBatteryTrayIcons: Boolean;
+begin
+  Result := FShowBatteryTrayIcons;
+end;
+
+function TMockBatteryTrayConfig.GetDefaultIconColor: TColor;
+begin
+  Result := FDefaultIconColor;
+end;
+
+function TMockBatteryTrayConfig.GetDefaultBackgroundColor: TColor;
+begin
+  Result := FDefaultBackgroundColor;
+end;
+
+function TMockBatteryTrayConfig.GetDefaultShowNumericValue: Boolean;
+begin
+  Result := FDefaultShowNumericValue;
+end;
+
+function TMockBatteryTrayConfig.GetDefaultLowBatteryThreshold: Integer;
+begin
+  Result := FDefaultLowBatteryThreshold;
+end;
+
+function TMockBatteryTrayConfig.GetDefaultNotifyLowBattery: Boolean;
+begin
+  Result := FDefaultNotifyLowBattery;
+end;
+
+function TMockBatteryTrayConfig.GetDefaultNotifyFullyCharged: Boolean;
+begin
+  Result := FDefaultNotifyFullyCharged;
+end;
+
+procedure TMockBatteryTrayConfig.SetShowBatteryTrayIcons(AValue: Boolean);
+begin
+  FShowBatteryTrayIcons := AValue;
+end;
+
+procedure TMockBatteryTrayConfig.SetDefaultIconColor(AValue: TColor);
+begin
+  FDefaultIconColor := AValue;
+end;
+
+procedure TMockBatteryTrayConfig.SetDefaultBackgroundColor(AValue: TColor);
+begin
+  FDefaultBackgroundColor := AValue;
+end;
+
+procedure TMockBatteryTrayConfig.SetDefaultShowNumericValue(AValue: Boolean);
+begin
+  FDefaultShowNumericValue := AValue;
+end;
+
+procedure TMockBatteryTrayConfig.SetDefaultLowBatteryThreshold(AValue: Integer);
+begin
+  FDefaultLowBatteryThreshold := AValue;
+end;
+
+procedure TMockBatteryTrayConfig.SetDefaultNotifyLowBattery(AValue: Boolean);
+begin
+  FDefaultNotifyLowBattery := AValue;
+end;
+
+procedure TMockBatteryTrayConfig.SetDefaultNotifyFullyCharged(AValue: Boolean);
+begin
+  FDefaultNotifyFullyCharged := AValue;
 end;
 
 end.
