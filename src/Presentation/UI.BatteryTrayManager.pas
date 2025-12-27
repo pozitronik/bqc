@@ -422,6 +422,7 @@ var
   ShowNumeric: Boolean;
   Icon: TIcon;
   Tooltip: string;
+  OldIconHandle: HICON;
 begin
   if not FEnabled then
     Exit;
@@ -457,16 +458,26 @@ begin
     else
       Icon := TBatteryIconRenderer.CreateBatteryIconAuto(ALevel, Color, BackgroundColor, Threshold);
     try
-      // Destroy old icon handle
-      if ExistingIcon.hIcon <> 0 then
-        DestroyIcon(ExistingIcon.hIcon);
-
+      OldIconHandle := ExistingIcon.hIcon;
       ExistingIcon.hIcon := CopyIcon(Icon.Handle);
       Tooltip := Format('%s: %d%%', [AName, ALevel]);
       StrLCopy(ExistingIcon.szTip, PChar(Tooltip), Length(ExistingIcon.szTip) - 1);
 
-      Shell_NotifyIcon(NIM_MODIFY, @ExistingIcon);
-      FDeviceIcons[AAddress] := ExistingIcon;
+      if Shell_NotifyIcon(NIM_MODIFY, @ExistingIcon) then
+      begin
+        // Success - destroy old icon handle and update dictionary
+        if OldIconHandle <> 0 then
+          DestroyIcon(OldIconHandle);
+        FDeviceIcons[AAddress] := ExistingIcon;
+      end
+      else
+      begin
+        // Failed - destroy new icon handle, keep old one
+        if ExistingIcon.hIcon <> 0 then
+          DestroyIcon(ExistingIcon.hIcon);
+        ExistingIcon.hIcon := OldIconHandle; // Restore old handle
+        LogWarning('Failed to update battery tray icon for %s', [AName], ClassName);
+      end;
     finally
       Icon.Free;
     end;
