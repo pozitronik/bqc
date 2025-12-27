@@ -18,7 +18,8 @@ uses
   System.SysUtils,
   Bluetooth.Types,
   App.ConfigEnums,
-  App.ConfigInterfaces;
+  App.ConfigInterfaces,
+  App.AppearanceConfigIntf;
 
 type
   /// <summary>
@@ -93,6 +94,13 @@ type
     /// <param name="ADeviceType">The device type to format.</param>
     /// <returns>Human-readable device type string.</returns>
     class function FormatDeviceType(ADeviceType: TBluetoothDeviceType): string; static;
+
+    /// <summary>
+    /// Formats battery level as percentage text.
+    /// </summary>
+    /// <param name="AStatus">The battery status to format.</param>
+    /// <returns>Formatted battery text (e.g., "85%") or empty string if not available.</returns>
+    class function FormatBatteryLevel(const AStatus: TBatteryStatus): string; static;
   end;
 
 implementation
@@ -211,6 +219,14 @@ begin
   else
     Result := 'Unknown';
   end;
+end;
+
+class function TDeviceFormatter.FormatBatteryLevel(const AStatus: TBatteryStatus): string;
+begin
+  if AStatus.HasLevel then
+    Result := Format('%d%%', [AStatus.Level])
+  else
+    Result := '';
 end;
 
 end.

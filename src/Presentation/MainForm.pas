@@ -796,6 +796,10 @@ begin
     SetFocus;
 
   FTrayManager.UpdateMenuCaption(True);
+
+  // Notify presenter that view is now visible (triggers battery refresh)
+  if FPresenter <> nil then
+    FPresenter.OnViewShown;
 end;
 
 procedure TFormMain.HideView;

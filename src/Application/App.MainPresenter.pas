@@ -55,6 +55,7 @@ uses
   Bluetooth.RadioControl,
   App.MainViewInterfaces,
   App.ConfigInterfaces,
+  App.AppearanceConfigIntf,
   UI.DeviceList,
   UI.DeviceDisplayItemBuilder;
 
@@ -84,6 +85,7 @@ type
     FConnectionConfig: IConnectionConfig;
     FStrategyFactory: IConnectionStrategyFactory;
     FRadioStateManager: IRadioStateManager;
+    FBatteryCache: IBatteryCache;
     FDevices: TBluetoothDeviceInfoArray;
     FDisplayItems: TDeviceDisplayItemArray;
     FDisplayItemBuilder: TDeviceDisplayItemBuilder;
@@ -96,6 +98,10 @@ type
     procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
     procedure HandleDelayedLoadTimer(Sender: TObject);
+    procedure HandleBatteryQueryCompleted(Sender: TObject; ADeviceAddress: UInt64;
+      const AStatus: TBatteryStatus);
+
+    procedure RefreshBatteryForConnectedDevices;
 
     { Internal methods }
     procedure LoadDevices;
@@ -201,6 +207,12 @@ type
     procedure OnSettingsChanged;
 
     /// <summary>
+    /// Called when the view becomes visible.
+    /// Triggers battery level refresh for connected devices.
+    /// </summary>
+    procedure OnViewShown;
+
+    /// <summary>
     /// Checks if the view can close or should hide to tray.
     /// </summary>
     /// <returns>True if view can close, False if it should hide.</returns>
@@ -218,6 +230,7 @@ uses
   App.Logger,
   App.ConfigEnums,
   Bluetooth.Service,
+  Bluetooth.BatteryQuery,
   UI.DeviceFormatter;
 
 { TMainPresenter }
@@ -258,6 +271,7 @@ begin
   FRadioStateManager := ARadioStateManager;
 
   FBluetoothService := nil;
+  FBatteryCache := nil;
   FDevices := nil;
   FDisplayItems := nil;
   FDisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
@@ -272,6 +286,7 @@ end;
 destructor TMainPresenter.Destroy;
 begin
   Shutdown;
+  FBatteryCache := nil;
   FDisplayItemBuilder.Free;
   LogDebug('Destroyed', ClassName);
   inherited;
@@ -288,6 +303,15 @@ begin
   FDelayedLoadTimer.Enabled := False;
   FDelayedLoadTimer.Interval := 500;
   FDelayedLoadTimer.OnTimer := HandleDelayedLoadTimer;
+
+  // Create battery cache if battery display is enabled
+  if FAppearanceConfig.ShowBatteryLevel then
+  begin
+    LogDebug('Initialize: Creating battery cache', ClassName);
+    FBatteryCache := CreateBatteryCache(CreateBatteryQuery);
+    FBatteryCache.OnQueryCompleted := HandleBatteryQueryCompleted;
+    FDisplayItemBuilder.SetBatteryCache(FBatteryCache);
+  end;
 
   // Create Bluetooth service
   LogDebug('Initialize: Creating Bluetooth service', ClassName);
@@ -391,6 +415,9 @@ begin
       FStatusView.ShowStatus('No paired devices')
     else
       FStatusView.ShowStatus(Format('%d device(s)', [Length(FDevices)]));
+
+    // Trigger battery level refresh for connected devices
+    RefreshBatteryForConnectedDevices;
   finally
     FStatusView.SetBusy(False);
   end;
@@ -650,7 +677,12 @@ begin
       // Only update LastSeen when device actually connects - this is when the app "sees" it
       // For other state changes, pass 0 to preserve existing LastSeen value
       if LDevice.ConnectionState = csConnected then
-        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now)
+      begin
+        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
+        // Refresh battery level for newly connected device
+        if (FBatteryCache <> nil) and FAppearanceConfig.ShowBatteryLevel then
+          FBatteryCache.RequestRefresh(LDevice.AddressInt);
+      end
       else
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, 0);
       FAppConfig.SaveIfModified;
@@ -717,6 +749,46 @@ procedure TMainPresenter.HandleDelayedLoadTimer(Sender: TObject);
 begin
   FDelayedLoadTimer.Enabled := False;
   LoadDevices;
+end;
+
+procedure TMainPresenter.HandleBatteryQueryCompleted(Sender: TObject;
+  ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
+begin
+  // Rebuild display items to show updated battery level
+  RefreshDisplayItems;
+end;
+
+procedure TMainPresenter.RefreshBatteryForConnectedDevices;
+var
+  Addresses: TArray<UInt64>;
+  I, Count: Integer;
+  Device: TBluetoothDeviceInfo;
+begin
+  if FBatteryCache = nil then
+    Exit;
+
+  if not FAppearanceConfig.ShowBatteryLevel then
+    Exit;
+
+  // Collect addresses of connected devices
+  Count := 0;
+  SetLength(Addresses, Length(FDevices));
+  for I := 0 to High(FDevices) do
+  begin
+    Device := FDevices[I];
+    if Device.IsConnected then
+    begin
+      Addresses[Count] := Device.AddressInt;
+      Inc(Count);
+    end;
+  end;
+  SetLength(Addresses, Count);
+
+  if Count > 0 then
+  begin
+    LogDebug('RefreshBatteryForConnectedDevices: Refreshing %d devices', [Count], ClassName);
+    FBatteryCache.RequestRefreshAll(Addresses);
+  end;
 end;
 
 { Public methods called by View }
@@ -788,6 +860,11 @@ begin
   LogInfo('OnSettingsChanged', ClassName);
   // Note: Polling mode changes require application restart to take effect.
   // Other settings (theme, hotkey, etc.) are applied immediately by MainForm.
+end;
+
+procedure TMainPresenter.OnViewShown;
+begin
+  RefreshBatteryForConnectedDevices;
 end;
 
 function TMainPresenter.CanClose: Boolean;

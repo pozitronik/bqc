@@ -468,6 +468,113 @@ type
     property DebounceMs: Integer read GetDebounceMs write SetDebounceMs;
   end;
 
+  /// <summary>
+  /// Interface for querying Bluetooth device battery levels.
+  /// Single Responsibility: Only handles battery level queries.
+  /// Uses BLE GATT Battery Service (UUID 0x180F) when available.
+  /// </summary>
+  IBatteryQuery = interface
+    ['{C9D0E1F2-AAAA-BBBB-CCCC-DDDD44445555}']
+
+    /// <summary>
+    /// Gets the battery level for a Bluetooth device.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address of the device.</param>
+    /// <returns>
+    /// Battery status indicating support and level.
+    /// Returns NotSupported if device doesn't have Battery Service.
+    /// Returns Unknown if device supports battery but read failed.
+    /// Returns level (0-100) on success.
+    /// </returns>
+    /// <remarks>
+    /// This operation requires the device to be connected.
+    /// Only BLE devices with GATT Battery Service are supported.
+    /// The operation may take several seconds due to GATT communication.
+    /// </remarks>
+    function GetBatteryLevel(ADeviceAddress: UInt64): TBatteryStatus;
+
+    /// <summary>
+    /// Gets the battery level with a custom timeout.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address of the device.</param>
+    /// <param name="ATimeoutMs">Timeout in milliseconds for the GATT operation.</param>
+    /// <returns>Battery status.</returns>
+    function GetBatteryLevelWithTimeout(ADeviceAddress: UInt64;
+      ATimeoutMs: Cardinal): TBatteryStatus;
+  end;
+
+  /// <summary>
+  /// Event handler for battery level query completion.
+  /// </summary>
+  TBatteryQueryCompletedEvent = procedure(
+    Sender: TObject;
+    ADeviceAddress: UInt64;
+    const AStatus: TBatteryStatus
+  ) of object;
+
+  /// <summary>
+  /// Interface for caching and managing battery level information.
+  /// Single Responsibility: Caches battery levels and provides async refresh.
+  /// </summary>
+  IBatteryCache = interface
+    ['{D0E1F2A3-BBBB-CCCC-DDDD-EEEE55556666}']
+
+    /// <summary>
+    /// Gets the cached battery status for a device.
+    /// Returns TBatteryStatus.NotSupported if not in cache.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address.</param>
+    /// <returns>Cached battery status.</returns>
+    function GetBatteryStatus(ADeviceAddress: UInt64): TBatteryStatus;
+
+    /// <summary>
+    /// Sets the battery status in the cache.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address.</param>
+    /// <param name="AStatus">Battery status to cache.</param>
+    procedure SetBatteryStatus(ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
+
+    /// <summary>
+    /// Checks if a device has a cached battery status.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address.</param>
+    /// <returns>True if status is cached.</returns>
+    function HasCachedStatus(ADeviceAddress: UInt64): Boolean;
+
+    /// <summary>
+    /// Requests an async battery level refresh for a device.
+    /// Results are reported via OnQueryCompleted event.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address.</param>
+    procedure RequestRefresh(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Requests async battery level refresh for all connected devices.
+    /// Results are reported via OnQueryCompleted event for each device.
+    /// </summary>
+    /// <param name="ADeviceAddresses">Array of 64-bit Bluetooth addresses.</param>
+    procedure RequestRefreshAll(const ADeviceAddresses: TArray<UInt64>);
+
+    /// <summary>
+    /// Clears all cached battery statuses.
+    /// </summary>
+    procedure Clear;
+
+    /// <summary>
+    /// Removes a single device from the cache.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address.</param>
+    procedure Remove(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Gets/sets the event handler for query completion.
+    /// </summary>
+    function GetOnQueryCompleted: TBatteryQueryCompletedEvent;
+    procedure SetOnQueryCompleted(AValue: TBatteryQueryCompletedEvent);
+    property OnQueryCompleted: TBatteryQueryCompletedEvent
+      read GetOnQueryCompleted write SetOnQueryCompleted;
+  end;
+
 implementation
 
 { TConnectionResult }

@@ -150,6 +150,7 @@
         <DCCReference Include="src\Infrastructure\Bluetooth.ConnectionExecutor.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.AdapterQuery.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceConverter.pas"/>
+        <DCCReference Include="src\Infrastructure\Bluetooth.BatteryQuery.pas"/>
         <DCCReference Include="src\Infrastructure\App.Logger.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigEnums.pas"/>
         <DCCReference Include="src\Infrastructure\App.DeviceConfigTypes.pas"/>

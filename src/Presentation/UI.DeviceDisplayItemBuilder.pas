@@ -17,6 +17,7 @@ interface
 
 uses
   Bluetooth.Types,
+  Bluetooth.Interfaces,
   App.ConfigInterfaces,
   UI.DeviceList;
 
@@ -28,6 +29,7 @@ type
   ///   - Resolve aliases and device type overrides
   ///   - Format dates according to appearance settings
   ///   - Calculate sort groups
+  ///   - Include battery status when available
   ///   - Sort the result
   /// This follows Information Expert: the builder has all needed
   /// information (configs) to build display items.
@@ -36,6 +38,7 @@ type
   private
     FConfigProvider: IDeviceConfigQuery;
     FAppearanceConfig: IAppearanceConfig;
+    FBatteryCache: IBatteryCache;
   public
     /// <summary>
     /// Creates a new builder instance with required dependencies.
@@ -44,6 +47,13 @@ type
     /// <param name="AAppearanceConfig">Provider for appearance settings.</param>
     constructor Create(AConfigProvider: IDeviceConfigQuery;
       AAppearanceConfig: IAppearanceConfig);
+
+    /// <summary>
+    /// Sets the battery cache for battery status lookup.
+    /// Optional - if not set, battery info will not be displayed.
+    /// </summary>
+    /// <param name="ABatteryCache">Battery cache instance.</param>
+    procedure SetBatteryCache(ABatteryCache: IBatteryCache);
 
     /// <summary>
     /// Builds display items from an array of raw devices.
@@ -84,6 +94,12 @@ begin
   inherited Create;
   FConfigProvider := AConfigProvider;
   FAppearanceConfig := AAppearanceConfig;
+  FBatteryCache := nil;
+end;
+
+procedure TDeviceDisplayItemBuilder.SetBatteryCache(ABatteryCache: IBatteryCache);
+begin
+  FBatteryCache := ABatteryCache;
 end;
 
 function TDeviceDisplayItemBuilder.IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
@@ -107,9 +123,23 @@ function TDeviceDisplayItemBuilder.BuildDisplayItem(
 var
   DeviceConfig: TDeviceConfig;
   LastSeenFormat: TLastSeenFormat;
+  BatteryStatus: TBatteryStatus;
+  BatteryText: string;
 begin
   DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
   LastSeenFormat := FAppearanceConfig.LastSeenFormat;
+
+  // Get battery status from cache if available and enabled
+  if (FBatteryCache <> nil) and FAppearanceConfig.ShowBatteryLevel then
+  begin
+    BatteryStatus := FBatteryCache.GetBatteryStatus(ADevice.AddressInt);
+    BatteryText := TDeviceFormatter.FormatBatteryLevel(BatteryStatus);
+  end
+  else
+  begin
+    BatteryStatus := TBatteryStatus.NotSupported;
+    BatteryText := '';
+  end;
 
   Result := TDeviceDisplayItem.Create(
     ADevice,
@@ -118,7 +148,9 @@ begin
     TDeviceFormatter.GetEffectiveDeviceType(ADevice, DeviceConfig),
     TDeviceFormatter.FormatLastSeen(DeviceConfig.LastSeen, LastSeenFormat),
     DeviceConfig.LastSeen,
-    TDeviceFormatter.GetSortGroup(ADevice, DeviceConfig)
+    TDeviceFormatter.GetSortGroup(ADevice, DeviceConfig),
+    BatteryStatus,
+    BatteryText
   );
 end;
 

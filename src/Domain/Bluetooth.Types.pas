@@ -217,6 +217,49 @@ type
   TBluetoothDeviceInfoArray = TArray<TBluetoothDeviceInfo>;
 
   /// <summary>
+  /// Represents the battery status of a Bluetooth device.
+  /// Immutable value type for thread safety.
+  /// </summary>
+  TBatteryStatus = record
+  private
+    FIsSupported: Boolean;
+    FLevel: Integer;  // 0-100, or -1 if unknown
+  public
+    /// <summary>
+    /// Creates a battery status indicating the feature is not supported.
+    /// </summary>
+    class function NotSupported: TBatteryStatus; static;
+
+    /// <summary>
+    /// Creates a battery status indicating the level is unknown.
+    /// Used when the device supports battery reporting but level couldn't be read.
+    /// </summary>
+    class function Unknown: TBatteryStatus; static;
+
+    /// <summary>
+    /// Creates a battery status with a specific level.
+    /// </summary>
+    /// <param name="ALevel">Battery level 0-100.</param>
+    class function Create(ALevel: Integer): TBatteryStatus; static;
+
+    /// <summary>
+    /// Whether the device supports battery level reporting.
+    /// </summary>
+    property IsSupported: Boolean read FIsSupported;
+
+    /// <summary>
+    /// Battery level percentage (0-100), or -1 if unknown.
+    /// Only valid when IsSupported is True.
+    /// </summary>
+    property Level: Integer read FLevel;
+
+    /// <summary>
+    /// Returns True if battery level is known and valid.
+    /// </summary>
+    function HasLevel: Boolean;
+  end;
+
+  /// <summary>
   /// Exception raised for Bluetooth-related errors.
   /// </summary>
   EBluetoothException = class(Exception)
@@ -320,6 +363,37 @@ end;
 function TBluetoothDeviceInfo.IsInputDevice: Boolean;
 begin
   Result := FDeviceType in [btKeyboard, btMouse, btGamepad, btHID];
+end;
+
+{ TBatteryStatus }
+
+class function TBatteryStatus.NotSupported: TBatteryStatus;
+begin
+  Result.FIsSupported := False;
+  Result.FLevel := -1;
+end;
+
+class function TBatteryStatus.Unknown: TBatteryStatus;
+begin
+  Result.FIsSupported := True;
+  Result.FLevel := -1;
+end;
+
+class function TBatteryStatus.Create(ALevel: Integer): TBatteryStatus;
+begin
+  Result.FIsSupported := True;
+  // Clamp to valid range
+  if ALevel < 0 then
+    Result.FLevel := 0
+  else if ALevel > 100 then
+    Result.FLevel := 100
+  else
+    Result.FLevel := ALevel;
+end;
+
+function TBatteryStatus.HasLevel: Boolean;
+begin
+  Result := FIsSupported and (FLevel >= 0) and (FLevel <= 100);
 end;
 
 { EBluetoothException }

@@ -261,6 +261,14 @@ object FormSettings: TFormSettings
           Caption = 'Show device MAC addresses'
           TabOrder = 4
         end
+        object CheckShowBatteryLevel: TCheckBox
+          Left = 274
+          Top = 72
+          Width = 181
+          Height = 17
+          Caption = 'Show battery level'
+          TabOrder = 5
+        end
       end
       object GroupLayout: TGroupBox
         Left = 0

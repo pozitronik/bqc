@@ -107,12 +107,19 @@ type
     /// <summary>Sort group: 0=Pinned, 1=Connected (not pinned), 2=Disconnected.</summary>
     SortGroup: Integer;
 
+    /// <summary>Battery status for devices supporting Battery Service.</summary>
+    BatteryStatus: TBatteryStatus;
+
+    /// <summary>Pre-formatted battery text (e.g., "85%").</summary>
+    BatteryText: string;
+
     /// <summary>Creates a display item from device and config data.</summary>
     class function Create(const ADevice: TBluetoothDeviceInfo;
       const ADisplayName: string; AIsPinned: Boolean;
       AEffectiveDeviceType: TBluetoothDeviceType;
       const ALastSeenText: string; ALastSeen: TDateTime;
-      ASortGroup: Integer): TDeviceDisplayItem; static;
+      ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
+      const ABatteryText: string): TDeviceDisplayItem; static;
   end;
 
   TDeviceDisplayItemArray = TArray<TDeviceDisplayItem>;
@@ -169,6 +176,7 @@ type
     procedure DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
       ADeviceType: TBluetoothDeviceType);
     function GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Char;
+    function GetBatteryIconChar(ALevel: Integer): Char;
 
     procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
     procedure WMGetDlgCode(var Message: TWMGetDlgCode); message WM_GETDLGCODE;
@@ -245,12 +253,20 @@ const
   ICON_PHONE = #$E8EA;
   ICON_INPUT_DEVICE = #$E961;
   ICON_BLUETOOTH = #$E702;
+  ICON_BATTERY_FULL = #$E83F;      // Full battery icon
+  ICON_BATTERY_HIGH = #$E859;      // 75% battery
+  ICON_BATTERY_MID = #$E85A;       // 50% battery
+  ICON_BATTERY_LOW = #$E85B;       // 25% battery
+  ICON_BATTERY_EMPTY = #$E850;     // Empty/critical battery
 
   // Layout spacing constants
   FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
   PIN_ICON_WIDTH = 12;         // Width reserved for pin icon
   PIN_ICON_FONT_SIZE = 10;     // Font size for pin icon
   ADDRESS_SPACING = 8;         // Space between device name and address
+  BATTERY_SPACING = 4;         // Space between battery text and icon
+  BATTERY_FONT_SIZE = 9;       // Font size for battery percentage text
+  BATTERY_ICON_FONT_SIZE = 12; // Font size for battery icon
 
   // Default control dimensions
   DEFAULT_CONTROL_WIDTH = 300;
@@ -291,7 +307,8 @@ class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
   const ADisplayName: string; AIsPinned: Boolean;
   AEffectiveDeviceType: TBluetoothDeviceType;
   const ALastSeenText: string; ALastSeen: TDateTime;
-  ASortGroup: Integer): TDeviceDisplayItem;
+  ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
+  const ABatteryText: string): TDeviceDisplayItem;
 begin
   Result.Device := ADevice;
   Result.DisplayName := ADisplayName;
@@ -300,6 +317,8 @@ begin
   Result.LastSeenText := ALastSeenText;
   Result.LastSeen := ALastSeen;
   Result.SortGroup := ASortGroup;
+  Result.BatteryStatus := ABatteryStatus;
+  Result.BatteryText := ABatteryText;
 end;
 
 { TDeviceListBox }
@@ -752,6 +771,10 @@ procedure TDeviceListBox.DrawItemTopLine(ACanvas: TCanvas;
 var
   Style: TCustomStyleServices;
   AddrLeft, NameHeight, AddrOffset: Integer;
+  RightEdge: Integer;
+  BatteryIconChar: Char;
+  BatteryIconWidth, BatteryTextWidth: Integer;
+  NameLineHeight, BatteryOffset: Integer;
 begin
   Style := TStyleManager.ActiveStyle;
 
@@ -765,23 +788,53 @@ begin
     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
   ACanvas.Brush.Style := bsClear;
 
-  // Draw pin indicator
+  // Calculate name line height for vertical centering of smaller elements
+  NameLineHeight := ACanvas.TextHeight('Ay');
+
+  // Start from right edge and work backwards
+  RightEdge := AContext.TextRect.Right + AContext.ItemPadding;
+
+  // Draw pin indicator (rightmost)
   if AItem.IsPinned then
   begin
     ACanvas.Font.Name := FONT_ICONS;
     ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
     ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    ACanvas.TextOut(AContext.TextRect.Right + AContext.ItemPadding - PIN_ICON_WIDTH,
-      AContext.NameLineTop, ICON_PIN);
-
-    // Restore font for name
-    ACanvas.Font.Name := FONT_UI;
-    ACanvas.Font.Size := AContext.DeviceNameFontSize;
-    if AContext.IsSelected then
-      ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
+    RightEdge := RightEdge - PIN_ICON_WIDTH;
+    ACanvas.TextOut(RightEdge, AContext.NameLineTop, ICON_PIN);
+    RightEdge := RightEdge - BATTERY_SPACING;
   end;
+
+  // Draw battery indicator (before pin)
+  if AItem.BatteryStatus.HasLevel then
+  begin
+    // Draw battery icon first (right side of battery display)
+    BatteryIconChar := GetBatteryIconChar(AItem.BatteryStatus.Level);
+    ACanvas.Font.Name := FONT_ICONS;
+    ACanvas.Font.Size := BATTERY_ICON_FONT_SIZE;
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+    BatteryIconWidth := ACanvas.TextWidth(BatteryIconChar);
+    RightEdge := RightEdge - BatteryIconWidth;
+    BatteryOffset := (NameLineHeight - ACanvas.TextHeight(BatteryIconChar)) div 2;
+    ACanvas.TextOut(RightEdge, AContext.NameLineTop + BatteryOffset, BatteryIconChar);
+
+    // Draw battery percentage text (left of icon)
+    ACanvas.Font.Name := FONT_UI;
+    ACanvas.Font.Size := BATTERY_FONT_SIZE;
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+    BatteryTextWidth := ACanvas.TextWidth(AItem.BatteryText);
+    RightEdge := RightEdge - BATTERY_SPACING - BatteryTextWidth;
+    BatteryOffset := (NameLineHeight - ACanvas.TextHeight(AItem.BatteryText)) div 2;
+    ACanvas.TextOut(RightEdge, AContext.NameLineTop + BatteryOffset, AItem.BatteryText);
+  end;
+
+  // Restore font for name
+  ACanvas.Font.Name := FONT_UI;
+  ACanvas.Font.Size := AContext.DeviceNameFontSize;
+  if AContext.IsSelected then
+    ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
+  else
+    ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
 
   // Draw device name
   ACanvas.TextOut(AContext.TextRect.Left, AContext.NameLineTop, AItem.DisplayName);
@@ -903,6 +956,20 @@ begin
   else
     Result := ICON_BLUETOOTH;
   end;
+end;
+
+function TDeviceListBox.GetBatteryIconChar(ALevel: Integer): Char;
+begin
+  if ALevel >= 75 then
+    Result := ICON_BATTERY_FULL
+  else if ALevel >= 50 then
+    Result := ICON_BATTERY_HIGH
+  else if ALevel >= 25 then
+    Result := ICON_BATTERY_MID
+  else if ALevel >= 10 then
+    Result := ICON_BATTERY_LOW
+  else
+    Result := ICON_BATTERY_EMPTY;
 end;
 
 procedure TDeviceListBox.MouseDown(Button: TMouseButton; Shift: TShiftState;

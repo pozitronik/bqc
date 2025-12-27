@@ -55,6 +55,7 @@ type
     ShowDeviceIcons: Boolean;
     ShowLastSeen: Boolean;
     LastSeenRelative: Boolean;
+    ShowBatteryLevel: Boolean;
     ConnectedColor: TColor;
   end;
 
@@ -607,6 +608,7 @@ begin
   Appearance.ShowDeviceIcons := FAppearanceConfig.ShowDeviceIcons;
   Appearance.ShowLastSeen := FAppearanceConfig.ShowLastSeen;
   Appearance.LastSeenRelative := FAppearanceConfig.LastSeenFormat = lsfRelative;
+  Appearance.ShowBatteryLevel := FAppearanceConfig.ShowBatteryLevel;
   Appearance.ConnectedColor := TColor(FAppearanceConfig.ConnectedColor);
   FView.SetAppearanceSettings(Appearance);
 
@@ -690,6 +692,7 @@ begin
       FAppearanceConfig.LastSeenFormat := lsfRelative
     else
       FAppearanceConfig.LastSeenFormat := lsfAbsolute;
+    FAppearanceConfig.ShowBatteryLevel := Appearance.ShowBatteryLevel;
     FAppearanceConfig.ConnectedColor := Integer(Appearance.ConnectedColor);
 
     // Layout settings

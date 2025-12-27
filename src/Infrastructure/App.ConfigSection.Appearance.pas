@@ -33,6 +33,7 @@ type
     FLastSeenFormat: TLastSeenFormat;
     FShowDeviceIcons: Boolean;
     FConnectedColor: Integer;
+    FShowBatteryLevel: Boolean;
     FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
@@ -44,6 +45,7 @@ type
     function GetLastSeenFormat: TLastSeenFormat;
     function GetShowDeviceIcons: Boolean;
     function GetConnectedColor: Integer;
+    function GetShowBatteryLevel: Boolean;
 
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
@@ -52,6 +54,7 @@ type
     procedure SetLastSeenFormat(AValue: TLastSeenFormat);
     procedure SetShowDeviceIcons(AValue: Boolean);
     procedure SetConnectedColor(AValue: Integer);
+    procedure SetShowBatteryLevel(AValue: Boolean);
 
     procedure SetDefaults;
 
@@ -62,6 +65,7 @@ type
     property LastSeenFormat: TLastSeenFormat read FLastSeenFormat write SetLastSeenFormat;
     property ShowDeviceIcons: Boolean read FShowDeviceIcons write SetShowDeviceIcons;
     property ConnectedColor: Integer read FConnectedColor write SetConnectedColor;
+    property ShowBatteryLevel: Boolean read FShowBatteryLevel write SetShowBatteryLevel;
   end;
 
 implementation
@@ -88,6 +92,7 @@ begin
   FLastSeenFormat := DEF_LAST_SEEN_FORMAT;
   FShowDeviceIcons := DEF_SHOW_DEVICE_ICONS;
   FConnectedColor := DEF_CONNECTED_COLOR;
+  FShowBatteryLevel := DEF_SHOW_BATTERY_LEVEL;
 end;
 
 function TAppearanceConfigSection.GetShowAddresses: Boolean;
@@ -190,6 +195,21 @@ begin
   if FConnectedColor <> AValue then
   begin
     FConnectedColor := AValue;
+    if Assigned(FOnModified) then
+      FOnModified();
+  end;
+end;
+
+function TAppearanceConfigSection.GetShowBatteryLevel: Boolean;
+begin
+  Result := FShowBatteryLevel;
+end;
+
+procedure TAppearanceConfigSection.SetShowBatteryLevel(AValue: Boolean);
+begin
+  if FShowBatteryLevel <> AValue then
+  begin
+    FShowBatteryLevel := AValue;
     if Assigned(FOnModified) then
       FOnModified();
   end;

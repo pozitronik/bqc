@@ -71,6 +71,7 @@ type
     RadioLastSeenRelative: TRadioButton;
     RadioLastSeenAbsolute: TRadioButton;
     CheckShowAddresses: TCheckBox;
+    CheckShowBatteryLevel: TCheckBox;
     GroupLayout: TGroupBox;
     LabelItemHeight: TLabel;
     LabelItemPadding: TLabel;
@@ -463,6 +464,7 @@ begin
   Result.ShowDeviceIcons := CheckShowDeviceIcons.Checked;
   Result.ShowLastSeen := CheckShowLastSeen.Checked;
   Result.LastSeenRelative := RadioLastSeenRelative.Checked;
+  Result.ShowBatteryLevel := CheckShowBatteryLevel.Checked;
   Result.ConnectedColor := ShapeConnectedColor.Brush.Color;
 end;
 
@@ -475,6 +477,7 @@ begin
   CheckShowLastSeen.Checked := ASettings.ShowLastSeen;
   RadioLastSeenRelative.Checked := ASettings.LastSeenRelative;
   RadioLastSeenAbsolute.Checked := not ASettings.LastSeenRelative;
+  CheckShowBatteryLevel.Checked := ASettings.ShowBatteryLevel;
   ShapeConnectedColor.Brush.Color := ASettings.ConnectedColor;
 end;
 
@@ -804,6 +807,7 @@ begin
   CheckShowLastSeen.OnClick := HandleSettingChanged;
   RadioLastSeenRelative.OnClick := HandleSettingChanged;
   RadioLastSeenAbsolute.OnClick := HandleSettingChanged;
+  CheckShowBatteryLevel.OnClick := HandleSettingChanged;
   ShapeConnectedColor.OnMouseDown := HandleShapeColorMouseDown;
   EditItemHeight.OnChange := HandleSettingChanged;
   EditItemPadding.OnChange := HandleSettingChanged;

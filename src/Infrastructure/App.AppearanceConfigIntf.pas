@@ -31,6 +31,7 @@ type
     function GetLastSeenFormat: TLastSeenFormat;
     function GetShowDeviceIcons: Boolean;
     function GetConnectedColor: Integer;
+    function GetShowBatteryLevel: Boolean;
 
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
@@ -39,6 +40,7 @@ type
     procedure SetLastSeenFormat(AValue: TLastSeenFormat);
     procedure SetShowDeviceIcons(AValue: Boolean);
     procedure SetConnectedColor(AValue: Integer);
+    procedure SetShowBatteryLevel(AValue: Boolean);
 
     property ShowAddresses: Boolean read GetShowAddresses write SetShowAddresses;
     property Theme: string read GetTheme write SetTheme;
@@ -47,6 +49,10 @@ type
     property LastSeenFormat: TLastSeenFormat read GetLastSeenFormat write SetLastSeenFormat;
     property ShowDeviceIcons: Boolean read GetShowDeviceIcons write SetShowDeviceIcons;
     property ConnectedColor: Integer read GetConnectedColor write SetConnectedColor;
+    /// <summary>
+    /// Whether to display battery level for devices supporting Bluetooth Battery Service.
+    /// </summary>
+    property ShowBatteryLevel: Boolean read GetShowBatteryLevel write SetShowBatteryLevel;
   end;
 
 implementation

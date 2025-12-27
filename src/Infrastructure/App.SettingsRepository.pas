@@ -103,6 +103,7 @@ const
   KEY_LAST_SEEN_FORMAT = 'LastSeenFormat';
   KEY_SHOW_DEVICE_ICONS = 'ShowDeviceIcons';
   KEY_CONNECTED_COLOR = 'ConnectedColor';
+  KEY_SHOW_BATTERY_LEVEL = 'ShowBatteryLevel';
 
   // INI key names - [Layout]
   KEY_ITEM_HEIGHT = 'ItemHeight';
@@ -150,6 +151,7 @@ const
   DEF_SHOW_LAST_SEEN = False;
   DEF_LAST_SEEN_FORMAT = lsfRelative;
   DEF_SHOW_DEVICE_ICONS = True;
+  DEF_SHOW_BATTERY_LEVEL = True;
   DEF_NOTIFY_ON_CONNECT = nmBalloon;
   DEF_NOTIFY_ON_DISCONNECT = nmBalloon;
   DEF_NOTIFY_ON_CONNECT_FAILED = nmBalloon;
@@ -271,6 +273,7 @@ begin
   AppearanceCfg.LastSeenFormat := TLastSeenFormat(AIni.ReadInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(DEF_LAST_SEEN_FORMAT)));
   AppearanceCfg.ShowDeviceIcons := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, DEF_SHOW_DEVICE_ICONS);
   AppearanceCfg.ConnectedColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, DEF_CONNECTED_COLOR);
+  AppearanceCfg.ShowBatteryLevel := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_BATTERY_LEVEL, DEF_SHOW_BATTERY_LEVEL);
 
   // [Layout]
   LayoutCfg.ItemHeight := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, DEF_ITEM_HEIGHT);
@@ -404,6 +407,7 @@ begin
   AIni.WriteInteger(SEC_APPEARANCE, KEY_LAST_SEEN_FORMAT, Ord(AppearanceCfg.LastSeenFormat));
   AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, AppearanceCfg.ShowDeviceIcons);
   AIni.WriteInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, AppearanceCfg.ConnectedColor);
+  AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_BATTERY_LEVEL, AppearanceCfg.ShowBatteryLevel);
 
   // [Layout]
   AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, LayoutCfg.ItemHeight);

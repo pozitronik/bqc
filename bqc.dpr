@@ -22,6 +22,7 @@ uses
   Bluetooth.ConnectionExecutor in 'src\Infrastructure\Bluetooth.ConnectionExecutor.pas',
   Bluetooth.AdapterQuery in 'src\Infrastructure\Bluetooth.AdapterQuery.pas',
   Bluetooth.DeviceConverter in 'src\Infrastructure\Bluetooth.DeviceConverter.pas',
+  Bluetooth.BatteryQuery in 'src\Infrastructure\Bluetooth.BatteryQuery.pas',
   App.Logger in 'src\Infrastructure\App.Logger.pas',
   App.ConfigEnums in 'src\Infrastructure\App.ConfigEnums.pas',
   App.DeviceConfigTypes in 'src\Infrastructure\App.DeviceConfigTypes.pas',
