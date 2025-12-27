@@ -293,7 +293,11 @@ begin
   end;
 
   // Free hotkey manager
-  FHotkeyManager.Free;
+  if Assigned(FHotkeyManager) then
+  begin
+    FHotkeyManager.Free;
+    FHotkeyManager := nil;
+  end;
 
   Application.OnDeactivate := nil;
 
