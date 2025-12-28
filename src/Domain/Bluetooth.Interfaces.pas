@@ -602,6 +602,37 @@ type
       read GetOnQueryCompleted write SetOnQueryCompleted;
   end;
 
+  /// <summary>
+  /// Callback type for battery query execution results.
+  /// </summary>
+  TBatteryQueryCallback = reference to procedure(AAddress: UInt64; const AStatus: TBatteryStatus);
+
+  /// <summary>
+  /// Interface for executing battery queries asynchronously or synchronously.
+  /// Separates execution concerns from cache storage (SRP).
+  /// </summary>
+  IBatteryQueryExecutor = interface
+    ['{F1A2B3C4-DDDD-EEEE-FFFF-000011112222}']
+
+    /// <summary>
+    /// Executes a battery query for a device.
+    /// The callback is invoked when the query completes.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address.</param>
+    /// <param name="ACallback">Callback invoked with the result.</param>
+    procedure Execute(ADeviceAddress: UInt64; ACallback: TBatteryQueryCallback);
+
+    /// <summary>
+    /// Initiates shutdown, preventing new queries and waiting for pending ones.
+    /// </summary>
+    procedure Shutdown;
+
+    /// <summary>
+    /// Returns true if the executor has been shut down.
+    /// </summary>
+    function IsShutdown: Boolean;
+  end;
+
 implementation
 
 { TConnectionResult }

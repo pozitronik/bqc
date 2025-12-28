@@ -310,6 +310,35 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IBatteryQueryExecutor for testing.
+  /// </summary>
+  TMockBatteryQueryExecutor = class(TInterfacedObject, IBatteryQueryExecutor)
+  private
+    FShutdown: Boolean;
+    FExecuteCallCount: Integer;
+    FLastAddress: UInt64;
+    FLastCallback: TBatteryQueryCallback;
+    FBatteryStatus: TBatteryStatus;
+    FExecuteImmediately: Boolean;
+  public
+    constructor Create;
+
+    // IBatteryQueryExecutor
+    procedure Execute(ADeviceAddress: UInt64; ACallback: TBatteryQueryCallback);
+    procedure Shutdown;
+    function IsShutdown: Boolean;
+
+    // Test helpers
+    procedure SimulateQueryComplete;
+
+    // Test configuration
+    property ExecuteCallCount: Integer read FExecuteCallCount;
+    property LastAddress: UInt64 read FLastAddress;
+    property BatteryStatus: TBatteryStatus read FBatteryStatus write FBatteryStatus;
+    property ExecuteImmediately: Boolean read FExecuteImmediately write FExecuteImmediately;
+  end;
+
+  /// <summary>
   /// Mock implementation of IBatteryQuery for testing.
   /// </summary>
   TMockBatteryQuery = class(TInterfacedObject, IBatteryQuery)
@@ -953,6 +982,50 @@ end;
 function TMockBatteryQueryStrategy.GetName: string;
 begin
   Result := FName;
+end;
+
+{ TMockBatteryQueryExecutor }
+
+constructor TMockBatteryQueryExecutor.Create;
+begin
+  inherited Create;
+  FShutdown := False;
+  FExecuteCallCount := 0;
+  FLastAddress := 0;
+  FLastCallback := nil;
+  FBatteryStatus := TBatteryStatus.NotSupported;
+  FExecuteImmediately := True;
+end;
+
+procedure TMockBatteryQueryExecutor.Execute(ADeviceAddress: UInt64;
+  ACallback: TBatteryQueryCallback);
+begin
+  if FShutdown then
+    Exit;
+
+  Inc(FExecuteCallCount);
+  FLastAddress := ADeviceAddress;
+  FLastCallback := ACallback;
+
+  if FExecuteImmediately and Assigned(ACallback) then
+    ACallback(ADeviceAddress, FBatteryStatus);
+end;
+
+procedure TMockBatteryQueryExecutor.Shutdown;
+begin
+  FShutdown := True;
+  FLastCallback := nil;
+end;
+
+function TMockBatteryQueryExecutor.IsShutdown: Boolean;
+begin
+  Result := FShutdown;
+end;
+
+procedure TMockBatteryQueryExecutor.SimulateQueryComplete;
+begin
+  if Assigned(FLastCallback) then
+    FLastCallback(FLastAddress, FBatteryStatus);
 end;
 
 { TMockBatteryQuery }

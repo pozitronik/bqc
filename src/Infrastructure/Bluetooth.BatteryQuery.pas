@@ -88,24 +88,62 @@ type
   end;
 
   /// <summary>
+  /// Async battery query executor that runs queries on background threads.
+  /// Handles thread lifecycle, shutdown coordination, and pending query tracking.
+  /// Extracted from TBatteryCache for Single Responsibility Principle.
+  /// </summary>
+  TAsyncBatteryQueryExecutor = class(TInterfacedObject, IBatteryQueryExecutor)
+  private
+    FBatteryQuery: IBatteryQuery;
+    FShuttingDown: Integer;   // Atomic flag: 0 = running, 1 = shutting down
+    FPendingQueries: Integer; // Atomic counter of in-flight background queries
+    function GetPendingQueries: Integer;
+    procedure DecrementPendingQueries;
+  public
+    constructor Create(ABatteryQuery: IBatteryQuery);
+    destructor Destroy; override;
+
+    // IBatteryQueryExecutor
+    procedure Execute(ADeviceAddress: UInt64; ACallback: TBatteryQueryCallback);
+    procedure Shutdown;
+    function IsShutdown: Boolean;
+  end;
+
+  /// <summary>
+  /// Synchronous battery query executor for testing.
+  /// Executes queries immediately on the calling thread.
+  /// </summary>
+  TSyncBatteryQueryExecutor = class(TInterfacedObject, IBatteryQueryExecutor)
+  private
+    FBatteryQuery: IBatteryQuery;
+    FShutdown: Boolean;
+  public
+    constructor Create(ABatteryQuery: IBatteryQuery);
+
+    // IBatteryQueryExecutor
+    procedure Execute(ADeviceAddress: UInt64; ACallback: TBatteryQueryCallback);
+    procedure Shutdown;
+    function IsShutdown: Boolean;
+  end;
+
+  /// <summary>
   /// Implementation of IBatteryCache for caching battery levels.
-  /// Thread-safe cache with async refresh support.
+  /// Thread-safe cache that delegates async execution to IBatteryQueryExecutor.
+  /// SRP: This class focuses on cache storage and event coordination only.
   /// </summary>
   TBatteryCache = class(TInterfacedObject, IBatteryCache)
   private
     FCache: TDictionary<UInt64, TBatteryStatus>;
-    FBatteryQuery: IBatteryQuery;
+    FExecutor: IBatteryQueryExecutor;
     FOnQueryCompleted: TBatteryQueryCompletedEvent;
     FLock: TCriticalSection;
-    FShuttingDown: Integer;   // Atomic flag: 0 = running, 1 = shutting down
-    FPendingQueries: Integer; // Atomic counter of in-flight background queries
-    function IsShuttingDown: Boolean;
-    function GetPendingQueries: Integer;
-    procedure DecrementPendingQueries;
-    procedure NotifyOnMainThread(ACallback: TBatteryQueryCompletedEvent;
-      AAddress: UInt64; AStatus: TBatteryStatus);
+    procedure HandleQueryResult(AAddress: UInt64; const AStatus: TBatteryStatus);
+    procedure NotifyOnMainThread(AAddress: UInt64; const AStatus: TBatteryStatus);
   public
-    constructor Create(ABatteryQuery: IBatteryQuery);
+    /// <summary>
+    /// Creates a battery cache with the specified executor.
+    /// </summary>
+    constructor Create(AExecutor: IBatteryQueryExecutor);
     destructor Destroy; override;
 
     function GetBatteryStatus(ADeviceAddress: UInt64): TBatteryStatus;
@@ -147,7 +185,24 @@ function CreateBatteryQueryWithStrategies(
   const AStrategies: TArray<IBatteryQueryStrategy>): IBatteryQuery;
 
 /// <summary>
-/// Creates a battery cache instance.
+/// Creates an async battery query executor.
+/// Runs queries on background threads.
+/// </summary>
+function CreateAsyncBatteryQueryExecutor(ABatteryQuery: IBatteryQuery): IBatteryQueryExecutor;
+
+/// <summary>
+/// Creates a sync battery query executor for testing.
+/// Runs queries synchronously on calling thread.
+/// </summary>
+function CreateSyncBatteryQueryExecutor(ABatteryQuery: IBatteryQuery): IBatteryQueryExecutor;
+
+/// <summary>
+/// Creates a battery cache instance with the specified executor.
+/// </summary>
+function CreateBatteryCacheWithExecutor(AExecutor: IBatteryQueryExecutor): IBatteryCache;
+
+/// <summary>
+/// Creates a battery cache instance with default async executor.
 /// Factory function for dependency injection.
 /// </summary>
 function CreateBatteryCache(ABatteryQuery: IBatteryQuery): IBatteryCache;
@@ -1343,20 +1398,38 @@ begin
     [ADeviceAddress], LOG_SOURCE);
 end;
 
-{ TBatteryCache }
+{ TAsyncBatteryQueryExecutor }
 
-constructor TBatteryCache.Create(ABatteryQuery: IBatteryQuery);
+constructor TAsyncBatteryQueryExecutor.Create(ABatteryQuery: IBatteryQuery);
 begin
   inherited Create;
   FBatteryQuery := ABatteryQuery;
-  FCache := TDictionary<UInt64, TBatteryStatus>.Create;
-  FLock := TCriticalSection.Create;
-  FOnQueryCompleted := nil;
   FShuttingDown := 0;
   FPendingQueries := 0;
 end;
 
-destructor TBatteryCache.Destroy;
+destructor TAsyncBatteryQueryExecutor.Destroy;
+begin
+  Shutdown;
+  inherited;
+end;
+
+function TAsyncBatteryQueryExecutor.GetPendingQueries: Integer;
+begin
+  Result := TInterlocked.CompareExchange(FPendingQueries, 0, 0);
+end;
+
+procedure TAsyncBatteryQueryExecutor.DecrementPendingQueries;
+begin
+  TInterlocked.Decrement(FPendingQueries);
+end;
+
+function TAsyncBatteryQueryExecutor.IsShutdown: Boolean;
+begin
+  Result := TInterlocked.CompareExchange(FShuttingDown, 0, 0) <> 0;
+end;
+
+procedure TAsyncBatteryQueryExecutor.Shutdown;
 const
   MAX_WAIT_MS = 5000;
   POLL_INTERVAL_MS = 50;
@@ -1365,7 +1438,6 @@ var
 begin
   // Signal shutdown to background threads
   TInterlocked.Exchange(FShuttingDown, 1);
-  FOnQueryCompleted := nil;
   FBatteryQuery := nil;
 
   // Wait for pending queries to complete (with timeout)
@@ -1377,49 +1449,149 @@ begin
   end;
 
   if GetPendingQueries > 0 then
-    LogWarning('BatteryCache destroyed with %d pending queries', [FPendingQueries], LOG_SOURCE);
+    LogWarning('AsyncBatteryQueryExecutor shutdown with %d pending queries', [FPendingQueries], LOG_SOURCE);
+end;
 
+procedure TAsyncBatteryQueryExecutor.Execute(ADeviceAddress: UInt64;
+  ACallback: TBatteryQueryCallback);
+var
+  LAddress: UInt64;
+  LQuery: IBatteryQuery;
+  LCallback: TBatteryQueryCallback;
+  LSelf: TAsyncBatteryQueryExecutor;
+begin
+  if IsShutdown then
+    Exit;
+
+  LAddress := ADeviceAddress;
+  LQuery := FBatteryQuery;
+  LCallback := ACallback;
+  LSelf := Self;
+
+  TInterlocked.Increment(FPendingQueries);
+
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      Status: TBatteryStatus;
+    begin
+      try
+        try
+          Status := LQuery.GetBatteryLevel(LAddress);
+        except
+          on E: Exception do
+          begin
+            LogError('AsyncExecutor: Exception querying $%.12X: %s', [LAddress, E.Message], LOG_SOURCE);
+            Status := TBatteryStatus.Unknown;
+          end;
+        end;
+
+        if (not LSelf.IsShutdown) and Assigned(LCallback) then
+          LCallback(LAddress, Status);
+      finally
+        LSelf.DecrementPendingQueries;
+      end;
+    end
+  ).Start;
+end;
+
+{ TSyncBatteryQueryExecutor }
+
+constructor TSyncBatteryQueryExecutor.Create(ABatteryQuery: IBatteryQuery);
+begin
+  inherited Create;
+  FBatteryQuery := ABatteryQuery;
+  FShutdown := False;
+end;
+
+function TSyncBatteryQueryExecutor.IsShutdown: Boolean;
+begin
+  Result := FShutdown;
+end;
+
+procedure TSyncBatteryQueryExecutor.Shutdown;
+begin
+  FShutdown := True;
+  FBatteryQuery := nil;
+end;
+
+procedure TSyncBatteryQueryExecutor.Execute(ADeviceAddress: UInt64;
+  ACallback: TBatteryQueryCallback);
+var
+  Status: TBatteryStatus;
+begin
+  if FShutdown then
+    Exit;
+
+  try
+    Status := FBatteryQuery.GetBatteryLevel(ADeviceAddress);
+  except
+    on E: Exception do
+    begin
+      LogError('SyncExecutor: Exception querying $%.12X: %s', [ADeviceAddress, E.Message], LOG_SOURCE);
+      Status := TBatteryStatus.Unknown;
+    end;
+  end;
+
+  if Assigned(ACallback) then
+    ACallback(ADeviceAddress, Status);
+end;
+
+{ TBatteryCache }
+
+constructor TBatteryCache.Create(AExecutor: IBatteryQueryExecutor);
+begin
+  inherited Create;
+  FExecutor := AExecutor;
+  FCache := TDictionary<UInt64, TBatteryStatus>.Create;
+  FLock := TCriticalSection.Create;
+  FOnQueryCompleted := nil;
+end;
+
+destructor TBatteryCache.Destroy;
+begin
+  FOnQueryCompleted := nil;
+  if Assigned(FExecutor) then
+    FExecutor.Shutdown;
+  FExecutor := nil;
   FLock.Free;
   FCache.Free;
   inherited;
 end;
 
-function TBatteryCache.IsShuttingDown: Boolean;
+procedure TBatteryCache.HandleQueryResult(AAddress: UInt64; const AStatus: TBatteryStatus);
 begin
-  // Use CompareExchange to atomically read - returns current value without modifying
-  Result := TInterlocked.CompareExchange(FShuttingDown, 0, 0) <> 0;
+  // Update cache thread-safely
+  FLock.Enter;
+  try
+    FCache.AddOrSetValue(AAddress, AStatus);
+  finally
+    FLock.Leave;
+  end;
+
+  // Notify on main thread
+  if Assigned(FOnQueryCompleted) then
+    NotifyOnMainThread(AAddress, AStatus);
 end;
 
-function TBatteryCache.GetPendingQueries: Integer;
-begin
-  // Use CompareExchange to atomically read - returns current value without modifying
-  Result := TInterlocked.CompareExchange(FPendingQueries, 0, 0);
-end;
-
-procedure TBatteryCache.DecrementPendingQueries;
-begin
-  TInterlocked.Decrement(FPendingQueries);
-end;
-
-procedure TBatteryCache.NotifyOnMainThread(ACallback: TBatteryQueryCompletedEvent;
-  AAddress: UInt64; AStatus: TBatteryStatus);
+procedure TBatteryCache.NotifyOnMainThread(AAddress: UInt64; const AStatus: TBatteryStatus);
 var
   LCallback: TBatteryQueryCompletedEvent;
   LAddress: UInt64;
   LStatus: TBatteryStatus;
   LSelf: TBatteryCache;
+  LExecutor: IBatteryQueryExecutor;
 begin
-  // Capture values locally to avoid closure issues
-  LCallback := ACallback;
+  LCallback := FOnQueryCompleted;
   LAddress := AAddress;
   LStatus := AStatus;
   LSelf := Self;
+  LExecutor := FExecutor;
 
   TThread.Queue(nil,
     procedure
     begin
-      // Double-check callback and shutdown state
-      if Assigned(LCallback) and (not LSelf.IsShuttingDown) then
+      if Assigned(LCallback) and Assigned(LExecutor) and (not LExecutor.IsShutdown) then
         LCallback(LSelf, LAddress, LStatus);
     end
   );
@@ -1458,61 +1630,11 @@ begin
 end;
 
 procedure TBatteryCache.RequestRefresh(ADeviceAddress: UInt64);
-var
-  LAddress: UInt64;
-  LQuery: IBatteryQuery;
-  LOnCompleted: TBatteryQueryCompletedEvent;
-  LSelf: TBatteryCache;
 begin
-  // Check if shutting down before starting new query
-  if IsShuttingDown then
+  if not Assigned(FExecutor) or FExecutor.IsShutdown then
     Exit;
 
-  LAddress := ADeviceAddress;
-  LQuery := FBatteryQuery;
-  LOnCompleted := FOnQueryCompleted;
-  LSelf := Self;
-
-  // Track pending query
-  TInterlocked.Increment(FPendingQueries);
-
-  TThread.CreateAnonymousThread(
-    procedure
-    var
-      Status: TBatteryStatus;
-    begin
-      try
-        try
-          Status := LQuery.GetBatteryLevel(LAddress);
-        except
-          on E: Exception do
-          begin
-            LogError('RequestRefresh: Exception querying $%.12X: %s', [LAddress, E.Message], LOG_SOURCE);
-            Status := TBatteryStatus.Unknown;
-          end;
-        end;
-
-        // Check if shutting down before accessing cache
-        if not LSelf.IsShuttingDown then
-        begin
-          // Update cache thread-safely
-          LSelf.FLock.Enter;
-          try
-            LSelf.FCache.AddOrSetValue(LAddress, Status);
-          finally
-            LSelf.FLock.Leave;
-          end;
-
-          // Notify on main thread (only if not shutting down)
-          if Assigned(LOnCompleted) and (not LSelf.IsShuttingDown) then
-            LSelf.NotifyOnMainThread(LOnCompleted, LAddress, Status);
-        end;
-      finally
-        // Always decrement pending counter
-        LSelf.DecrementPendingQueries;
-      end;
-    end
-  ).Start;
+  FExecutor.Execute(ADeviceAddress, HandleQueryResult);
 end;
 
 procedure TBatteryCache.RequestRefreshAll(const ADeviceAddresses: TArray<UInt64>);
@@ -1553,9 +1675,26 @@ begin
   FOnQueryCompleted := AValue;
 end;
 
+{ Factory Functions }
+
+function CreateAsyncBatteryQueryExecutor(ABatteryQuery: IBatteryQuery): IBatteryQueryExecutor;
+begin
+  Result := TAsyncBatteryQueryExecutor.Create(ABatteryQuery);
+end;
+
+function CreateSyncBatteryQueryExecutor(ABatteryQuery: IBatteryQuery): IBatteryQueryExecutor;
+begin
+  Result := TSyncBatteryQueryExecutor.Create(ABatteryQuery);
+end;
+
+function CreateBatteryCacheWithExecutor(AExecutor: IBatteryQueryExecutor): IBatteryCache;
+begin
+  Result := TBatteryCache.Create(AExecutor);
+end;
+
 function CreateBatteryCache(ABatteryQuery: IBatteryQuery): IBatteryCache;
 begin
-  Result := TBatteryCache.Create(ABatteryQuery);
+  Result := TBatteryCache.Create(CreateAsyncBatteryQueryExecutor(ABatteryQuery));
 end;
 
 end.
