@@ -37,6 +37,13 @@ const
   /// </summary>
   WM_BATTERYTRAY_CALLBACK = WM_USER + 200;
 
+  /// <summary>
+  /// Shell icon version constants for modern behavior.
+  /// </summary>
+  NIM_SETVERSION = $00000004;
+  NOTIFYICON_VERSION_4 = 4;
+  NIF_SHOWTIP = $00000080;
+
 type
   /// <summary>
   /// Notification state for a device to prevent repeated notifications.
@@ -317,7 +324,7 @@ begin
   Result.cbSize := SizeOf(TNotifyIconData);
   Result.Wnd := FOwnerHandle;
   Result.uID := GetNextIconId;
-  Result.uFlags := NIF_ICON or NIF_TIP or NIF_MESSAGE;
+  Result.uFlags := NIF_ICON or NIF_TIP or NIF_MESSAGE or NIF_SHOWTIP;
   Result.uCallbackMessage := WM_BATTERYTRAY_CALLBACK; // Same message for all icons, uID distinguishes them
 
   // Create battery icon (numeric or graphical)
@@ -488,6 +495,11 @@ begin
     IconData := CreateNotifyIconData(AAddress, AName, ALevel, Color, BackgroundColor, ShowNumeric);
     if Shell_NotifyIcon(NIM_ADD, @IconData) then
     begin
+      // Set version for modern behavior (prevents issues on hover)
+      // Note: uTimeout and uVersion share the same union offset
+      IconData.uTimeout := NOTIFYICON_VERSION_4;
+      Shell_NotifyIcon(NIM_SETVERSION, @IconData);
+
       FDeviceIcons.Add(AAddress, IconData);
       LogDebug('Battery tray icon added for %s', [AName], ClassName);
     end
