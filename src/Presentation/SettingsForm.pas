@@ -912,21 +912,21 @@ end;
 
 procedure TFormSettings.UpdateWindowModeControls;
 var
-  IsWindowMode: Boolean;
+  IsMenuMode: Boolean;
 begin
-  // 0 = Window mode, 1 = Menu mode
-  IsWindowMode := ComboWindowMode.ItemIndex = 0;
+  // ComboBox matches TWindowMode: 0 = Menu, 1 = Window
+  IsMenuMode := ComboWindowMode.ItemIndex = 0;
 
   // Apply bold style to the active mode's group caption
-  if IsWindowMode then
+  if IsMenuMode then
   begin
-    GroupWindowOptions.Font.Style := [fsBold];
-    GroupMenuOptions.Font.Style := [];
+    GroupMenuOptions.Font.Style := [fsBold];
+    GroupWindowOptions.Font.Style := [];
   end
   else
   begin
-    GroupWindowOptions.Font.Style := [];
-    GroupMenuOptions.Font.Style := [fsBold];
+    GroupWindowOptions.Font.Style := [fsBold];
+    GroupMenuOptions.Font.Style := [];
   end;
 end;
 

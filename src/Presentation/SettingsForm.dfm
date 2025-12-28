@@ -93,8 +93,8 @@ object FormSettings: TFormSettings
           TabOrder = 0
           OnChange = ComboWindowModeChange
           Items.Strings = (
-            'Window (normal window)'
-            'Menu (popup)')
+            'Menu (popup)'
+            'Window (normal window)')
         end
         object GroupWindowOptions: TGroupBox
           Left = 2
