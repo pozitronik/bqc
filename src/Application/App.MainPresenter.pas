@@ -773,12 +773,8 @@ begin
   else
     FStatusView.ShowStatus(Format('Connecting %s...', [ADevice.Name]));
 
-  // In Menu mode, hide immediately after device click
-  if FGeneralConfig.WindowMode = wmMenu then
-  begin
-    LogInfo('OnDeviceClicked: Menu mode, hiding view', ClassName);
-    FVisibilityView.HideView;
-  end;
+  // Menu stays open - user can see connection progress and click more devices
+  // Menu will close on focus loss or explicit hotkey/close
 
   ToggleConnectionAsync(ADevice);
 end;
