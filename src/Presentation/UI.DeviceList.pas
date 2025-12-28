@@ -253,11 +253,9 @@ const
   ICON_PHONE = #$E8EA;
   ICON_INPUT_DEVICE = #$E961;
   ICON_BLUETOOTH = #$E702;
-  ICON_BATTERY_FULL = #$E83F;      // Full battery icon
-  ICON_BATTERY_HIGH = #$E859;      // 75% battery
-  ICON_BATTERY_MID = #$E85A;       // 50% battery
-  ICON_BATTERY_LOW = #$E85B;       // 25% battery
-  ICON_BATTERY_EMPTY = #$E850;     // Empty/critical battery
+  // Battery icons: $E850-$E859 for 0%-90% (10% steps), $E83F for 100%
+  ICON_BATTERY_0 = #$E850;         // 0% (empty)
+  ICON_BATTERY_100 = #$E83F;       // 100% (full)
 
   // Layout spacing constants
   FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
@@ -952,17 +950,23 @@ begin
 end;
 
 function TDeviceListBox.GetBatteryIconChar(ALevel: Integer): Char;
+var
+  IconIndex: Integer;
 begin
-  if ALevel >= 75 then
-    Result := ICON_BATTERY_FULL
-  else if ALevel >= 50 then
-    Result := ICON_BATTERY_HIGH
-  else if ALevel >= 25 then
-    Result := ICON_BATTERY_MID
-  else if ALevel >= 10 then
-    Result := ICON_BATTERY_LOW
+  // Icons: $E850-$E859 for 0%-90% (10% steps), $E83F for 100%
+  if ALevel >= 100 then
+    Result := ICON_BATTERY_100
+  else if ALevel <= 0 then
+    Result := ICON_BATTERY_0
   else
-    Result := ICON_BATTERY_EMPTY;
+  begin
+    // Calculate icon index: 0-9 for levels 0-99%
+    // Level 1-9 -> 0, Level 10-19 -> 1, ..., Level 90-99 -> 9
+    IconIndex := ALevel div 10;
+    if IconIndex > 9 then
+      IconIndex := 9;
+    Result := Char(Ord(ICON_BATTERY_0) + IconIndex);
+  end;
 end;
 
 procedure TDeviceListBox.MouseDown(Button: TMouseButton; Shift: TShiftState;
