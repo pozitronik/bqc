@@ -6,8 +6,6 @@
 {       Implements Strategy Pattern for device-specific }
 {       connection logic.                               }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.ConnectionStrategies;

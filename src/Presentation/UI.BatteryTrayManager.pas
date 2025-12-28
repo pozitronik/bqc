@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Battery Tray Icon Manager                       }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

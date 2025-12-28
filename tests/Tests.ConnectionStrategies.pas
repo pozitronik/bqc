@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Connection Strategy Unit Tests                  }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.ConnectionStrategies;

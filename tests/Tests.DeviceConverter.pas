@@ -7,8 +7,6 @@
 {       transform Windows API structures to domain      }
 {       TBluetoothDeviceInfo records.                   }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.DeviceConverter;

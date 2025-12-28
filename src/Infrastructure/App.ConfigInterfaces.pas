@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Configuration Interfaces                        }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

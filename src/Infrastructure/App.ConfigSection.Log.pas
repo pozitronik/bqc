@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Log Configuration Section                       }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

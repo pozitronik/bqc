@@ -6,8 +6,6 @@
 {       This unit re-exports all mock types from        }
 {       split mock units for backward compatibility.    }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.Mocks;

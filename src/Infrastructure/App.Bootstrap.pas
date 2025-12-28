@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Application Composition Root                    }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

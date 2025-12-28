@@ -6,8 +6,6 @@
 {       Queries Bluetooth adapter availability          }
 {       via Windows API.                                }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.AdapterQuery;

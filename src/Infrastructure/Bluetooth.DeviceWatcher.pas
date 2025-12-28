@@ -6,8 +6,6 @@
 {       Monitors Bluetooth device connection state      }
 {       changes using WM_DEVICECHANGE notifications.    }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.DeviceWatcher;

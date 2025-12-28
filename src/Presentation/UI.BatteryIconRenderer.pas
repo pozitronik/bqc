@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Battery Icon Renderer                           }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

@@ -7,8 +7,6 @@
 {       multiple Windows Bluetooth events fire for      }
 {       the same device state change.                   }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.EventDebouncer;

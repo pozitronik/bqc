@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Per-Device Configuration Types                  }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

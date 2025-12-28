@@ -6,8 +6,6 @@
 {       Tests Windows API structure definitions and     }
 {       conversion functions for Bluetooth devices.     }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.WinAPI;

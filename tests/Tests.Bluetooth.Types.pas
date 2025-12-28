@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Bluetooth.Types Unit Tests                      }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.Bluetooth.Types;

@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       System Tray Icon Manager                        }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit UI.TrayManager;

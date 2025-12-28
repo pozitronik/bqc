@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Battery Icon Renderer Tests                     }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.BatteryIconRenderer;

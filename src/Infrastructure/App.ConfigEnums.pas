@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Configuration Enumeration Types                 }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

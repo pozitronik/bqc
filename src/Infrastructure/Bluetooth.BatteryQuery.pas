@@ -7,8 +7,6 @@
 {       GenericAttributeProfile API to read battery     }
 {       level from BLE devices.                         }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.BatteryQuery;

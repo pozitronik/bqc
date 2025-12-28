@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Windows Bluetooth API Declarations              }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.WinAPI;

@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Position Configuration Section                  }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

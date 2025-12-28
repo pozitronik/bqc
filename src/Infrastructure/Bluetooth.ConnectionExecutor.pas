@@ -6,8 +6,6 @@
 {       Handles low-level Bluetooth connection          }
 {       operations via Windows API.                     }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.ConnectionExecutor;

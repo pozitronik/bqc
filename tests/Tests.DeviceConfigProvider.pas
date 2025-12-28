@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Device Configuration Provider Tests             }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.DeviceConfigProvider;

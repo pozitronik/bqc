@@ -6,8 +6,6 @@
 {       Converts Windows API Bluetooth structures       }
 {       to domain TBluetoothDeviceInfo records.         }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.DeviceConverter;

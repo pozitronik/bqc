@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Mock Implementations - Bluetooth                }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.Mocks.Bluetooth;

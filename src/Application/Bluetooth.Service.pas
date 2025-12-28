@@ -7,8 +7,6 @@
 {       Follows Single Responsibility by delegating     }
 {       to specialized components.                      }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.Service;

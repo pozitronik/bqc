@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       TDeviceFormatter Tests                          }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.DeviceFormatter;

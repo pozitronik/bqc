@@ -6,8 +6,6 @@
 {       Tests for main presenter with injected          }
 {       mock dependencies.                              }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.MainPresenter;

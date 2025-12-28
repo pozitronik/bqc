@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Hotkey Configuration Section                    }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

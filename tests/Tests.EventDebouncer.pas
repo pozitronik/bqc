@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Event Debouncer Unit Tests                      }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.EventDebouncer;

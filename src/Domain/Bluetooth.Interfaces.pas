@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Domain Interfaces (Abstractions)                }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.Interfaces;

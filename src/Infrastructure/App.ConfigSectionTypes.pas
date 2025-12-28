@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Configuration Section Shared Types              }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

@@ -7,8 +7,6 @@
 {       Uses injected IBluetoothDeviceQuery for         }
 {       Windows API abstraction (testability).          }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.DeviceRepository;

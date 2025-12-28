@@ -6,8 +6,6 @@
 {       Implements IDeviceMonitor for various           }
 {       monitoring strategies (polling, watcher).       }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.DeviceMonitors;

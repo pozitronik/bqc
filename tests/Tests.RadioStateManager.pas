@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Radio State Manager Unit Tests                  }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.RadioStateManager;

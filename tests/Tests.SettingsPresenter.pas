@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Settings Presenter Unit Tests                   }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.SettingsPresenter;

@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       TDeviceSorter Tests                             }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.DeviceSorter;

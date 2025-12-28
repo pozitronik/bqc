@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Battery Tray Manager Tests                      }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.BatteryTrayManager;

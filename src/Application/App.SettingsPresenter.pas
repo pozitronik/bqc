@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Settings Presenter (MVP Pattern)                }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit App.SettingsPresenter;

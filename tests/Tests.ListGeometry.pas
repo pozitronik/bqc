@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       TListGeometry Unit Tests                        }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.ListGeometry;

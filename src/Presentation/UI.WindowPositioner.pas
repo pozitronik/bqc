@@ -6,8 +6,6 @@
 {       Uses Strategy pattern for extensible            }
 {       positioning modes (OCP-compliant).              }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit UI.WindowPositioner;

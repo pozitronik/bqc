@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Autostart Management                            }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit App.Autostart;

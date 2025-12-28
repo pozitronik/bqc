@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Mock Implementations - Views                    }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.Mocks.View;

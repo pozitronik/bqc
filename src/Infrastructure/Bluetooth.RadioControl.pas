@@ -6,8 +6,6 @@
 {       Uses Windows.Devices.Radios API for proper      }
 {       software radio control without admin rights.    }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.RadioControl;

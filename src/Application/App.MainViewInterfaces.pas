@@ -10,8 +10,6 @@
 {       Split into focused interfaces that can be       }
 {       used independently by different consumers.      }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit App.MainViewInterfaces;

@@ -6,8 +6,6 @@
 {       Owner-draw list for Bluetooth devices with      }
 {       modern Windows 11 styling.                      }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit UI.DeviceList;

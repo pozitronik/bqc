@@ -6,8 +6,6 @@
 {       Provides formatting helpers for device display. }
 {       Extracted from TDeviceListBox to follow SRP.    }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit UI.DeviceFormatter;

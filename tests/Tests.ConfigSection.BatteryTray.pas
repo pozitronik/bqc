@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Battery Tray Config Section Tests               }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.ConfigSection.BatteryTray;

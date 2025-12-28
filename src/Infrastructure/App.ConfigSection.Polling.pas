@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Polling Configuration Section                   }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

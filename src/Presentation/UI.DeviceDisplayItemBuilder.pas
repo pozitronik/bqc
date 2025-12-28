@@ -7,8 +7,6 @@
 {       device data. Implements Information Expert      }
 {       pattern by centralizing config access here.     }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit UI.DeviceDisplayItemBuilder;

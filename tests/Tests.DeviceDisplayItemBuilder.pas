@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       TDeviceDisplayItemBuilder Tests                 }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.DeviceDisplayItemBuilder;

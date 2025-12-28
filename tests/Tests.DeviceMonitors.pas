@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Device Monitor Unit Tests                       }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.DeviceMonitors;

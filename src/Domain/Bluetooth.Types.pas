@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Domain Types and Enumerations                   }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Bluetooth.Types;

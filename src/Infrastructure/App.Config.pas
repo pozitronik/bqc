@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Application Configuration                       }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit App.Config;

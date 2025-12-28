@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       UI Theme Support                                }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit UI.Theme;

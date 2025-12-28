@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Notification Configuration Interface            }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

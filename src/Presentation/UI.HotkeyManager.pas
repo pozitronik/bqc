@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Global Hotkey Manager                           }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit UI.HotkeyManager;

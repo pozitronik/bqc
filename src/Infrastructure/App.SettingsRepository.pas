@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Settings Repository - INI Persistence           }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 /// <summary>

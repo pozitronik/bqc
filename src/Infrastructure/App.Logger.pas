@@ -6,8 +6,6 @@
 {       Provides structured logging with source         }
 {       identification for debugging and diagnostics.   }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit App.Logger;

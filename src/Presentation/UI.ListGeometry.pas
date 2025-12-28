@@ -7,8 +7,6 @@
 {       item positioning, and scroll management.        }
 {       Extracted for testability.                      }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit UI.ListGeometry;

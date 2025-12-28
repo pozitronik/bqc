@@ -6,8 +6,6 @@
 {       Tests interface segregation (ISP) compliance    }
 {       and core service functionality.                 }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.BluetoothService;

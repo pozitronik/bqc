@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Device Repository Unit Tests                    }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.DeviceRepository;

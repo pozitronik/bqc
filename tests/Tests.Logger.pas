@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       TLogger Tests                                   }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.Logger;

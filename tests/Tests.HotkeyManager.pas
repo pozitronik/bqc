@@ -3,8 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       THotkeyManager Tests                            }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit Tests.HotkeyManager;

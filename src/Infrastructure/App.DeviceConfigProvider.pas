@@ -7,8 +7,6 @@
 {       value resolution (combines device overrides     }
 {       with global defaults).                          }
 {                                                       }
-{       Copyright (c) 2024                              }
-{                                                       }
 {*******************************************************}
 
 unit App.DeviceConfigProvider;
