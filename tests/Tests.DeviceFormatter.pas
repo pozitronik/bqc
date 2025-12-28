@@ -30,10 +30,10 @@ type
   public
     { FormatLastSeenRelative Tests }
     [Test]
-    procedure FormatLastSeenRelative_ZeroDateTime_ReturnsNever;
+    procedure FormatLastSeenRelative_ZeroDateTime_ReturnsEmpty;
 
     [Test]
-    procedure FormatLastSeenRelative_NegativeDateTime_ReturnsNever;
+    procedure FormatLastSeenRelative_NegativeDateTime_ReturnsEmpty;
 
     [Test]
     procedure FormatLastSeenRelative_JustNow_ReturnsJustNow;
@@ -196,14 +196,17 @@ implementation
 
 { TDeviceFormatterTests - FormatLastSeenRelative }
 
-procedure TDeviceFormatterTests.FormatLastSeenRelative_ZeroDateTime_ReturnsNever;
+procedure TDeviceFormatterTests.FormatLastSeenRelative_ZeroDateTime_ReturnsEmpty;
 begin
-  Assert.AreEqual('Never', TDeviceFormatter.FormatLastSeenRelative(0));
+  // Zero datetime means device was never seen - returns empty string
+  // so UI can hide the "last seen" text entirely
+  Assert.AreEqual('', TDeviceFormatter.FormatLastSeenRelative(0));
 end;
 
-procedure TDeviceFormatterTests.FormatLastSeenRelative_NegativeDateTime_ReturnsNever;
+procedure TDeviceFormatterTests.FormatLastSeenRelative_NegativeDateTime_ReturnsEmpty;
 begin
-  Assert.AreEqual('Never', TDeviceFormatter.FormatLastSeenRelative(-1));
+  // Negative datetime means device was never seen - returns empty string
+  Assert.AreEqual('', TDeviceFormatter.FormatLastSeenRelative(-1));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_JustNow_ReturnsJustNow;

@@ -39,9 +39,15 @@ uses
 
 const
   WM_DPICHANGED = $02E0;
+  WM_FOREGROUND_LOST = WM_USER + 200;  // Custom message for foreground loss detection
 
   // Windows Settings URI for Bluetooth
   WINDOWS_BLUETOOTH_SETTINGS_URI = 'ms-settings:bluetooth';
+
+  // WinEvent constants (not defined in Winapi.Windows)
+  EVENT_SYSTEM_FOREGROUND = $0003;
+  WINEVENT_OUTOFCONTEXT = $0000;
+  WINEVENT_SKIPOWNPROCESS = $0002;
 
   // Window size constraints for auto-sizing
   WINDOW_MIN_WIDTH = 280;
@@ -50,6 +56,17 @@ const
   WINDOW_MAX_HEIGHT = 600;
   WINDOW_DEFAULT_WIDTH = 320;
   WINDOW_DEFAULT_HEIGHT = 400;
+
+type
+  HWINEVENTHOOK = THandle;
+
+  TWinEventProc = procedure(hWinEventHook: HWINEVENTHOOK; event: DWORD;
+    hwnd: HWND; idObject, idChild: Longint; idEventThread, dwmsEventTime: DWORD); stdcall;
+
+function SetWinEventHook(eventMin, eventMax: DWORD; hmodWinEventProc: HMODULE;
+  pfnWinEventProc: TWinEventProc; idProcess, idThread: DWORD;
+  dwFlags: DWORD): HWINEVENTHOOK; stdcall; external user32;
+function UnhookWinEvent(hWinEventHook: HWINEVENTHOOK): BOOL; stdcall; external user32;
 
 type
   /// <summary>
@@ -69,7 +86,6 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
-    procedure FormDeactivate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure HandleBluetoothToggle(Sender: TObject);
     procedure HandleSettingsClick(Sender: TObject);
@@ -85,6 +101,7 @@ type
     FCastPanelHotkeyManager: THotkeyManager;
     FBluetoothPanelHotkeyManager: THotkeyManager;
     FForceClose: Boolean;
+    FForegroundHook: HWINEVENTHOOK;
 
     { Injected dependencies (set via Setup method) }
     FAppConfig: IAppConfig;
@@ -157,7 +174,13 @@ type
     procedure ApplyDeviceListSettings;
     procedure NotifyPresenterOfChanges;
 
+    { Foreground tracking for menu mode (more reliable than WM_ACTIVATE for tool windows) }
+    procedure InstallForegroundHook;
+    procedure UninstallForegroundHook;
+
   protected
+    procedure WMForegroundLost(var Msg: TMessage); message WM_FOREGROUND_LOST;
+    procedure WMActivate(var Msg: TWMActivate); message WM_ACTIVATE;
     procedure WMSysCommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
     procedure WMHotkey(var Msg: TMessage); message WM_HOTKEY;
     procedure WMHotkeyDetected(var Msg: TMessage); message WM_HOTKEY_DETECTED;
@@ -201,6 +224,73 @@ uses
   SettingsForm;
 
 {$R *.dfm}
+
+var
+  /// <summary>
+  /// Global reference to main form for foreground hook callback.
+  /// Required because WinEventProc is a standalone procedure, not a method.
+  /// </summary>
+  GMainFormInstance: TFormMain = nil;
+
+/// <summary>
+/// WinEvent callback for EVENT_SYSTEM_FOREGROUND.
+/// Called when any window in the system becomes the foreground window.
+/// Posts a message to the main form to handle focus loss on the main thread.
+/// </summary>
+procedure ForegroundEventProc(hWinEventHook: HWINEVENTHOOK; event: DWORD;
+  hwnd: HWND; idObject, idChild: Longint; idEventThread, dwmsEventTime: DWORD); stdcall;
+begin
+  // Only process if we have a valid form reference and the foreground changed to another window
+  if (GMainFormInstance <> nil) and (hwnd <> 0) and (hwnd <> GMainFormInstance.Handle) then
+  begin
+    // Post message to main thread to avoid issues with callback context
+    PostMessage(GMainFormInstance.Handle, WM_FOREGROUND_LOST, 0, hwnd);
+  end;
+end;
+
+/// <summary>
+/// Forces the specified window to the foreground, bypassing Windows restrictions.
+/// Windows restricts SetForegroundWindow for background processes. This function
+/// temporarily attaches to the foreground thread's input queue, allowing the
+/// foreground window change to succeed.
+/// </summary>
+procedure ForceForegroundWindow(AHandle: HWND);
+var
+  ForegroundThread, CurrentThread: DWORD;
+  ForegroundWnd: HWND;
+  SetFgResult: Boolean;
+begin
+  ForegroundWnd := GetForegroundWindow;
+  ForegroundThread := GetWindowThreadProcessId(ForegroundWnd, nil);
+  CurrentThread := GetCurrentThreadId;
+
+  LogDebug('ForceForegroundWindow: ForegroundWnd=$%x, ForegroundThread=%d, CurrentThread=%d, SameThread=%s', [
+    ForegroundWnd, ForegroundThread, CurrentThread, BoolToStr(ForegroundThread = CurrentThread, True)
+  ], 'ForceForegroundWindow');
+
+  if ForegroundThread <> CurrentThread then
+  begin
+    // Attach to the foreground thread to allow SetForegroundWindow
+    AttachThreadInput(CurrentThread, ForegroundThread, True);
+    try
+      SetFgResult := SetForegroundWindow(AHandle);
+      BringWindowToTop(AHandle);
+      LogDebug('ForceForegroundWindow: AttachThreadInput path, SetForegroundWindow=%s', [
+        BoolToStr(SetFgResult, True)
+      ], 'ForceForegroundWindow');
+    finally
+      AttachThreadInput(CurrentThread, ForegroundThread, False);
+    end;
+  end
+  else
+  begin
+    SetFgResult := SetForegroundWindow(AHandle);
+    BringWindowToTop(AHandle);
+    LogDebug('ForceForegroundWindow: SameThread path, SetForegroundWindow=%s', [
+      BoolToStr(SetFgResult, True)
+    ], 'ForceForegroundWindow');
+  end;
+end;
 
 { TFormMain }
 
@@ -260,6 +350,7 @@ begin
   LogDebug('FormCreate: Starting', ClassName);
 
   FForceClose := False;
+  FForegroundHook := 0;
 
   // Initialize form using focused helper methods (SRP)
   InitializeWindowSettings;
@@ -273,6 +364,9 @@ end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
+  // Uninstall foreground hook if still active
+  UninstallForegroundHook;
+
   // Save window position and size (always save, applies when PositionMode=0)
   if WindowState = wsNormal then
   begin
@@ -787,18 +881,15 @@ end;
 
 procedure TFormMain.HandleApplicationDeactivate(Sender: TObject);
 begin
+  LogDebug('HandleApplicationDeactivate: Called (WindowMode=%d, HideOnFocusLoss=%s, Visible=%s)', [
+    Ord(FGeneralConfig.WindowMode),
+    BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True),
+    BoolToStr(Visible, True)
+  ], ClassName);
+
   if (FGeneralConfig.WindowMode = wmMenu) and FWindowConfig.MenuHideOnFocusLoss and Visible then
   begin
     LogDebug('HandleApplicationDeactivate: Hiding to tray', ClassName);
-    HideView;
-  end;
-end;
-
-procedure TFormMain.FormDeactivate(Sender: TObject);
-begin
-  if (FGeneralConfig.WindowMode = wmMenu) and FWindowConfig.MenuHideOnFocusLoss then
-  begin
-    LogDebug('FormDeactivate: Hiding to tray', ClassName);
     HideView;
   end;
 end;
@@ -917,6 +1008,8 @@ begin
 end;
 
 procedure TFormMain.ShowView;
+var
+  ActiveWndBefore, ActiveWndAfter: HWND;
 begin
   LogInfo('ShowView', ClassName);
 
@@ -926,12 +1019,21 @@ begin
   if (FGeneralConfig.WindowMode = wmMenu) or (FPositionConfig.PositionMode <> pmCoordinates) then
     ApplyWindowPosition;
 
+  ActiveWndBefore := GetActiveWindow;
+  LogDebug('ShowView: Before Show, ActiveWindow=$%x, OurHandle=$%x', [ActiveWndBefore, Handle], ClassName);
+
   Show;
   WindowState := wsNormal;
 
-  Application.BringToFront;
-  SetForegroundWindow(Handle);
-  BringToFront;
+  // Force foreground activation even from background context (e.g., hotkey)
+  // Windows restricts SetForegroundWindow for background processes, so we
+  // temporarily attach to the foreground thread to bypass this restriction
+  ForceForegroundWindow(Handle);
+
+  ActiveWndAfter := GetActiveWindow;
+  LogDebug('ShowView: After ForceForeground, ActiveWindow=$%x, GetForegroundWindow=$%x', [
+    ActiveWndAfter, GetForegroundWindow
+  ], ClassName);
 
   // Set focus to device list for immediate keyboard navigation
   if (FDeviceList <> nil) and FDeviceList.CanFocus then
@@ -941,6 +1043,10 @@ begin
 
   FTrayManager.UpdateMenuCaption(True);
 
+  // Install foreground hook for reliable focus-loss detection in menu mode
+  // This is more reliable than WM_ACTIVATE for WS_EX_TOOLWINDOW windows
+  InstallForegroundHook;
+
   // Notify presenter that view is now visible (triggers battery refresh)
   if FPresenter <> nil then
     FPresenter.OnViewShown;
@@ -949,6 +1055,10 @@ end;
 procedure TFormMain.HideView;
 begin
   LogInfo('HideView', ClassName);
+
+  // Uninstall foreground hook before hiding
+  UninstallForegroundHook;
+
   Hide;
   FTrayManager.UpdateMenuCaption(False);
 end;
@@ -960,7 +1070,112 @@ begin
   Close;
 end;
 
+{ Foreground tracking for menu mode }
+
+procedure TFormMain.InstallForegroundHook;
+begin
+  // Only install in menu mode with hide-on-focus-loss enabled
+  if (FGeneralConfig.WindowMode <> wmMenu) or (not FWindowConfig.MenuHideOnFocusLoss) then
+    Exit;
+
+  // Already installed?
+  if FForegroundHook <> 0 then
+    Exit;
+
+  GMainFormInstance := Self;
+  FForegroundHook := SetWinEventHook(
+    EVENT_SYSTEM_FOREGROUND,
+    EVENT_SYSTEM_FOREGROUND,
+    0,
+    @ForegroundEventProc,
+    0,
+    0,
+    WINEVENT_OUTOFCONTEXT or WINEVENT_SKIPOWNPROCESS
+  );
+
+  if FForegroundHook <> 0 then
+    LogDebug('InstallForegroundHook: Installed, handle=$%x', [FForegroundHook], ClassName)
+  else
+    LogWarning('InstallForegroundHook: Failed to install hook', ClassName);
+end;
+
+procedure TFormMain.UninstallForegroundHook;
+begin
+  if FForegroundHook <> 0 then
+  begin
+    UnhookWinEvent(FForegroundHook);
+    LogDebug('UninstallForegroundHook: Uninstalled, handle=$%x', [FForegroundHook], ClassName);
+    FForegroundHook := 0;
+  end;
+  GMainFormInstance := nil;
+end;
+
 { Windows message handlers }
+
+procedure TFormMain.WMForegroundLost(var Msg: TMessage);
+var
+  NewForegroundWnd: HWND;
+begin
+  NewForegroundWnd := HWND(Msg.LParam);
+  LogDebug('WMForegroundLost: NewForegroundWnd=$%x, Visible=%s, WindowMode=%d, HideOnFocusLoss=%s', [
+    NewForegroundWnd,
+    BoolToStr(Visible, True),
+    Ord(FGeneralConfig.WindowMode),
+    BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True)
+  ], ClassName);
+
+  // Hide if we're visible in menu mode with hide-on-focus-loss enabled
+  if Visible and
+     (FGeneralConfig.WindowMode = wmMenu) and
+     FWindowConfig.MenuHideOnFocusLoss then
+  begin
+    LogDebug('WMForegroundLost: Conditions met, hiding menu', ClassName);
+    HideView;
+  end;
+end;
+
+procedure TFormMain.WMActivate(var Msg: TWMActivate);
+var
+  ActiveStr: string;
+begin
+  // Log every WM_ACTIVATE message to trace activation state
+  case Msg.Active of
+    WA_INACTIVE: ActiveStr := 'WA_INACTIVE';
+    WA_ACTIVE: ActiveStr := 'WA_ACTIVE';
+    WA_CLICKACTIVE: ActiveStr := 'WA_CLICKACTIVE';
+  else
+    ActiveStr := Format('Unknown(%d)', [Msg.Active]);
+  end;
+  LogDebug('WMActivate: Active=%s, WindowMode=%d, HideOnFocusLoss=%s, Visible=%s', [
+    ActiveStr,
+    Ord(FGeneralConfig.WindowMode),
+    BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True),
+    BoolToStr(Visible, True)
+  ], ClassName);
+
+  inherited;
+
+  // Handle deactivation for menu mode - hide when another window becomes active
+  // This is more reliable than Application.OnDeactivate for WS_EX_TOOLWINDOW windows
+  if (Msg.Active = WA_INACTIVE) then
+  begin
+    if (FGeneralConfig.WindowMode = wmMenu) and
+       FWindowConfig.MenuHideOnFocusLoss and
+       Visible then
+    begin
+      LogDebug('WMActivate: Conditions met, hiding menu', ClassName);
+      HideView;
+    end
+    else
+    begin
+      LogDebug('WMActivate: WA_INACTIVE but conditions NOT met (WindowMode=%d, HideOnFocusLoss=%s, Visible=%s)', [
+        Ord(FGeneralConfig.WindowMode),
+        BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True),
+        BoolToStr(Visible, True)
+      ], ClassName);
+    end;
+  end;
+end;
 
 procedure TFormMain.WMHotkey(var Msg: TMessage);
 begin

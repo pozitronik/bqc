@@ -154,7 +154,6 @@ object FormMain: TFormMain
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  OnDeactivate = FormDeactivate
   OnKeyDown = FormKeyDown
   TextHeight = 15
   object HeaderPanel: TPanel
