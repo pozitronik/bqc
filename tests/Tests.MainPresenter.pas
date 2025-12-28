@@ -77,10 +77,10 @@ type
     procedure OnDeviceClicked_DisconnectedDevice_ShowsConnectingStatus;
 
     [Test]
-    procedure OnDeviceClicked_MenuMode_HidesView;
+    procedure OnDeviceClicked_MenuMode_KeepsViewOpen;
 
     [Test]
-    procedure OnDeviceClicked_WindowMode_DoesNotHideView;
+    procedure OnDeviceClicked_WindowMode_KeepsViewOpen;
 
     [Test]
     procedure OnDeviceClicked_ConnectingDevice_IgnoresClick;
@@ -300,20 +300,22 @@ begin
   Assert.Contains(FView.LastStatus, 'Connecting', 'Status should indicate connecting');
 end;
 
-procedure TMainPresenterTests.OnDeviceClicked_MenuMode_HidesView;
+procedure TMainPresenterTests.OnDeviceClicked_MenuMode_KeepsViewOpen;
 var
   Device: TBluetoothDeviceInfo;
 begin
+  // Menu now stays open after device click so user can see connection progress
+  // and click more devices. Menu will close on focus loss.
   FGeneralConfig.WindowMode := wmMenu;
   CreatePresenter;
   Device := CreateTestDevice($001122334455, 'Test Headphones', btAudioOutput, csDisconnected);
 
   FPresenter.OnDeviceClicked(Device);
 
-  Assert.IsTrue(FView.HideViewCalled, 'View should be hidden in menu mode after device click');
+  Assert.IsFalse(FView.HideViewCalled, 'View should stay open in menu mode to show connection progress');
 end;
 
-procedure TMainPresenterTests.OnDeviceClicked_WindowMode_DoesNotHideView;
+procedure TMainPresenterTests.OnDeviceClicked_WindowMode_KeepsViewOpen;
 var
   Device: TBluetoothDeviceInfo;
 begin
@@ -323,7 +325,7 @@ begin
 
   FPresenter.OnDeviceClicked(Device);
 
-  Assert.IsFalse(FView.HideViewCalled, 'View should not be hidden in window mode');
+  Assert.IsFalse(FView.HideViewCalled, 'View should stay open in window mode');
 end;
 
 procedure TMainPresenterTests.OnDeviceClicked_ConnectingDevice_IgnoresClick;
