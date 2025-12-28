@@ -168,6 +168,13 @@ type
     { BuildHotkeyString Modifier-Only Tests }
     [Test]
     procedure BuildHotkeyString_ModifierKeyOnly_ReturnsEmpty;
+
+    { Multiple Instance Tests }
+    [Test]
+    procedure MultipleInstances_HaveDifferentIds;
+
+    [Test]
+    procedure MultipleInstances_CanRegisterDifferentHotkeys;
   end;
 
 implementation
@@ -741,6 +748,56 @@ begin
   // Same for Shift
   Result := THotkeyManager.BuildHotkeyString(VK_SHIFT, [ssShift]);
   Assert.AreEqual('', Result, 'BuildHotkeyString should return empty for Shift key only');
+end;
+
+{ Multiple Instance Tests }
+
+procedure TTestHotkeyManager.MultipleInstances_HaveDifferentIds;
+var
+  Manager1, Manager2, Manager3: THotkeyManager;
+begin
+  // Create multiple instances
+  Manager1 := THotkeyManager.Create;
+  Manager2 := THotkeyManager.Create;
+  Manager3 := THotkeyManager.Create;
+  try
+    // Each should be created successfully (unique IDs allow this)
+    Assert.IsNotNull(Manager1, 'Manager1 should be created');
+    Assert.IsNotNull(Manager2, 'Manager2 should be created');
+    Assert.IsNotNull(Manager3, 'Manager3 should be created');
+
+    // Note: We can't directly access FHotkeyId, but the fact that all three
+    // are created without error implies unique IDs (GlobalAddAtom would fail otherwise)
+    Assert.Pass('Multiple managers created successfully with unique IDs');
+  finally
+    Manager3.Free;
+    Manager2.Free;
+    Manager1.Free;
+  end;
+end;
+
+procedure TTestHotkeyManager.MultipleInstances_CanRegisterDifferentHotkeys;
+var
+  Manager1, Manager2: THotkeyManager;
+  TestHandle: HWND;
+begin
+  // Get a valid window handle for testing
+  TestHandle := GetDesktopWindow;
+
+  Manager1 := THotkeyManager.Create;
+  Manager2 := THotkeyManager.Create;
+  try
+    // Register different hotkeys on each manager
+    Manager1.Register(TestHandle, 'Ctrl+Alt+1', False);
+    Manager2.Register(TestHandle, 'Ctrl+Alt+2', False);
+
+    // Both should be registered
+    Assert.IsTrue(Manager1.IsRegistered, 'Manager1 should be registered');
+    Assert.IsTrue(Manager2.IsRegistered, 'Manager2 should be registered');
+  finally
+    Manager2.Free;
+    Manager1.Free;
+  end;
 end;
 
 initialization

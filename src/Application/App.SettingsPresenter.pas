@@ -49,6 +49,8 @@ type
   THotkeyViewSettings = record
     Hotkey: string;
     UseLowLevelHook: Boolean;
+    CastPanelHotkey: string;
+    BluetoothPanelHotkey: string;
   end;
 
   /// <summary>
@@ -332,6 +334,8 @@ type
     FNotificationConfig: INotificationConfig;
     FLogConfig: ILogConfig;
     FBatteryTrayConfig: IBatteryTrayConfig;
+
+    function ValidateHotkeys(const AHotkey: THotkeyViewSettings): Boolean;
   public
     constructor Create(
       ADialogView: ISettingsDialogView;
@@ -642,6 +646,8 @@ begin
   // Hotkey settings
   Hotkey.Hotkey := FHotkeyConfig.Hotkey;
   Hotkey.UseLowLevelHook := FHotkeyConfig.UseLowLevelHook;
+  Hotkey.CastPanelHotkey := FHotkeyConfig.CastPanelHotkey;
+  Hotkey.BluetoothPanelHotkey := FHotkeyConfig.BluetoothPanelHotkey;
   FHotkeySettingsView.SetHotkeySettings(Hotkey);
 
   // Theme list (view gets available styles from TThemeManager)
@@ -724,6 +730,14 @@ begin
   LogDebug('SaveSettings', ClassName);
   Result := True;
   try
+    // Validate hotkeys first (before saving anything)
+    Hotkey := FHotkeySettingsView.GetHotkeySettings;
+    if not ValidateHotkeys(Hotkey) then
+    begin
+      Result := False;
+      Exit;
+    end;
+
     // Save current device settings (delegated to device presenter)
     FDevicePresenter.SaveCurrentDevice;
 
@@ -737,10 +751,11 @@ begin
     FGeneralConfig.Autostart := General.Autostart;
     FPositionConfig.PositionMode := General.PositionMode;
 
-    // Hotkey settings
-    Hotkey := FHotkeySettingsView.GetHotkeySettings;
+    // Hotkey settings (Hotkey already read above for validation)
     FHotkeyConfig.Hotkey := Hotkey.Hotkey;
     FHotkeyConfig.UseLowLevelHook := Hotkey.UseLowLevelHook;
+    FHotkeyConfig.CastPanelHotkey := Hotkey.CastPanelHotkey;
+    FHotkeyConfig.BluetoothPanelHotkey := Hotkey.BluetoothPanelHotkey;
 
     // Appearance settings
     Appearance := FAppearanceSettingsView.GetAppearanceSettings;
@@ -934,6 +949,58 @@ procedure TSettingsPresenter.MarkModified;
 begin
   FModified := True;
   FDialogView.SetApplyEnabled(True);
+end;
+
+function TSettingsPresenter.ValidateHotkeys(const AHotkey: THotkeyViewSettings): Boolean;
+var
+  Hotkeys: TArray<string>;
+  Names: TArray<string>;
+  I, J: Integer;
+begin
+  Result := True;
+
+  // Collect all non-empty hotkeys with their names
+  SetLength(Hotkeys, 0);
+  SetLength(Names, 0);
+
+  if AHotkey.Hotkey <> '' then
+  begin
+    SetLength(Hotkeys, Length(Hotkeys) + 1);
+    SetLength(Names, Length(Names) + 1);
+    Hotkeys[High(Hotkeys)] := UpperCase(AHotkey.Hotkey);
+    Names[High(Names)] := 'Main hotkey';
+  end;
+
+  if AHotkey.CastPanelHotkey <> '' then
+  begin
+    SetLength(Hotkeys, Length(Hotkeys) + 1);
+    SetLength(Names, Length(Names) + 1);
+    Hotkeys[High(Hotkeys)] := UpperCase(AHotkey.CastPanelHotkey);
+    Names[High(Names)] := 'Cast panel hotkey';
+  end;
+
+  if AHotkey.BluetoothPanelHotkey <> '' then
+  begin
+    SetLength(Hotkeys, Length(Hotkeys) + 1);
+    SetLength(Names, Length(Names) + 1);
+    Hotkeys[High(Hotkeys)] := UpperCase(AHotkey.BluetoothPanelHotkey);
+    Names[High(Names)] := 'Bluetooth panel hotkey';
+  end;
+
+  // Check for duplicates
+  for I := 0 to High(Hotkeys) do
+  begin
+    for J := I + 1 to High(Hotkeys) do
+    begin
+      if Hotkeys[I] = Hotkeys[J] then
+      begin
+        FDialogView.ShowError(Format('Hotkey collision: %s and %s use the same hotkey "%s"',
+          [Names[I], Names[J], Hotkeys[I]]));
+        Result := False;
+        Exit;
+      end;
+    end;
+  end;
 end;
 
 end.

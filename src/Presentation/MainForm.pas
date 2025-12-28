@@ -82,6 +82,8 @@ type
     FTrayManager: TTrayManager;
     FBatteryTrayManager: TBatteryTrayManager;
     FHotkeyManager: THotkeyManager;
+    FCastPanelHotkeyManager: THotkeyManager;
+    FBluetoothPanelHotkeyManager: THotkeyManager;
     FForceClose: Boolean;
 
     { Injected dependencies (set via Setup method) }
@@ -119,6 +121,8 @@ type
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
     procedure HandleHotkeyTriggered(Sender: TObject);
+    procedure HandleCastPanelHotkeyTriggered(Sender: TObject);
+    procedure HandleBluetoothPanelHotkeyTriggered(Sender: TObject);
     procedure HandleTrayToggleVisibility(Sender: TObject);
     procedure HandleTraySettingsRequest(Sender: TObject);
     procedure HandleTrayExitRequest(Sender: TObject);
@@ -296,11 +300,21 @@ begin
     FBatteryTrayManager := nil;
   end;
 
-  // Free hotkey manager
+  // Free hotkey managers
   if Assigned(FHotkeyManager) then
   begin
     FHotkeyManager.Free;
     FHotkeyManager := nil;
+  end;
+  if Assigned(FCastPanelHotkeyManager) then
+  begin
+    FCastPanelHotkeyManager.Free;
+    FCastPanelHotkeyManager := nil;
+  end;
+  if Assigned(FBluetoothPanelHotkeyManager) then
+  begin
+    FBluetoothPanelHotkeyManager.Free;
+    FBluetoothPanelHotkeyManager := nil;
   end;
 
   Application.OnDeactivate := nil;
@@ -512,6 +526,17 @@ begin
   FHotkeyManager := THotkeyManager.Create;
   FHotkeyManager.OnHotkeyTriggered := HandleHotkeyTriggered;
   FHotkeyManager.Register(Handle, FHotkeyConfig.Hotkey, FHotkeyConfig.UseLowLevelHook);
+
+  // Create and register system panel hotkeys (use standard RegisterHotKey, not low-level hook)
+  FCastPanelHotkeyManager := THotkeyManager.Create;
+  FCastPanelHotkeyManager.OnHotkeyTriggered := HandleCastPanelHotkeyTriggered;
+  if FHotkeyConfig.CastPanelHotkey <> '' then
+    FCastPanelHotkeyManager.Register(Handle, FHotkeyConfig.CastPanelHotkey, False);
+
+  FBluetoothPanelHotkeyManager := THotkeyManager.Create;
+  FBluetoothPanelHotkeyManager.OnHotkeyTriggered := HandleBluetoothPanelHotkeyTriggered;
+  if FHotkeyConfig.BluetoothPanelHotkey <> '' then
+    FBluetoothPanelHotkeyManager.Register(Handle, FHotkeyConfig.BluetoothPanelHotkey, False);
 end;
 
 procedure TFormMain.FinalizeMenuMode;
@@ -532,9 +557,25 @@ end;
 
 procedure TFormMain.ApplyHotkeySettings;
 begin
+  // Re-register main BQC hotkey
   FHotkeyManager.Unregister;
   FHotkeyManager.Register(Handle, FHotkeyConfig.Hotkey, FHotkeyConfig.UseLowLevelHook);
   LogDebug('ApplyHotkeySettings: Hotkey re-registered: %s', [FHotkeyConfig.Hotkey], ClassName);
+
+  // Re-register system panel hotkeys
+  FCastPanelHotkeyManager.Unregister;
+  if FHotkeyConfig.CastPanelHotkey <> '' then
+  begin
+    FCastPanelHotkeyManager.Register(Handle, FHotkeyConfig.CastPanelHotkey, False);
+    LogDebug('ApplyHotkeySettings: Cast panel hotkey registered: %s', [FHotkeyConfig.CastPanelHotkey], ClassName);
+  end;
+
+  FBluetoothPanelHotkeyManager.Unregister;
+  if FHotkeyConfig.BluetoothPanelHotkey <> '' then
+  begin
+    FBluetoothPanelHotkeyManager.Register(Handle, FHotkeyConfig.BluetoothPanelHotkey, False);
+    LogDebug('ApplyHotkeySettings: Bluetooth panel hotkey registered: %s', [FHotkeyConfig.BluetoothPanelHotkey], ClassName);
+  end;
 end;
 
 procedure TFormMain.ApplyThemeSettings;
@@ -646,6 +687,16 @@ var
   SettingsDialog: TFormSettings;
 begin
   LogInfo('HandleSettingsClick: Opening settings dialog', ClassName);
+
+  // Suspend all hotkeys while settings dialog is open
+  // This prevents hotkeys from triggering during hotkey recording
+  FHotkeyManager.Unregister;
+  if Assigned(FCastPanelHotkeyManager) then
+    FCastPanelHotkeyManager.Unregister;
+  if Assigned(FBluetoothPanelHotkeyManager) then
+    FBluetoothPanelHotkeyManager.Unregister;
+  LogDebug('HandleSettingsClick: Hotkeys suspended', ClassName);
+
   SettingsDialog := TFormSettings.Create(Self);
   try
     // Inject dependencies from MainForm (not Bootstrap)
@@ -660,6 +711,9 @@ begin
     SettingsDialog.ShowModal;
   finally
     SettingsDialog.Free;
+    // Re-register hotkeys after settings dialog closes (whether OK or Cancel)
+    ApplyHotkeySettings;
+    LogDebug('HandleSettingsClick: Hotkeys resumed', ClassName);
   end;
 end;
 
@@ -710,6 +764,20 @@ end;
 procedure TFormMain.HandleHotkeyTriggered(Sender: TObject);
 begin
   FPresenter.OnVisibilityToggleRequested;
+end;
+
+procedure TFormMain.HandleCastPanelHotkeyTriggered(Sender: TObject);
+begin
+  // Open Windows Cast panel (same as Win+K)
+  ShellExecute(0, 'open', 'ms-actioncenter:controlcenter/cast', nil, nil, SW_SHOWNORMAL);
+  LogDebug('Cast panel hotkey triggered', ClassName);
+end;
+
+procedure TFormMain.HandleBluetoothPanelHotkeyTriggered(Sender: TObject);
+begin
+  // Open Windows Bluetooth quick settings panel
+  ShellExecute(0, 'open', 'ms-actioncenter:controlcenter/bluetooth', nil, nil, SW_SHOWNORMAL);
+  LogDebug('Bluetooth panel hotkey triggered', ClassName);
 end;
 
 procedure TFormMain.HandleTrayToggleVisibility(Sender: TObject);
@@ -906,7 +974,13 @@ end;
 
 procedure TFormMain.WMHotkey(var Msg: TMessage);
 begin
-  FHotkeyManager.HandleWMHotkey(Msg.WParam);
+  // Check all hotkey managers - each has a unique ID
+  if FHotkeyManager.HandleWMHotkey(Msg.WParam) then
+    Exit;
+  if Assigned(FCastPanelHotkeyManager) and FCastPanelHotkeyManager.HandleWMHotkey(Msg.WParam) then
+    Exit;
+  if Assigned(FBluetoothPanelHotkeyManager) then
+    FBluetoothPanelHotkeyManager.HandleWMHotkey(Msg.WParam);
 end;
 
 procedure TFormMain.WMHotkeyDetected(var Msg: TMessage);

@@ -62,7 +62,8 @@ uses
   UI.HotkeyManager in 'src\Presentation\UI.HotkeyManager.pas',
   UI.BatteryIconRenderer in 'src\Presentation\UI.BatteryIconRenderer.pas',
   UI.BatteryTrayManager in 'src\Presentation\UI.BatteryTrayManager.pas',
-  SettingsForm in 'src\Presentation\SettingsForm.pas' {FormSettings};
+  SettingsForm in 'src\Presentation\SettingsForm.pas' {FormSettings},
+  HotkeyPickerForm in 'src\Presentation\HotkeyPickerForm.pas' {FormHotkeyPicker};
 
 
 {$R *.res}

@@ -84,6 +84,8 @@ const
   // INI key names - [Hotkey]
   KEY_GLOBAL_HOTKEY = 'GlobalHotkey';
   KEY_USE_LOW_LEVEL_HOOK = 'UseLowLevelHook';
+  KEY_CAST_PANEL_HOTKEY = 'CastPanelHotkey';
+  KEY_BLUETOOTH_PANEL_HOTKEY = 'BluetoothPanelHotkey';
 
   // INI key names - [Position]
   KEY_MODE = 'Mode';
@@ -151,6 +153,8 @@ const
   DEF_MENU_HIDE_ON_FOCUS_LOSS = True;
   DEF_HOTKEY = 'Win+K';
   DEF_USE_LOW_LEVEL_HOOK = True;
+  DEF_CAST_PANEL_HOTKEY = '';
+  DEF_BLUETOOTH_PANEL_HOTKEY = '';
   DEF_POSITION_MODE = pmCoordinates;
   DEF_POSITION_X = -1;
   DEF_POSITION_Y = -1;
@@ -358,6 +362,8 @@ begin
   // [Hotkey]
   HotkeyCfg.Hotkey := AIni.ReadString(SEC_HOTKEY, KEY_GLOBAL_HOTKEY, DEF_HOTKEY);
   HotkeyCfg.UseLowLevelHook := AIni.ReadBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, DEF_USE_LOW_LEVEL_HOOK);
+  HotkeyCfg.CastPanelHotkey := AIni.ReadString(SEC_HOTKEY, KEY_CAST_PANEL_HOTKEY, DEF_CAST_PANEL_HOTKEY);
+  HotkeyCfg.BluetoothPanelHotkey := AIni.ReadString(SEC_HOTKEY, KEY_BLUETOOTH_PANEL_HOTKEY, DEF_BLUETOOTH_PANEL_HOTKEY);
 
   // [Position]
   PositionCfg.PositionMode := SafeReadPositionMode(AIni, SEC_POSITION, KEY_MODE, DEF_POSITION_MODE);
@@ -503,6 +509,8 @@ begin
   // [Hotkey]
   AIni.WriteString(SEC_HOTKEY, KEY_GLOBAL_HOTKEY, HotkeyCfg.Hotkey);
   AIni.WriteBool(SEC_HOTKEY, KEY_USE_LOW_LEVEL_HOOK, HotkeyCfg.UseLowLevelHook);
+  AIni.WriteString(SEC_HOTKEY, KEY_CAST_PANEL_HOTKEY, HotkeyCfg.CastPanelHotkey);
+  AIni.WriteString(SEC_HOTKEY, KEY_BLUETOOTH_PANEL_HOTKEY, HotkeyCfg.BluetoothPanelHotkey);
 
   // [Position]
   AIni.WriteInteger(SEC_POSITION, KEY_MODE, Ord(PositionCfg.PositionMode));

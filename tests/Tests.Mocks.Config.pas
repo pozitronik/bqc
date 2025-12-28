@@ -342,17 +342,25 @@ type
   private
     FHotkey: string;
     FUseLowLevelHook: Boolean;
+    FCastPanelHotkey: string;
+    FBluetoothPanelHotkey: string;
   public
     constructor Create;
 
     // IHotkeyConfig
     function GetHotkey: string;
     function GetUseLowLevelHook: Boolean;
+    function GetCastPanelHotkey: string;
+    function GetBluetoothPanelHotkey: string;
     procedure SetHotkey(const AValue: string);
     procedure SetUseLowLevelHook(AValue: Boolean);
+    procedure SetCastPanelHotkey(const AValue: string);
+    procedure SetBluetoothPanelHotkey(const AValue: string);
 
     property Hotkey: string read FHotkey write FHotkey;
     property UseLowLevelHook: Boolean read FUseLowLevelHook write FUseLowLevelHook;
+    property CastPanelHotkey: string read FCastPanelHotkey write FCastPanelHotkey;
+    property BluetoothPanelHotkey: string read FBluetoothPanelHotkey write FBluetoothPanelHotkey;
   end;
 
   /// <summary>
@@ -1031,6 +1039,8 @@ begin
   inherited Create;
   FHotkey := '';
   FUseLowLevelHook := False;
+  FCastPanelHotkey := '';
+  FBluetoothPanelHotkey := '';
 end;
 
 function TMockHotkeyConfig.GetHotkey: string;
@@ -1043,6 +1053,16 @@ begin
   Result := FUseLowLevelHook;
 end;
 
+function TMockHotkeyConfig.GetCastPanelHotkey: string;
+begin
+  Result := FCastPanelHotkey;
+end;
+
+function TMockHotkeyConfig.GetBluetoothPanelHotkey: string;
+begin
+  Result := FBluetoothPanelHotkey;
+end;
+
 procedure TMockHotkeyConfig.SetHotkey(const AValue: string);
 begin
   FHotkey := AValue;
@@ -1051,6 +1071,16 @@ end;
 procedure TMockHotkeyConfig.SetUseLowLevelHook(AValue: Boolean);
 begin
   FUseLowLevelHook := AValue;
+end;
+
+procedure TMockHotkeyConfig.SetCastPanelHotkey(const AValue: string);
+begin
+  FCastPanelHotkey := AValue;
+end;
+
+procedure TMockHotkeyConfig.SetBluetoothPanelHotkey(const AValue: string);
+begin
+  FBluetoothPanelHotkey := AValue;
 end;
 
 { TMockNotificationConfig }

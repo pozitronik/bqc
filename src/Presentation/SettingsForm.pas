@@ -21,7 +21,8 @@ uses
   App.LogConfigIntf,
   App.BatteryTrayConfigIntf,
   App.SettingsPresenter,
-  UI.Theme;
+  UI.Theme,
+  HotkeyPickerForm;
 
 type
   /// <summary>
@@ -124,6 +125,15 @@ type
     ButtonRecordHotkey: TButton;
     ButtonClearHotkey: TButton;
     CheckUseLowLevelHook: TCheckBox;
+    GroupSystemPanels: TGroupBox;
+    LabelCastPanelHotkey: TLabel;
+    LabelBluetoothPanelHotkey: TLabel;
+    EditCastPanelHotkey: TEdit;
+    ButtonRecordCastHotkey: TButton;
+    ButtonClearCastHotkey: TButton;
+    EditBluetoothPanelHotkey: TEdit;
+    ButtonRecordBluetoothHotkey: TButton;
+    ButtonClearBluetoothHotkey: TButton;
 
     { Tab: Themes }
     TabThemes: TTabSheet;
@@ -266,6 +276,10 @@ type
     procedure ButtonClearHotkeyClick(Sender: TObject);
     procedure ButtonResetSizeClick(Sender: TObject);
     procedure ButtonResetPositionClick(Sender: TObject);
+    procedure ButtonRecordCastHotkeyClick(Sender: TObject);
+    procedure ButtonClearCastHotkeyClick(Sender: TObject);
+    procedure ButtonRecordBluetoothHotkeyClick(Sender: TObject);
+    procedure ButtonClearBluetoothHotkeyClick(Sender: TObject);
 
     { Devices tab events }
     procedure ListDevicesClick(Sender: TObject);
@@ -293,7 +307,6 @@ type
 
   private
     FPresenter: TSettingsPresenter;
-    FRecordingHotkey: Boolean;
 
     { Injected dependencies }
     FAppConfig: IAppConfig;
@@ -353,9 +366,6 @@ type
     procedure HandleSettingChanged(Sender: TObject);
     procedure ConnectChangeHandlers;
 
-  protected
-    procedure KeyDown(var Key: Word; Shift: TShiftState); override;
-
   public
     { Public declarations }
     procedure Setup(
@@ -393,8 +403,6 @@ begin
   LogDebug('FormCreate', ClassName);
   // Dependencies must be injected via Setup() before showing dialog
   // Setup() is called by the parent form (MainForm) after Create
-  FRecordingHotkey := False;
-  KeyPreview := True;
 end;
 
 procedure TFormSettings.Setup(
@@ -516,12 +524,16 @@ function TFormSettings.GetHotkeySettings: THotkeyViewSettings;
 begin
   Result.Hotkey := EditHotkey.Text;
   Result.UseLowLevelHook := CheckUseLowLevelHook.Checked;
+  Result.CastPanelHotkey := EditCastPanelHotkey.Text;
+  Result.BluetoothPanelHotkey := EditBluetoothPanelHotkey.Text;
 end;
 
 procedure TFormSettings.SetHotkeySettings(const ASettings: THotkeyViewSettings);
 begin
   EditHotkey.Text := ASettings.Hotkey;
   CheckUseLowLevelHook.Checked := ASettings.UseLowLevelHook;
+  EditCastPanelHotkey.Text := ASettings.CastPanelHotkey;
+  EditBluetoothPanelHotkey.Text := ASettings.BluetoothPanelHotkey;
 end;
 
 function TFormSettings.GetAppearanceSettings: TAppearanceViewSettings;
@@ -940,6 +952,8 @@ begin
   // Tab: Hotkey & Visuals
   EditHotkey.OnChange := HandleSettingChanged;
   CheckUseLowLevelHook.OnClick := HandleSettingChanged;
+  EditCastPanelHotkey.OnChange := HandleSettingChanged;
+  EditBluetoothPanelHotkey.OnChange := HandleSettingChanged;
   ComboTheme.OnChange := HandleSettingChanged;
   EditVsfDir.OnChange := HandleSettingChanged;
   CheckShowAddresses.OnClick := HandleSettingChanged;
@@ -1017,49 +1031,21 @@ end;
 { Hotkey tab events }
 
 procedure TFormSettings.ButtonRecordHotkeyClick(Sender: TObject);
-begin
-  FRecordingHotkey := True;
-  EditHotkey.Text := 'Press hotkey combination...';
-  EditHotkey.SetFocus;
-  ButtonRecordHotkey.Enabled := False;
-end;
-
-procedure TFormSettings.KeyDown(var Key: Word; Shift: TShiftState);
 var
-  HotkeyStr: string;
+  NewHotkey: string;
 begin
-  inherited;
-
-  if FRecordingHotkey then
+  NewHotkey := TFormHotkeyPicker.PickHotkey(EditHotkey.Text);
+  if NewHotkey <> '' then
   begin
-    // Handle Escape to cancel recording
-    if Key = VK_ESCAPE then
-    begin
-      FRecordingHotkey := False;
-      ButtonRecordHotkey.Enabled := True;
-      FPresenter.LoadSettings; // Restore original value
-      Key := 0;
-      Exit;
-    end;
-
-    // Use THotkeyManager to build the hotkey string
-    HotkeyStr := THotkeyManager.BuildHotkeyString(Key, Shift);
-
-    if HotkeyStr <> '' then
-    begin
-      EditHotkey.Text := HotkeyStr;
-      FRecordingHotkey := False;
-      ButtonRecordHotkey.Enabled := True;
-      Key := 0; // Consume the key
-    end;
+    EditHotkey.Text := NewHotkey;
+    FPresenter.MarkModified;
   end;
 end;
 
 procedure TFormSettings.ButtonClearHotkeyClick(Sender: TObject);
 begin
   EditHotkey.Text := '';
-  FRecordingHotkey := False;
-  ButtonRecordHotkey.Enabled := True;
+  FPresenter.MarkModified;
 end;
 
 procedure TFormSettings.ButtonResetSizeClick(Sender: TObject);
@@ -1070,6 +1056,42 @@ end;
 procedure TFormSettings.ButtonResetPositionClick(Sender: TObject);
 begin
   FPresenter.OnResetPositionClicked;
+end;
+
+procedure TFormSettings.ButtonRecordCastHotkeyClick(Sender: TObject);
+var
+  NewHotkey: string;
+begin
+  NewHotkey := TFormHotkeyPicker.PickHotkey(EditCastPanelHotkey.Text);
+  if NewHotkey <> '' then
+  begin
+    EditCastPanelHotkey.Text := NewHotkey;
+    FPresenter.MarkModified;
+  end;
+end;
+
+procedure TFormSettings.ButtonClearCastHotkeyClick(Sender: TObject);
+begin
+  EditCastPanelHotkey.Text := '';
+  FPresenter.MarkModified;
+end;
+
+procedure TFormSettings.ButtonRecordBluetoothHotkeyClick(Sender: TObject);
+var
+  NewHotkey: string;
+begin
+  NewHotkey := TFormHotkeyPicker.PickHotkey(EditBluetoothPanelHotkey.Text);
+  if NewHotkey <> '' then
+  begin
+    EditBluetoothPanelHotkey.Text := NewHotkey;
+    FPresenter.MarkModified;
+  end;
+end;
+
+procedure TFormSettings.ButtonClearBluetoothHotkeyClick(Sender: TObject);
+begin
+  EditBluetoothPanelHotkey.Text := '';
+  FPresenter.MarkModified;
 end;
 
 { Devices tab events }

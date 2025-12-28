@@ -105,6 +105,33 @@ type
 
     [Test]
     procedure Test_SaveSettings_CallsAppConfigSave;
+
+    [Test]
+    procedure Test_SaveSettings_WithDuplicateMainAndCastHotkey_ReturnsFalse;
+
+    [Test]
+    procedure Test_SaveSettings_WithDuplicateMainAndBluetoothHotkey_ReturnsFalse;
+
+    [Test]
+    procedure Test_SaveSettings_WithDuplicateCastAndBluetoothHotkey_ReturnsFalse;
+
+    [Test]
+    procedure Test_SaveSettings_WithAllSameHotkeys_ReturnsFalse;
+
+    [Test]
+    procedure Test_SaveSettings_WithUniqueHotkeys_ReturnsTrue;
+
+    [Test]
+    procedure Test_SaveSettings_WithEmptyHotkeys_ReturnsTrue;
+
+    [Test]
+    procedure Test_SaveSettings_CaseInsensitiveCollision_ReturnsFalse;
+
+    [Test]
+    procedure Test_LoadSettings_PopulatesSystemPanelHotkeys;
+
+    [Test]
+    procedure Test_SaveSettings_SavesSystemPanelHotkeys;
   end;
 
   /// <summary>
@@ -496,6 +523,8 @@ begin
   // Arrange
   Hotkey.Hotkey := 'Ctrl+Shift+X';
   Hotkey.UseLowLevelHook := True;
+  Hotkey.CastPanelHotkey := '';  // Ensure all fields are initialized
+  Hotkey.BluetoothPanelHotkey := '';
   FMockView.HotkeySettings := Hotkey;
 
   // Act
@@ -662,6 +691,181 @@ begin
   Assert.AreEqual(1, FMockAppConfig.SaveCount, 'AppConfig.Save should be called once');
 end;
 
+procedure TSettingsPresenterTests.Test_SaveSettings_WithDuplicateMainAndCastHotkey_ReturnsFalse;
+var
+  Hotkey: THotkeyViewSettings;
+begin
+  // Arrange
+  Hotkey.Hotkey := 'Ctrl+Alt+B';
+  Hotkey.UseLowLevelHook := False;
+  Hotkey.CastPanelHotkey := 'Ctrl+Alt+B';  // Same as main
+  Hotkey.BluetoothPanelHotkey := '';
+  FMockView.HotkeySettings := Hotkey;
+
+  // Act
+  var Result := FPresenter.SaveSettings;
+
+  // Assert
+  Assert.IsFalse(Result, 'SaveSettings should return False on collision');
+  Assert.Contains(FMockView.LastErrorMessage, 'Main hotkey', 'Error should mention Main hotkey');
+  Assert.Contains(FMockView.LastErrorMessage, 'Cast panel', 'Error should mention Cast panel');
+end;
+
+procedure TSettingsPresenterTests.Test_SaveSettings_WithDuplicateMainAndBluetoothHotkey_ReturnsFalse;
+var
+  Hotkey: THotkeyViewSettings;
+begin
+  // Arrange
+  Hotkey.Hotkey := 'Win+K';
+  Hotkey.UseLowLevelHook := True;
+  Hotkey.CastPanelHotkey := '';
+  Hotkey.BluetoothPanelHotkey := 'Win+K';  // Same as main
+  FMockView.HotkeySettings := Hotkey;
+
+  // Act
+  var Result := FPresenter.SaveSettings;
+
+  // Assert
+  Assert.IsFalse(Result, 'SaveSettings should return False on collision');
+  Assert.Contains(FMockView.LastErrorMessage, 'Main hotkey', 'Error should mention Main hotkey');
+  Assert.Contains(FMockView.LastErrorMessage, 'Bluetooth panel', 'Error should mention Bluetooth panel');
+end;
+
+procedure TSettingsPresenterTests.Test_SaveSettings_WithDuplicateCastAndBluetoothHotkey_ReturnsFalse;
+var
+  Hotkey: THotkeyViewSettings;
+begin
+  // Arrange
+  Hotkey.Hotkey := 'Ctrl+B';
+  Hotkey.UseLowLevelHook := False;
+  Hotkey.CastPanelHotkey := 'Ctrl+Shift+K';
+  Hotkey.BluetoothPanelHotkey := 'Ctrl+Shift+K';  // Same as cast
+  FMockView.HotkeySettings := Hotkey;
+
+  // Act
+  var Result := FPresenter.SaveSettings;
+
+  // Assert
+  Assert.IsFalse(Result, 'SaveSettings should return False on collision');
+  Assert.Contains(FMockView.LastErrorMessage, 'Cast panel', 'Error should mention Cast panel');
+  Assert.Contains(FMockView.LastErrorMessage, 'Bluetooth panel', 'Error should mention Bluetooth panel');
+end;
+
+procedure TSettingsPresenterTests.Test_SaveSettings_WithAllSameHotkeys_ReturnsFalse;
+var
+  Hotkey: THotkeyViewSettings;
+begin
+  // Arrange
+  Hotkey.Hotkey := 'Ctrl+Alt+X';
+  Hotkey.UseLowLevelHook := False;
+  Hotkey.CastPanelHotkey := 'Ctrl+Alt+X';  // Same as main
+  Hotkey.BluetoothPanelHotkey := 'Ctrl+Alt+X';  // Same as main and cast
+  FMockView.HotkeySettings := Hotkey;
+
+  // Act
+  var Result := FPresenter.SaveSettings;
+
+  // Assert
+  Assert.IsFalse(Result, 'SaveSettings should return False on collision');
+  Assert.IsNotEmpty(FMockView.LastErrorMessage, 'Error message should be shown');
+end;
+
+procedure TSettingsPresenterTests.Test_SaveSettings_WithUniqueHotkeys_ReturnsTrue;
+var
+  Hotkey: THotkeyViewSettings;
+begin
+  // Arrange
+  Hotkey.Hotkey := 'Ctrl+Alt+B';
+  Hotkey.UseLowLevelHook := False;
+  Hotkey.CastPanelHotkey := 'Ctrl+Shift+C';
+  Hotkey.BluetoothPanelHotkey := 'Ctrl+Shift+T';
+  FMockView.HotkeySettings := Hotkey;
+
+  // Act
+  var Result := FPresenter.SaveSettings;
+
+  // Assert
+  Assert.IsTrue(Result, 'SaveSettings should return True with unique hotkeys');
+end;
+
+procedure TSettingsPresenterTests.Test_SaveSettings_WithEmptyHotkeys_ReturnsTrue;
+var
+  Hotkey: THotkeyViewSettings;
+begin
+  // Arrange: All hotkeys empty
+  Hotkey.Hotkey := '';
+  Hotkey.UseLowLevelHook := False;
+  Hotkey.CastPanelHotkey := '';
+  Hotkey.BluetoothPanelHotkey := '';
+  FMockView.HotkeySettings := Hotkey;
+
+  // Act
+  var Result := FPresenter.SaveSettings;
+
+  // Assert
+  Assert.IsTrue(Result, 'SaveSettings should succeed with empty hotkeys');
+end;
+
+procedure TSettingsPresenterTests.Test_SaveSettings_CaseInsensitiveCollision_ReturnsFalse;
+var
+  Hotkey: THotkeyViewSettings;
+begin
+  // Arrange: Same hotkey with different case
+  Hotkey.Hotkey := 'ctrl+alt+b';
+  Hotkey.UseLowLevelHook := False;
+  Hotkey.CastPanelHotkey := 'CTRL+ALT+B';  // Same hotkey, different case
+  Hotkey.BluetoothPanelHotkey := '';
+  FMockView.HotkeySettings := Hotkey;
+
+  // Act
+  var Result := FPresenter.SaveSettings;
+
+  // Assert
+  Assert.IsFalse(Result, 'SaveSettings should detect case-insensitive collision');
+end;
+
+procedure TSettingsPresenterTests.Test_LoadSettings_PopulatesSystemPanelHotkeys;
+var
+  MockHotkeyCfg: TMockHotkeyConfig;
+begin
+  // Arrange
+  MockHotkeyCfg := TMockHotkeyConfig(FMockAppConfig.HotkeyConfig);
+  MockHotkeyCfg.Hotkey := 'Win+K';
+  MockHotkeyCfg.UseLowLevelHook := True;
+  MockHotkeyCfg.CastPanelHotkey := 'Ctrl+Shift+C';
+  MockHotkeyCfg.BluetoothPanelHotkey := 'Ctrl+Shift+B';
+
+  // Act
+  FPresenter.LoadSettings;
+
+  // Assert
+  Assert.AreEqual('Ctrl+Shift+C', FMockView.HotkeySettings.CastPanelHotkey,
+    'CastPanelHotkey should be loaded');
+  Assert.AreEqual('Ctrl+Shift+B', FMockView.HotkeySettings.BluetoothPanelHotkey,
+    'BluetoothPanelHotkey should be loaded');
+end;
+
+procedure TSettingsPresenterTests.Test_SaveSettings_SavesSystemPanelHotkeys;
+var
+  MockHotkeyCfg: TMockHotkeyConfig;
+  Hotkey: THotkeyViewSettings;
+begin
+  // Arrange
+  Hotkey.Hotkey := 'Win+K';
+  Hotkey.UseLowLevelHook := True;
+  Hotkey.CastPanelHotkey := 'Ctrl+Alt+C';
+  Hotkey.BluetoothPanelHotkey := 'Ctrl+Alt+T';
+  FMockView.HotkeySettings := Hotkey;
+
+  // Act
+  FPresenter.SaveSettings;
+
+  // Assert
+  MockHotkeyCfg := TMockHotkeyConfig(FMockAppConfig.HotkeyConfig);
+  Assert.AreEqual('Ctrl+Alt+C', MockHotkeyCfg.CastPanelHotkey, 'CastPanelHotkey should be saved');
+  Assert.AreEqual('Ctrl+Alt+T', MockHotkeyCfg.BluetoothPanelHotkey, 'BluetoothPanelHotkey should be saved');
+end;
+
 { TSettingsRecordTests }
 
 procedure TSettingsRecordTests.Test_GeneralSettings_FieldAssignment;
@@ -691,9 +895,13 @@ var
 begin
   Settings.Hotkey := 'Ctrl+Alt+B';
   Settings.UseLowLevelHook := True;
+  Settings.CastPanelHotkey := 'Ctrl+Shift+C';
+  Settings.BluetoothPanelHotkey := 'Ctrl+Shift+T';
 
   Assert.AreEqual('Ctrl+Alt+B', Settings.Hotkey);
   Assert.IsTrue(Settings.UseLowLevelHook);
+  Assert.AreEqual('Ctrl+Shift+C', Settings.CastPanelHotkey);
+  Assert.AreEqual('Ctrl+Shift+T', Settings.BluetoothPanelHotkey);
 end;
 
 procedure TSettingsRecordTests.Test_AppearanceSettings_FieldAssignment;

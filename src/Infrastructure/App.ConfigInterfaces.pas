@@ -109,12 +109,18 @@ type
     ['{A1B2C3D4-1111-1111-1111-000000000004}']
     function GetHotkey: string;
     function GetUseLowLevelHook: Boolean;
+    function GetCastPanelHotkey: string;
+    function GetBluetoothPanelHotkey: string;
 
     procedure SetHotkey(const AValue: string);
     procedure SetUseLowLevelHook(AValue: Boolean);
+    procedure SetCastPanelHotkey(const AValue: string);
+    procedure SetBluetoothPanelHotkey(const AValue: string);
 
     property Hotkey: string read GetHotkey write SetHotkey;
     property UseLowLevelHook: Boolean read GetUseLowLevelHook write SetUseLowLevelHook;
+    property CastPanelHotkey: string read GetCastPanelHotkey write SetCastPanelHotkey;
+    property BluetoothPanelHotkey: string read GetBluetoothPanelHotkey write SetBluetoothPanelHotkey;
   end;
 
   /// <summary>

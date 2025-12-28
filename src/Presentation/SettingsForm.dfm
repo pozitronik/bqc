@@ -24,6 +24,8 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
+    ExplicitTop = 530
+    ExplicitWidth = 538
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -62,6 +64,8 @@ object FormSettings: TFormSettings
     ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
+    ExplicitWidth = 538
+    ExplicitHeight = 530
     object TabGeneral: TTabSheet
       Caption = 'Window'
       object GroupWindowMode: TGroupBox
@@ -72,6 +76,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
+        ExplicitWidth = 530
         object LabelWindowMode: TLabel
           Left = 12
           Top = 27
@@ -99,9 +104,7 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's window:'
           TabOrder = 1
-          ExplicitLeft = 8
-          ExplicitTop = 55
-          ExplicitWidth = 518
+          ExplicitWidth = 526
           object CheckMinimizeToTray: TCheckBox
             Left = 12
             Top = 25
@@ -127,9 +130,7 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's menu:'
           TabOrder = 2
-          ExplicitLeft = 8
-          ExplicitTop = 112
-          ExplicitWidth = 518
+          ExplicitWidth = 526
           object CheckHideOnFocusLoss: TCheckBox
             Left = 12
             Top = 25
@@ -148,7 +149,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
-        ExplicitTop = 183
+        ExplicitWidth = 530
         object LabelPositionMode: TLabel
           Left = 12
           Top = 28
@@ -637,9 +638,9 @@ object FormSettings: TFormSettings
           Caption = 'Hotkey:'
         end
         object EditHotkey: TEdit
-          Left = 74
+          Left = 117
           Top = 24
-          Width = 250
+          Width = 207
           Height = 23
           ReadOnly = True
           TabOrder = 0
@@ -669,6 +670,81 @@ object FormSettings: TFormSettings
           Height = 17
           Caption = 'Use low-level keyboard hook (require to override system hotkeys)'
           TabOrder = 3
+        end
+      end
+      object GroupSystemPanels: TGroupBox
+        Left = 0
+        Top = 95
+        Width = 536
+        Height = 96
+        Align = alTop
+        Caption = 'Windows System Panels (Win+K alternative)'
+        TabOrder = 1
+        object LabelCastPanelHotkey: TLabel
+          Left = 12
+          Top = 27
+          Width = 58
+          Height = 15
+          Caption = 'Cast panel:'
+        end
+        object LabelBluetoothPanelHotkey: TLabel
+          Left = 12
+          Top = 59
+          Width = 87
+          Height = 15
+          Caption = 'Bluetooth panel:'
+        end
+        object EditCastPanelHotkey: TEdit
+          Left = 117
+          Top = 24
+          Width = 207
+          Height = 23
+          ReadOnly = True
+          TabOrder = 0
+        end
+        object ButtonRecordCastHotkey: TButton
+          Left = 335
+          Top = 24
+          Width = 80
+          Height = 23
+          Caption = 'Record...'
+          TabOrder = 1
+          OnClick = ButtonRecordCastHotkeyClick
+        end
+        object ButtonClearCastHotkey: TButton
+          Left = 427
+          Top = 24
+          Width = 80
+          Height = 23
+          Caption = 'Clear'
+          TabOrder = 2
+          OnClick = ButtonClearCastHotkeyClick
+        end
+        object EditBluetoothPanelHotkey: TEdit
+          Left = 117
+          Top = 56
+          Width = 207
+          Height = 23
+          ReadOnly = True
+          TabOrder = 3
+        end
+        object ButtonRecordBluetoothHotkey: TButton
+          Left = 335
+          Top = 56
+          Width = 80
+          Height = 23
+          Caption = 'Record...'
+          TabOrder = 4
+          OnClick = ButtonRecordBluetoothHotkeyClick
+        end
+        object ButtonClearBluetoothHotkey: TButton
+          Left = 427
+          Top = 56
+          Width = 80
+          Height = 23
+          Caption = 'Clear'
+          TabOrder = 5
+          OnClick = ButtonClearBluetoothHotkeyClick
         end
       end
     end

@@ -111,12 +111,16 @@ uses
   App.Logger;
 
 const
-  // Hotkey atom name for registration
-  HOTKEY_ATOM_NAME = 'BQC_GlobalHotkey';
+  // Hotkey atom name prefix for registration (instance number appended)
+  HOTKEY_ATOM_PREFIX = 'BQC_GlobalHotkey_';
 
   // Low-level keyboard hook constants
   WH_KEYBOARD_LL = 13;
   LLKHF_UP = $80;
+
+var
+  // Counter for generating unique hotkey IDs
+  GHotkeyInstanceCounter: Integer = 0;
 
 type
   PKBDLLHOOKSTRUCT = ^TKBDLLHOOKSTRUCT;
@@ -231,13 +235,19 @@ end;
 { THotkeyManager }
 
 constructor THotkeyManager.Create;
+var
+  InstanceNum: Integer;
+  AtomName: string;
 begin
   inherited Create;
-  FHotkeyId := GlobalAddAtom(HOTKEY_ATOM_NAME);
+  // Generate unique atom name for this instance
+  InstanceNum := TInterlocked.Increment(GHotkeyInstanceCounter);
+  AtomName := HOTKEY_ATOM_PREFIX + IntToStr(InstanceNum);
+  FHotkeyId := GlobalAddAtom(PChar(AtomName));
   FHotkeyRegistered := False;
   FUsingLowLevelHook := False;
   FWindowHandle := 0;
-  LogDebug('Created with atom ID=%d', [FHotkeyId], ClassName);
+  LogDebug('Created with atom ID=%d (instance %d)', [FHotkeyId, InstanceNum], ClassName);
 end;
 
 destructor THotkeyManager.Destroy;
