@@ -779,17 +779,15 @@ end;
 procedure TTestHotkeyManager.MultipleInstances_CanRegisterDifferentHotkeys;
 var
   Manager1, Manager2: THotkeyManager;
-  TestHandle: HWND;
 begin
-  // Get a valid window handle for testing
-  TestHandle := GetDesktopWindow;
-
+  // Use 0 as window handle for thread-level hotkey registration
+  // (RegisterHotKey with NULL posts WM_HOTKEY to the thread's message queue)
   Manager1 := THotkeyManager.Create;
   Manager2 := THotkeyManager.Create;
   try
     // Register different hotkeys on each manager
-    Manager1.Register(TestHandle, 'Ctrl+Alt+1', False);
-    Manager2.Register(TestHandle, 'Ctrl+Alt+2', False);
+    Manager1.Register(0, 'Ctrl+Alt+1', False);
+    Manager2.Register(0, 'Ctrl+Alt+2', False);
 
     // Both should be registered
     Assert.IsTrue(Manager1.IsRegistered, 'Manager1 should be registered');
