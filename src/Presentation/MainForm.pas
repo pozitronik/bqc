@@ -688,15 +688,6 @@ var
 begin
   LogInfo('HandleSettingsClick: Opening settings dialog', ClassName);
 
-  // Suspend all hotkeys while settings dialog is open
-  // This prevents hotkeys from triggering during hotkey recording
-  FHotkeyManager.Unregister;
-  if Assigned(FCastPanelHotkeyManager) then
-    FCastPanelHotkeyManager.Unregister;
-  if Assigned(FBluetoothPanelHotkeyManager) then
-    FBluetoothPanelHotkeyManager.Unregister;
-  LogDebug('HandleSettingsClick: Hotkeys suspended', ClassName);
-
   SettingsDialog := TFormSettings.Create(Self);
   try
     // Inject dependencies from MainForm (not Bootstrap)
@@ -711,9 +702,8 @@ begin
     SettingsDialog.ShowModal;
   finally
     SettingsDialog.Free;
-    // Re-register hotkeys after settings dialog closes (whether OK or Cancel)
+    // Re-apply hotkey settings in case they were changed
     ApplyHotkeySettings;
-    LogDebug('HandleSettingsClick: Hotkeys resumed', ClassName);
   end;
 end;
 
