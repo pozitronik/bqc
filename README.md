@@ -2,7 +2,7 @@
 
 A Windows tray application for quick Bluetooth device management.
 
-![Screenshot](bqc.png)
+![Screenshot](img/bqc.png)
 
 ## Why This Exists
 
