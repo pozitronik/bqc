@@ -239,12 +239,43 @@ var
 /// </summary>
 procedure ForegroundEventProc(hWinEventHook: HWINEVENTHOOK; event: DWORD;
   hwnd: HWND; idObject, idChild: Longint; idEventThread, dwmsEventTime: DWORD); stdcall;
+var
+  WindowProcessId: DWORD;
 begin
+  // Log every callback invocation for debugging
+  LogDebug('ForegroundEventProc: Called, hwnd=$%x, GMainFormInstance=%p', [
+    hwnd, Pointer(GMainFormInstance)
+  ], 'ForegroundEventProc');
+
   // Only process if we have a valid form reference and the foreground changed to another window
   if (GMainFormInstance <> nil) and (hwnd <> 0) and (hwnd <> GMainFormInstance.Handle) then
   begin
-    // Post message to main thread to avoid issues with callback context
-    PostMessage(GMainFormInstance.Handle, WM_FOREGROUND_LOST, 0, hwnd);
+    // Check if the new foreground window belongs to our process (e.g., Settings dialog)
+    // If so, don't hide - we want to stay visible when our own dialogs are shown
+    GetWindowThreadProcessId(hwnd, @WindowProcessId);
+    LogDebug('ForegroundEventProc: WindowProcessId=%d, CurrentProcessId=%d', [
+      WindowProcessId, GetCurrentProcessId
+    ], 'ForegroundEventProc');
+
+    if WindowProcessId <> GetCurrentProcessId then
+    begin
+      // Another process became foreground - post message to hide menu
+      LogDebug('ForegroundEventProc: Posting WM_FOREGROUND_LOST', 'ForegroundEventProc');
+      PostMessage(GMainFormInstance.Handle, WM_FOREGROUND_LOST, 0, hwnd);
+    end
+    else
+    begin
+      LogDebug('ForegroundEventProc: Skipped - same process (our dialog)', 'ForegroundEventProc');
+    end;
+  end
+  else
+  begin
+    if GMainFormInstance <> nil then
+      LogDebug('ForegroundEventProc: Skipped - hwnd=$%x is our handle=$%x', [
+        hwnd, GMainFormInstance.Handle
+      ], 'ForegroundEventProc')
+    else
+      LogDebug('ForegroundEventProc: Skipped - GMainFormInstance is nil', 'ForegroundEventProc');
   end;
 end;
 
@@ -779,8 +810,21 @@ end;
 procedure TFormMain.HandleSettingsClick(Sender: TObject);
 var
   SettingsDialog: TFormSettings;
+  WasMenuModeVisible: Boolean;
 begin
   LogInfo('HandleSettingsClick: Opening settings dialog', ClassName);
+
+  // Remember if menu was visible in menu mode - we'll hide it during Settings
+  // This avoids focus tracking issues with modal dialogs
+  WasMenuModeVisible := Visible and (FGeneralConfig.WindowMode = wmMenu);
+
+  // Hide menu before opening Settings to avoid focus tracking issues
+  // The menu is a transient UI - user can re-open with hotkey after Settings closes
+  if WasMenuModeVisible then
+  begin
+    LogDebug('HandleSettingsClick: Hiding menu before modal dialog', ClassName);
+    HideView;
+  end;
 
   SettingsDialog := TFormSettings.Create(Self);
   try
@@ -1090,7 +1134,7 @@ begin
     @ForegroundEventProc,
     0,
     0,
-    WINEVENT_OUTOFCONTEXT or WINEVENT_SKIPOWNPROCESS
+    WINEVENT_OUTOFCONTEXT  // Don't use WINEVENT_SKIPOWNPROCESS - we filter by process ID in callback
   );
 
   if FForegroundHook <> 0 then
