@@ -199,7 +199,7 @@ object FormSettings: TFormSettings
       end
       object CheckAutostart: TCheckBox
         Left = 12
-        Top = 293
+        Top = 275
         Width = 136
         Height = 21
         Caption = 'Start with Windows'
