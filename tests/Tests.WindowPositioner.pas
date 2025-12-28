@@ -211,6 +211,10 @@ begin
 
   Result.FormWidth := AFormWidth;
   Result.FormHeight := AFormHeight;
+  Result.FormPPI := 96; // Standard DPI
+  Result.ScaledWidth := AFormWidth;  // Same as FormWidth when DPI matches
+  Result.ScaledHeight := AFormHeight;
+  Result.TargetPPI := 96;
   Result.CursorPos := Point(500, 500);
   Result.WorkArea := Rect(0, 0, 1920, 1080);
   Result.PositionConfig := FPositionConfig;
@@ -298,6 +302,10 @@ function TNearCursorPositionerTests.CreateContext(AFormWidth, AFormHeight: Integ
 begin
   Result.FormWidth := AFormWidth;
   Result.FormHeight := AFormHeight;
+  Result.FormPPI := 96; // Standard DPI
+  Result.ScaledWidth := AFormWidth;  // Same as FormWidth when DPI matches
+  Result.ScaledHeight := AFormHeight;
+  Result.TargetPPI := 96;
   Result.CursorPos := Point(ACursorX, ACursorY);
   Result.WorkArea := Rect(0, 0, 1920, 1080);
   Result.PositionConfig := nil;
@@ -359,6 +367,10 @@ function TCenterScreenPositionerTests.CreateContextWithWorkArea(
 begin
   Result.FormWidth := AFormWidth;
   Result.FormHeight := AFormHeight;
+  Result.FormPPI := 96; // Standard DPI
+  Result.ScaledWidth := AFormWidth;  // Same as FormWidth when DPI matches
+  Result.ScaledHeight := AFormHeight;
+  Result.TargetPPI := 96;
   Result.CursorPos := Point(0, 0);
   Result.WorkArea := AWorkArea;
   Result.PositionConfig := nil;
@@ -496,6 +508,10 @@ function TWindowPositionerEdgeCaseTests.CreateContextWithWorkArea(
 begin
   Result.FormWidth := AFormWidth;
   Result.FormHeight := AFormHeight;
+  Result.FormPPI := 96; // Standard DPI
+  Result.ScaledWidth := AFormWidth;  // Same as FormWidth when DPI matches
+  Result.ScaledHeight := AFormHeight;
+  Result.TargetPPI := 96;
   Result.CursorPos := Point(AWorkArea.Left + AWorkArea.Width div 2,
                             AWorkArea.Top + AWorkArea.Height div 2);
   Result.WorkArea := AWorkArea;

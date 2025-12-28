@@ -26,8 +26,12 @@ type
   /// Contains all information needed to calculate window position.
   /// </summary>
   TPositionContext = record
-    FormWidth: Integer;
-    FormHeight: Integer;
+    FormWidth: Integer;        // Current form width (source DPI)
+    FormHeight: Integer;       // Current form height (source DPI)
+    FormPPI: Integer;          // Form's current DPI
+    ScaledWidth: Integer;      // Form width scaled for target monitor DPI
+    ScaledHeight: Integer;     // Form height scaled for target monitor DPI
+    TargetPPI: Integer;        // Target monitor's DPI
     CursorPos: TPoint;
     WorkArea: TRect;
     PositionConfig: IPositionConfig;
@@ -130,15 +134,35 @@ begin
 
   Result.FormWidth := AForm.Width;
   Result.FormHeight := AForm.Height;
+  Result.FormPPI := AForm.CurrentPPI;
   Result.PositionConfig := APositionConfig;
 
   // Get cursor position and find which monitor it's on
   GetCursorPos(Result.CursorPos);
   Mon := Screen.MonitorFromPoint(Result.CursorPos);
   if Mon <> nil then
-    Result.WorkArea := Mon.WorkareaRect
+  begin
+    Result.WorkArea := Mon.WorkareaRect;
+    Result.TargetPPI := Mon.PixelsPerInch;
+  end
   else
+  begin
     Result.WorkArea := Screen.WorkAreaRect;
+    Result.TargetPPI := Screen.PixelsPerInch;
+  end;
+
+  // Calculate scaled dimensions for target monitor's DPI
+  // This handles cross-DPI monitor positioning
+  if (Result.FormPPI > 0) and (Result.TargetPPI > 0) and (Result.FormPPI <> Result.TargetPPI) then
+  begin
+    Result.ScaledWidth := MulDiv(Result.FormWidth, Result.TargetPPI, Result.FormPPI);
+    Result.ScaledHeight := MulDiv(Result.FormHeight, Result.TargetPPI, Result.FormPPI);
+  end
+  else
+  begin
+    Result.ScaledWidth := Result.FormWidth;
+    Result.ScaledHeight := Result.FormHeight;
+  end;
 end;
 
 { TCoordinatesPositioner }
@@ -189,13 +213,20 @@ begin
   Bounds := Mon.BoundsRect;
   WorkArea := Mon.WorkareaRect;
 
+  // Log DPI scaling info if applicable
+  if AContext.FormPPI <> AContext.TargetPPI then
+    LogDebug('DPI scale %d->%d: %dx%d -> %dx%d',
+      [AContext.FormPPI, AContext.TargetPPI, AContext.FormWidth, AContext.FormHeight,
+       AContext.ScaledWidth, AContext.ScaledHeight], ClassName);
+
   // Detect tray corner by comparing monitor bounds to work area
   // Tray is always in a corner: top-right, bottom-right, or bottom-left (never top-left)
+  // Use ScaledWidth/ScaledHeight for correct positioning on target monitor DPI
   if WorkArea.Top > Bounds.Top then
   begin
     // Taskbar at top -> tray at top-right
     // Position window's top-right corner at work area's top-right
-    Result.X := WorkArea.Right - AContext.FormWidth;
+    Result.X := WorkArea.Right - AContext.ScaledWidth;
     Result.Y := WorkArea.Top;
     LogDebug('Tray at TOP-RIGHT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
   end
@@ -204,15 +235,15 @@ begin
     // Taskbar at left -> tray at bottom-left
     // Position window's bottom-left corner at work area's bottom-left
     Result.X := WorkArea.Left;
-    Result.Y := WorkArea.Bottom - AContext.FormHeight;
+    Result.Y := WorkArea.Bottom - AContext.ScaledHeight;
     LogDebug('Tray at BOTTOM-LEFT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
   end
   else
   begin
     // Taskbar at bottom or right -> tray at bottom-right
     // Position window's bottom-right corner at work area's bottom-right
-    Result.X := WorkArea.Right - AContext.FormWidth;
-    Result.Y := WorkArea.Bottom - AContext.FormHeight;
+    Result.X := WorkArea.Right - AContext.ScaledWidth;
+    Result.Y := WorkArea.Bottom - AContext.ScaledHeight;
     LogDebug('Tray at BOTTOM-RIGHT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
   end;
 end;
@@ -256,8 +287,9 @@ begin
   // Build context with all positioning data
   Context := TPositionContext.Create(AForm, APositionConfig);
 
-  LogDebug('PositionWindow: FormWidth=%d, FormHeight=%d, Mode=%d',
-    [Context.FormWidth, Context.FormHeight, Ord(APosition)], ClassName);
+  LogDebug('PositionWindow: FormWidth=%d, FormHeight=%d, ScaledWidth=%d, ScaledHeight=%d, Mode=%d',
+    [Context.FormWidth, Context.FormHeight, Context.ScaledWidth, Context.ScaledHeight,
+     Ord(APosition)], ClassName);
 
   // Get strategy and calculate position
   Strategy := GetStrategy(APosition);
@@ -270,14 +302,15 @@ begin
      Context.WorkArea.Right, Context.WorkArea.Bottom], ClassName);
 
   // Ensure popup stays within work area
+  // Use ScaledWidth/ScaledHeight for correct bounds on target monitor DPI
   if NewLeft < Context.WorkArea.Left then
     NewLeft := Context.WorkArea.Left;
-  if NewLeft + Context.FormWidth > Context.WorkArea.Right then
-    NewLeft := Context.WorkArea.Right - Context.FormWidth;
+  if NewLeft + Context.ScaledWidth > Context.WorkArea.Right then
+    NewLeft := Context.WorkArea.Right - Context.ScaledWidth;
   if NewTop < Context.WorkArea.Top then
     NewTop := Context.WorkArea.Top;
-  if NewTop + Context.FormHeight > Context.WorkArea.Bottom then
-    NewTop := Context.WorkArea.Bottom - Context.FormHeight;
+  if NewTop + Context.ScaledHeight > Context.WorkArea.Bottom then
+    NewTop := Context.WorkArea.Bottom - Context.ScaledHeight;
 
   LogDebug('Final position: Left=%d, Top=%d', [NewLeft, NewTop], ClassName);
 
