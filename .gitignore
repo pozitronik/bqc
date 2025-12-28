@@ -4,3 +4,4 @@ __history/
 __recovery/
 *.~*
 bqc.identcache
+bqc.dproj.local
