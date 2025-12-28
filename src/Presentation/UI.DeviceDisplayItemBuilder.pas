@@ -84,6 +84,7 @@ implementation
 
 uses
   System.SysUtils,
+  App.Logger,
   UI.DeviceFormatter,
   UI.DeviceSorter;
 
@@ -107,15 +108,27 @@ function TDeviceDisplayItemBuilder.IsVisible(const ADevice: TBluetoothDeviceInfo
 var
   DeviceConfig: TDeviceConfig;
 begin
+  LogDebug('IsVisible: Checking device Address=$%.12X, Name="%s"', [ADevice.AddressInt, ADevice.Name], ClassName);
+
   // Skip devices with empty names
   if Trim(ADevice.Name) = '' then
+  begin
+    LogDebug('IsVisible: FILTERED - empty name', ClassName);
     Exit(False);
+  end;
 
   // Skip hidden devices
   DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
-  if DeviceConfig.Hidden then
-    Exit(False);
+  LogDebug('IsVisible: Config loaded - Hidden=%s, Alias="%s"',
+    [BoolToStr(DeviceConfig.Hidden, True), DeviceConfig.Alias], ClassName);
 
+  if DeviceConfig.Hidden then
+  begin
+    LogDebug('IsVisible: FILTERED - device is hidden', ClassName);
+    Exit(False);
+  end;
+
+  LogDebug('IsVisible: VISIBLE', ClassName);
   Result := True;
 end;
 
@@ -161,11 +174,20 @@ var
   I, Count: Integer;
   Device: TBluetoothDeviceInfo;
 begin
+  LogDebug('BuildDisplayItems: Input count=%d', [Length(ADevices)], ClassName);
+
+  // Log all input devices for debugging
+  for I := 0 to High(ADevices) do
+    LogDebug('BuildDisplayItems: Input[%d] Address=$%.12X, Name="%s"',
+      [I, ADevices[I].AddressInt, ADevices[I].Name], ClassName);
+
   // First pass: count visible devices
   Count := 0;
   for Device in ADevices do
     if IsVisible(Device) then
       Inc(Count);
+
+  LogDebug('BuildDisplayItems: Visible count=%d', [Count], ClassName);
 
   // Allocate result array
   SetLength(Result, Count);
@@ -183,6 +205,7 @@ begin
 
   // Sort the result
   TDeviceSorter.Sort(Result);
+  LogDebug('BuildDisplayItems: Complete, output count=%d', [Length(Result)], ClassName);
 end;
 
 end.

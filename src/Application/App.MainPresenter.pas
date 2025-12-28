@@ -12,6 +12,7 @@ interface
 uses
   System.SysUtils,
   System.Classes,
+  System.TypInfo,
   Vcl.ExtCtrls,
   Bluetooth.Types,
   Bluetooth.Interfaces,
@@ -84,6 +85,12 @@ type
     /// Creates a new array to avoid in-place modification issues.
     /// </summary>
     procedure UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
+
+    /// <summary>
+    /// Finds a device in the internal FDevices array by address.
+    /// Returns empty record (AddressInt=0) if not found.
+    /// </summary>
+    function FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
 
     /// <summary>
     /// Sets toggle state while preventing recursive event handling.
@@ -602,6 +609,16 @@ begin
   LogDebug('UpdateOrAddDevice: Added new device, total=%d', [Length(FDevices)], ClassName);
 end;
 
+function TMainPresenter.FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
+var
+  I: Integer;
+begin
+  Result := Default(TBluetoothDeviceInfo);  // Empty record with AddressInt=0
+  for I := 0 to High(FDevices) do
+    if FDevices[I].AddressInt = AAddress then
+      Exit(FDevices[I]);
+end;
+
 procedure TMainPresenter.SetToggleStateSafe(AState: Boolean);
 begin
   FUpdatingToggle := True;
@@ -619,8 +636,9 @@ procedure TMainPresenter.HandleDeviceStateChanged(Sender: TObject;
 var
   LDevice: TBluetoothDeviceInfo;
 begin
-  LogDebug('HandleDeviceStateChanged: Address=$%.12X, Name="%s", State=%d', [
-    ADevice.AddressInt, ADevice.Name, Ord(ADevice.ConnectionState)
+  LogInfo('HandleDeviceStateChanged: Address=$%.12X, Name="%s", State=%d (%s)', [
+    ADevice.AddressInt, ADevice.Name, Ord(ADevice.ConnectionState),
+    GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(ADevice.ConnectionState))
   ], ClassName);
 
   if Trim(ADevice.Name) = '' then
@@ -634,10 +652,14 @@ begin
   TThread.Queue(nil,
     procedure
     begin
-      LogDebug('HandleDeviceStateChanged (queued): Processing %s', [LDevice.Name], ClassName);
+      LogInfo('HandleDeviceStateChanged (queued): Updating FDevices for %s, State=%d (%s)', [
+        LDevice.Name, Ord(LDevice.ConnectionState),
+        GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(LDevice.ConnectionState))
+      ], ClassName);
 
       // Update local cache using copy-on-write pattern
       UpdateOrAddDevice(LDevice);
+      LogDebug('HandleDeviceStateChanged (queued): FDevices updated, count=%d', [Length(FDevices)], ClassName);
 
       // Update device in persistent config
       // Update LastSeen when device connects or disconnects - the moment we last "saw" it active
@@ -758,25 +780,59 @@ end;
 { Public methods called by View }
 
 procedure TMainPresenter.OnDeviceClicked(const ADevice: TBluetoothDeviceInfo);
+var
+  CurrentDevice: TBluetoothDeviceInfo;
+  I: Integer;
 begin
-  LogInfo('OnDeviceClicked: %s, State=%d', [ADevice.Name, Ord(ADevice.ConnectionState)], ClassName);
+  LogInfo('=== OnDeviceClicked START ===', ClassName);
+  LogInfo('OnDeviceClicked: UI passed device: Name="%s", Address=$%.12X, UIState=%d (%s)',
+    [ADevice.Name, ADevice.AddressInt, Ord(ADevice.ConnectionState),
+     GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(ADevice.ConnectionState))], ClassName);
 
-  if ADevice.ConnectionState in [csConnecting, csDisconnecting] then
+  // Dump all devices in FDevices for debugging
+  LogDebug('OnDeviceClicked: FDevices count=%d', [Length(FDevices)], ClassName);
+  for I := 0 to High(FDevices) do
+    LogDebug('  FDevices[%d]: Address=$%.12X, Name="%s", State=%d (%s)',
+      [I, FDevices[I].AddressInt, FDevices[I].Name, Ord(FDevices[I].ConnectionState),
+       GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(FDevices[I].ConnectionState))], ClassName);
+
+  // Look up current state from internal cache, not stale UI copy
+  CurrentDevice := FindDeviceByAddress(ADevice.AddressInt);
+  if CurrentDevice.AddressInt = 0 then
   begin
-    LogInfo('OnDeviceClicked: Operation in progress, ignoring', ClassName);
+    // Device not in internal list - use passed device (rare case)
+    LogWarning('OnDeviceClicked: Device NOT FOUND in cache (Address=$%.12X), using UI state', [ADevice.AddressInt], ClassName);
+    CurrentDevice := ADevice;
+  end
+  else
+    LogInfo('OnDeviceClicked: Found in cache: CurrentState=%d (%s), IsConnected=%s',
+      [Ord(CurrentDevice.ConnectionState),
+       GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(CurrentDevice.ConnectionState)),
+       BoolToStr(CurrentDevice.IsConnected, True)], ClassName);
+
+  if CurrentDevice.ConnectionState in [csConnecting, csDisconnecting] then
+  begin
+    LogInfo('OnDeviceClicked: Operation in progress, ignoring. === END ===', ClassName);
     FStatusView.ShowStatus('Operation in progress...');
     Exit;
   end;
 
-  if ADevice.IsConnected then
-    FStatusView.ShowStatus(Format('Disconnecting %s...', [ADevice.Name]))
+  if CurrentDevice.IsConnected then
+  begin
+    LogInfo('OnDeviceClicked: ACTION=DISCONNECT (IsConnected=True)', ClassName);
+    FStatusView.ShowStatus(Format('Disconnecting %s...', [CurrentDevice.Name]));
+  end
   else
-    FStatusView.ShowStatus(Format('Connecting %s...', [ADevice.Name]));
+  begin
+    LogInfo('OnDeviceClicked: ACTION=CONNECT (IsConnected=False)', ClassName);
+    FStatusView.ShowStatus(Format('Connecting %s...', [CurrentDevice.Name]));
+  end;
 
   // Menu stays open - user can see connection progress and click more devices
   // Menu will close on focus loss or explicit hotkey/close
 
-  ToggleConnectionAsync(ADevice);
+  LogInfo('OnDeviceClicked: Calling ToggleConnectionAsync. === END ===', ClassName);
+  ToggleConnectionAsync(CurrentDevice);
 end;
 
 procedure TMainPresenter.OnToggleChanged(AEnabled: Boolean);

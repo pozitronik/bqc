@@ -100,28 +100,39 @@ var
   FindHandle: HBLUETOOTH_DEVICE_FIND;
   Device: TBluetoothDeviceInfo;
   DeviceList: TList<TBluetoothDeviceInfo>;
+  LastError: DWORD;
 begin
+  LogDebug('EnumeratePairedDevices: Starting Windows API enumeration', ClassName);
   DeviceList := TList<TBluetoothDeviceInfo>.Create;
   try
     InitDeviceSearchParams(SearchParams, 0);
     InitDeviceInfo(DeviceInfo);
 
     FindHandle := BluetoothFindFirstDevice(@SearchParams, DeviceInfo);
+    LastError := GetLastError;
+    LogDebug('EnumeratePairedDevices: BluetoothFindFirstDevice returned handle=$%X, LastError=%d',
+      [FindHandle, LastError], ClassName);
 
     if FindHandle <> 0 then
     begin
       try
         repeat
           Device := ConvertBluetoothDeviceInfo(DeviceInfo);
+          LogDebug('EnumeratePairedDevices: Found device Address=$%.12X, Name="%s", Connected=%s, Remembered=%s, Authenticated=%s',
+            [Device.AddressInt, Device.Name, BoolToStr(DeviceInfo.fConnected, True),
+             BoolToStr(DeviceInfo.fRemembered, True), BoolToStr(DeviceInfo.fAuthenticated, True)], ClassName);
           DeviceList.Add(Device);
           DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
         until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
       finally
         BluetoothFindDeviceClose(FindHandle);
       end;
-    end;
+    end
+    else
+      LogWarning('EnumeratePairedDevices: BluetoothFindFirstDevice failed, no devices found', ClassName);
 
     Result := DeviceList.ToArray;
+    LogDebug('EnumeratePairedDevices: Complete, found %d devices', [Length(Result)], ClassName);
   finally
     DeviceList.Free;
   end;
