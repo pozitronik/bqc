@@ -467,6 +467,35 @@ type
   end;
 
   /// <summary>
+  /// Strategy interface for battery level query implementations.
+  /// Implements Strategy Pattern for different query mechanisms.
+  /// Examples: BLE GATT, SetupAPI device properties, HID reports.
+  /// </summary>
+  IBatteryQueryStrategy = interface
+    ['{E1F2A3B4-CCCC-DDDD-EEEE-FFFF66667777}']
+
+    /// <summary>
+    /// Attempts to query battery level using this strategy.
+    /// </summary>
+    /// <param name="ADeviceAddress">The 64-bit Bluetooth address.</param>
+    /// <param name="ATimeoutMs">Timeout in milliseconds.</param>
+    /// <param name="AStatus">Output battery status if successful.</param>
+    /// <returns>True if query succeeded, False to try next strategy.</returns>
+    function TryQuery(ADeviceAddress: UInt64; ATimeoutMs: Cardinal;
+      out AStatus: TBatteryStatus): Boolean;
+
+    /// <summary>
+    /// Gets the priority of this strategy (higher = tried first).
+    /// </summary>
+    function GetPriority: Integer;
+
+    /// <summary>
+    /// Gets a human-readable name for this strategy.
+    /// </summary>
+    function GetName: string;
+  end;
+
+  /// <summary>
   /// Interface for querying Bluetooth device battery levels.
   /// Single Responsibility: Only handles battery level queries.
   /// Uses BLE GATT Battery Service (UUID 0x180F) when available.

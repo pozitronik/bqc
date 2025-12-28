@@ -279,6 +279,59 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IBatteryQueryStrategy for testing.
+  /// </summary>
+  TMockBatteryQueryStrategy = class(TInterfacedObject, IBatteryQueryStrategy)
+  private
+    FPriority: Integer;
+    FName: string;
+    FTryQueryResult: Boolean;
+    FBatteryStatus: TBatteryStatus;
+    FTryQueryCallCount: Integer;
+    FLastQueryAddress: UInt64;
+    FLastQueryTimeout: Cardinal;
+  public
+    constructor Create(APriority: Integer = 100; const AName: string = 'Mock');
+
+    // IBatteryQueryStrategy
+    function TryQuery(ADeviceAddress: UInt64; ATimeoutMs: Cardinal;
+      out AStatus: TBatteryStatus): Boolean;
+    function GetPriority: Integer;
+    function GetName: string;
+
+    // Test configuration
+    property TryQueryResult: Boolean read FTryQueryResult write FTryQueryResult;
+    property BatteryStatus: TBatteryStatus read FBatteryStatus write FBatteryStatus;
+    property TryQueryCallCount: Integer read FTryQueryCallCount;
+    property LastQueryAddress: UInt64 read FLastQueryAddress;
+    property LastQueryTimeout: Cardinal read FLastQueryTimeout;
+    property Priority: Integer read FPriority write FPriority;
+    property Name: string read FName write FName;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IBatteryQuery for testing.
+  /// </summary>
+  TMockBatteryQuery = class(TInterfacedObject, IBatteryQuery)
+  private
+    FBatteryStatus: TBatteryStatus;
+    FGetBatteryLevelCallCount: Integer;
+    FLastQueryAddress: UInt64;
+  public
+    constructor Create;
+
+    // IBatteryQuery
+    function GetBatteryLevel(ADeviceAddress: UInt64): TBatteryStatus;
+    function GetBatteryLevelWithTimeout(ADeviceAddress: UInt64;
+      ATimeoutMs: Cardinal): TBatteryStatus;
+
+    // Test configuration
+    property BatteryStatus: TBatteryStatus read FBatteryStatus write FBatteryStatus;
+    property GetBatteryLevelCallCount: Integer read FGetBatteryLevelCallCount;
+    property LastQueryAddress: UInt64 read FLastQueryAddress;
+  end;
+
+  /// <summary>
   /// Mock implementation of IBatteryCache for testing.
   /// </summary>
   TMockBatteryCache = class(TInterfacedObject, IBatteryCache)
@@ -866,6 +919,65 @@ begin
   FRadioEnabled := AEnabled;
   if Assigned(FOnStateChanged) then
     FOnStateChanged(Self, AEnabled);
+end;
+
+{ TMockBatteryQueryStrategy }
+
+constructor TMockBatteryQueryStrategy.Create(APriority: Integer; const AName: string);
+begin
+  inherited Create;
+  FPriority := APriority;
+  FName := AName;
+  FTryQueryResult := False;
+  FBatteryStatus := TBatteryStatus.NotSupported;
+  FTryQueryCallCount := 0;
+  FLastQueryAddress := 0;
+  FLastQueryTimeout := 0;
+end;
+
+function TMockBatteryQueryStrategy.TryQuery(ADeviceAddress: UInt64; ATimeoutMs: Cardinal;
+  out AStatus: TBatteryStatus): Boolean;
+begin
+  Inc(FTryQueryCallCount);
+  FLastQueryAddress := ADeviceAddress;
+  FLastQueryTimeout := ATimeoutMs;
+  AStatus := FBatteryStatus;
+  Result := FTryQueryResult;
+end;
+
+function TMockBatteryQueryStrategy.GetPriority: Integer;
+begin
+  Result := FPriority;
+end;
+
+function TMockBatteryQueryStrategy.GetName: string;
+begin
+  Result := FName;
+end;
+
+{ TMockBatteryQuery }
+
+constructor TMockBatteryQuery.Create;
+begin
+  inherited Create;
+  FBatteryStatus := TBatteryStatus.NotSupported;
+  FGetBatteryLevelCallCount := 0;
+  FLastQueryAddress := 0;
+end;
+
+function TMockBatteryQuery.GetBatteryLevel(ADeviceAddress: UInt64): TBatteryStatus;
+begin
+  Inc(FGetBatteryLevelCallCount);
+  FLastQueryAddress := ADeviceAddress;
+  Result := FBatteryStatus;
+end;
+
+function TMockBatteryQuery.GetBatteryLevelWithTimeout(ADeviceAddress: UInt64;
+  ATimeoutMs: Cardinal): TBatteryStatus;
+begin
+  Inc(FGetBatteryLevelCallCount);
+  FLastQueryAddress := ADeviceAddress;
+  Result := FBatteryStatus;
 end;
 
 { TMockBatteryCache }

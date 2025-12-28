@@ -24,13 +24,55 @@ uses
 
 type
   /// <summary>
-  /// Implementation of IBatteryQuery using WinRT GATT APIs.
-  /// Queries the standard Bluetooth Low Energy Battery Service (0x180F).
+  /// BLE GATT Battery Service strategy for querying battery levels.
+  /// Uses Windows.Devices.Bluetooth.GenericAttributeProfile API.
+  /// Works with Bluetooth Low Energy devices that expose Battery Service (0x180F).
+  /// </summary>
+  TBLEBatteryQueryStrategy = class(TInterfacedObject, IBatteryQueryStrategy)
+  private const
+    STRATEGY_PRIORITY = 100;  // Higher priority - try BLE first
+    STRATEGY_NAME = 'BLE GATT';
+  public
+    function TryQuery(ADeviceAddress: UInt64; ATimeoutMs: Cardinal;
+      out AStatus: TBatteryStatus): Boolean;
+    function GetPriority: Integer;
+    function GetName: string;
+  end;
+
+  /// <summary>
+  /// SetupAPI device property strategy for querying battery levels.
+  /// Uses Windows SetupAPI to read DEVPKEY_Bluetooth_BatteryPercent.
+  /// Works with Classic Bluetooth devices (headphones, etc.).
+  /// </summary>
+  TSetupAPIBatteryQueryStrategy = class(TInterfacedObject, IBatteryQueryStrategy)
+  private const
+    STRATEGY_PRIORITY = 50;  // Lower priority - fallback after BLE
+    STRATEGY_NAME = 'SetupAPI';
+  public
+    function TryQuery(ADeviceAddress: UInt64; ATimeoutMs: Cardinal;
+      out AStatus: TBatteryStatus): Boolean;
+    function GetPriority: Integer;
+    function GetName: string;
+  end;
+
+  /// <summary>
+  /// Implementation of IBatteryQuery using pluggable strategies.
+  /// Iterates through strategies by priority until one succeeds.
+  /// Open/Closed Principle: Add new strategies without modifying this class.
   /// </summary>
   TBatteryQuery = class(TInterfacedObject, IBatteryQuery)
   private const
     DEFAULT_TIMEOUT_MS = 5000;
+  private
+    FStrategies: TArray<IBatteryQueryStrategy>;
+    procedure SortStrategiesByPriority;
   public
+    /// <summary>
+    /// Creates a battery query with the specified strategies.
+    /// Strategies are tried in priority order (highest first).
+    /// </summary>
+    constructor Create(const AStrategies: TArray<IBatteryQueryStrategy>);
+
     /// <summary>
     /// Gets the battery level for a Bluetooth device.
     /// Uses default timeout of 5 seconds.
@@ -39,6 +81,7 @@ type
 
     /// <summary>
     /// Gets the battery level with a custom timeout.
+    /// Tries each strategy in priority order until one succeeds.
     /// </summary>
     function GetBatteryLevelWithTimeout(ADeviceAddress: UInt64;
       ATimeoutMs: Cardinal): TBatteryStatus;
@@ -80,10 +123,28 @@ type
   end;
 
 /// <summary>
-/// Creates a battery query instance.
+/// Creates a BLE GATT battery query strategy.
+/// </summary>
+function CreateBLEBatteryQueryStrategy: IBatteryQueryStrategy;
+
+/// <summary>
+/// Creates a SetupAPI battery query strategy.
+/// </summary>
+function CreateSetupAPIBatteryQueryStrategy: IBatteryQueryStrategy;
+
+/// <summary>
+/// Creates a battery query instance with default strategies.
+/// Uses BLE GATT (priority 100) and SetupAPI (priority 50).
 /// Factory function for dependency injection.
 /// </summary>
 function CreateBatteryQuery: IBatteryQuery;
+
+/// <summary>
+/// Creates a battery query instance with custom strategies.
+/// Strategies are tried in priority order (highest first).
+/// </summary>
+function CreateBatteryQueryWithStrategies(
+  const AStrategies: TArray<IBatteryQueryStrategy>): IBatteryQuery;
 
 /// <summary>
 /// Creates a battery cache instance.
@@ -1153,12 +1214,102 @@ begin
     LogDebug('No battery level available for $%.12X', [ADeviceAddress], LOG_SOURCE);
 end;
 
+function CreateBLEBatteryQueryStrategy: IBatteryQueryStrategy;
+begin
+  Result := TBLEBatteryQueryStrategy.Create;
+end;
+
+function CreateSetupAPIBatteryQueryStrategy: IBatteryQueryStrategy;
+begin
+  Result := TSetupAPIBatteryQueryStrategy.Create;
+end;
+
 function CreateBatteryQuery: IBatteryQuery;
 begin
-  Result := TBatteryQuery.Create;
+  Result := TBatteryQuery.Create([
+    CreateBLEBatteryQueryStrategy,
+    CreateSetupAPIBatteryQueryStrategy
+  ]);
+end;
+
+function CreateBatteryQueryWithStrategies(
+  const AStrategies: TArray<IBatteryQueryStrategy>): IBatteryQuery;
+begin
+  Result := TBatteryQuery.Create(AStrategies);
+end;
+
+{ TBLEBatteryQueryStrategy }
+
+function TBLEBatteryQueryStrategy.TryQuery(ADeviceAddress: UInt64;
+  ATimeoutMs: Cardinal; out AStatus: TBatteryStatus): Boolean;
+begin
+  LogDebug('TryQuery: Using BLE GATT for $%.12X', [ADeviceAddress], LOG_SOURCE);
+  AStatus := QueryBluetoothBatteryViaBLE(ADeviceAddress, ATimeoutMs);
+  Result := AStatus.HasLevel;
+  if Result then
+    LogDebug('TryQuery: BLE succeeded, level=%d%%', [AStatus.Level], LOG_SOURCE)
+  else
+    LogDebug('TryQuery: BLE returned no level', LOG_SOURCE);
+end;
+
+function TBLEBatteryQueryStrategy.GetPriority: Integer;
+begin
+  Result := STRATEGY_PRIORITY;
+end;
+
+function TBLEBatteryQueryStrategy.GetName: string;
+begin
+  Result := STRATEGY_NAME;
+end;
+
+{ TSetupAPIBatteryQueryStrategy }
+
+function TSetupAPIBatteryQueryStrategy.TryQuery(ADeviceAddress: UInt64;
+  ATimeoutMs: Cardinal; out AStatus: TBatteryStatus): Boolean;
+begin
+  LogDebug('TryQuery: Using SetupAPI for $%.12X', [ADeviceAddress], LOG_SOURCE);
+  AStatus := QueryBatteryViaDeviceProperty(ADeviceAddress);
+  Result := AStatus.HasLevel;
+  if Result then
+    LogDebug('TryQuery: SetupAPI succeeded, level=%d%%', [AStatus.Level], LOG_SOURCE)
+  else
+    LogDebug('TryQuery: SetupAPI returned no level', LOG_SOURCE);
+end;
+
+function TSetupAPIBatteryQueryStrategy.GetPriority: Integer;
+begin
+  Result := STRATEGY_PRIORITY;
+end;
+
+function TSetupAPIBatteryQueryStrategy.GetName: string;
+begin
+  Result := STRATEGY_NAME;
 end;
 
 { TBatteryQuery }
+
+constructor TBatteryQuery.Create(const AStrategies: TArray<IBatteryQueryStrategy>);
+begin
+  inherited Create;
+  FStrategies := AStrategies;
+  SortStrategiesByPriority;
+end;
+
+procedure TBatteryQuery.SortStrategiesByPriority;
+var
+  I, J: Integer;
+  Temp: IBatteryQueryStrategy;
+begin
+  // Simple bubble sort by priority (descending - highest first)
+  for I := 0 to High(FStrategies) - 1 do
+    for J := I + 1 to High(FStrategies) do
+      if FStrategies[J].GetPriority > FStrategies[I].GetPriority then
+      begin
+        Temp := FStrategies[I];
+        FStrategies[I] := FStrategies[J];
+        FStrategies[J] := Temp;
+      end;
+end;
 
 function TBatteryQuery.GetBatteryLevel(ADeviceAddress: UInt64): TBatteryStatus;
 begin
@@ -1167,8 +1318,29 @@ end;
 
 function TBatteryQuery.GetBatteryLevelWithTimeout(ADeviceAddress: UInt64;
   ATimeoutMs: Cardinal): TBatteryStatus;
+var
+  Strategy: IBatteryQueryStrategy;
 begin
-  Result := QueryBluetoothBattery(ADeviceAddress, ATimeoutMs);
+  LogDebug('GetBatteryLevelWithTimeout: Querying $%.12X with %d strategies',
+    [ADeviceAddress, Length(FStrategies)], LOG_SOURCE);
+
+  for Strategy in FStrategies do
+  begin
+    LogDebug('GetBatteryLevelWithTimeout: Trying strategy "%s" (priority %d)',
+      [Strategy.GetName, Strategy.GetPriority], LOG_SOURCE);
+
+    if Strategy.TryQuery(ADeviceAddress, ATimeoutMs, Result) then
+    begin
+      LogInfo('Battery level for $%.12X: %d%% (via %s)',
+        [ADeviceAddress, Result.Level, Strategy.GetName], LOG_SOURCE);
+      Exit;
+    end;
+  end;
+
+  // No strategy succeeded
+  Result := TBatteryStatus.NotSupported;
+  LogDebug('GetBatteryLevelWithTimeout: No strategy succeeded for $%.12X',
+    [ADeviceAddress], LOG_SOURCE);
 end;
 
 { TBatteryCache }
