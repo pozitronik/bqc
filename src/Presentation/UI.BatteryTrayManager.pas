@@ -33,9 +33,12 @@ const
   /// <summary>
   /// Callback message for all battery tray icons.
   /// Icons are distinguished by uID field passed in wParam.
-  /// Using WM_USER + 200 to avoid conflict with WM_HOTKEY_DETECTED (WM_USER + 100).
+  /// Using WM_USER + 201 to avoid conflict with:
+  ///   - WM_HOTKEY_DETECTED (WM_USER + 100)
+  ///   - WM_TRAYICON (WM_USER + 101)
+  ///   - WM_FOREGROUND_LOST (WM_USER + 200)
   /// </summary>
-  WM_BATTERYTRAY_CALLBACK = WM_USER + 200;
+  WM_BATTERYTRAY_CALLBACK = WM_USER + 201;
 
   /// <summary>
   /// Shell icon version constants for modern behavior.
