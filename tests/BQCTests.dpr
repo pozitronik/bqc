@@ -44,6 +44,7 @@ uses
   Tests.BatteryTrayManager in 'Tests.BatteryTrayManager.pas',
   Tests.ConfigSection.BatteryTray in 'Tests.ConfigSection.BatteryTray.pas',
   Tests.HotkeyManager in 'Tests.HotkeyManager.pas',
+  Tests.BatteryQuery in 'Tests.BatteryQuery.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
   Tests.Mocks.Config in 'Tests.Mocks.Config.pas',
   Tests.Mocks.View in 'Tests.Mocks.View.pas',
