@@ -108,12 +108,6 @@ type
     class function GetStrategy(AMode: TPositionMode): IPositionStrategy;
   end;
 
-/// <summary>
-/// Taskbar utility functions (used by strategies).
-/// </summary>
-function GetTaskbarRect(out ARect: TRect): Boolean;
-function IsTaskbarHorizontal(const ARect: TRect): Boolean;
-
 implementation
 
 uses
@@ -121,31 +115,8 @@ uses
   App.Logger;
 
 const
-  // Windows Shell class name for taskbar
-  TASKBAR_CLASS_NAME = 'Shell_TrayWnd';
-
-  // Margin between window and screen/taskbar edge
+  // Margin between window and screen edge
   WINDOW_EDGE_MARGIN = 10;
-
-{ Taskbar utility functions }
-
-function GetTaskbarRect(out ARect: TRect): Boolean;
-var
-  TrayWnd: HWND;
-begin
-  TrayWnd := FindWindow(TASKBAR_CLASS_NAME, nil);
-  Result := (TrayWnd <> 0) and GetWindowRect(TrayWnd, ARect);
-end;
-
-function IsTaskbarHorizontal(const ARect: TRect): Boolean;
-var
-  TaskbarWidth, TaskbarHeight: Integer;
-begin
-  TaskbarWidth := ARect.Right - ARect.Left;
-  TaskbarHeight := ARect.Bottom - ARect.Top;
-  // Use >= to treat square taskbars as horizontal (edge case)
-  Result := TaskbarWidth >= TaskbarHeight;
-end;
 
 { TPositionContext }
 
@@ -204,67 +175,45 @@ end;
 
 function TNearTrayPositioner.CalculatePosition(const AContext: TPositionContext): TPoint;
 var
-  TrayRect: TRect;
-  WorkArea: TRect;
   Mon: TMonitor;
+  Bounds, WorkArea: TRect;
 begin
-  WorkArea := AContext.WorkArea;
+  // Find tray on the active monitor (where cursor is)
+  // Windows can show taskbar on all displays, so use cursor's monitor
+  Mon := Screen.MonitorFromPoint(AContext.CursorPos);
+  if Mon = nil then
+    Mon := Screen.PrimaryMonitor;
+  if Mon = nil then
+    Mon := Screen.Monitors[0];
 
-  // Find the actual taskbar/tray position
-  if GetTaskbarRect(TrayRect) then
+  Bounds := Mon.BoundsRect;
+  WorkArea := Mon.WorkareaRect;
+
+  // Detect tray corner by comparing monitor bounds to work area
+  // Tray is always in a corner: top-right, bottom-right, or bottom-left (never top-left)
+  if WorkArea.Top > Bounds.Top then
   begin
-    LogDebug('Taskbar at L=%d,T=%d,R=%d,B=%d, Horizontal=%s',
-      [TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom,
-       BoolToStr(IsTaskbarHorizontal(TrayRect), True)], ClassName);
-
-    // Get work area of monitor containing the taskbar
-    Mon := Screen.MonitorFromRect(TrayRect);
-    if Mon <> nil then
-      WorkArea := Mon.WorkareaRect;
-
-    if IsTaskbarHorizontal(TrayRect) then
-    begin
-      // Horizontal taskbar (top or bottom)
-      if TrayRect.Top < WorkArea.Top then
-      begin
-        // Taskbar at top - position popup below taskbar, near right edge
-        Result.X := TrayRect.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
-        Result.Y := TrayRect.Bottom + WINDOW_EDGE_MARGIN;
-        LogDebug('Taskbar at TOP', ClassName);
-      end
-      else
-      begin
-        // Taskbar at bottom - position popup above taskbar, near right edge
-        Result.X := TrayRect.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
-        Result.Y := TrayRect.Top - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-        LogDebug('Taskbar at BOTTOM', ClassName);
-      end;
-    end
-    else
-    begin
-      // Vertical taskbar (left or right)
-      if TrayRect.Left < WorkArea.Left then
-      begin
-        // Taskbar at left - position popup to the right of taskbar, near bottom
-        Result.X := TrayRect.Right + WINDOW_EDGE_MARGIN;
-        Result.Y := TrayRect.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-        LogDebug('Taskbar at LEFT', ClassName);
-      end
-      else
-      begin
-        // Taskbar at right - position popup to the left of taskbar, near bottom
-        Result.X := TrayRect.Left - AContext.FormWidth - WINDOW_EDGE_MARGIN;
-        Result.Y := TrayRect.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-        LogDebug('Taskbar at RIGHT', ClassName);
-      end;
-    end;
+    // Taskbar at top -> tray at top-right
+    // Position window's top-right corner at work area's top-right
+    Result.X := WorkArea.Right - AContext.FormWidth;
+    Result.Y := WorkArea.Top;
+    LogDebug('Tray at TOP-RIGHT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
+  end
+  else if WorkArea.Left > Bounds.Left then
+  begin
+    // Taskbar at left -> tray at bottom-left
+    // Position window's bottom-left corner at work area's bottom-left
+    Result.X := WorkArea.Left;
+    Result.Y := WorkArea.Bottom - AContext.FormHeight;
+    LogDebug('Tray at BOTTOM-LEFT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
   end
   else
   begin
-    // Fallback: position at bottom-right of cursor's monitor work area
-    Result.X := WorkArea.Right - AContext.FormWidth - WINDOW_EDGE_MARGIN;
-    Result.Y := WorkArea.Bottom - AContext.FormHeight - WINDOW_EDGE_MARGIN;
-    LogDebug('Near tray (fallback to bottom-right)', ClassName);
+    // Taskbar at bottom or right -> tray at bottom-right
+    // Position window's bottom-right corner at work area's bottom-right
+    Result.X := WorkArea.Right - AContext.FormWidth;
+    Result.Y := WorkArea.Bottom - AContext.FormHeight;
+    LogDebug('Tray at BOTTOM-RIGHT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
   end;
 end;
 

@@ -18,31 +18,6 @@ uses
 
 type
   /// <summary>
-  /// Test fixture for IsTaskbarHorizontal utility function.
-  /// </summary>
-  [TestFixture]
-  TTaskbarUtilsTests = class
-  public
-    [Test]
-    procedure IsTaskbarHorizontal_WideRect_ReturnsTrue;
-
-    [Test]
-    procedure IsTaskbarHorizontal_TallRect_ReturnsFalse;
-
-    [Test]
-    procedure IsTaskbarHorizontal_SquareRect_ReturnsTrue;
-
-    [Test]
-    procedure IsTaskbarHorizontal_TypicalBottomTaskbar_ReturnsTrue;
-
-    [Test]
-    procedure IsTaskbarHorizontal_TypicalLeftTaskbar_ReturnsFalse;
-
-    [Test]
-    procedure IsTaskbarHorizontal_ZeroSizeRect_ReturnsTrue;
-  end;
-
-  /// <summary>
   /// Test fixture for TCoordinatesPositioner strategy.
   /// </summary>
   [TestFixture]
@@ -213,62 +188,6 @@ uses
 
 const
   WINDOW_EDGE_MARGIN = 10; // Must match UI.WindowPositioner constant
-
-{ TTaskbarUtilsTests }
-
-procedure TTaskbarUtilsTests.IsTaskbarHorizontal_WideRect_ReturnsTrue;
-var
-  R: TRect;
-begin
-  R := Rect(0, 0, 1920, 40); // Wide taskbar
-  Assert.IsTrue(IsTaskbarHorizontal(R));
-end;
-
-procedure TTaskbarUtilsTests.IsTaskbarHorizontal_TallRect_ReturnsFalse;
-var
-  R: TRect;
-begin
-  R := Rect(0, 0, 40, 1080); // Tall taskbar (vertical)
-  Assert.IsFalse(IsTaskbarHorizontal(R));
-end;
-
-procedure TTaskbarUtilsTests.IsTaskbarHorizontal_SquareRect_ReturnsTrue;
-var
-  R: TRect;
-begin
-  R := Rect(0, 0, 100, 100); // Square (width = height)
-  // With >= comparison, square taskbar is treated as horizontal (edge case)
-  Assert.IsTrue(IsTaskbarHorizontal(R));
-end;
-
-procedure TTaskbarUtilsTests.IsTaskbarHorizontal_TypicalBottomTaskbar_ReturnsTrue;
-var
-  R: TRect;
-begin
-  // Typical Windows 11 bottom taskbar
-  R := Rect(0, 1040, 1920, 1080);
-  // Width = 1920, Height = 40
-  Assert.IsTrue(IsTaskbarHorizontal(R));
-end;
-
-procedure TTaskbarUtilsTests.IsTaskbarHorizontal_TypicalLeftTaskbar_ReturnsFalse;
-var
-  R: TRect;
-begin
-  // Vertical taskbar on left
-  R := Rect(0, 0, 48, 1080);
-  // Width = 48, Height = 1080
-  Assert.IsFalse(IsTaskbarHorizontal(R));
-end;
-
-procedure TTaskbarUtilsTests.IsTaskbarHorizontal_ZeroSizeRect_ReturnsTrue;
-var
-  R: TRect;
-begin
-  // Edge case: zero-sized rect (0 >= 0 is True)
-  R := Rect(0, 0, 0, 0);
-  Assert.IsTrue(IsTaskbarHorizontal(R));
-end;
 
 { TCoordinatesPositionerTests }
 
@@ -657,7 +576,7 @@ var
   Context: TPositionContext;
   Pos: TPoint;
 begin
-  // TNearTrayPositioner uses GetTaskbarRect which requires Windows API
+  // TNearTrayPositioner detects taskbar by comparing monitor bounds to work area
   // We can only test that it doesn't crash and returns a position
   Strategy := TNearTrayPositioner.Create;
   Context := CreateContextWithWorkArea(300, 400, Rect(0, 0, 1920, 1040));
@@ -665,7 +584,6 @@ begin
   Pos := Strategy.CalculatePosition(Context);
 
   // Position should be within reasonable bounds (not extreme values)
-  // This test verifies the strategy runs without error
   Assert.IsTrue(Pos.X >= -1920, 'X position should be reasonable');
   Assert.IsTrue(Pos.Y >= -1080, 'Y position should be reasonable');
 end;
@@ -676,15 +594,13 @@ var
   Context: TPositionContext;
   Pos: TPoint;
 begin
-  // TNearTrayPositioner handles vertical taskbars too
-  // Work area would be reduced on the right side for a right taskbar
+  // TNearTrayPositioner detects taskbar position from work area bounds
   Strategy := TNearTrayPositioner.Create;
   Context := CreateContextWithWorkArea(300, 400, Rect(0, 0, 1870, 1080));
 
   Pos := Strategy.CalculatePosition(Context);
 
   // Position should be within reasonable bounds
-  // Without actual taskbar detection, falls back to bottom-right
   Assert.IsTrue(Pos.X >= -1920, 'X position should be reasonable');
   Assert.IsTrue(Pos.Y >= -1080, 'Y position should be reasonable');
 end;
@@ -728,7 +644,6 @@ begin
 end;
 
 initialization
-  TDUnitX.RegisterTestFixture(TTaskbarUtilsTests);
   TDUnitX.RegisterTestFixture(TCoordinatesPositionerTests);
   TDUnitX.RegisterTestFixture(TNearCursorPositionerTests);
   TDUnitX.RegisterTestFixture(TCenterScreenPositionerTests);
