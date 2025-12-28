@@ -185,6 +185,7 @@ type
     procedure WMHotkey(var Msg: TMessage); message WM_HOTKEY;
     procedure WMHotkeyDetected(var Msg: TMessage); message WM_HOTKEY_DETECTED;
     procedure WMDpiChanged(var Msg: TMessage); message WM_DPICHANGED;
+    procedure WMDisplayChange(var Msg: TMessage); message WM_DISPLAYCHANGE;
 
   public
     { Dependency injection - must be called before FormCreate completes }
@@ -1246,6 +1247,21 @@ begin
     LogDebug('WMDpiChanged: Repositioning window', ClassName);
     ApplyWindowPosition;
   end;
+end;
+
+procedure TFormMain.WMDisplayChange(var Msg: TMessage);
+begin
+  inherited;
+  // Display configuration changed (resolution, monitor add/remove, taskbar move).
+  // Low-level keyboard hooks (WH_KEYBOARD_LL) may become stale during Windows
+  // display reconfiguration - refresh them immediately.
+  //
+  // KNOWN ISSUE: This mitigation doesn't fully solve the problem. Windows may
+  // reset hooks at times that don't trigger WM_DISPLAYCHANGE (e.g., certain
+  // taskbar movements). In rare cases, Win+K may trigger the system Cast panel
+  // instead of this app. Workaround: press the hotkey again to restore the hook.
+  LogDebug('WMDisplayChange: Display configuration changed, refreshing hotkey', ClassName);
+  ApplyHotkeySettings;
 end;
 
 procedure TFormMain.WMSysCommand(var Msg: TWMSysCommand);

@@ -201,32 +201,122 @@ function TNearTrayPositioner.CalculatePosition(const AContext: TPositionContext)
 var
   Mon: TMonitor;
   Bounds, WorkArea: TRect;
+  TrayWnd, SecondaryTrayWnd: HWND;
+  TrayRect: TRect;
+  HasSecondaryTaskbar: Boolean;
+  I: Integer;
+  ScaledWidth, ScaledHeight: Integer;
 begin
-  // Find tray on the active monitor (where cursor is)
-  // Windows can show taskbar on all displays, so use cursor's monitor
-  Mon := Screen.MonitorFromPoint(AContext.CursorPos);
+  // Debug: Log all monitors
+  LogDebug('MonitorCount=%d, CursorPos=(%d,%d)', [Screen.MonitorCount, AContext.CursorPos.X, AContext.CursorPos.Y], ClassName);
+  for I := 0 to Screen.MonitorCount - 1 do
+  begin
+    LogDebug('Monitor[%d]: Primary=%s, Bounds=(%d,%d,%d,%d), WorkArea=(%d,%d,%d,%d)', [
+      I,
+      BoolToStr(Screen.Monitors[I].Primary, True),
+      Screen.Monitors[I].BoundsRect.Left, Screen.Monitors[I].BoundsRect.Top,
+      Screen.Monitors[I].BoundsRect.Right, Screen.Monitors[I].BoundsRect.Bottom,
+      Screen.Monitors[I].WorkareaRect.Left, Screen.Monitors[I].WorkareaRect.Top,
+      Screen.Monitors[I].WorkareaRect.Right, Screen.Monitors[I].WorkareaRect.Bottom
+    ], ClassName);
+  end;
+
+  // Check if Windows has taskbar on all displays (secondary taskbars exist)
+  // Shell_SecondaryTrayWnd windows only exist when "show taskbar on all displays" is enabled
+  SecondaryTrayWnd := FindWindow('Shell_SecondaryTrayWnd', nil);
+  HasSecondaryTaskbar := SecondaryTrayWnd <> 0;
+  LogDebug('Shell_SecondaryTrayWnd search: Handle=$%x, HasSecondaryTaskbar=%s', [
+    SecondaryTrayWnd, BoolToStr(HasSecondaryTaskbar, True)
+  ], ClassName);
+
+  // Always find Shell_TrayWnd for logging
+  TrayWnd := FindWindow('Shell_TrayWnd', nil);
+  if TrayWnd <> 0 then
+  begin
+    GetWindowRect(TrayWnd, TrayRect);
+    LogDebug('Shell_TrayWnd: Handle=$%x, Rect=(%d,%d,%d,%d)', [
+      TrayWnd, TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom
+    ], ClassName);
+  end
+  else
+  begin
+    LogDebug('Shell_TrayWnd: NOT FOUND', ClassName);
+  end;
+
+  if HasSecondaryTaskbar then
+  begin
+    // Taskbar on all displays - use active monitor (where cursor is)
+    // Each monitor has its own taskbar, so position near the one user is looking at
+    Mon := Screen.MonitorFromPoint(AContext.CursorPos);
+    LogDebug('Decision: Taskbar on all displays, using cursor monitor', ClassName);
+  end
+  else
+  begin
+    // Taskbar only on one display - find the monitor with Shell_TrayWnd
+    // This works with third-party tools (Open-Shell, etc.) that move the taskbar
+    if TrayWnd <> 0 then
+    begin
+      Mon := Screen.MonitorFromRect(TrayRect);
+      if Mon <> nil then
+        LogDebug('Decision: Using Shell_TrayWnd monitor, MonitorIndex=%d, Primary=%s', [
+          Mon.MonitorNum, BoolToStr(Mon.Primary, True)
+        ], ClassName)
+      else
+        LogDebug('Decision: Screen.MonitorFromRect returned nil!', ClassName);
+    end
+    else
+    begin
+      // Fallback: use cursor's monitor if tray not found (shouldn't happen)
+      Mon := Screen.MonitorFromPoint(AContext.CursorPos);
+      LogDebug('Decision: Shell_TrayWnd not found, falling back to cursor monitor', ClassName);
+    end;
+  end;
+
+  // Fallback chain for edge cases
   if Mon = nil then
+  begin
     Mon := Screen.PrimaryMonitor;
+    LogDebug('Fallback: Mon was nil, using PrimaryMonitor', ClassName);
+  end;
   if Mon = nil then
+  begin
     Mon := Screen.Monitors[0];
+    LogDebug('Fallback: PrimaryMonitor was nil, using Monitors[0]', ClassName);
+  end;
 
   Bounds := Mon.BoundsRect;
   WorkArea := Mon.WorkareaRect;
+  LogDebug('Final monitor: Index=%d, Bounds=(%d,%d,%d,%d), WorkArea=(%d,%d,%d,%d), PPI=%d', [
+    Mon.MonitorNum, Bounds.Left, Bounds.Top, Bounds.Right, Bounds.Bottom,
+    WorkArea.Left, WorkArea.Top, WorkArea.Right, WorkArea.Bottom, Mon.PixelsPerInch
+  ], ClassName);
 
-  // Log DPI scaling info if applicable
-  if AContext.FormPPI <> AContext.TargetPPI then
-    LogDebug('DPI scale %d->%d: %dx%d -> %dx%d',
-      [AContext.FormPPI, AContext.TargetPPI, AContext.FormWidth, AContext.FormHeight,
-       AContext.ScaledWidth, AContext.ScaledHeight], ClassName);
+  // Calculate scaled dimensions for THIS monitor's DPI (may differ from cursor's monitor)
+  // AContext.ScaledWidth/Height were calculated for cursor's monitor, we need target monitor's DPI
+  if (AContext.FormPPI > 0) and (Mon.PixelsPerInch > 0) and (AContext.FormPPI <> Mon.PixelsPerInch) then
+  begin
+    ScaledWidth := MulDiv(AContext.FormWidth, Mon.PixelsPerInch, AContext.FormPPI);
+    ScaledHeight := MulDiv(AContext.FormHeight, Mon.PixelsPerInch, AContext.FormPPI);
+    LogDebug('DPI scale for tray monitor: FormPPI=%d, TargetPPI=%d, %dx%d -> %dx%d',
+      [AContext.FormPPI, Mon.PixelsPerInch, AContext.FormWidth, AContext.FormHeight,
+       ScaledWidth, ScaledHeight], ClassName);
+  end
+  else
+  begin
+    ScaledWidth := AContext.FormWidth;
+    ScaledHeight := AContext.FormHeight;
+    LogDebug('No DPI scaling needed: FormPPI=%d, TargetPPI=%d, Size=%dx%d',
+      [AContext.FormPPI, Mon.PixelsPerInch, ScaledWidth, ScaledHeight], ClassName);
+  end;
 
   // Detect tray corner by comparing monitor bounds to work area
   // Tray is always in a corner: top-right, bottom-right, or bottom-left (never top-left)
-  // Use ScaledWidth/ScaledHeight for correct positioning on target monitor DPI
+  // Use locally calculated ScaledWidth/ScaledHeight for correct positioning on target monitor DPI
   if WorkArea.Top > Bounds.Top then
   begin
     // Taskbar at top -> tray at top-right
     // Position window's top-right corner at work area's top-right
-    Result.X := WorkArea.Right - AContext.ScaledWidth;
+    Result.X := WorkArea.Right - ScaledWidth;
     Result.Y := WorkArea.Top;
     LogDebug('Tray at TOP-RIGHT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
   end
@@ -235,15 +325,15 @@ begin
     // Taskbar at left -> tray at bottom-left
     // Position window's bottom-left corner at work area's bottom-left
     Result.X := WorkArea.Left;
-    Result.Y := WorkArea.Bottom - AContext.ScaledHeight;
+    Result.Y := WorkArea.Bottom - ScaledHeight;
     LogDebug('Tray at BOTTOM-LEFT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
   end
   else
   begin
     // Taskbar at bottom or right -> tray at bottom-right
     // Position window's bottom-right corner at work area's bottom-right
-    Result.X := WorkArea.Right - AContext.ScaledWidth;
-    Result.Y := WorkArea.Bottom - AContext.ScaledHeight;
+    Result.X := WorkArea.Right - ScaledWidth;
+    Result.Y := WorkArea.Bottom - ScaledHeight;
     LogDebug('Tray at BOTTOM-RIGHT, window at (%d, %d)', [Result.X, Result.Y], ClassName);
   end;
 end;
@@ -283,6 +373,9 @@ var
   Strategy: IPositionStrategy;
   NewPos: TPoint;
   NewLeft, NewTop: Integer;
+  TargetMon: TMonitor;
+  TargetWorkArea: TRect;
+  ScaledWidth, ScaledHeight: Integer;
 begin
   // Build context with all positioning data
   Context := TPositionContext.Create(AForm, APositionConfig);
@@ -297,20 +390,50 @@ begin
   NewLeft := NewPos.X;
   NewTop := NewPos.Y;
 
-  LogDebug('Before bounds check: NewLeft=%d, NewTop=%d, WorkArea=(%d,%d,%d,%d)',
-    [NewLeft, NewTop, Context.WorkArea.Left, Context.WorkArea.Top,
-     Context.WorkArea.Right, Context.WorkArea.Bottom], ClassName);
+  // Find the monitor where the calculated position is located
+  // This may be different from cursor's monitor (e.g., "Near Tray" positions on tray's monitor)
+  TargetMon := Screen.MonitorFromPoint(NewPos);
+  if TargetMon <> nil then
+  begin
+    TargetWorkArea := TargetMon.WorkareaRect;
+    // Recalculate scaled dimensions for the ACTUAL target monitor's DPI
+    // Context.ScaledWidth/Height were calculated for cursor's monitor, not target
+    if (Context.FormPPI > 0) and (TargetMon.PixelsPerInch > 0) and
+       (Context.FormPPI <> TargetMon.PixelsPerInch) then
+    begin
+      ScaledWidth := MulDiv(Context.FormWidth, TargetMon.PixelsPerInch, Context.FormPPI);
+      ScaledHeight := MulDiv(Context.FormHeight, TargetMon.PixelsPerInch, Context.FormPPI);
+      LogDebug('DPI rescale for target monitor: FormPPI=%d, TargetPPI=%d, %dx%d -> %dx%d',
+        [Context.FormPPI, TargetMon.PixelsPerInch, Context.FormWidth, Context.FormHeight,
+         ScaledWidth, ScaledHeight], ClassName);
+    end
+    else
+    begin
+      ScaledWidth := Context.FormWidth;
+      ScaledHeight := Context.FormHeight;
+    end;
+  end
+  else
+  begin
+    TargetWorkArea := Context.WorkArea; // Fallback to cursor's monitor
+    ScaledWidth := Context.ScaledWidth;
+    ScaledHeight := Context.ScaledHeight;
+  end;
 
-  // Ensure popup stays within work area
-  // Use ScaledWidth/ScaledHeight for correct bounds on target monitor DPI
-  if NewLeft < Context.WorkArea.Left then
-    NewLeft := Context.WorkArea.Left;
-  if NewLeft + Context.ScaledWidth > Context.WorkArea.Right then
-    NewLeft := Context.WorkArea.Right - Context.ScaledWidth;
-  if NewTop < Context.WorkArea.Top then
-    NewTop := Context.WorkArea.Top;
-  if NewTop + Context.ScaledHeight > Context.WorkArea.Bottom then
-    NewTop := Context.WorkArea.Bottom - Context.ScaledHeight;
+  LogDebug('Before bounds check: NewLeft=%d, NewTop=%d, TargetWorkArea=(%d,%d,%d,%d), ScaledSize=%dx%d',
+    [NewLeft, NewTop, TargetWorkArea.Left, TargetWorkArea.Top,
+     TargetWorkArea.Right, TargetWorkArea.Bottom, ScaledWidth, ScaledHeight], ClassName);
+
+  // Ensure popup stays within the TARGET monitor's work area
+  // Use recalculated ScaledWidth/ScaledHeight for correct bounds on target monitor DPI
+  if NewLeft < TargetWorkArea.Left then
+    NewLeft := TargetWorkArea.Left;
+  if NewLeft + ScaledWidth > TargetWorkArea.Right then
+    NewLeft := TargetWorkArea.Right - ScaledWidth;
+  if NewTop < TargetWorkArea.Top then
+    NewTop := TargetWorkArea.Top;
+  if NewTop + ScaledHeight > TargetWorkArea.Bottom then
+    NewTop := TargetWorkArea.Bottom - ScaledHeight;
 
   LogDebug('Final position: Left=%d, Top=%d', [NewLeft, NewTop], ClassName);
 
