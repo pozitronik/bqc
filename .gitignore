@@ -3,5 +3,8 @@ Win32/
 __history/
 __recovery/
 *.~*
+*.res
 bqc.identcache
 bqc.dproj.local
+build_temp/
+bqc_*.zip
