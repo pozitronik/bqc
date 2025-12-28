@@ -678,7 +678,7 @@ object FormSettings: TFormSettings
         Width = 536
         Height = 96
         Align = alTop
-        Caption = 'Windows System Panels (Win+K alternative)'
+        Caption = 'Windows System Panels Hotkeys'
         TabOrder = 1
         object LabelCastPanelHotkey: TLabel
           Left = 12
