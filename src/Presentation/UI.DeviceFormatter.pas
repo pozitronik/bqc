@@ -30,15 +30,15 @@ type
     /// <summary>
     /// Formats last seen timestamp in relative format ("2 hours ago", "Yesterday").
     /// </summary>
-    /// <param name="ALastSeen">The DateTime value to format. Zero or negative returns "Never".</param>
-    /// <returns>Human-readable relative time string.</returns>
+    /// <param name="ALastSeen">The DateTime value to format. Zero or negative returns empty string.</param>
+    /// <returns>Human-readable relative time string, or empty if never seen.</returns>
     class function FormatLastSeenRelative(ALastSeen: TDateTime): string; static;
 
     /// <summary>
     /// Formats last seen timestamp in absolute format ("2024-12-22 15:30").
     /// </summary>
-    /// <param name="ALastSeen">The DateTime value to format. Zero or negative returns "Never".</param>
-    /// <returns>Formatted date-time string.</returns>
+    /// <param name="ALastSeen">The DateTime value to format. Zero or negative returns empty string.</param>
+    /// <returns>Formatted date-time string, or empty if never seen.</returns>
     class function FormatLastSeenAbsolute(ALastSeen: TDateTime): string; static;
 
     /// <summary>
@@ -115,7 +115,7 @@ var
   Days, Hours, Minutes: Integer;
 begin
   if ALastSeen <= 0 then
-    Exit('Never');
+    Exit('');  // Empty string for never-seen devices (UI will hide last seen)
 
   Diff := Now - ALastSeen;
   Days := Trunc(Diff);
