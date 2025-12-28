@@ -162,7 +162,7 @@ const
   DEF_LOG_ENABLED = False;
   DEF_LOG_FILENAME = 'bqc.log';
   DEF_LOG_APPEND = False;
-  DEF_LOG_LEVEL = llInfo;
+  DEF_LOG_LEVEL = llError;
   DEF_SHOW_ADDRESSES = False;
   DEF_THEME = '';
   DEF_VSF_DIR = 'themes';
