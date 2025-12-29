@@ -67,6 +67,7 @@ type
       const AStatus: TBatteryStatus);
 
     procedure RefreshBatteryForConnectedDevices;
+    procedure ScheduleDelayedBatteryRefresh(AAddress: UInt64; ADelayMs: Integer);
 
     { Internal methods }
     procedure LoadDevices;
@@ -667,13 +668,24 @@ begin
       if LDevice.ConnectionState = csConnected then
       begin
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
-        // Refresh battery level for newly connected device
+        // Invalidate stale battery cache. Do NOT request immediate refresh because
+        // Windows device properties (used by SetupAPI) take several seconds to update
+        // after device reconnects. Immediate query would return stale Windows cached value.
+        // Schedule delayed refresh to get accurate battery level.
         if (FBatteryCache <> nil) and FAppearanceConfig.ShowBatteryLevel then
-          FBatteryCache.RequestRefresh(LDevice.AddressInt);
+        begin
+          FBatteryCache.Remove(LDevice.AddressInt);
+          ScheduleDelayedBatteryRefresh(LDevice.AddressInt, 10000);  // 10 seconds delay
+        end;
       end
       else if LDevice.ConnectionState = csDisconnected then
+      begin
         // Update LastSeen on disconnect - this is the last time device was active
-        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now)
+        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
+        // Invalidate battery cache so next connect won't show stale value
+        if FBatteryCache <> nil then
+          FBatteryCache.Remove(LDevice.AddressInt);
+      end
       else
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, 0);
       FAppConfig.SaveIfModified;
@@ -740,6 +752,7 @@ end;
 procedure TMainPresenter.HandleBatteryQueryCompleted(Sender: TObject;
   ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
 begin
+  LogDebug('HandleBatteryQueryCompleted: Address=$%.12X, Level=%d', [ADeviceAddress, AStatus.Level], ClassName);
   // Rebuild display items to show updated battery level
   RefreshDisplayItems;
 end;
@@ -775,6 +788,32 @@ begin
     LogDebug('RefreshBatteryForConnectedDevices: Refreshing %d devices', [Count], ClassName);
     FBatteryCache.RequestRefreshAll(Addresses);
   end;
+end;
+
+procedure TMainPresenter.ScheduleDelayedBatteryRefresh(AAddress: UInt64; ADelayMs: Integer);
+var
+  LAddress: UInt64;
+  LBatteryCache: IBatteryCache;
+begin
+  if FBatteryCache = nil then
+    Exit;
+
+  LAddress := AAddress;
+  LBatteryCache := FBatteryCache;
+
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      Sleep(ADelayMs);
+      TThread.Queue(nil,
+        procedure
+        begin
+          if LBatteryCache <> nil then
+            LBatteryCache.RequestRefresh(LAddress);
+        end
+      );
+    end
+  ).Start;
 end;
 
 { Public methods called by View }
