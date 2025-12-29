@@ -245,6 +245,22 @@ type
     [Test]
     procedure Create_OverHundred_ClampsToHundred;
 
+    // Pending tests
+    [Test]
+    procedure Pending_IsSupported;
+    [Test]
+    procedure Pending_LevelIsMinus2;
+    [Test]
+    procedure Pending_HasLevelReturnsFalse;
+    [Test]
+    procedure Pending_IsPendingReturnsTrue;
+    [Test]
+    procedure IsPending_NotSupported_ReturnsFalse;
+    [Test]
+    procedure IsPending_Unknown_ReturnsFalse;
+    [Test]
+    procedure IsPending_ValidLevel_ReturnsFalse;
+
     // Edge case tests
     [Test]
     procedure Create_BoundaryValueMinus1_ClampsCorrectly;
@@ -1235,6 +1251,62 @@ begin
   Assert.IsTrue(Status1.HasLevel, 'Level 1 should be valid');
   Assert.AreEqual(0, Status0.Level);
   Assert.AreEqual(1, Status1.Level);
+end;
+
+procedure TBatteryStatusTests.Pending_IsSupported;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Pending;
+  Assert.IsTrue(Status.IsSupported);
+end;
+
+procedure TBatteryStatusTests.Pending_LevelIsMinus2;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Pending;
+  Assert.AreEqual(-2, Status.Level);
+end;
+
+procedure TBatteryStatusTests.Pending_HasLevelReturnsFalse;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Pending;
+  Assert.IsFalse(Status.HasLevel);
+end;
+
+procedure TBatteryStatusTests.Pending_IsPendingReturnsTrue;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Pending;
+  Assert.IsTrue(Status.IsPending);
+end;
+
+procedure TBatteryStatusTests.IsPending_NotSupported_ReturnsFalse;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.NotSupported;
+  Assert.IsFalse(Status.IsPending);
+end;
+
+procedure TBatteryStatusTests.IsPending_Unknown_ReturnsFalse;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Unknown;
+  Assert.IsFalse(Status.IsPending);
+end;
+
+procedure TBatteryStatusTests.IsPending_ValidLevel_ReturnsFalse;
+var
+  Status: TBatteryStatus;
+begin
+  Status := TBatteryStatus.Create(50);
+  Assert.IsFalse(Status.IsPending);
 end;
 
 { TAddressConversionTests }

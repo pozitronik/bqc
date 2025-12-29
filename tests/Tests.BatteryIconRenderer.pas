@@ -70,6 +70,12 @@ type
     [Test]
     procedure CreateUnknownBatteryIcon_ReturnsValidIcon;
 
+    { CreatePendingBatteryIcon Tests }
+    [Test]
+    procedure CreatePendingBatteryIcon_ReturnsValidIcon;
+    [Test]
+    procedure CreatePendingBatteryIcon_HasCorrectSize;
+
     { Icon Properties Tests }
     [Test]
     procedure CreatedIcon_HasCorrectSize;
@@ -333,6 +339,32 @@ begin
   try
     Assert.IsNotNull(Icon);
     Assert.IsTrue(Icon.Handle <> 0, 'Unknown battery icon should be valid');
+  finally
+    Icon.Free;
+  end;
+end;
+
+procedure TBatteryIconRendererTests.CreatePendingBatteryIcon_ReturnsValidIcon;
+var
+  Icon: TIcon;
+begin
+  Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
+  try
+    Assert.IsNotNull(Icon);
+    Assert.IsTrue(Icon.Handle <> 0, 'Pending battery icon should be valid');
+  finally
+    Icon.Free;
+  end;
+end;
+
+procedure TBatteryIconRendererTests.CreatePendingBatteryIcon_HasCorrectSize;
+var
+  Icon: TIcon;
+begin
+  Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
+  try
+    Assert.AreEqual(BATTERY_ICON_SIZE, Icon.Width, 'Pending icon width should be correct');
+    Assert.AreEqual(BATTERY_ICON_SIZE, Icon.Height, 'Pending icon height should be correct');
   finally
     Icon.Free;
   end;
