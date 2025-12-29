@@ -118,8 +118,9 @@ begin
       try
         repeat
           Device := ConvertBluetoothDeviceInfo(DeviceInfo);
-          LogDebug('EnumeratePairedDevices: Found device Address=$%.12X, Name="%s", Connected=%s, Remembered=%s, Authenticated=%s',
-            [Device.AddressInt, Device.Name, BoolToStr(DeviceInfo.fConnected, True),
+          LogDebug('EnumeratePairedDevices: Found device Address=$%.12X, Name="%s", CoD=$%.8X, Connected=%s, Remembered=%s, Authenticated=%s',
+            [Device.AddressInt, Device.Name, DeviceInfo.ulClassOfDevice,
+             BoolToStr(DeviceInfo.fConnected, True),
              BoolToStr(DeviceInfo.fRemembered, True), BoolToStr(DeviceInfo.fAuthenticated, True)], ClassName);
           DeviceList.Add(Device);
           DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);

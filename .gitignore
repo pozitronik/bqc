@@ -8,3 +8,4 @@ bqc.identcache
 bqc.dproj.local
 build_temp/
 bqc_*.zip
+/tests/*.res

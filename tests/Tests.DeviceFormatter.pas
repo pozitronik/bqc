@@ -86,6 +86,18 @@ type
     [Test]
     procedure GetDisplayName_EmptyAlias_ReturnsDeviceName;
 
+    [Test]
+    procedure GetDisplayName_EmptyDeviceName_UsesConfigName;
+
+    [Test]
+    procedure GetDisplayName_EmptyDeviceName_EmptyConfigName_UsesMACFallback;
+
+    [Test]
+    procedure GetDisplayName_DeviceNameOverridesConfigName;
+
+    [Test]
+    procedure GetDisplayName_AliasOverridesConfigName;
+
     { GetEffectiveDeviceType Tests }
     [Test]
     procedure GetEffectiveDeviceType_NoOverride_ReturnsDeviceType;
@@ -346,6 +358,63 @@ begin
   Config.Alias := '';
 
   Assert.AreEqual('Device Name', TDeviceFormatter.GetDisplayName(Device, Config));
+end;
+
+procedure TDeviceFormatterTests.GetDisplayName_EmptyDeviceName_UsesConfigName;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  // Device has empty name from Windows API, but config has cached name from INI
+  Device := CreateTestDevice($001122334455, '', btAudioOutput, csConnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := '';
+  Config.Name := 'Cached Device Name';
+
+  Assert.AreEqual('Cached Device Name', TDeviceFormatter.GetDisplayName(Device, Config));
+end;
+
+procedure TDeviceFormatterTests.GetDisplayName_EmptyDeviceName_EmptyConfigName_UsesMACFallback;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  // Device has no name from API and no cached name - should use MAC address as fallback
+  Device := CreateTestDevice($001122334455, '', btAudioOutput, csConnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := '';
+  Config.Name := '';
+
+  // Expected format: "Device " + MAC address string
+  Assert.AreEqual('Device 00:11:22:33:44:55', TDeviceFormatter.GetDisplayName(Device, Config));
+end;
+
+procedure TDeviceFormatterTests.GetDisplayName_DeviceNameOverridesConfigName;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  // Both API name and config name present - API name takes priority (fresher data)
+  Device := CreateTestDevice($001122334455, 'Fresh API Name', btAudioOutput, csConnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := '';
+  Config.Name := 'Old Cached Name';
+
+  Assert.AreEqual('Fresh API Name', TDeviceFormatter.GetDisplayName(Device, Config));
+end;
+
+procedure TDeviceFormatterTests.GetDisplayName_AliasOverridesConfigName;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  // Alias overrides both API name and config name
+  Device := CreateTestDevice($001122334455, '', btAudioOutput, csConnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := 'User Alias';
+  Config.Name := 'Cached Name';
+
+  Assert.AreEqual('User Alias', TDeviceFormatter.GetDisplayName(Device, Config));
 end;
 
 { TDeviceFormatterTests - GetEffectiveDeviceType }

@@ -164,10 +164,19 @@ end;
 class function TDeviceFormatter.GetDisplayName(const ADevice: TBluetoothDeviceInfo;
   const AConfig: TDeviceConfig): string;
 begin
+  // Priority order:
+  // 1. User-defined alias (highest priority - explicit user intent)
+  // 2. Current device name from Windows API (fresh data)
+  // 3. Cached name from INI config (fallback for devices with empty API name)
+  // 4. "Device " + MAC address as last resort (for truly unknown devices)
   if AConfig.Alias <> '' then
     Result := AConfig.Alias
+  else if ADevice.Name <> '' then
+    Result := ADevice.Name
+  else if AConfig.Name <> '' then
+    Result := AConfig.Name
   else
-    Result := ADevice.Name;
+    Result := 'Device ' + ADevice.AddressString;
 end;
 
 class function TDeviceFormatter.GetEffectiveDeviceType(const ADevice: TBluetoothDeviceInfo;

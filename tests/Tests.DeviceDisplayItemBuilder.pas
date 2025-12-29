@@ -41,7 +41,13 @@ type
 
     { IsVisible Tests }
     [Test]
-    procedure IsVisible_EmptyName_ReturnsFalse;
+    procedure IsVisible_EmptyAPIName_WithConfigName_ReturnsTrue;
+
+    [Test]
+    procedure IsVisible_EmptyAPIName_WithAlias_ReturnsTrue;
+
+    [Test]
+    procedure IsVisible_EmptyAPIName_EmptyConfigName_EmptyAlias_ReturnsTrue_WithMACFallback;
 
     [Test]
     procedure IsVisible_HiddenDevice_ReturnsFalse;
@@ -116,12 +122,56 @@ end;
 
 { IsVisible Tests }
 
-procedure TDeviceDisplayItemBuilderTests.IsVisible_EmptyName_ReturnsFalse;
+procedure TDeviceDisplayItemBuilderTests.IsVisible_EmptyAPIName_WithConfigName_ReturnsTrue;
 var
   Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
 begin
+  // Device has empty name from Windows API, but config has cached name from INI
   Device := CreateTestDevice($001, '', btAudioOutput, csConnected);
-  Assert.IsFalse(FBuilder.IsVisible(Device));
+
+  Config := Default(TDeviceConfig);
+  Config.Hidden := False;
+  Config.Alias := '';
+  Config.Name := 'Cached Name';
+  FConfigProvider.AddDeviceConfig($001, Config);
+
+  Assert.IsTrue(FBuilder.IsVisible(Device));
+end;
+
+procedure TDeviceDisplayItemBuilderTests.IsVisible_EmptyAPIName_WithAlias_ReturnsTrue;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  // Device has empty name from Windows API, but has user-defined alias
+  Device := CreateTestDevice($001, '', btAudioOutput, csConnected);
+
+  Config := Default(TDeviceConfig);
+  Config.Hidden := False;
+  Config.Alias := 'My Device Alias';
+  Config.Name := '';
+  FConfigProvider.AddDeviceConfig($001, Config);
+
+  Assert.IsTrue(FBuilder.IsVisible(Device));
+end;
+
+procedure TDeviceDisplayItemBuilderTests.IsVisible_EmptyAPIName_EmptyConfigName_EmptyAlias_ReturnsTrue_WithMACFallback;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  // Device has no name from API, no cached name, no alias - uses MAC address fallback
+  Device := CreateTestDevice($001122334455, '', btAudioOutput, csConnected);
+
+  Config := Default(TDeviceConfig);
+  Config.Hidden := False;
+  Config.Alias := '';
+  Config.Name := '';
+  FConfigProvider.AddDeviceConfig($001122334455, Config);
+
+  // Should return True because MAC address fallback provides a name
+  Assert.IsTrue(FBuilder.IsVisible(Device));
 end;
 
 procedure TDeviceDisplayItemBuilderTests.IsVisible_HiddenDevice_ReturnsFalse;
@@ -366,21 +416,27 @@ procedure TDeviceDisplayItemBuilderTests.BuildDisplayItems_FiltersEmptyNames;
 var
   Devices: TBluetoothDeviceInfoArray;
   Items: TDeviceDisplayItemArray;
-  Config: TDeviceConfig;
+  Config, ConfigWithName: TDeviceConfig;
 begin
+  // Test that devices with empty API name but cached config name are NOT filtered
   SetLength(Devices, 2);
   Devices[0] := CreateTestDevice($001, 'Valid Name', btAudioOutput, csConnected);
   Devices[1] := CreateTestDevice($002, '', btAudioOutput, csConnected);
 
   Config := Default(TDeviceConfig);
   Config.Hidden := False;
+  Config.Name := '';  // No cached name
   FConfigProvider.AddDeviceConfig($001, Config);
-  FConfigProvider.AddDeviceConfig($002,Config);
+
+  ConfigWithName := Default(TDeviceConfig);
+  ConfigWithName.Hidden := False;
+  ConfigWithName.Name := 'Cached Device Name';  // Has cached name from INI
+  FConfigProvider.AddDeviceConfig($002, ConfigWithName);
 
   Items := FBuilder.BuildDisplayItems(Devices);
 
-  Assert.AreEqual<Integer>(1, Length(Items));
-  Assert.AreEqual('Valid Name', Items[0].DisplayName);
+  // Both devices should be visible - one with API name, one with cached name
+  Assert.AreEqual<Integer>(2, Length(Items));
 end;
 
 procedure TDeviceDisplayItemBuilderTests.BuildDisplayItems_SortsResult;

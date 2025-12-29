@@ -107,24 +107,31 @@ end;
 function TDeviceDisplayItemBuilder.IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
 var
   DeviceConfig: TDeviceConfig;
+  EffectiveName: string;
 begin
   LogDebug('IsVisible: Checking device Address=$%.12X, Name="%s"', [ADevice.AddressInt, ADevice.Name], ClassName);
 
-  // Skip devices with empty names
-  if Trim(ADevice.Name) = '' then
-  begin
-    LogDebug('IsVisible: FILTERED - empty name', ClassName);
-    Exit(False);
-  end;
+  // Load config FIRST to check effective name and hidden status
+  DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
+
+  // Calculate effective display name using the same fallback chain as GetDisplayName
+  // Priority: Alias > API Name > Cached Name > "Device " + MAC
+  EffectiveName := TDeviceFormatter.GetDisplayName(ADevice, DeviceConfig);
+
+  LogDebug('IsVisible: Config loaded - Hidden=%s, Alias="%s", ConfigName="%s", EffectiveName="%s"',
+    [BoolToStr(DeviceConfig.Hidden, True), DeviceConfig.Alias, DeviceConfig.Name, EffectiveName], ClassName);
 
   // Skip hidden devices
-  DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
-  LogDebug('IsVisible: Config loaded - Hidden=%s, Alias="%s"',
-    [BoolToStr(DeviceConfig.Hidden, True), DeviceConfig.Alias], ClassName);
-
   if DeviceConfig.Hidden then
   begin
     LogDebug('IsVisible: FILTERED - device is hidden', ClassName);
+    Exit(False);
+  end;
+
+  // With MAC fallback, EffectiveName is never empty - but check anyway for safety
+  if Trim(EffectiveName) = '' then
+  begin
+    LogDebug('IsVisible: FILTERED - no effective name available', ClassName);
     Exit(False);
   end;
 
