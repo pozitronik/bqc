@@ -24,9 +24,11 @@ uses
   Vcl.ExtCtrls,
   Vcl.Forms,
   Vcl.Menus,
+  App.ConfigEnums,
   App.ConfigInterfaces,
   App.DeviceConfigTypes,
   App.BatteryTrayConfigIntf,
+  App.SystemThemeDetector,
   UI.BatteryIconRenderer;
 
 const
@@ -91,6 +93,7 @@ type
       AShowNumeric: Boolean): TNotifyIconData;
     function GetEffectiveColor(AAddress: UInt64): TColor;
     function GetEffectiveBackgroundColor(AAddress: UInt64): TColor;
+    function GetEffectiveOutlineColor: TColor;
     function GetEffectiveThreshold(AAddress: UInt64): Integer;
     function ShouldShowTrayIcon(AAddress: UInt64): Boolean;
     function ShouldShowNumericValue(AAddress: UInt64): Boolean;
@@ -225,6 +228,36 @@ begin
     Result := TColor($1FFFFFFF); // Transparent by default
 end;
 
+function TBatteryTrayManager.GetEffectiveOutlineColor: TColor;
+var
+  Mode: TOutlineColorMode;
+begin
+  if Assigned(FConfig) then
+  begin
+    Mode := FConfig.DefaultOutlineColorMode;
+    case Mode of
+      ocmAuto:
+        begin
+          // Auto-detect from Windows dark/light mode
+          if TSystemThemeDetector.IsDarkMode then
+            Result := BATTERY_OUTLINE_COLOR_LIGHT  // White on dark taskbar
+          else
+            Result := BATTERY_OUTLINE_COLOR_DARK;  // Black on light taskbar
+        end;
+      ocmLight:
+        Result := BATTERY_OUTLINE_COLOR_LIGHT;
+      ocmDark:
+        Result := BATTERY_OUTLINE_COLOR_DARK;
+      ocmCustom:
+        Result := FConfig.DefaultCustomOutlineColor;
+    else
+      Result := BATTERY_OUTLINE_COLOR_DARK;
+    end;
+  end
+  else
+    Result := BATTERY_OUTLINE_COLOR_DARK;
+end;
+
 function TBatteryTrayManager.GetEffectiveThreshold(AAddress: UInt64): Integer;
 var
   DeviceConfig: TDeviceConfig;
@@ -327,6 +360,7 @@ function TBatteryTrayManager.CreateNotifyIconData(AAddress: UInt64;
 var
   Icon: TIcon;
   Threshold: Integer;
+  OutlineColor: TColor;
   Tooltip: string;
 begin
   FillChar(Result, SizeOf(Result), 0);
@@ -338,10 +372,11 @@ begin
 
   // Create battery icon (numeric or graphical)
   Threshold := GetEffectiveThreshold(AAddress);
+  OutlineColor := GetEffectiveOutlineColor;
   if AShowNumeric then
     Icon := TBatteryIconRenderer.CreateNumericIcon(ALevel, AColor, ABackgroundColor)
   else
-    Icon := TBatteryIconRenderer.CreateBatteryIconAuto(ALevel, AColor, ABackgroundColor, Threshold);
+    Icon := TBatteryIconRenderer.CreateBatteryIconAuto(ALevel, AColor, ABackgroundColor, Threshold, OutlineColor);
   try
     Result.hIcon := CopyIcon(Icon.Handle);
   finally
@@ -434,6 +469,7 @@ var
   ExistingIcon: TNotifyIconData;
   Color: TColor;
   BackgroundColor: TColor;
+  OutlineColor: TColor;
   Threshold: Integer;
   ShowNumeric: Boolean;
   Icon: TIcon;
@@ -463,6 +499,7 @@ begin
 
   Color := GetEffectiveColor(AAddress);
   BackgroundColor := GetEffectiveBackgroundColor(AAddress);
+  OutlineColor := GetEffectiveOutlineColor;
   Threshold := GetEffectiveThreshold(AAddress);
   ShowNumeric := ShouldShowNumericValue(AAddress);
 
@@ -472,7 +509,7 @@ begin
     if ShowNumeric then
       Icon := TBatteryIconRenderer.CreateNumericIcon(ALevel, Color, BackgroundColor)
     else
-      Icon := TBatteryIconRenderer.CreateBatteryIconAuto(ALevel, Color, BackgroundColor, Threshold);
+      Icon := TBatteryIconRenderer.CreateBatteryIconAuto(ALevel, Color, BackgroundColor, Threshold, OutlineColor);
     try
       OldIconHandle := ExistingIcon.hIcon;
       ExistingIcon.hIcon := CopyIcon(Icon.Handle);
@@ -526,6 +563,7 @@ procedure TBatteryTrayManager.UpdateDevicePending(AAddress: UInt64; const AName:
 var
   IconData: TNotifyIconData;
   ExistingIcon: TNotifyIconData;
+  OutlineColor: TColor;
   Icon: TIcon;
   Tooltip: string;
   OldIconHandle: HICON;
@@ -541,11 +579,12 @@ begin
   end;
 
   Tooltip := Format('%s: ...', [AName]);
+  OutlineColor := GetEffectiveOutlineColor;
 
   if FDeviceIcons.TryGetValue(AAddress, ExistingIcon) then
   begin
     // Update existing icon to pending
-    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
+    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon(OutlineColor);
     try
       OldIconHandle := ExistingIcon.hIcon;
       ExistingIcon.hIcon := CopyIcon(Icon.Handle);
@@ -578,7 +617,7 @@ begin
     IconData.uFlags := NIF_ICON or NIF_TIP or NIF_MESSAGE or NIF_SHOWTIP;
     IconData.uCallbackMessage := WM_BATTERYTRAY_CALLBACK;
 
-    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
+    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon(OutlineColor);
     try
       IconData.hIcon := CopyIcon(Icon.Handle);
     finally

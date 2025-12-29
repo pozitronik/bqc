@@ -260,6 +260,10 @@ type
     LabelEnumerationMode: TLabel;
     LabelEnumerationModeHint: TLabel;
     ComboEnumerationMode: TComboBox;
+    LabelOutlineColorMode: TLabel;
+    ComboOutlineColorMode: TComboBox;
+    LabelCustomOutlineColor: TLabel;
+    ShapeCustomOutlineColor: TShape;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
@@ -307,6 +311,9 @@ type
     { Device battery tray events }
     procedure ComboDeviceBatteryColorModeChange(Sender: TObject);
     procedure ComboDeviceBatteryBackgroundModeChange(Sender: TObject);
+
+    { Battery tray tab events }
+    procedure ComboOutlineColorModeChange(Sender: TObject);
 
   private
     FPresenter: TSettingsPresenter;
@@ -822,11 +829,21 @@ begin
   Result.DefaultLowBatteryThreshold := UpDownDefaultBatteryThreshold.Position;
   Result.DefaultNotifyLowBattery := CheckDefaultNotifyLowBattery.Checked;
   Result.DefaultNotifyFullyCharged := CheckDefaultNotifyFullyCharged.Checked;
+  // Outline color mode
+  if Assigned(ComboOutlineColorMode) then
+    Result.DefaultOutlineColorModeIndex := ComboOutlineColorMode.ItemIndex
+  else
+    Result.DefaultOutlineColorModeIndex := 0; // Auto
+  if Assigned(ShapeCustomOutlineColor) then
+    Result.DefaultCustomOutlineColor := ShapeCustomOutlineColor.Brush.Color
+  else
+    Result.DefaultCustomOutlineColor := clBlack;
 end;
 
 procedure TFormSettings.SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
 var
   IsTransparent: Boolean;
+  IsCustomOutline: Boolean;
 begin
   CheckShowBatteryTrayIcons.Checked := ASettings.ShowBatteryTrayIcons;
   ShapeDefaultBatteryColor.Brush.Color := ASettings.DefaultIconColor;
@@ -843,6 +860,17 @@ begin
   UpDownDefaultBatteryThreshold.Position := ASettings.DefaultLowBatteryThreshold;
   CheckDefaultNotifyLowBattery.Checked := ASettings.DefaultNotifyLowBattery;
   CheckDefaultNotifyFullyCharged.Checked := ASettings.DefaultNotifyFullyCharged;
+  // Outline color mode
+  if Assigned(ComboOutlineColorMode) then
+    ComboOutlineColorMode.ItemIndex := ASettings.DefaultOutlineColorModeIndex;
+  if Assigned(ShapeCustomOutlineColor) then
+    ShapeCustomOutlineColor.Brush.Color := ASettings.DefaultCustomOutlineColor;
+  // Show/hide custom outline color picker based on mode
+  IsCustomOutline := ASettings.DefaultOutlineColorModeIndex = 3;  // 3 = Custom
+  if Assigned(LabelCustomOutlineColor) then
+    LabelCustomOutlineColor.Visible := IsCustomOutline;
+  if Assigned(ShapeCustomOutlineColor) then
+    ShapeCustomOutlineColor.Visible := IsCustomOutline;
 end;
 
 { UI helpers - Initialization }
@@ -1007,6 +1035,11 @@ begin
   CheckAutoColorOnLow.OnClick := HandleSettingChanged;
   CheckDefaultNotifyLowBattery.OnClick := HandleSettingChanged;
   CheckDefaultNotifyFullyCharged.OnClick := HandleSettingChanged;
+  // Outline color mode
+  if Assigned(ComboOutlineColorMode) then
+    ComboOutlineColorMode.OnChange := ComboOutlineColorModeChange;
+  if Assigned(ShapeCustomOutlineColor) then
+    ShapeCustomOutlineColor.OnMouseDown := HandleShapeColorMouseDown;
 
   // Tab: Advanced
   CheckLogEnabled.OnClick := HandleSettingChanged;
@@ -1262,6 +1295,28 @@ begin
     ColorDialogConnected.Color := clWhite;
     if ColorDialogConnected.Execute then
       ShapeDeviceBatteryBackground.Brush.Color := ColorDialogConnected.Color;
+  end;
+  FPresenter.MarkModified;
+end;
+
+procedure TFormSettings.ComboOutlineColorModeChange(Sender: TObject);
+var
+  IsCustom: Boolean;
+begin
+  // Show custom color picker only when "Custom" is selected (index 3)
+  IsCustom := ComboOutlineColorMode.ItemIndex = 3;
+  if Assigned(LabelCustomOutlineColor) then
+    LabelCustomOutlineColor.Visible := IsCustom;
+  if Assigned(ShapeCustomOutlineColor) then
+  begin
+    ShapeCustomOutlineColor.Visible := IsCustom;
+    // Open color dialog immediately when switching to Custom
+    if IsCustom and (ShapeCustomOutlineColor.Brush.Color = clBlack) then
+    begin
+      ColorDialogConnected.Color := clBlack;
+      if ColorDialogConnected.Execute then
+        ShapeCustomOutlineColor.Brush.Color := ColorDialogConnected.Color;
+    end;
   end;
   FPresenter.MarkModified;
 end;

@@ -143,6 +143,8 @@ type
     DefaultLowBatteryThreshold: Integer;
     DefaultNotifyLowBattery: Boolean;
     DefaultNotifyFullyCharged: Boolean;
+    DefaultOutlineColorModeIndex: Integer;  // 0=Auto, 1=Light, 2=Dark, 3=Custom
+    DefaultCustomOutlineColor: TColor;
   end;
 
   //----------------------------------------------------------------------------
@@ -707,6 +709,8 @@ begin
     BatteryTray.DefaultLowBatteryThreshold := FBatteryTrayConfig.DefaultLowBatteryThreshold;
     BatteryTray.DefaultNotifyLowBattery := FBatteryTrayConfig.DefaultNotifyLowBattery;
     BatteryTray.DefaultNotifyFullyCharged := FBatteryTrayConfig.DefaultNotifyFullyCharged;
+    BatteryTray.DefaultOutlineColorModeIndex := Ord(FBatteryTrayConfig.DefaultOutlineColorMode);
+    BatteryTray.DefaultCustomOutlineColor := FBatteryTrayConfig.DefaultCustomOutlineColor;
     FBatteryTraySettingsView.SetBatteryTraySettings(BatteryTray);
   end;
 
@@ -827,6 +831,8 @@ begin
       FBatteryTrayConfig.DefaultLowBatteryThreshold := BatteryTray.DefaultLowBatteryThreshold;
       FBatteryTrayConfig.DefaultNotifyLowBattery := BatteryTray.DefaultNotifyLowBattery;
       FBatteryTrayConfig.DefaultNotifyFullyCharged := BatteryTray.DefaultNotifyFullyCharged;
+      FBatteryTrayConfig.DefaultOutlineColorMode := TOutlineColorMode(BatteryTray.DefaultOutlineColorModeIndex);
+      FBatteryTrayConfig.DefaultCustomOutlineColor := BatteryTray.DefaultCustomOutlineColor;
     end;
 
     // Save configuration to file

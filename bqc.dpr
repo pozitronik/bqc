@@ -46,6 +46,7 @@ uses
   App.ConfigSection.Connection in 'src\Infrastructure\App.ConfigSection.Connection.pas',
   App.ConfigSection.Notification in 'src\Infrastructure\App.ConfigSection.Notification.pas',
   App.ConfigSection.BatteryTray in 'src\Infrastructure\App.ConfigSection.BatteryTray.pas',
+  App.SystemThemeDetector in 'src\Infrastructure\App.SystemThemeDetector.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',
   App.SettingsRepository in 'src\Infrastructure\App.SettingsRepository.pas',
   App.DeviceConfigRepository in 'src\Infrastructure\App.DeviceConfigRepository.pas',

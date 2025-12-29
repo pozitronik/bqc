@@ -87,6 +87,17 @@ type
     emComposite  // Combined Win32 + WinRT (default) (2)
   );
 
+  /// <summary>
+  /// Battery icon outline color mode for taskbar visibility.
+  /// Controls how the outline color is determined.
+  /// </summary>
+  TOutlineColorMode = (
+    ocmAuto,    // Auto-detect from Windows dark/light mode (0)
+    ocmLight,   // Light outline (white) for dark taskbars (1)
+    ocmDark,    // Dark outline (black) for light taskbars (2)
+    ocmCustom   // User-specified custom color (3)
+  );
+
 const
   /// <summary>
   /// Display names for log levels.

@@ -142,6 +142,8 @@ const
   KEY_DEFAULT_LOW_BATTERY_THRESHOLD = 'DefaultLowBatteryThreshold';
   KEY_DEFAULT_NOTIFY_LOW_BATTERY = 'DefaultNotifyLowBattery';
   KEY_DEFAULT_NOTIFY_FULLY_CHARGED = 'DefaultNotifyFullyCharged';
+  KEY_DEFAULT_OUTLINE_COLOR_MODE = 'DefaultOutlineColorMode';
+  KEY_DEFAULT_CUSTOM_OUTLINE_COLOR = 'DefaultCustomOutlineColor';
 
   // Default values
   DEF_WINDOW_MODE = wmWindow;
@@ -286,6 +288,21 @@ begin
   else
   begin
     LogWarning('Invalid EnumerationMode value %d in INI, using default', [Value], 'SettingsRepository');
+    Result := ADefault;
+  end;
+end;
+
+function SafeReadOutlineColorMode(AIni: TMemIniFile; const ASection, AKey: string;
+  ADefault: TOutlineColorMode): TOutlineColorMode;
+var
+  Value: Integer;
+begin
+  Value := AIni.ReadInteger(ASection, AKey, Ord(ADefault));
+  if (Value >= Ord(Low(TOutlineColorMode))) and (Value <= Ord(High(TOutlineColorMode))) then
+    Result := TOutlineColorMode(Value)
+  else
+  begin
+    LogWarning('Invalid OutlineColorMode value %d in INI, using default', [Value], 'SettingsRepository');
     Result := ADefault;
   end;
 end;
@@ -437,6 +454,8 @@ begin
   BatteryTrayCfg.DefaultLowBatteryThreshold := AIni.ReadInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_LOW_BATTERY_THRESHOLD, DEF_LOW_BATTERY_THRESHOLD);
   BatteryTrayCfg.DefaultNotifyLowBattery := AIni.ReadBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_LOW_BATTERY, DEF_NOTIFY_LOW_BATTERY);
   BatteryTrayCfg.DefaultNotifyFullyCharged := AIni.ReadBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_FULLY_CHARGED, DEF_NOTIFY_FULLY_CHARGED);
+  BatteryTrayCfg.DefaultOutlineColorMode := SafeReadOutlineColorMode(AIni, SEC_BATTERY_TRAY, KEY_DEFAULT_OUTLINE_COLOR_MODE, DEF_OUTLINE_COLOR_MODE);
+  BatteryTrayCfg.DefaultCustomOutlineColor := AIni.ReadInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_CUSTOM_OUTLINE_COLOR, DEF_CUSTOM_OUTLINE_COLOR);
 end;
 
 procedure TIniSettingsRepository.ValidateRanges(AConfig: IAppConfig);
@@ -585,6 +604,8 @@ begin
   AIni.WriteInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_LOW_BATTERY_THRESHOLD, BatteryTrayCfg.DefaultLowBatteryThreshold);
   AIni.WriteBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_LOW_BATTERY, BatteryTrayCfg.DefaultNotifyLowBattery);
   AIni.WriteBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_FULLY_CHARGED, BatteryTrayCfg.DefaultNotifyFullyCharged);
+  AIni.WriteInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_OUTLINE_COLOR_MODE, Ord(BatteryTrayCfg.DefaultOutlineColorMode));
+  AIni.WriteInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_CUSTOM_OUTLINE_COLOR, BatteryTrayCfg.DefaultCustomOutlineColor);
 end;
 
 end.

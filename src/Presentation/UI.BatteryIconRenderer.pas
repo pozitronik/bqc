@@ -26,7 +26,8 @@ type
   /// </summary>
   TBatteryIconRenderer = class
   private
-    class procedure DrawBatteryOutline(ACanvas: TCanvas; ARect: TRect);
+    class procedure DrawBatteryOutline(ACanvas: TCanvas; ARect: TRect;
+      AOutlineColor: TColor);
     class procedure DrawBatteryFill(ACanvas: TCanvas; ARect: TRect;
       ALevel: Integer; AColor: TColor);
     class procedure DrawNumericValue(ACanvas: TCanvas; ARect: TRect;
@@ -52,6 +53,17 @@ type
       ABackgroundColor: TColor): TIcon; overload;
 
     /// <summary>
+    /// Creates a battery level icon with full customization including outline color.
+    /// </summary>
+    /// <param name="ALevel">Battery level percentage (0-100)</param>
+    /// <param name="AColor">Fill color for the battery level</param>
+    /// <param name="ABackgroundColor">Background color (use clNone for transparent)</param>
+    /// <param name="AOutlineColor">Outline color for battery border</param>
+    /// <returns>New TIcon instance. Caller must free.</returns>
+    class function CreateBatteryIcon(ALevel: Integer; AColor: TColor;
+      ABackgroundColor: TColor; AOutlineColor: TColor): TIcon; overload;
+
+    /// <summary>
     /// Creates a battery level icon with automatic color selection.
     /// Uses red for low battery (below threshold), provided color otherwise.
     /// </summary>
@@ -74,6 +86,19 @@ type
       ABackgroundColor: TColor; ALowThreshold: Integer): TIcon; overload;
 
     /// <summary>
+    /// Creates a battery level icon with full customization including outline color.
+    /// </summary>
+    /// <param name="ALevel">Battery level percentage (0-100)</param>
+    /// <param name="AColor">Normal fill color</param>
+    /// <param name="ABackgroundColor">Background color (clNone for transparent)</param>
+    /// <param name="ALowThreshold">Level below which to use red color</param>
+    /// <param name="AOutlineColor">Outline color for battery border</param>
+    /// <returns>New TIcon instance. Caller must free.</returns>
+    class function CreateBatteryIconAuto(ALevel: Integer; AColor: TColor;
+      ABackgroundColor: TColor; ALowThreshold: Integer;
+      AOutlineColor: TColor): TIcon; overload;
+
+    /// <summary>
     /// Creates a numeric battery icon showing percentage as digits.
     /// </summary>
     /// <param name="ALevel">Battery level percentage (0-100)</param>
@@ -87,14 +112,29 @@ type
     /// Creates a "no battery" or unknown status icon.
     /// </summary>
     /// <returns>New TIcon instance. Caller must free.</returns>
-    class function CreateUnknownBatteryIcon: TIcon;
+    class function CreateUnknownBatteryIcon: TIcon; overload;
+
+    /// <summary>
+    /// Creates a "no battery" or unknown status icon with custom outline color.
+    /// </summary>
+    /// <param name="AOutlineColor">Outline color for battery border</param>
+    /// <returns>New TIcon instance. Caller must free.</returns>
+    class function CreateUnknownBatteryIcon(AOutlineColor: TColor): TIcon; overload;
 
     /// <summary>
     /// Creates a "pending refresh" icon with ellipsis.
     /// Used when device is connected but battery level is being queried.
     /// </summary>
     /// <returns>New TIcon instance. Caller must free.</returns>
-    class function CreatePendingBatteryIcon: TIcon;
+    class function CreatePendingBatteryIcon: TIcon; overload;
+
+    /// <summary>
+    /// Creates a "pending refresh" icon with custom outline color.
+    /// Used when device is connected but battery level is being queried.
+    /// </summary>
+    /// <param name="AOutlineColor">Outline color for battery border</param>
+    /// <returns>New TIcon instance. Caller must free.</returns>
+    class function CreatePendingBatteryIcon(AOutlineColor: TColor): TIcon; overload;
   end;
 
 const
@@ -110,8 +150,9 @@ const
   BATTERY_CAP_HEIGHT = 6;
   BATTERY_PADDING = 1;
 
-  // Colors
-  BATTERY_OUTLINE_COLOR = clBlack;
+  // Colors - outline colors for different taskbar themes
+  BATTERY_OUTLINE_COLOR_LIGHT = clWhite;  // White outline for dark taskbars
+  BATTERY_OUTLINE_COLOR_DARK = clBlack;   // Black outline for light taskbars (default)
   BATTERY_LOW_COLOR = clRed;
   BATTERY_UNKNOWN_COLOR = clGray;
 
@@ -122,8 +163,15 @@ implementation
 class function TBatteryIconRenderer.CreateBatteryIcon(ALevel: Integer;
   AColor: TColor): TIcon;
 begin
-  // Delegate to overload with transparent background
-  Result := CreateBatteryIcon(ALevel, AColor, clNone);
+  // Delegate to overload with transparent background and default outline
+  Result := CreateBatteryIcon(ALevel, AColor, clNone, BATTERY_OUTLINE_COLOR_DARK);
+end;
+
+class function TBatteryIconRenderer.CreateBatteryIcon(ALevel: Integer;
+  AColor: TColor; ABackgroundColor: TColor): TIcon;
+begin
+  // Delegate to full overload with default outline color
+  Result := CreateBatteryIcon(ALevel, AColor, ABackgroundColor, BATTERY_OUTLINE_COLOR_DARK);
 end;
 
 class function TBatteryIconRenderer.CreateBatteryIconAuto(ALevel: Integer;
@@ -141,6 +189,13 @@ begin
 end;
 
 class function TBatteryIconRenderer.CreateUnknownBatteryIcon: TIcon;
+begin
+  // Delegate to overload with default outline color
+  Result := CreateUnknownBatteryIcon(BATTERY_OUTLINE_COLOR_DARK);
+end;
+
+class function TBatteryIconRenderer.CreateUnknownBatteryIcon(
+  AOutlineColor: TColor): TIcon;
 var
   Bitmap: TBitmap;
   MaskBmp: TBitmap;
@@ -168,7 +223,7 @@ begin
       BATTERY_LEFT + BATTERY_WIDTH, BATTERY_TOP + BATTERY_HEIGHT);
 
     // Draw battery outline
-    DrawBatteryOutline(Bitmap.Canvas, BatteryRect);
+    DrawBatteryOutline(Bitmap.Canvas, BatteryRect, AOutlineColor);
 
     // Draw question mark in center
     Bitmap.Canvas.Font.Name := 'Segoe UI';
@@ -208,6 +263,13 @@ begin
 end;
 
 class function TBatteryIconRenderer.CreatePendingBatteryIcon: TIcon;
+begin
+  // Delegate to overload with default outline color
+  Result := CreatePendingBatteryIcon(BATTERY_OUTLINE_COLOR_DARK);
+end;
+
+class function TBatteryIconRenderer.CreatePendingBatteryIcon(
+  AOutlineColor: TColor): TIcon;
 var
   Bitmap: TBitmap;
   MaskBmp: TBitmap;
@@ -237,7 +299,7 @@ begin
       BATTERY_LEFT + BATTERY_WIDTH, BATTERY_TOP + BATTERY_HEIGHT);
 
     // Draw battery outline
-    DrawBatteryOutline(Bitmap.Canvas, BatteryRect);
+    DrawBatteryOutline(Bitmap.Canvas, BatteryRect, AOutlineColor);
 
     // Draw ellipsis in center
     EllipsisText := '...';
@@ -282,16 +344,16 @@ begin
 end;
 
 class procedure TBatteryIconRenderer.DrawBatteryOutline(ACanvas: TCanvas;
-  ARect: TRect);
+  ARect: TRect; AOutlineColor: TColor);
 begin
   // Draw main battery body outline
-  ACanvas.Pen.Color := BATTERY_OUTLINE_COLOR;
+  ACanvas.Pen.Color := AOutlineColor;
   ACanvas.Pen.Width := 1;
   ACanvas.Brush.Style := bsClear;
   ACanvas.Rectangle(ARect);
 
   // Draw battery cap (positive terminal)
-  ACanvas.Brush.Color := BATTERY_OUTLINE_COLOR;
+  ACanvas.Brush.Color := AOutlineColor;
   ACanvas.Brush.Style := bsSolid;
   ACanvas.Rectangle(
     ARect.Right,
@@ -338,7 +400,7 @@ begin
 end;
 
 class function TBatteryIconRenderer.CreateBatteryIcon(ALevel: Integer;
-  AColor: TColor; ABackgroundColor: TColor): TIcon;
+  AColor: TColor; ABackgroundColor: TColor; AOutlineColor: TColor): TIcon;
 var
   Bitmap: TBitmap;
   MaskBmp: TBitmap;
@@ -375,7 +437,7 @@ begin
       BATTERY_LEFT + BATTERY_WIDTH, BATTERY_TOP + BATTERY_HEIGHT);
 
     // Draw battery components on color bitmap
-    DrawBatteryOutline(Bitmap.Canvas, BatteryRect);
+    DrawBatteryOutline(Bitmap.Canvas, BatteryRect, AOutlineColor);
     DrawBatteryFill(Bitmap.Canvas, BatteryRect, ALevel, AColor);
 
     // Draw mask (battery shape = black = opaque)
@@ -410,6 +472,15 @@ end;
 
 class function TBatteryIconRenderer.CreateBatteryIconAuto(ALevel: Integer;
   AColor: TColor; ABackgroundColor: TColor; ALowThreshold: Integer): TIcon;
+begin
+  // Delegate to full overload with default outline color
+  Result := CreateBatteryIconAuto(ALevel, AColor, ABackgroundColor, ALowThreshold,
+    BATTERY_OUTLINE_COLOR_DARK);
+end;
+
+class function TBatteryIconRenderer.CreateBatteryIconAuto(ALevel: Integer;
+  AColor: TColor; ABackgroundColor: TColor; ALowThreshold: Integer;
+  AOutlineColor: TColor): TIcon;
 var
   EffectiveColor: TColor;
 begin
@@ -419,7 +490,7 @@ begin
   else
     EffectiveColor := AColor;
 
-  Result := CreateBatteryIcon(ALevel, EffectiveColor, ABackgroundColor);
+  Result := CreateBatteryIcon(ALevel, EffectiveColor, ABackgroundColor, AOutlineColor);
 end;
 
 class procedure TBatteryIconRenderer.DrawNumericValue(ACanvas: TCanvas;

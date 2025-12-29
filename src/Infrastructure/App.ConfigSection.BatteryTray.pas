@@ -16,6 +16,7 @@ interface
 uses
   System.SysUtils,
   Vcl.Graphics,
+  App.ConfigEnums,
   App.BatteryTrayConfigIntf,
   App.ConfigSectionTypes;
 
@@ -32,6 +33,8 @@ type
     FDefaultLowBatteryThreshold: Integer;
     FDefaultNotifyLowBattery: Boolean;
     FDefaultNotifyFullyCharged: Boolean;
+    FDefaultOutlineColorMode: TOutlineColorMode;
+    FDefaultCustomOutlineColor: TColor;
     FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
@@ -43,6 +46,8 @@ type
     function GetDefaultLowBatteryThreshold: Integer;
     function GetDefaultNotifyLowBattery: Boolean;
     function GetDefaultNotifyFullyCharged: Boolean;
+    function GetDefaultOutlineColorMode: TOutlineColorMode;
+    function GetDefaultCustomOutlineColor: TColor;
 
     procedure SetShowBatteryTrayIcons(AValue: Boolean);
     procedure SetDefaultIconColor(AValue: TColor);
@@ -51,6 +56,8 @@ type
     procedure SetDefaultLowBatteryThreshold(AValue: Integer);
     procedure SetDefaultNotifyLowBattery(AValue: Boolean);
     procedure SetDefaultNotifyFullyCharged(AValue: Boolean);
+    procedure SetDefaultOutlineColorMode(AValue: TOutlineColorMode);
+    procedure SetDefaultCustomOutlineColor(AValue: TColor);
 
     procedure SetDefaults;
 
@@ -61,6 +68,8 @@ type
     property DefaultLowBatteryThreshold: Integer read FDefaultLowBatteryThreshold write SetDefaultLowBatteryThreshold;
     property DefaultNotifyLowBattery: Boolean read FDefaultNotifyLowBattery write SetDefaultNotifyLowBattery;
     property DefaultNotifyFullyCharged: Boolean read FDefaultNotifyFullyCharged write SetDefaultNotifyFullyCharged;
+    property DefaultOutlineColorMode: TOutlineColorMode read FDefaultOutlineColorMode write SetDefaultOutlineColorMode;
+    property DefaultCustomOutlineColor: TColor read FDefaultCustomOutlineColor write SetDefaultCustomOutlineColor;
   end;
 
 const
@@ -72,6 +81,8 @@ const
   DEF_LOW_BATTERY_THRESHOLD = 20;
   DEF_NOTIFY_LOW_BATTERY = True;
   DEF_NOTIFY_FULLY_CHARGED = False;
+  DEF_OUTLINE_COLOR_MODE = ocmAuto;
+  DEF_CUSTOM_OUTLINE_COLOR = TColor($000000);  // Black
 
   // Validation ranges
   MIN_LOW_BATTERY_THRESHOLD = 5;
@@ -97,6 +108,8 @@ begin
   FDefaultLowBatteryThreshold := DEF_LOW_BATTERY_THRESHOLD;
   FDefaultNotifyLowBattery := DEF_NOTIFY_LOW_BATTERY;
   FDefaultNotifyFullyCharged := DEF_NOTIFY_FULLY_CHARGED;
+  FDefaultOutlineColorMode := DEF_OUTLINE_COLOR_MODE;
+  FDefaultCustomOutlineColor := DEF_CUSTOM_OUTLINE_COLOR;
 end;
 
 function TBatteryTrayConfigSection.GetShowBatteryTrayIcons: Boolean;
@@ -132,6 +145,16 @@ end;
 function TBatteryTrayConfigSection.GetDefaultNotifyFullyCharged: Boolean;
 begin
   Result := FDefaultNotifyFullyCharged;
+end;
+
+function TBatteryTrayConfigSection.GetDefaultOutlineColorMode: TOutlineColorMode;
+begin
+  Result := FDefaultOutlineColorMode;
+end;
+
+function TBatteryTrayConfigSection.GetDefaultCustomOutlineColor: TColor;
+begin
+  Result := FDefaultCustomOutlineColor;
 end;
 
 procedure TBatteryTrayConfigSection.SetShowBatteryTrayIcons(AValue: Boolean);
@@ -199,6 +222,26 @@ begin
   if FDefaultNotifyFullyCharged <> AValue then
   begin
     FDefaultNotifyFullyCharged := AValue;
+    if Assigned(FOnModified) then
+      FOnModified();
+  end;
+end;
+
+procedure TBatteryTrayConfigSection.SetDefaultOutlineColorMode(AValue: TOutlineColorMode);
+begin
+  if FDefaultOutlineColorMode <> AValue then
+  begin
+    FDefaultOutlineColorMode := AValue;
+    if Assigned(FOnModified) then
+      FOnModified();
+  end;
+end;
+
+procedure TBatteryTrayConfigSection.SetDefaultCustomOutlineColor(AValue: TColor);
+begin
+  if FDefaultCustomOutlineColor <> AValue then
+  begin
+    FDefaultCustomOutlineColor := AValue;
     if Assigned(FOnModified) then
       FOnModified();
   end;

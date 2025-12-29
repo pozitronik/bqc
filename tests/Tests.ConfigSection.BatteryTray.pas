@@ -13,6 +13,7 @@ uses
   DUnitX.TestFramework,
   Vcl.Graphics,
   System.SysUtils,
+  App.ConfigEnums,
   App.BatteryTrayConfigIntf,
   App.ConfigSection.BatteryTray,
   App.ConfigSectionTypes;
@@ -109,6 +110,26 @@ type
     [Test]
     procedure SetDefaultNotifyFullyCharged_DifferentValue_NotifiesModified;
 
+    { DefaultOutlineColorMode Tests }
+    [Test]
+    procedure Default_OutlineColorMode_IsAuto;
+    [Test]
+    procedure SetDefaultOutlineColorMode_UpdatesValue;
+    [Test]
+    procedure SetDefaultOutlineColorMode_DifferentValue_NotifiesModified;
+    [Test]
+    procedure SetDefaultOutlineColorMode_SameValue_NoModification;
+
+    { DefaultCustomOutlineColor Tests }
+    [Test]
+    procedure Default_CustomOutlineColor_IsBlack;
+    [Test]
+    procedure SetDefaultCustomOutlineColor_UpdatesValue;
+    [Test]
+    procedure SetDefaultCustomOutlineColor_DifferentValue_NotifiesModified;
+    [Test]
+    procedure SetDefaultCustomOutlineColor_SameValue_NoModification;
+
     { Interface Tests }
     [Test]
     procedure ImplementsIBatteryTrayConfig;
@@ -202,6 +223,8 @@ begin
   FSection.DefaultLowBatteryThreshold := 50;
   FSection.DefaultNotifyLowBattery := False;
   FSection.DefaultNotifyFullyCharged := True;
+  FSection.DefaultOutlineColorMode := ocmLight;
+  FSection.DefaultCustomOutlineColor := clWhite;
 
   // Reset to defaults
   FSection.SetDefaults;
@@ -214,6 +237,8 @@ begin
   Assert.AreEqual(DEF_LOW_BATTERY_THRESHOLD, FSection.DefaultLowBatteryThreshold);
   Assert.AreEqual(DEF_NOTIFY_LOW_BATTERY, FSection.DefaultNotifyLowBattery);
   Assert.AreEqual(DEF_NOTIFY_FULLY_CHARGED, FSection.DefaultNotifyFullyCharged);
+  Assert.AreEqual(Integer(DEF_OUTLINE_COLOR_MODE), Integer(FSection.DefaultOutlineColorMode));
+  Assert.AreEqual(Integer(DEF_CUSTOM_OUTLINE_COLOR), Integer(FSection.DefaultCustomOutlineColor));
 end;
 
 procedure TBatteryTrayConfigSectionTests.SetShowBatteryTrayIcons_True_UpdatesValue;
@@ -320,6 +345,63 @@ procedure TBatteryTrayConfigSectionTests.SetDefaultNotifyFullyCharged_DifferentV
 begin
   FSection.DefaultNotifyFullyCharged := True;
   Assert.IsTrue(FModifiedCalled, 'Should notify when value changed');
+end;
+
+procedure TBatteryTrayConfigSectionTests.Default_OutlineColorMode_IsAuto;
+begin
+  Assert.AreEqual(Integer(DEF_OUTLINE_COLOR_MODE), Integer(FSection.DefaultOutlineColorMode));
+  Assert.AreEqual(Integer(ocmAuto), Integer(FSection.DefaultOutlineColorMode));
+end;
+
+procedure TBatteryTrayConfigSectionTests.SetDefaultOutlineColorMode_UpdatesValue;
+begin
+  FSection.DefaultOutlineColorMode := ocmLight;
+  Assert.AreEqual(Integer(ocmLight), Integer(FSection.DefaultOutlineColorMode));
+
+  FSection.DefaultOutlineColorMode := ocmDark;
+  Assert.AreEqual(Integer(ocmDark), Integer(FSection.DefaultOutlineColorMode));
+
+  FSection.DefaultOutlineColorMode := ocmCustom;
+  Assert.AreEqual(Integer(ocmCustom), Integer(FSection.DefaultOutlineColorMode));
+end;
+
+procedure TBatteryTrayConfigSectionTests.SetDefaultOutlineColorMode_DifferentValue_NotifiesModified;
+begin
+  FSection.DefaultOutlineColorMode := ocmLight;
+  Assert.IsTrue(FModifiedCalled, 'Should notify when value changed');
+end;
+
+procedure TBatteryTrayConfigSectionTests.SetDefaultOutlineColorMode_SameValue_NoModification;
+begin
+  FSection.DefaultOutlineColorMode := DEF_OUTLINE_COLOR_MODE;
+  Assert.IsFalse(FModifiedCalled, 'Should not notify when value unchanged');
+end;
+
+procedure TBatteryTrayConfigSectionTests.Default_CustomOutlineColor_IsBlack;
+begin
+  Assert.AreEqual(Integer(DEF_CUSTOM_OUTLINE_COLOR), Integer(FSection.DefaultCustomOutlineColor));
+  Assert.AreEqual(Integer(clBlack), Integer(FSection.DefaultCustomOutlineColor));
+end;
+
+procedure TBatteryTrayConfigSectionTests.SetDefaultCustomOutlineColor_UpdatesValue;
+begin
+  FSection.DefaultCustomOutlineColor := clWhite;
+  Assert.AreEqual(Integer(clWhite), Integer(FSection.DefaultCustomOutlineColor));
+
+  FSection.DefaultCustomOutlineColor := clRed;
+  Assert.AreEqual(Integer(clRed), Integer(FSection.DefaultCustomOutlineColor));
+end;
+
+procedure TBatteryTrayConfigSectionTests.SetDefaultCustomOutlineColor_DifferentValue_NotifiesModified;
+begin
+  FSection.DefaultCustomOutlineColor := clWhite;
+  Assert.IsTrue(FModifiedCalled, 'Should notify when value changed');
+end;
+
+procedure TBatteryTrayConfigSectionTests.SetDefaultCustomOutlineColor_SameValue_NoModification;
+begin
+  FSection.DefaultCustomOutlineColor := DEF_CUSTOM_OUTLINE_COLOR;
+  Assert.IsFalse(FModifiedCalled, 'Should not notify when value unchanged');
 end;
 
 procedure TBatteryTrayConfigSectionTests.ImplementsIBatteryTrayConfig;

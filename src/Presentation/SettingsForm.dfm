@@ -24,6 +24,8 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
+    ExplicitTop = 530
+    ExplicitWidth = 538
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -59,9 +61,11 @@ object FormSettings: TFormSettings
     Top = 0
     Width = 544
     Height = 547
-    ActivePage = TabConnection
+    ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
+    ExplicitWidth = 538
+    ExplicitHeight = 530
     object TabGeneral: TTabSheet
       Caption = 'Window'
       object GroupWindowMode: TGroupBox
@@ -802,6 +806,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Default Connection Settings'
         TabOrder = 0
+        ExplicitWidth = 530
         object LabelTimeout: TLabel
           Left = 12
           Top = 27
@@ -867,7 +872,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
-        ExplicitTop = 101
+        ExplicitWidth = 530
         object LabelPollingMode: TLabel
           Left = 12
           Top = 27
@@ -979,7 +984,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
-        ExplicitTop = 225
+        ExplicitWidth = 530
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24
@@ -1021,7 +1026,7 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 0
         Width = 536
-        Height = 165
+        Height = 195
         Align = alTop
         Caption = 'Battery Tray Icons'
         TabOrder = 0
@@ -1034,7 +1039,7 @@ object FormSettings: TFormSettings
         end
         object ShapeDefaultBatteryColor: TShape
           Left = 120
-          Top = 52
+          Top = 53
           Width = 70
           Height = 20
           Cursor = crHandPoint
@@ -1057,17 +1062,42 @@ object FormSettings: TFormSettings
         end
         object LabelDefaultBatteryThreshold: TLabel
           Left = 12
-          Top = 84
+          Top = 113
           Width = 78
           Height = 15
           Caption = 'Low threshold:'
         end
         object LabelDefaultBatteryThresholdPct: TLabel
           Left = 183
-          Top = 84
+          Top = 113
           Width = 10
           Height = 15
           Caption = '%'
+        end
+        object LabelOutlineColorMode: TLabel
+          Left = 12
+          Top = 82
+          Width = 66
+          Height = 15
+          Caption = 'Icon outline:'
+        end
+        object LabelCustomOutlineColor: TLabel
+          Left = 320
+          Top = 82
+          Width = 75
+          Height = 15
+          Caption = 'Custom color:'
+          Visible = False
+        end
+        object ShapeCustomOutlineColor: TShape
+          Left = 400
+          Top = 81
+          Width = 70
+          Height = 20
+          Cursor = crHandPoint
+          Brush.Color = clBlack
+          Visible = False
+          OnMouseDown = HandleShapeColorMouseDown
         end
         object CheckTransparentBackground: TCheckBox
           Left = 400
@@ -1075,11 +1105,11 @@ object FormSettings: TFormSettings
           Width = 100
           Height = 17
           Caption = 'Transparent'
-          TabOrder = 3
+          TabOrder = 1
         end
         object CheckShowBatteryTrayIcons: TCheckBox
           Left = 12
-          Top = 25
+          Top = 29
           Width = 250
           Height = 17
           Caption = 'Show battery level icons in system tray'
@@ -1087,44 +1117,57 @@ object FormSettings: TFormSettings
         end
         object EditDefaultBatteryThreshold: TEdit
           Left = 120
-          Top = 81
+          Top = 110
           Width = 40
           Height = 23
           NumbersOnly = True
-          TabOrder = 1
+          TabOrder = 3
           Text = '20'
         end
         object UpDownDefaultBatteryThreshold: TUpDown
           Left = 160
-          Top = 81
+          Top = 110
           Width = 17
           Height = 23
           Associate = EditDefaultBatteryThreshold
           Position = 20
-          TabOrder = 2
+          TabOrder = 4
         end
         object CheckShowNumericValue: TCheckBox
           Left = 12
-          Top = 114
+          Top = 143
           Width = 250
           Height = 17
           Caption = 'Show numeric percentage instead of bar'
-          TabOrder = 4
+          TabOrder = 5
         end
         object CheckAutoColorOnLow: TCheckBox
           Left = 12
-          Top = 137
+          Top = 166
           Width = 300
           Height = 17
           Caption = 'Automatically use red color for low battery'
           Checked = True
           State = cbChecked
-          TabOrder = 5
+          TabOrder = 6
+        end
+        object ComboOutlineColorMode: TComboBox
+          Left = 120
+          Top = 81
+          Width = 187
+          Height = 23
+          Style = csDropDownList
+          TabOrder = 2
+          Items.Strings = (
+            'Auto (follow system)'
+            'Light (white)'
+            'Dark (black)'
+            'Custom')
         end
       end
       object GroupBatteryNotifications: TGroupBox
         Left = 0
-        Top = 165
+        Top = 195
         Width = 536
         Height = 80
         Align = alTop

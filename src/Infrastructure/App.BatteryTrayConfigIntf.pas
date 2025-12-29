@@ -14,7 +14,8 @@ unit App.BatteryTrayConfigIntf;
 interface
 
 uses
-  Vcl.Graphics;
+  Vcl.Graphics,
+  App.ConfigEnums;
 
 type
   /// <summary>
@@ -30,6 +31,8 @@ type
     function GetDefaultLowBatteryThreshold: Integer;
     function GetDefaultNotifyLowBattery: Boolean;
     function GetDefaultNotifyFullyCharged: Boolean;
+    function GetDefaultOutlineColorMode: TOutlineColorMode;
+    function GetDefaultCustomOutlineColor: TColor;
 
     procedure SetShowBatteryTrayIcons(AValue: Boolean);
     procedure SetDefaultIconColor(AValue: TColor);
@@ -38,6 +41,8 @@ type
     procedure SetDefaultLowBatteryThreshold(AValue: Integer);
     procedure SetDefaultNotifyLowBattery(AValue: Boolean);
     procedure SetDefaultNotifyFullyCharged(AValue: Boolean);
+    procedure SetDefaultOutlineColorMode(AValue: TOutlineColorMode);
+    procedure SetDefaultCustomOutlineColor(AValue: TColor);
 
     /// <summary>
     /// Master switch for battery tray icons feature.
@@ -75,6 +80,17 @@ type
     /// Whether to show balloon notification when battery reaches 100%.
     /// </summary>
     property DefaultNotifyFullyCharged: Boolean read GetDefaultNotifyFullyCharged write SetDefaultNotifyFullyCharged;
+
+    /// <summary>
+    /// Controls how outline color is determined for battery icons.
+    /// Auto = follow Windows dark/light mode.
+    /// </summary>
+    property DefaultOutlineColorMode: TOutlineColorMode read GetDefaultOutlineColorMode write SetDefaultOutlineColorMode;
+
+    /// <summary>
+    /// Custom outline color when mode is ocmCustom.
+    /// </summary>
+    property DefaultCustomOutlineColor: TColor read GetDefaultCustomOutlineColor write SetDefaultCustomOutlineColor;
   end;
 
 implementation

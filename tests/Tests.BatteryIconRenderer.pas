@@ -82,6 +82,20 @@ type
     [Test]
     procedure CreatedIcon_HandleIsValid;
 
+    { Outline Color Tests }
+    [Test]
+    procedure CreateBatteryIcon_WithOutlineColor_ReturnsValidIcon;
+    [Test]
+    procedure CreateBatteryIcon_WithWhiteOutline_ReturnsValidIcon;
+    [Test]
+    procedure CreateBatteryIcon_WithCustomOutline_ReturnsValidIcon;
+    [Test]
+    procedure CreateBatteryIconAuto_WithOutlineColor_ReturnsValidIcon;
+    [Test]
+    procedure CreateUnknownBatteryIcon_WithOutlineColor_ReturnsValidIcon;
+    [Test]
+    procedure CreatePendingBatteryIcon_WithOutlineColor_ReturnsValidIcon;
+
     { Memory Management Tests }
     [Test]
     procedure CreateBatteryIcon_MultipleCalls_NoLeaks;
@@ -391,6 +405,86 @@ begin
   try
     Assert.IsTrue(Icon.Handle <> 0, 'Icon handle should not be zero');
     Assert.IsTrue(IsIconic(Icon.Handle) or (Icon.Handle <> 0), 'Icon handle should be valid Windows handle');
+  finally
+    Icon.Free;
+  end;
+end;
+
+procedure TBatteryIconRendererTests.CreateBatteryIcon_WithOutlineColor_ReturnsValidIcon;
+var
+  Icon: TIcon;
+begin
+  Icon := TBatteryIconRenderer.CreateBatteryIcon(50, clGreen, clNone, clBlack);
+  try
+    Assert.IsNotNull(Icon);
+    Assert.IsTrue(Icon.Handle <> 0, 'Icon handle should be valid with outline color');
+  finally
+    Icon.Free;
+  end;
+end;
+
+procedure TBatteryIconRendererTests.CreateBatteryIcon_WithWhiteOutline_ReturnsValidIcon;
+var
+  Icon: TIcon;
+begin
+  // White outline for dark taskbars
+  Icon := TBatteryIconRenderer.CreateBatteryIcon(75, clGreen, clNone, clWhite);
+  try
+    Assert.IsNotNull(Icon);
+    Assert.IsTrue(Icon.Handle <> 0, 'Icon handle should be valid with white outline');
+  finally
+    Icon.Free;
+  end;
+end;
+
+procedure TBatteryIconRendererTests.CreateBatteryIcon_WithCustomOutline_ReturnsValidIcon;
+var
+  Icon: TIcon;
+begin
+  // Custom color outline
+  Icon := TBatteryIconRenderer.CreateBatteryIcon(25, clGreen, clWhite, clBlue);
+  try
+    Assert.IsNotNull(Icon);
+    Assert.IsTrue(Icon.Handle <> 0, 'Icon handle should be valid with custom outline');
+  finally
+    Icon.Free;
+  end;
+end;
+
+procedure TBatteryIconRendererTests.CreateBatteryIconAuto_WithOutlineColor_ReturnsValidIcon;
+var
+  Icon: TIcon;
+begin
+  Icon := TBatteryIconRenderer.CreateBatteryIconAuto(50, clGreen, clNone, 20, clWhite);
+  try
+    Assert.IsNotNull(Icon);
+    Assert.IsTrue(Icon.Handle <> 0, 'Auto icon should be valid with outline color');
+  finally
+    Icon.Free;
+  end;
+end;
+
+procedure TBatteryIconRendererTests.CreateUnknownBatteryIcon_WithOutlineColor_ReturnsValidIcon;
+var
+  Icon: TIcon;
+begin
+  Icon := TBatteryIconRenderer.CreateUnknownBatteryIcon(clWhite);
+  try
+    Assert.IsNotNull(Icon);
+    Assert.IsTrue(Icon.Handle <> 0, 'Unknown battery icon should be valid with outline color');
+  finally
+    Icon.Free;
+  end;
+end;
+
+procedure TBatteryIconRendererTests.CreatePendingBatteryIcon_WithOutlineColor_ReturnsValidIcon;
+var
+  Icon: TIcon;
+begin
+  Icon := TBatteryIconRenderer.CreatePendingBatteryIcon(clWhite);
+  try
+    Assert.IsNotNull(Icon);
+    Assert.IsTrue(Icon.Handle <> 0, 'Pending battery icon should be valid with outline color');
   finally
     Icon.Free;
   end;

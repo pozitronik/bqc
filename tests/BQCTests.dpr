@@ -43,6 +43,7 @@ uses
   Tests.BatteryIconRenderer in 'Tests.BatteryIconRenderer.pas',
   Tests.BatteryTrayManager in 'Tests.BatteryTrayManager.pas',
   Tests.ConfigSection.BatteryTray in 'Tests.ConfigSection.BatteryTray.pas',
+  Tests.SystemThemeDetector in 'Tests.SystemThemeDetector.pas',
   Tests.HotkeyManager in 'Tests.HotkeyManager.pas',
   Tests.BatteryQuery in 'Tests.BatteryQuery.pas',
   Tests.Mocks in 'Tests.Mocks.pas',
@@ -106,7 +107,8 @@ uses
   UI.BatteryTrayManager in '..\src\Presentation\UI.BatteryTrayManager.pas',
   UI.HotkeyManager in '..\src\Presentation\UI.HotkeyManager.pas',
   App.BatteryTrayConfigIntf in '..\src\Infrastructure\App.BatteryTrayConfigIntf.pas',
-  App.ConfigSection.BatteryTray in '..\src\Infrastructure\App.ConfigSection.BatteryTray.pas';
+  App.ConfigSection.BatteryTray in '..\src\Infrastructure\App.ConfigSection.BatteryTray.pas',
+  App.SystemThemeDetector in '..\src\Infrastructure\App.SystemThemeDetector.pas';
 
 
 {$IFNDEF TESTINSIGHT}

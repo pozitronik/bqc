@@ -172,6 +172,8 @@ type
     FDefaultLowBatteryThreshold: Integer;
     FDefaultNotifyLowBattery: Boolean;
     FDefaultNotifyFullyCharged: Boolean;
+    FDefaultOutlineColorMode: TOutlineColorMode;
+    FDefaultCustomOutlineColor: TColor;
   public
     constructor Create;
 
@@ -183,6 +185,8 @@ type
     function GetDefaultLowBatteryThreshold: Integer;
     function GetDefaultNotifyLowBattery: Boolean;
     function GetDefaultNotifyFullyCharged: Boolean;
+    function GetDefaultOutlineColorMode: TOutlineColorMode;
+    function GetDefaultCustomOutlineColor: TColor;
 
     // IBatteryTrayConfig - setters
     procedure SetShowBatteryTrayIcons(AValue: Boolean);
@@ -192,6 +196,8 @@ type
     procedure SetDefaultLowBatteryThreshold(AValue: Integer);
     procedure SetDefaultNotifyLowBattery(AValue: Boolean);
     procedure SetDefaultNotifyFullyCharged(AValue: Boolean);
+    procedure SetDefaultOutlineColorMode(AValue: TOutlineColorMode);
+    procedure SetDefaultCustomOutlineColor(AValue: TColor);
 
     // Direct access properties for testing
     property ShowBatteryTrayIcons: Boolean read FShowBatteryTrayIcons write FShowBatteryTrayIcons;
@@ -201,6 +207,8 @@ type
     property DefaultLowBatteryThreshold: Integer read FDefaultLowBatteryThreshold write FDefaultLowBatteryThreshold;
     property DefaultNotifyLowBattery: Boolean read FDefaultNotifyLowBattery write FDefaultNotifyLowBattery;
     property DefaultNotifyFullyCharged: Boolean read FDefaultNotifyFullyCharged write FDefaultNotifyFullyCharged;
+    property DefaultOutlineColorMode: TOutlineColorMode read FDefaultOutlineColorMode write FDefaultOutlineColorMode;
+    property DefaultCustomOutlineColor: TColor read FDefaultCustomOutlineColor write FDefaultCustomOutlineColor;
   end;
 
   /// <summary>
@@ -1210,6 +1218,8 @@ begin
   FDefaultLowBatteryThreshold := 20;
   FDefaultNotifyLowBattery := True;
   FDefaultNotifyFullyCharged := False;
+  FDefaultOutlineColorMode := ocmAuto;
+  FDefaultCustomOutlineColor := clBlack;
 end;
 
 function TMockBatteryTrayConfig.GetShowBatteryTrayIcons: Boolean;
@@ -1280,6 +1290,26 @@ end;
 procedure TMockBatteryTrayConfig.SetDefaultNotifyFullyCharged(AValue: Boolean);
 begin
   FDefaultNotifyFullyCharged := AValue;
+end;
+
+function TMockBatteryTrayConfig.GetDefaultOutlineColorMode: TOutlineColorMode;
+begin
+  Result := FDefaultOutlineColorMode;
+end;
+
+function TMockBatteryTrayConfig.GetDefaultCustomOutlineColor: TColor;
+begin
+  Result := FDefaultCustomOutlineColor;
+end;
+
+procedure TMockBatteryTrayConfig.SetDefaultOutlineColorMode(AValue: TOutlineColorMode);
+begin
+  FDefaultOutlineColorMode := AValue;
+end;
+
+procedure TMockBatteryTrayConfig.SetDefaultCustomOutlineColor(AValue: TColor);
+begin
+  FDefaultCustomOutlineColor := AValue;
 end;
 
 { TMockAppConfig }
