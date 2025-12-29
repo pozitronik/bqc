@@ -88,6 +88,13 @@ type
     /// </summary>
     /// <returns>New TIcon instance. Caller must free.</returns>
     class function CreateUnknownBatteryIcon: TIcon;
+
+    /// <summary>
+    /// Creates a "pending refresh" icon with ellipsis.
+    /// Used when device is connected but battery level is being queried.
+    /// </summary>
+    /// <returns>New TIcon instance. Caller must free.</returns>
+    class function CreatePendingBatteryIcon: TIcon;
   end;
 
 const
@@ -173,6 +180,80 @@ begin
       BatteryRect.Left + (BATTERY_WIDTH - Bitmap.Canvas.TextWidth('?')) div 2,
       BatteryRect.Top + (BATTERY_HEIGHT - Bitmap.Canvas.TextHeight('?')) div 2,
       '?'
+    );
+
+    // Draw mask
+    MaskBmp.Canvas.Brush.Color := clBlack;
+    MaskBmp.Canvas.Pen.Color := clBlack;
+    MaskBmp.Canvas.Rectangle(BatteryRect);
+    MaskBmp.Canvas.Rectangle(
+      BatteryRect.Right,
+      BatteryRect.Top + (BATTERY_HEIGHT - BATTERY_CAP_HEIGHT) div 2,
+      BatteryRect.Right + BATTERY_CAP_WIDTH,
+      BatteryRect.Top + (BATTERY_HEIGHT + BATTERY_CAP_HEIGHT) div 2
+    );
+
+    // Create icon
+    IconInfo.fIcon := True;
+    IconInfo.xHotspot := 0;
+    IconInfo.yHotspot := 0;
+    IconInfo.hbmMask := MaskBmp.Handle;
+    IconInfo.hbmColor := Bitmap.Handle;
+
+    Result.Handle := CreateIconIndirect(IconInfo);
+  finally
+    MaskBmp.Free;
+    Bitmap.Free;
+  end;
+end;
+
+class function TBatteryIconRenderer.CreatePendingBatteryIcon: TIcon;
+var
+  Bitmap: TBitmap;
+  MaskBmp: TBitmap;
+  BatteryRect: TRect;
+  IconInfo: TIconInfo;
+  EllipsisText: string;
+  TextWidth, TextHeight: Integer;
+begin
+  Result := TIcon.Create;
+  Bitmap := TBitmap.Create;
+  MaskBmp := TBitmap.Create;
+  try
+    // Setup color bitmap
+    Bitmap.PixelFormat := pf32bit;
+    Bitmap.SetSize(BATTERY_ICON_SIZE, BATTERY_ICON_SIZE);
+    Bitmap.Canvas.Brush.Color := clBlack;
+    Bitmap.Canvas.FillRect(Rect(0, 0, BATTERY_ICON_SIZE, BATTERY_ICON_SIZE));
+
+    // Setup mask bitmap
+    MaskBmp.PixelFormat := pf1bit;
+    MaskBmp.Monochrome := True;
+    MaskBmp.SetSize(BATTERY_ICON_SIZE, BATTERY_ICON_SIZE);
+    MaskBmp.Canvas.Brush.Color := clWhite;
+    MaskBmp.Canvas.FillRect(Rect(0, 0, BATTERY_ICON_SIZE, BATTERY_ICON_SIZE));
+
+    BatteryRect := Rect(BATTERY_LEFT, BATTERY_TOP,
+      BATTERY_LEFT + BATTERY_WIDTH, BATTERY_TOP + BATTERY_HEIGHT);
+
+    // Draw battery outline
+    DrawBatteryOutline(Bitmap.Canvas, BatteryRect);
+
+    // Draw ellipsis in center
+    EllipsisText := '...';
+    Bitmap.Canvas.Font.Name := 'Segoe UI';
+    Bitmap.Canvas.Font.Size := 6;
+    Bitmap.Canvas.Font.Color := BATTERY_UNKNOWN_COLOR;
+    Bitmap.Canvas.Font.Style := [fsBold];
+    Bitmap.Canvas.Brush.Style := bsClear;
+
+    TextWidth := Bitmap.Canvas.TextWidth(EllipsisText);
+    TextHeight := Bitmap.Canvas.TextHeight(EllipsisText);
+
+    Bitmap.Canvas.TextOut(
+      BatteryRect.Left + (BATTERY_WIDTH - TextWidth) div 2,
+      BatteryRect.Top + (BATTERY_HEIGHT - TextHeight) div 2 - 1,  // Slight vertical adjustment
+      EllipsisText
     );
 
     // Draw mask

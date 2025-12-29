@@ -668,13 +668,13 @@ begin
       if LDevice.ConnectionState = csConnected then
       begin
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
-        // Invalidate stale battery cache. Do NOT request immediate refresh because
-        // Windows device properties (used by SetupAPI) take several seconds to update
-        // after device reconnects. Immediate query would return stale Windows cached value.
+        // Set battery status to "pending" - shows ellipsis icon while refreshing.
+        // Do NOT request immediate refresh because Windows device properties (used by
+        // SetupAPI) take several seconds to update after device reconnects.
         // Schedule delayed refresh to get accurate battery level.
         if (FBatteryCache <> nil) and FAppearanceConfig.ShowBatteryLevel then
         begin
-          FBatteryCache.Remove(LDevice.AddressInt);
+          FBatteryCache.SetBatteryStatus(LDevice.AddressInt, TBatteryStatus.Pending);
           ScheduleDelayedBatteryRefresh(LDevice.AddressInt, 10000);  // 10 seconds delay
         end;
       end

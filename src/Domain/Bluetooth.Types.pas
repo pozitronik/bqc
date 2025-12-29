@@ -241,12 +241,18 @@ type
     class function Create(ALevel: Integer): TBatteryStatus; static;
 
     /// <summary>
+    /// Creates a battery status indicating refresh is pending.
+    /// Used when device just connected and battery query is in progress.
+    /// </summary>
+    class function Pending: TBatteryStatus; static;
+
+    /// <summary>
     /// Whether the device supports battery level reporting.
     /// </summary>
     property IsSupported: Boolean read FIsSupported;
 
     /// <summary>
-    /// Battery level percentage (0-100), or -1 if unknown.
+    /// Battery level percentage (0-100), -1 if unknown, -2 if pending refresh.
     /// Only valid when IsSupported is True.
     /// </summary>
     property Level: Integer read FLevel;
@@ -255,6 +261,11 @@ type
     /// Returns True if battery level is known and valid.
     /// </summary>
     function HasLevel: Boolean;
+
+    /// <summary>
+    /// Returns True if battery refresh is pending.
+    /// </summary>
+    function IsPending: Boolean;
   end;
 
   /// <summary>
@@ -389,9 +400,20 @@ begin
     Result.FLevel := ALevel;
 end;
 
+class function TBatteryStatus.Pending: TBatteryStatus;
+begin
+  Result.FIsSupported := True;
+  Result.FLevel := -2;  // Sentinel value for pending state
+end;
+
 function TBatteryStatus.HasLevel: Boolean;
 begin
   Result := FIsSupported and (FLevel >= 0) and (FLevel <= 100);
+end;
+
+function TBatteryStatus.IsPending: Boolean;
+begin
+  Result := FIsSupported and (FLevel = -2);
 end;
 
 { EBluetoothException }

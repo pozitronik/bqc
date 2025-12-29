@@ -1046,14 +1046,26 @@ begin
     for I := 0 to High(AItems) do
     begin
       Item := AItems[I];
-      // Only update tray icons for connected devices with valid battery level
-      if Item.Device.IsConnected and (Item.BatteryStatus.Level >= 0) then
-        FBatteryTrayManager.UpdateDevice(
-          Item.Device.AddressInt,
-          Item.DisplayName,
-          Item.BatteryStatus.Level,
-          True
-        )
+      if Item.Device.IsConnected then
+      begin
+        if Item.BatteryStatus.IsPending then
+          // Show pending icon while battery is being refreshed
+          FBatteryTrayManager.UpdateDevicePending(
+            Item.Device.AddressInt,
+            Item.DisplayName
+          )
+        else if Item.BatteryStatus.Level >= 0 then
+          // Show battery level icon
+          FBatteryTrayManager.UpdateDevice(
+            Item.Device.AddressInt,
+            Item.DisplayName,
+            Item.BatteryStatus.Level,
+            True
+          )
+        else
+          // Battery not supported or unknown - remove icon
+          FBatteryTrayManager.RemoveDevice(Item.Device.AddressInt);
+      end
       else
         // Remove tray icon for disconnected devices
         FBatteryTrayManager.RemoveDevice(Item.Device.AddressInt);

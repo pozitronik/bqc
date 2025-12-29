@@ -112,6 +112,12 @@ type
       ALevel: Integer; AIsConnected: Boolean);
 
     /// <summary>
+    /// Shows a pending/loading tray icon for a device.
+    /// Used when device is connected but battery level is being refreshed.
+    /// </summary>
+    procedure UpdateDevicePending(AAddress: UInt64; const AName: string);
+
+    /// <summary>
     /// Removes a device's tray icon.
     /// </summary>
     procedure RemoveDevice(AAddress: UInt64);
@@ -512,6 +518,87 @@ begin
       if IconData.hIcon <> 0 then
         DestroyIcon(IconData.hIcon);
       LogWarning('Failed to add battery tray icon for %s', [AName], ClassName);
+    end;
+  end;
+end;
+
+procedure TBatteryTrayManager.UpdateDevicePending(AAddress: UInt64; const AName: string);
+var
+  IconData: TNotifyIconData;
+  ExistingIcon: TNotifyIconData;
+  Icon: TIcon;
+  Tooltip: string;
+  OldIconHandle: HICON;
+begin
+  if not FEnabled then
+    Exit;
+
+  // Check if we should show tray icon for this device
+  if not ShouldShowTrayIcon(AAddress) then
+  begin
+    RemoveDevice(AAddress);
+    Exit;
+  end;
+
+  Tooltip := Format('%s: ...', [AName]);
+
+  if FDeviceIcons.TryGetValue(AAddress, ExistingIcon) then
+  begin
+    // Update existing icon to pending
+    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
+    try
+      OldIconHandle := ExistingIcon.hIcon;
+      ExistingIcon.hIcon := CopyIcon(Icon.Handle);
+      StrLCopy(ExistingIcon.szTip, PChar(Tooltip), Length(ExistingIcon.szTip) - 1);
+
+      if Shell_NotifyIcon(NIM_MODIFY, @ExistingIcon) then
+      begin
+        if OldIconHandle <> 0 then
+          DestroyIcon(OldIconHandle);
+        FDeviceIcons[AAddress] := ExistingIcon;
+      end
+      else
+      begin
+        if ExistingIcon.hIcon <> 0 then
+          DestroyIcon(ExistingIcon.hIcon);
+        ExistingIcon.hIcon := OldIconHandle;
+        LogWarning('Failed to update battery tray icon to pending for %s', [AName], ClassName);
+      end;
+    finally
+      Icon.Free;
+    end;
+  end
+  else
+  begin
+    // Create new pending icon
+    FillChar(IconData, SizeOf(IconData), 0);
+    IconData.cbSize := SizeOf(TNotifyIconData);
+    IconData.Wnd := FOwnerHandle;
+    IconData.uID := GetNextIconId;
+    IconData.uFlags := NIF_ICON or NIF_TIP or NIF_MESSAGE or NIF_SHOWTIP;
+    IconData.uCallbackMessage := WM_BATTERYTRAY_CALLBACK;
+
+    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
+    try
+      IconData.hIcon := CopyIcon(Icon.Handle);
+    finally
+      Icon.Free;
+    end;
+
+    StrLCopy(IconData.szTip, PChar(Tooltip), Length(IconData.szTip) - 1);
+
+    if Shell_NotifyIcon(NIM_ADD, @IconData) then
+    begin
+      IconData.uTimeout := NOTIFYICON_VERSION_4;
+      Shell_NotifyIcon(NIM_SETVERSION, @IconData);
+      FDeviceIcons.Add(AAddress, IconData);
+      LogDebug('Pending battery tray icon added for %s', [AName], ClassName);
+    end
+    else
+    begin
+      if IconData.hIcon <> 0 then
+        DestroyIcon(IconData.hIcon);
+      LogWarning('Failed to add pending battery tray icon for %s', [AName], ClassName);
     end;
   end;
 end;
