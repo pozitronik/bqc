@@ -128,6 +128,7 @@ const
   // INI key names - [Device] (global defaults)
   KEY_CONNECTION_TIMEOUT = 'ConnectionTimeout';
   KEY_CONNECTION_RETRY_COUNT = 'ConnectionRetryCount';
+  KEY_ENUMERATION_MODE = 'EnumerationMode';
   KEY_NOTIFY_ON_CONNECT = 'NotifyOnConnect';
   KEY_NOTIFY_ON_DISCONNECT = 'NotifyOnDisconnect';
   KEY_NOTIFY_ON_CONNECT_FAILED = 'NotifyOnConnectFailed';
@@ -274,6 +275,21 @@ begin
   end;
 end;
 
+function SafeReadEnumerationMode(AIni: TMemIniFile; const ASection, AKey: string;
+  ADefault: TEnumerationMode): TEnumerationMode;
+var
+  Value: Integer;
+begin
+  Value := AIni.ReadInteger(ASection, AKey, Ord(ADefault));
+  if (Value >= Ord(Low(TEnumerationMode))) and (Value <= Ord(High(TEnumerationMode))) then
+    Result := TEnumerationMode(Value)
+  else
+  begin
+    LogWarning('Invalid EnumerationMode value %d in INI, using default', [Value], 'SettingsRepository');
+    Result := ADefault;
+  end;
+end;
+
 { TIniSettingsRepository }
 
 constructor TIniSettingsRepository.Create(const AConfigPath: string;
@@ -407,6 +423,7 @@ begin
   // [Device] - global defaults
   ConnectionCfg.ConnectionTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
   ConnectionCfg.ConnectionRetryCount := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, DEF_CONNECTION_RETRY_COUNT);
+  ConnectionCfg.EnumerationMode := SafeReadEnumerationMode(AIni, SEC_DEVICE, KEY_ENUMERATION_MODE, emComposite);
   NotificationCfg.NotifyOnConnect := SafeReadNotificationMode(AIni, SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, DEF_NOTIFY_ON_CONNECT);
   NotificationCfg.NotifyOnDisconnect := SafeReadNotificationMode(AIni, SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, DEF_NOTIFY_ON_DISCONNECT);
   NotificationCfg.NotifyOnConnectFailed := SafeReadNotificationMode(AIni, SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, DEF_NOTIFY_ON_CONNECT_FAILED);
@@ -554,6 +571,7 @@ begin
   // [Device] - global defaults
   AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, ConnectionCfg.ConnectionTimeout);
   AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, ConnectionCfg.ConnectionRetryCount);
+  AIni.WriteInteger(SEC_DEVICE, KEY_ENUMERATION_MODE, Ord(ConnectionCfg.EnumerationMode));
   AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(NotificationCfg.NotifyOnConnect));
   AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_DISCONNECT, Ord(NotificationCfg.NotifyOnDisconnect));
   AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT_FAILED, Ord(NotificationCfg.NotifyOnConnectFailed));

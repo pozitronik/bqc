@@ -21,7 +21,10 @@ uses
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.WinAPI,
-  Bluetooth.DeviceConverter;
+  Bluetooth.DeviceConverter,
+  Bluetooth.WinRTDeviceQuery,
+  App.ConfigEnums,
+  App.ConnectionConfigIntf;
 
 type
   /// <summary>
@@ -30,6 +33,26 @@ type
   /// </summary>
   TWindowsBluetoothDeviceQuery = class(TInterfacedObject, IBluetoothDeviceQuery)
   public
+    function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
+  end;
+
+  /// <summary>
+  /// Composite query that uses both Win32 and WinRT APIs.
+  /// Merges results, preferring devices with non-empty names.
+  /// Logs comparison for investigation.
+  /// Supports enumeration mode selection via IConnectionConfig.
+  /// </summary>
+  TCompositeBluetoothDeviceQuery = class(TInterfacedObject, IBluetoothDeviceQuery)
+  private
+    FWin32Query: IBluetoothDeviceQuery;
+    FWinRTQuery: IBluetoothDeviceQuery;
+    FConnectionConfig: IConnectionConfig;
+    procedure LogComparison(const AWin32, AWinRT: TBluetoothDeviceInfoArray);
+    function MergeResults(const AWin32, AWinRT: TBluetoothDeviceInfoArray): TBluetoothDeviceInfoArray;
+    function GetEnumerationMode: TEnumerationMode;
+  public
+    constructor Create; overload;
+    constructor Create(AConnectionConfig: IConnectionConfig); overload;
     function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
   end;
 
@@ -69,26 +92,183 @@ type
 /// <summary>
 /// Creates a device repository with Windows API query implementation.
 /// </summary>
-function CreateDeviceRepository: IDeviceRepository;
+function CreateDeviceRepository: IDeviceRepository; overload;
+
+/// <summary>
+/// Creates a device repository with config-aware query implementation.
+/// </summary>
+function CreateDeviceRepository(AConnectionConfig: IConnectionConfig): IDeviceRepository; overload;
 
 /// <summary>
 /// Creates the default Windows API device query.
 /// </summary>
-function CreateBluetoothDeviceQuery: IBluetoothDeviceQuery;
+function CreateBluetoothDeviceQuery: IBluetoothDeviceQuery; overload;
+
+/// <summary>
+/// Creates a config-aware device query (uses EnumerationMode setting).
+/// </summary>
+function CreateBluetoothDeviceQuery(AConnectionConfig: IConnectionConfig): IBluetoothDeviceQuery; overload;
 
 implementation
 
 uses
+  System.Classes,
+  System.Win.Registry,
   App.Logger;
+
+const
+  BTHPORT_DEVICES_KEY = 'SYSTEM\CurrentControlSet\Services\BTHPORT\Parameters\Devices';
+  BTHENUM_KEY = 'SYSTEM\CurrentControlSet\Enum\BTHENUM';
+
+/// <summary>
+/// Tries to get device name from BTHPORT registry cache.
+/// Registry path: HKLM\SYSTEM\CurrentControlSet\Services\BTHPORT\Parameters\Devices\[address]\Name
+/// </summary>
+function TryGetNameFromBthport(AAddress: UInt64; out AName: string): Boolean;
+var
+  Reg: TRegistry;
+  SubKeyPath: string;
+  NameBytes: TBytes;
+begin
+  Result := False;
+  AName := '';
+
+  // Address in registry is lowercase hex without leading zeros
+  SubKeyPath := BTHPORT_DEVICES_KEY + '\' + LowerCase(IntToHex(AAddress, 12));
+
+  Reg := TRegistry.Create(KEY_READ);
+  try
+    Reg.RootKey := HKEY_LOCAL_MACHINE;
+    if Reg.OpenKeyReadOnly(SubKeyPath) then
+    begin
+      try
+        if Reg.ValueExists('Name') then
+        begin
+          // Name is stored as REG_BINARY (UTF-8 bytes with null terminator)
+          SetLength(NameBytes, Reg.GetDataSize('Name'));
+          if Length(NameBytes) > 0 then
+          begin
+            Reg.ReadBinaryData('Name', NameBytes[0], Length(NameBytes));
+            // Convert UTF-8 to string, remove null terminator
+            AName := TEncoding.UTF8.GetString(NameBytes);
+            AName := AName.TrimRight([#0]);
+            Result := AName <> '';
+            if Result then
+              LogDebug('TryGetNameFromBthport: Found name "%s" for $%.12X', [AName, AAddress], 'DeviceRepository');
+          end;
+        end;
+      finally
+        Reg.CloseKey;
+      end;
+    end;
+  finally
+    Reg.Free;
+  end;
+end;
+
+/// <summary>
+/// Tries to get device FriendlyName from BTHENUM (PnP) registry.
+/// Registry path: HKLM\SYSTEM\CurrentControlSet\Enum\BTHENUM\Dev_[address]\[instance]\FriendlyName
+/// The instance subkey varies, so we enumerate all subkeys under Dev_[address].
+/// </summary>
+function TryGetNameFromBthenum(AAddress: UInt64; out AName: string): Boolean;
+var
+  Reg: TRegistry;
+  DevKeyPath: string;
+  SubKeys: TStringList;
+  SubKey: string;
+begin
+  Result := False;
+  AName := '';
+
+  // BTHENUM uses uppercase address: Dev_C01693A834C7
+  DevKeyPath := BTHENUM_KEY + '\Dev_' + UpperCase(IntToHex(AAddress, 12));
+
+  Reg := TRegistry.Create(KEY_READ);
+  SubKeys := TStringList.Create;
+  try
+    Reg.RootKey := HKEY_LOCAL_MACHINE;
+    if Reg.OpenKeyReadOnly(DevKeyPath) then
+    begin
+      try
+        Reg.GetKeyNames(SubKeys);
+      finally
+        Reg.CloseKey;
+      end;
+
+      // Enumerate subkeys looking for FriendlyName
+      for SubKey in SubKeys do
+      begin
+        if Reg.OpenKeyReadOnly(DevKeyPath + '\' + SubKey) then
+        begin
+          try
+            if Reg.ValueExists('FriendlyName') then
+            begin
+              AName := Reg.ReadString('FriendlyName');
+              if AName <> '' then
+              begin
+                Result := True;
+                LogDebug('TryGetNameFromBthenum: Found FriendlyName "%s" for $%.12X',
+                  [AName, AAddress], 'DeviceRepository');
+                Exit;
+              end;
+            end;
+          finally
+            Reg.CloseKey;
+          end;
+        end;
+      end;
+    end;
+  finally
+    SubKeys.Free;
+    Reg.Free;
+  end;
+end;
+
+/// <summary>
+/// Tries to get device name from Windows registry.
+/// Tries multiple locations in order:
+/// 1. BTHPORT cache (HKLM\SYSTEM\...\BTHPORT\Parameters\Devices\[addr]\Name)
+/// 2. BTHENUM PnP (HKLM\SYSTEM\...\Enum\BTHENUM\Dev_[addr]\...\FriendlyName)
+/// </summary>
+function TryGetNameFromRegistry(AAddress: UInt64; out AName: string): Boolean;
+begin
+  // Try BTHPORT first (Bluetooth stack cache)
+  Result := TryGetNameFromBthport(AAddress, AName);
+  if Result then
+    Exit;
+
+  // Fallback to BTHENUM (PnP FriendlyName)
+  Result := TryGetNameFromBthenum(AAddress, AName);
+end;
+
+/// <summary>
+/// Checks if a name is a generic WinRT fallback name (e.g., "Bluetooth c0:16:93:a8:34:c7")
+/// Format: "Bluetooth " (10 chars) + "xx:xx:xx:xx:xx:xx" (17 chars) = 27 chars total
+/// </summary>
+function IsGenericBluetoothName(const AName: string): Boolean;
+begin
+  Result := AName.StartsWith('Bluetooth ', True) and (AName.Length = 27);
+end;
 
 function CreateBluetoothDeviceQuery: IBluetoothDeviceQuery;
 begin
-  Result := TWindowsBluetoothDeviceQuery.Create;
+  Result := TCompositeBluetoothDeviceQuery.Create;
+end;
+
+function CreateBluetoothDeviceQuery(AConnectionConfig: IConnectionConfig): IBluetoothDeviceQuery;
+begin
+  Result := TCompositeBluetoothDeviceQuery.Create(AConnectionConfig);
 end;
 
 function CreateDeviceRepository: IDeviceRepository;
 begin
   Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery);
+end;
+
+function CreateDeviceRepository(AConnectionConfig: IConnectionConfig): IDeviceRepository;
+begin
+  Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery(AConnectionConfig));
 end;
 
 { TWindowsBluetoothDeviceQuery }
@@ -136,6 +316,208 @@ begin
     LogDebug('EnumeratePairedDevices: Complete, found %d devices', [Length(Result)], ClassName);
   finally
     DeviceList.Free;
+  end;
+end;
+
+{ TCompositeBluetoothDeviceQuery }
+
+constructor TCompositeBluetoothDeviceQuery.Create;
+begin
+  Create(nil);
+end;
+
+constructor TCompositeBluetoothDeviceQuery.Create(AConnectionConfig: IConnectionConfig);
+begin
+  inherited Create;
+  FWin32Query := TWindowsBluetoothDeviceQuery.Create;
+  FWinRTQuery := CreateWinRTBluetoothDeviceQuery;
+  FConnectionConfig := AConnectionConfig;
+end;
+
+function TCompositeBluetoothDeviceQuery.GetEnumerationMode: TEnumerationMode;
+begin
+  if Assigned(FConnectionConfig) then
+    Result := FConnectionConfig.EnumerationMode
+  else
+    Result := emComposite;
+end;
+
+function TCompositeBluetoothDeviceQuery.EnumeratePairedDevices: TBluetoothDeviceInfoArray;
+var
+  Win32Devices, WinRTDevices: TBluetoothDeviceInfoArray;
+  Mode: TEnumerationMode;
+begin
+  Mode := GetEnumerationMode;
+  LogDebug('EnumeratePairedDevices: Starting enumeration, mode=%d', [Ord(Mode)], ClassName);
+
+  case Mode of
+    emWin32:
+      begin
+        // Win32 only
+        Win32Devices := FWin32Query.EnumeratePairedDevices;
+        SetLength(WinRTDevices, 0);
+        LogDebug('EnumeratePairedDevices: Win32 only mode, %d devices', [Length(Win32Devices)], ClassName);
+      end;
+
+    emWinRT:
+      begin
+        // WinRT only
+        SetLength(Win32Devices, 0);
+        WinRTDevices := FWinRTQuery.EnumeratePairedDevices;
+        LogDebug('EnumeratePairedDevices: WinRT only mode, %d devices', [Length(WinRTDevices)], ClassName);
+      end;
+
+    emComposite:
+      begin
+        // Both sources
+        Win32Devices := FWin32Query.EnumeratePairedDevices;
+        WinRTDevices := FWinRTQuery.EnumeratePairedDevices;
+        LogComparison(Win32Devices, WinRTDevices);
+      end;
+  end;
+
+  // Merge results (also applies registry fallback)
+  Result := MergeResults(Win32Devices, WinRTDevices);
+
+  LogDebug('EnumeratePairedDevices: Complete, %d devices', [Length(Result)], ClassName);
+end;
+
+procedure TCompositeBluetoothDeviceQuery.LogComparison(
+  const AWin32, AWinRT: TBluetoothDeviceInfoArray);
+var
+  Win32Map, WinRTMap: TDictionary<UInt64, TBluetoothDeviceInfo>;
+  Device: TBluetoothDeviceInfo;
+  Address: UInt64;
+  Win32EmptyNames, WinRTResolvedNames: Integer;
+begin
+  LogInfo('=== Win32 vs WinRT Comparison ===', ClassName);
+  LogInfo('Win32 devices: %d, WinRT devices: %d', [Length(AWin32), Length(AWinRT)], ClassName);
+
+  Win32Map := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
+  WinRTMap := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
+  try
+    for Device in AWin32 do
+      Win32Map.AddOrSetValue(Device.AddressInt, Device);
+
+    for Device in AWinRT do
+      WinRTMap.AddOrSetValue(Device.AddressInt, Device);
+
+    // Log Win32 devices
+    LogInfo('--- Win32 Devices ---', ClassName);
+    for Device in AWin32 do
+      LogInfo('  $%.12X | Name="%s" | CoD=$%.8X | Connected=%s',
+        [Device.AddressInt, Device.Name, Device.ClassOfDevice,
+         BoolToStr(Device.IsConnected, True)], ClassName);
+
+    // Log WinRT devices
+    LogInfo('--- WinRT Devices ---', ClassName);
+    for Device in AWinRT do
+      LogInfo('  $%.12X | Name="%s" | CoD=$%.8X | Connected=%s',
+        [Device.AddressInt, Device.Name, Device.ClassOfDevice,
+         BoolToStr(Device.IsConnected, True)], ClassName);
+
+    // Count empty names and resolved names
+    Win32EmptyNames := 0;
+    WinRTResolvedNames := 0;
+    for Device in AWin32 do
+    begin
+      if Device.Name = '' then
+      begin
+        Inc(Win32EmptyNames);
+        if WinRTMap.ContainsKey(Device.AddressInt) and
+           (WinRTMap[Device.AddressInt].Name <> '') then
+        begin
+          Inc(WinRTResolvedNames);
+          LogInfo('*** WinRT resolved: $%.12X -> "%s"',
+            [Device.AddressInt, WinRTMap[Device.AddressInt].Name], ClassName);
+        end;
+      end;
+    end;
+
+    // Log devices only in WinRT (BLE devices Win32 missed)
+    LogInfo('--- Devices ONLY in WinRT ---', ClassName);
+    for Address in WinRTMap.Keys do
+    begin
+      if not Win32Map.ContainsKey(Address) then
+      begin
+        Device := WinRTMap[Address];
+        LogInfo('  $%.12X | Name="%s" (BLE device missed by Win32)',
+          [Device.AddressInt, Device.Name], ClassName);
+      end;
+    end;
+
+    LogInfo('Summary: Win32 empty names=%d, WinRT resolved=%d',
+      [Win32EmptyNames, WinRTResolvedNames], ClassName);
+    LogInfo('=== End Comparison ===', ClassName);
+  finally
+    Win32Map.Free;
+    WinRTMap.Free;
+  end;
+end;
+
+function TCompositeBluetoothDeviceQuery.MergeResults(
+  const AWin32, AWinRT: TBluetoothDeviceInfoArray): TBluetoothDeviceInfoArray;
+var
+  ResultMap: TDictionary<UInt64, TBluetoothDeviceInfo>;
+  Device, Existing: TBluetoothDeviceInfo;
+  RegistryName: string;
+  FinalName: string;
+begin
+  ResultMap := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
+  try
+    // Start with Win32 devices (has CoD info)
+    for Device in AWin32 do
+      ResultMap.AddOrSetValue(Device.AddressInt, Device);
+
+    // Merge WinRT devices
+    for Device in AWinRT do
+    begin
+      if ResultMap.TryGetValue(Device.AddressInt, Existing) then
+      begin
+        // If Win32 has empty name but WinRT has name, use WinRT name
+        if (Existing.Name = '') and (Device.Name <> '') then
+        begin
+          LogDebug('MergeResults: Using WinRT name "%s" for $%.12X',
+            [Device.Name, Device.AddressInt], ClassName);
+          ResultMap[Device.AddressInt] := Existing.WithName(Device.Name);
+        end;
+      end
+      else
+      begin
+        // Device only in WinRT, add it
+        LogDebug('MergeResults: Adding WinRT-only device $%.12X "%s"',
+          [Device.AddressInt, Device.Name], ClassName);
+        ResultMap.Add(Device.AddressInt, Device);
+      end;
+    end;
+
+    // Registry fallback pass: try to resolve generic "Bluetooth XX:XX" names
+    for Device in ResultMap.Values.ToArray do
+    begin
+      if (Device.Name = '') or IsGenericBluetoothName(Device.Name) then
+      begin
+        // Try registry lookup for actual cached name
+        if TryGetNameFromRegistry(Device.AddressInt, RegistryName) then
+        begin
+          LogDebug('MergeResults: Registry resolved $%.12X -> "%s"',
+            [Device.AddressInt, RegistryName], ClassName);
+          ResultMap[Device.AddressInt] := Device.WithName(RegistryName);
+        end
+        else if Device.Name = '' then
+        begin
+          // Last resort: format MAC address as display name
+          FinalName := Device.AddressString;
+          LogDebug('MergeResults: Using MAC address as name for $%.12X -> "%s"',
+            [Device.AddressInt, FinalName], ClassName);
+          ResultMap[Device.AddressInt] := Device.WithName(FinalName);
+        end;
+        // else: keep the WinRT "Bluetooth XX:XX" name
+      end;
+    end;
+
+    Result := ResultMap.Values.ToArray;
+  finally
+    ResultMap.Free;
   end;
 end;
 

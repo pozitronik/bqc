@@ -138,7 +138,7 @@ begin
     ADeviceConfigProvider,
     AStrategyFactory,
     MonitorFactory.CreateMonitor,
-    CreateDeviceRepository,
+    CreateDeviceRepository(AConnectionConfig),
     CreateConnectionExecutor,
     CreateAdapterQuery,
     Debouncer

@@ -257,6 +257,9 @@ type
     CheckDevicePinned: TCheckBox;
     CheckDeviceHidden: TCheckBox;
     CheckDeviceAutoConnect: TCheckBox;
+    LabelEnumerationMode: TLabel;
+    LabelEnumerationModeHint: TLabel;
+    ComboEnumerationMode: TComboBox;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
@@ -596,6 +599,7 @@ function TFormSettings.GetConnectionSettings: TConnectionViewSettings;
 begin
   Result.Timeout := UpDownTimeout.Position;
   Result.RetryCount := UpDownRetryCount.Position;
+  Result.EnumerationMode := TEnumerationMode(ComboEnumerationMode.ItemIndex);
   Result.PollingMode := TPollingMode(ComboPollingMode.ItemIndex);
   Result.PollingInterval := UpDownPollingInterval.Position;
   Result.NotifyOnConnect := CheckNotifyOnConnect.Checked;
@@ -608,6 +612,7 @@ procedure TFormSettings.SetConnectionSettings(const ASettings: TConnectionViewSe
 begin
   UpDownTimeout.Position := ASettings.Timeout;
   UpDownRetryCount.Position := ASettings.RetryCount;
+  ComboEnumerationMode.ItemIndex := Ord(ASettings.EnumerationMode);
   ComboPollingMode.ItemIndex := Ord(ASettings.PollingMode);
   UpDownPollingInterval.Position := ASettings.PollingInterval;
   CheckNotifyOnConnect.Checked := ASettings.NotifyOnConnect;
@@ -961,6 +966,7 @@ begin
   // Tab: Connection
   EditTimeout.OnChange := HandleSettingChanged;
   EditRetryCount.OnChange := HandleSettingChanged;
+  ComboEnumerationMode.OnChange := HandleSettingChanged;
   ComboPollingMode.OnChange := HandleSettingChanged;
   EditPollingInterval.OnChange := HandleSettingChanged;
 

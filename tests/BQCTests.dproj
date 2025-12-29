@@ -118,6 +118,7 @@
         <DCCReference Include="Tests.WinAPI.pas"/>
         <DCCReference Include="Tests.DeviceConverter.pas"/>
         <DCCReference Include="Tests.Mocks.pas"/>
+        <DCCReference Include="Tests.WinRTDeviceQuery.pas"/>
         <DCCReference Include="..\src\Domain\Bluetooth.Types.pas"/>
         <DCCReference Include="..\src\Domain\Bluetooth.Interfaces.pas"/>
         <DCCReference Include="..\src\Application\Bluetooth.ConnectionStrategies.pas"/>
@@ -125,6 +126,7 @@
         <DCCReference Include="..\src\Application\Bluetooth.Service.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.WinAPI.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.DeviceMonitors.pas"/>
+        <DCCReference Include="..\src\Infrastructure\Bluetooth.WinRTDeviceQuery.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.DeviceRepository.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.ConnectionExecutor.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.AdapterQuery.pas"/>

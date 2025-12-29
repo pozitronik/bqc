@@ -24,12 +24,15 @@ type
     ['{A1B2C3D4-1111-1111-1111-000000000009}']
     function GetConnectionTimeout: Integer;
     function GetConnectionRetryCount: Integer;
+    function GetEnumerationMode: TEnumerationMode;
 
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
+    procedure SetEnumerationMode(AValue: TEnumerationMode);
 
     property ConnectionTimeout: Integer read GetConnectionTimeout write SetConnectionTimeout;
     property ConnectionRetryCount: Integer read GetConnectionRetryCount write SetConnectionRetryCount;
+    property EnumerationMode: TEnumerationMode read GetEnumerationMode write SetEnumerationMode;
   end;
 
   /// <summary>

@@ -88,6 +88,7 @@ type
   TConnectionViewSettings = record
     Timeout: Integer;
     RetryCount: Integer;
+    EnumerationMode: TEnumerationMode;
     PollingMode: TPollingMode;
     PollingInterval: Integer;
     NotifyOnConnect: Boolean;
@@ -679,6 +680,7 @@ begin
   // Connection settings
   Connection.Timeout := FConnectionConfig.ConnectionTimeout;
   Connection.RetryCount := FConnectionConfig.ConnectionRetryCount;
+  Connection.EnumerationMode := FConnectionConfig.EnumerationMode;
   Connection.PollingMode := FPollingConfig.PollingMode;
   Connection.PollingInterval := FPollingConfig.PollingInterval;
   Connection.NotifyOnConnect := FNotificationConfig.NotifyOnConnect = nmBalloon;
@@ -787,6 +789,7 @@ begin
     Connection := FConnectionSettingsView.GetConnectionSettings;
     FConnectionConfig.ConnectionTimeout := Connection.Timeout;
     FConnectionConfig.ConnectionRetryCount := Connection.RetryCount;
+    FConnectionConfig.EnumerationMode := Connection.EnumerationMode;
     FPollingConfig.PollingMode := Connection.PollingMode;
     FPollingConfig.PollingInterval := Connection.PollingInterval;
     if Connection.NotifyOnConnect then

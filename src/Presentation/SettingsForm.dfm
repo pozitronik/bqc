@@ -24,8 +24,6 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitTop = 530
-    ExplicitWidth = 538
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -61,11 +59,9 @@ object FormSettings: TFormSettings
     Top = 0
     Width = 544
     Height = 547
-    ActivePage = TabGeneral
+    ActivePage = TabConnection
     Align = alClient
     TabOrder = 1
-    ExplicitWidth = 538
-    ExplicitHeight = 530
     object TabGeneral: TTabSheet
       Caption = 'Window'
       object GroupWindowMode: TGroupBox
@@ -76,7 +72,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
-        ExplicitWidth = 530
         object LabelWindowMode: TLabel
           Left = 12
           Top = 27
@@ -104,7 +99,6 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's window:'
           TabOrder = 1
-          ExplicitWidth = 526
           object CheckMinimizeToTray: TCheckBox
             Left = 12
             Top = 25
@@ -130,7 +124,6 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's menu:'
           TabOrder = 2
-          ExplicitWidth = 526
           object CheckHideOnFocusLoss: TCheckBox
             Left = 12
             Top = 25
@@ -149,7 +142,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
-        ExplicitWidth = 530
         object LabelPositionMode: TLabel
           Left = 12
           Top = 28
@@ -818,7 +810,7 @@ object FormSettings: TFormSettings
           Caption = 'Timeout:'
         end
         object LabelTimeoutMs: TLabel
-          Left = 206
+          Left = 225
           Top = 27
           Width = 16
           Height = 15
@@ -832,7 +824,7 @@ object FormSettings: TFormSettings
           Caption = 'Retry attempts:'
         end
         object EditTimeout: TEdit
-          Left = 110
+          Left = 129
           Top = 24
           Width = 75
           Height = 23
@@ -840,7 +832,7 @@ object FormSettings: TFormSettings
           Text = '0'
         end
         object UpDownTimeout: TUpDown
-          Left = 185
+          Left = 204
           Top = 24
           Width = 16
           Height = 23
@@ -850,7 +842,7 @@ object FormSettings: TFormSettings
           TabOrder = 1
         end
         object EditRetryCount: TEdit
-          Left = 110
+          Left = 129
           Top = 58
           Width = 75
           Height = 23
@@ -858,7 +850,7 @@ object FormSettings: TFormSettings
           Text = '0'
         end
         object UpDownRetryCount: TUpDown
-          Left = 185
+          Left = 204
           Top = 58
           Width = 16
           Height = 23
@@ -871,10 +863,11 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 95
         Width = 536
-        Height = 95
+        Height = 129
         Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
+        ExplicitTop = 101
         object LabelPollingMode: TLabel
           Left = 12
           Top = 27
@@ -890,14 +883,14 @@ object FormSettings: TFormSettings
           Caption = 'Interval:'
         end
         object LabelPollingIntervalMs: TLabel
-          Left = 206
+          Left = 225
           Top = 60
           Width = 16
           Height = 15
           Caption = 'ms'
         end
         object LabelPollingModeHint: TLabel
-          Left = 250
+          Left = 269
           Top = 27
           Width = 130
           Height = 15
@@ -909,8 +902,28 @@ object FormSettings: TFormSettings
           Font.Style = []
           ParentFont = False
         end
+        object LabelEnumerationMode: TLabel
+          Left = 12
+          Top = 95
+          Width = 105
+          Height = 15
+          Caption = 'Enumeration mode:'
+        end
+        object LabelEnumerationModeHint: TLabel
+          Left = 269
+          Top = 95
+          Width = 130
+          Height = 15
+          Caption = 'Requires program restart'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBtnShadow
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentFont = False
+        end
         object ComboPollingMode: TComboBox
-          Left = 110
+          Left = 129
           Top = 24
           Width = 125
           Height = 23
@@ -925,7 +938,7 @@ object FormSettings: TFormSettings
             'Primary')
         end
         object EditPollingInterval: TEdit
-          Left = 110
+          Left = 129
           Top = 57
           Width = 75
           Height = 23
@@ -933,7 +946,7 @@ object FormSettings: TFormSettings
           Text = '0'
         end
         object UpDownPollingInterval: TUpDown
-          Left = 185
+          Left = 204
           Top = 57
           Width = 16
           Height = 23
@@ -942,15 +955,31 @@ object FormSettings: TFormSettings
           Increment = 500
           TabOrder = 2
         end
+        object ComboEnumerationMode: TComboBox
+          Left = 129
+          Top = 92
+          Width = 125
+          Height = 23
+          Hint = 'Requires app restart'
+          Style = csDropDownList
+          ParentShowHint = False
+          ShowHint = True
+          TabOrder = 3
+          Items.Strings = (
+            'Win32 API only'
+            'WinRT API only'
+            'Combined')
+        end
       end
       object GroupNotifications: TGroupBox
         Left = 0
-        Top = 190
+        Top = 224
         Width = 536
         Height = 123
         Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
+        ExplicitTop = 225
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24

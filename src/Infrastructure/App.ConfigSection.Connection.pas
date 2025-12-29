@@ -14,6 +14,7 @@ interface
 
 uses
   System.SysUtils,
+  App.ConfigEnums,
   App.ConnectionConfigIntf,
   App.ConfigSectionTypes;
 
@@ -25,20 +26,24 @@ type
   private
     FConnectionTimeout: Integer;
     FConnectionRetryCount: Integer;
+    FEnumerationMode: TEnumerationMode;
     FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
     function GetConnectionTimeout: Integer;
     function GetConnectionRetryCount: Integer;
+    function GetEnumerationMode: TEnumerationMode;
 
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
+    procedure SetEnumerationMode(AValue: TEnumerationMode);
 
     procedure SetDefaults;
 
     property ConnectionTimeout: Integer read FConnectionTimeout write SetConnectionTimeout;
     property ConnectionRetryCount: Integer read FConnectionRetryCount write SetConnectionRetryCount;
+    property EnumerationMode: TEnumerationMode read FEnumerationMode write SetEnumerationMode;
   end;
 
 implementation
@@ -59,6 +64,7 @@ procedure TConnectionConfigSection.SetDefaults;
 begin
   FConnectionTimeout := DEF_CONNECTION_TIMEOUT;
   FConnectionRetryCount := DEF_CONNECTION_RETRY_COUNT;
+  FEnumerationMode := emComposite;
 end;
 
 function TConnectionConfigSection.GetConnectionTimeout: Integer;
@@ -86,6 +92,21 @@ begin
   if FConnectionRetryCount <> AValue then
   begin
     FConnectionRetryCount := AValue;
+    if Assigned(FOnModified) then
+      FOnModified();
+  end;
+end;
+
+function TConnectionConfigSection.GetEnumerationMode: TEnumerationMode;
+begin
+  Result := FEnumerationMode;
+end;
+
+procedure TConnectionConfigSection.SetEnumerationMode(AValue: TEnumerationMode);
+begin
+  if FEnumerationMode <> AValue then
+  begin
+    FEnumerationMode := AValue;
     if Assigned(FOnModified) then
       FOnModified();
   end;

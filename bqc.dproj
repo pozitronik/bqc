@@ -146,6 +146,7 @@
         <DCCReference Include="src\Infrastructure\Bluetooth.RadioControl.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceWatcher.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceMonitors.pas"/>
+        <DCCReference Include="src\Infrastructure\Bluetooth.WinRTDeviceQuery.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceRepository.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.ConnectionExecutor.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.AdapterQuery.pas"/>

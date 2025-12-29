@@ -78,6 +78,15 @@ type
     llError    // Error messages (3)
   );
 
+  /// <summary>
+  /// Device enumeration mode for Bluetooth device discovery.
+  /// </summary>
+  TEnumerationMode = (
+    emWin32,     // Win32 Bluetooth API only (0)
+    emWinRT,     // WinRT API only (1)
+    emComposite  // Combined Win32 + WinRT (default) (2)
+  );
+
 const
   /// <summary>
   /// Display names for log levels.

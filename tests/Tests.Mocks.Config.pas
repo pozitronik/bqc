@@ -237,20 +237,24 @@ type
   private
     FConnectionTimeout: Integer;
     FConnectionRetryCount: Integer;
+    FEnumerationMode: TEnumerationMode;
   public
     constructor Create;
 
     // IConnectionConfig - getters
     function GetConnectionTimeout: Integer;
     function GetConnectionRetryCount: Integer;
+    function GetEnumerationMode: TEnumerationMode;
 
     // IConnectionConfig - setters
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
+    procedure SetEnumerationMode(AValue: TEnumerationMode);
 
     // Test setup properties
     property ConnectionTimeout: Integer read FConnectionTimeout write FConnectionTimeout;
     property ConnectionRetryCount: Integer read FConnectionRetryCount write FConnectionRetryCount;
+    property EnumerationMode: TEnumerationMode read FEnumerationMode write FEnumerationMode;
   end;
 
   /// <summary>
@@ -866,6 +870,7 @@ begin
   inherited Create;
   FConnectionTimeout := 10000;
   FConnectionRetryCount := 2;
+  FEnumerationMode := emComposite;
 end;
 
 function TMockConnectionConfig.GetConnectionTimeout: Integer;
@@ -878,6 +883,11 @@ begin
   Result := FConnectionRetryCount;
 end;
 
+function TMockConnectionConfig.GetEnumerationMode: TEnumerationMode;
+begin
+  Result := FEnumerationMode;
+end;
+
 procedure TMockConnectionConfig.SetConnectionTimeout(AValue: Integer);
 begin
   FConnectionTimeout := AValue;
@@ -886,6 +896,11 @@ end;
 procedure TMockConnectionConfig.SetConnectionRetryCount(AValue: Integer);
 begin
   FConnectionRetryCount := AValue;
+end;
+
+procedure TMockConnectionConfig.SetEnumerationMode(AValue: TEnumerationMode);
+begin
+  FEnumerationMode := AValue;
 end;
 
 { TMockGeneralConfig }

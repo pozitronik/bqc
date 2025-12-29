@@ -18,6 +18,7 @@ uses
   Bluetooth.RadioControl in 'src\Infrastructure\Bluetooth.RadioControl.pas',
   Bluetooth.DeviceWatcher in 'src\Infrastructure\Bluetooth.DeviceWatcher.pas',
   Bluetooth.DeviceMonitors in 'src\Infrastructure\Bluetooth.DeviceMonitors.pas',
+  Bluetooth.WinRTDeviceQuery in 'src\Infrastructure\Bluetooth.WinRTDeviceQuery.pas',
   Bluetooth.DeviceRepository in 'src\Infrastructure\Bluetooth.DeviceRepository.pas',
   Bluetooth.ConnectionExecutor in 'src\Infrastructure\Bluetooth.ConnectionExecutor.pas',
   Bluetooth.AdapterQuery in 'src\Infrastructure\Bluetooth.AdapterQuery.pas',
