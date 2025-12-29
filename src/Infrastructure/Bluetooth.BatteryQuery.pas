@@ -221,7 +221,8 @@ implementation
 
 uses
   Winapi.ActiveX,
-  App.Logger;
+  App.Logger,
+  App.WinRTSupport;
 
 const
   // WinRT initialization
@@ -613,18 +614,18 @@ type
     function GetDeviceSelector(out selector: HSTRING): HRESULT; stdcall;
   end;
 
-// External WinRT functions
+// External WinRT functions - use delayed loading for Windows 7 compatibility
 function WindowsCreateString(sourceString: PWideChar; length: Cardinal;
-  out str: HSTRING): HRESULT; stdcall; external 'combase.dll';
+  out str: HSTRING): HRESULT; stdcall; external 'combase.dll' delayed;
 
 function WindowsDeleteString(str: HSTRING): HRESULT; stdcall;
-  external 'combase.dll';
+  external 'combase.dll' delayed;
 
 function RoInitialize(initType: Cardinal): HRESULT; stdcall;
-  external 'combase.dll';
+  external 'combase.dll' delayed;
 
 function RoGetActivationFactory(activatableClassId: HSTRING; const iid: TGUID;
-  out factory: IInspectable): HRESULT; stdcall; external 'combase.dll';
+  out factory: IInspectable): HRESULT; stdcall; external 'combase.dll' delayed;
 
 /// <summary>
 /// Creates an HSTRING from a Delphi string.
@@ -698,6 +699,13 @@ var
 begin
   Result := False;
   ADevice := nil;
+
+  // Check if WinRT is available (Windows 8+)
+  if not IsWinRTAvailable then
+  begin
+    LogDebug('WinRT not available, skipping BLE battery query', LOG_SOURCE);
+    Exit;
+  end;
 
   HR := RoInitialize(RO_INIT_MULTITHREADED);
   if Failed(HR) and (HR <> RPC_E_CHANGED_MODE) then

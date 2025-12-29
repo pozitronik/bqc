@@ -21,6 +21,7 @@ uses
   App.LogConfigIntf,
   App.BatteryTrayConfigIntf,
   App.SettingsPresenter,
+  App.WinRTSupport,
   UI.Theme,
   HotkeyPickerForm;
 
@@ -375,6 +376,7 @@ type
     procedure UpdateWindowModeControls;
     procedure HandleSettingChanged(Sender: TObject);
     procedure ConnectChangeHandlers;
+    procedure ConfigureWinRTDependentControls;
 
   public
     { Public declarations }
@@ -457,6 +459,7 @@ begin
   LogDebug('FormShow', ClassName);
   InitUpDownLimits;
   InitDeviceTypeCombo;
+  ConfigureWinRTDependentControls;
   FPresenter.LoadSettings;
   UpdateWindowModeControls;
   ConnectChangeHandlers;
@@ -1065,6 +1068,51 @@ begin
   EditStatusSize.OnChange := HandleSettingChanged;
   EditAddressSize.OnChange := HandleSettingChanged;
   EditIconFontSize.OnChange := HandleSettingChanged;
+end;
+
+procedure TFormSettings.ConfigureWinRTDependentControls;
+const
+  WINRT_UNAVAILABLE_SUFFIX = ' (Windows 8+)';
+var
+  I: Integer;
+  ItemText: string;
+begin
+  // Configure controls that depend on WinRT availability
+  if not IsWinRTAvailable then
+  begin
+    LogInfo('WinRT not available - disabling WinRT-dependent options', ClassName);
+
+    // Enumeration mode: mark WinRT options as unavailable
+    // TEnumerationMode: emClassic=0, emWinRT=1, emHybrid=2
+    // WinRT and Hybrid modes require WinRT
+    for I := 0 to ComboEnumerationMode.Items.Count - 1 do
+    begin
+      ItemText := ComboEnumerationMode.Items[I];
+      // Mark WinRT-dependent options (indices 1 and 2)
+      if (I >= 1) and (Pos(WINRT_UNAVAILABLE_SUFFIX, ItemText) = 0) then
+        ComboEnumerationMode.Items[I] := ItemText + WINRT_UNAVAILABLE_SUFFIX;
+    end;
+    // Force Classic mode if WinRT mode was selected
+    if ComboEnumerationMode.ItemIndex >= 1 then
+      ComboEnumerationMode.ItemIndex := 0;
+
+    // Outline color mode: Auto detection requires Windows 10 dark mode detection
+    // TOutlineColorMode: ocmAuto=0, ocmLight=1, ocmDark=2, ocmCustom=3
+    // Auto mode falls back safely but won't auto-detect dark mode
+    if Assigned(ComboOutlineColorMode) and (ComboOutlineColorMode.Items.Count > 0) then
+    begin
+      ItemText := ComboOutlineColorMode.Items[0];
+      if Pos(WINRT_UNAVAILABLE_SUFFIX, ItemText) = 0 then
+        ComboOutlineColorMode.Items[0] := ItemText + WINRT_UNAVAILABLE_SUFFIX;
+    end;
+  end;
+
+  // Dark mode detection requires Windows 10 version 1809+
+  if not IsDarkModeSupported then
+  begin
+    LogDebug('Dark mode not supported - Auto outline color will use fallback', ClassName);
+    // Note: Auto mode will still work, just won't detect dark mode
+  end;
 end;
 
 { Hotkey tab events }

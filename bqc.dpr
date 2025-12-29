@@ -47,6 +47,7 @@ uses
   App.ConfigSection.Notification in 'src\Infrastructure\App.ConfigSection.Notification.pas',
   App.ConfigSection.BatteryTray in 'src\Infrastructure\App.ConfigSection.BatteryTray.pas',
   App.SystemThemeDetector in 'src\Infrastructure\App.SystemThemeDetector.pas',
+  App.WinRTSupport in 'src\Infrastructure\App.WinRTSupport.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',
   App.SettingsRepository in 'src\Infrastructure\App.SettingsRepository.pas',
   App.DeviceConfigRepository in 'src\Infrastructure\App.DeviceConfigRepository.pas',

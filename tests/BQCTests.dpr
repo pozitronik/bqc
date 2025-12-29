@@ -108,7 +108,8 @@ uses
   UI.HotkeyManager in '..\src\Presentation\UI.HotkeyManager.pas',
   App.BatteryTrayConfigIntf in '..\src\Infrastructure\App.BatteryTrayConfigIntf.pas',
   App.ConfigSection.BatteryTray in '..\src\Infrastructure\App.ConfigSection.BatteryTray.pas',
-  App.SystemThemeDetector in '..\src\Infrastructure\App.SystemThemeDetector.pas';
+  App.SystemThemeDetector in '..\src\Infrastructure\App.SystemThemeDetector.pas',
+  App.WinRTSupport in '..\src\Infrastructure\App.WinRTSupport.pas';
 
 
 {$IFNDEF TESTINSIGHT}
