@@ -281,6 +281,69 @@ begin
 end;
 
 /// <summary>
+/// Checks if the mouse cursor is currently over the taskbar notification area (system tray).
+/// Used to detect when user is clicking a tray icon to prevent focus-loss hiding
+/// that would interfere with tray icon toggle behavior.
+/// </summary>
+function IsCursorOverNotificationArea: Boolean;
+var
+  CursorPos: TPoint;
+  TaskbarWnd, TrayWnd, NotifyWnd: HWND;
+  TrayRect: TRect;
+begin
+  Result := False;
+
+  if not GetCursorPos(CursorPos) then
+  begin
+    LogDebug('IsCursorOverNotificationArea: GetCursorPos failed', 'IsCursorOverNotificationArea');
+    Exit;
+  end;
+
+  // Find the main taskbar window
+  TaskbarWnd := FindWindow('Shell_TrayWnd', nil);
+  if TaskbarWnd = 0 then
+  begin
+    LogDebug('IsCursorOverNotificationArea: Shell_TrayWnd not found', 'IsCursorOverNotificationArea');
+    Exit;
+  end;
+
+  // Find the notification area container (TrayNotifyWnd)
+  TrayWnd := FindWindowEx(TaskbarWnd, 0, 'TrayNotifyWnd', nil);
+  if TrayWnd = 0 then
+  begin
+    LogDebug('IsCursorOverNotificationArea: TrayNotifyWnd not found', 'IsCursorOverNotificationArea');
+    Exit;
+  end;
+
+  // Get the notification area bounds
+  if GetWindowRect(TrayWnd, TrayRect) then
+  begin
+    Result := PtInRect(TrayRect, CursorPos);
+    LogDebug('IsCursorOverNotificationArea: TrayRect=(%d,%d,%d,%d), Cursor=(%d,%d), InRect=%s', [
+      TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom,
+      CursorPos.X, CursorPos.Y, BoolToStr(Result, True)
+    ], 'IsCursorOverNotificationArea');
+  end;
+
+  // Also check the overflow notification area (system tray overflow window)
+  if not Result then
+  begin
+    NotifyWnd := FindWindow('NotifyIconOverflowWindow', nil);
+    if (NotifyWnd <> 0) and IsWindowVisible(NotifyWnd) then
+    begin
+      if GetWindowRect(NotifyWnd, TrayRect) then
+      begin
+        Result := PtInRect(TrayRect, CursorPos);
+        LogDebug('IsCursorOverNotificationArea: OverflowRect=(%d,%d,%d,%d), Cursor=(%d,%d), InRect=%s', [
+          TrayRect.Left, TrayRect.Top, TrayRect.Right, TrayRect.Bottom,
+          CursorPos.X, CursorPos.Y, BoolToStr(Result, True)
+        ], 'IsCursorOverNotificationArea');
+      end;
+    end;
+  end;
+end;
+
+/// <summary>
 /// Forces the specified window to the foreground, bypassing Windows restrictions.
 /// Windows restricts SetForegroundWindow for background processes. This function
 /// temporarily attaches to the foreground thread's input queue, allowing the
@@ -911,7 +974,11 @@ end;
 
 procedure TFormMain.HandleTrayToggleVisibility(Sender: TObject);
 begin
+  LogDebug('HandleTrayToggleVisibility: Called, Visible=%s, IsMinimized=%s', [
+    BoolToStr(Visible, True), BoolToStr(IsMinimized, True)
+  ], ClassName);
   FPresenter.OnVisibilityToggleRequested;
+  LogDebug('HandleTrayToggleVisibility: After toggle, Visible=%s', [BoolToStr(Visible, True)], ClassName);
 end;
 
 procedure TFormMain.HandleTraySettingsRequest(Sender: TObject);
@@ -934,8 +1001,18 @@ begin
 
   if (FGeneralConfig.WindowMode = wmMenu) and FWindowConfig.MenuHideOnFocusLoss and Visible then
   begin
-    LogDebug('HandleApplicationDeactivate: Hiding to tray', ClassName);
-    HideView;
+    // Check if cursor is over the notification area (tray icons)
+    // If so, user is clicking a tray icon - don't hide, let the click handler toggle
+    if IsCursorOverNotificationArea then
+    begin
+      LogDebug('HandleApplicationDeactivate: Cursor over notification area, skipping hide for tray toggle', ClassName);
+      // Don't hide - let the tray click handler decide
+    end
+    else
+    begin
+      LogDebug('HandleApplicationDeactivate: Hiding to tray', ClassName);
+      HideView;
+    end;
   end;
 end;
 
@@ -1174,8 +1251,18 @@ begin
      (FGeneralConfig.WindowMode = wmMenu) and
      FWindowConfig.MenuHideOnFocusLoss then
   begin
-    LogDebug('WMForegroundLost: Conditions met, hiding menu', ClassName);
-    HideView;
+    // Check if cursor is over the notification area (tray icons)
+    // If so, user is clicking a tray icon - don't hide, let the click handler toggle
+    if IsCursorOverNotificationArea then
+    begin
+      LogDebug('WMForegroundLost: Cursor over notification area, skipping hide for tray toggle', ClassName);
+      // Don't hide - let the tray click handler decide
+    end
+    else
+    begin
+      LogDebug('WMForegroundLost: Conditions met, hiding menu', ClassName);
+      HideView;
+    end;
   end;
 end;
 
@@ -1208,8 +1295,18 @@ begin
        FWindowConfig.MenuHideOnFocusLoss and
        Visible then
     begin
-      LogDebug('WMActivate: Conditions met, hiding menu', ClassName);
-      HideView;
+      // Check if cursor is over the notification area (tray icons)
+      // If so, user is clicking a tray icon - don't hide, let the click handler toggle
+      if IsCursorOverNotificationArea then
+      begin
+        LogDebug('WMActivate: Cursor over notification area, skipping hide for tray toggle', ClassName);
+        // Don't hide - let the tray click handler decide
+      end
+      else
+      begin
+        LogDebug('WMActivate: Conditions met, hiding menu', ClassName);
+        HideView;
+      end;
     end
     else
     begin
