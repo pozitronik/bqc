@@ -61,6 +61,21 @@ type
   end;
 
   /// <summary>
+  /// Cached icon parameters to avoid redundant GDI recreation.
+  /// Stores all visual parameters that affect icon appearance.
+  /// </summary>
+  TIconCacheEntry = record
+    Level: Integer;
+    Color: TColor;
+    BackgroundColor: TColor;
+    OutlineColor: TColor;
+    Threshold: Integer;
+    ShowNumeric: Boolean;
+    IsPending: Boolean;
+    Name: string;
+  end;
+
+  /// <summary>
   /// Callback for device tray icon click events.
   /// </summary>
   TDeviceTrayClickEvent = procedure(Sender: TObject; AAddress: UInt64) of object;
@@ -80,6 +95,7 @@ type
     FOwnerHandle: HWND;
     FDeviceIcons: TDictionary<UInt64, TNotifyIconData>;
     FBatteryStates: TDictionary<UInt64, TDeviceBatteryState>;
+    FIconCache: TDictionary<UInt64, TIconCacheEntry>;
     FConfig: IBatteryTrayConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
     FNextIconId: Cardinal;
@@ -91,6 +107,7 @@ type
     function CreateNotifyIconData(AAddress: UInt64; const AName: string;
       ALevel: Integer; AColor: TColor; ABackgroundColor: TColor;
       AShowNumeric: Boolean): TNotifyIconData;
+    function IconCacheMatches(const ACached, ANew: TIconCacheEntry): Boolean;
     function GetEffectiveColor(AAddress: UInt64): TColor;
     function GetEffectiveBackgroundColor(AAddress: UInt64): TColor;
     function GetEffectiveOutlineColor: TColor;
@@ -173,6 +190,7 @@ begin
   FDeviceConfigProvider := ADeviceConfigProvider;
   FDeviceIcons := TDictionary<UInt64, TNotifyIconData>.Create;
   FBatteryStates := TDictionary<UInt64, TDeviceBatteryState>.Create;
+  FIconCache := TDictionary<UInt64, TIconCacheEntry>.Create;
   FNextIconId := 1000; // Start from 1000 to avoid conflicts with main tray icon
   FEnabled := True;
 end;
@@ -180,6 +198,7 @@ end;
 destructor TBatteryTrayManager.Destroy;
 begin
   ClearAll;
+  FIconCache.Free;
   FBatteryStates.Free;
   FDeviceIcons.Free;
   inherited Destroy;
@@ -189,6 +208,18 @@ function TBatteryTrayManager.GetNextIconId: Cardinal;
 begin
   Result := FNextIconId;
   Inc(FNextIconId);
+end;
+
+function TBatteryTrayManager.IconCacheMatches(const ACached, ANew: TIconCacheEntry): Boolean;
+begin
+  Result := (ACached.Level = ANew.Level) and
+            (ACached.Color = ANew.Color) and
+            (ACached.BackgroundColor = ANew.BackgroundColor) and
+            (ACached.OutlineColor = ANew.OutlineColor) and
+            (ACached.Threshold = ANew.Threshold) and
+            (ACached.ShowNumeric = ANew.ShowNumeric) and
+            (ACached.IsPending = ANew.IsPending) and
+            (ACached.Name = ANew.Name);
 end;
 
 function TBatteryTrayManager.GetEffectiveColor(AAddress: UInt64): TColor;
@@ -475,6 +506,7 @@ var
   Icon: TIcon;
   Tooltip: string;
   OldIconHandle: HICON;
+  NewCacheEntry, CachedEntry: TIconCacheEntry;
 begin
   if not FEnabled then
     Exit;
@@ -503,6 +535,24 @@ begin
   Threshold := GetEffectiveThreshold(AAddress);
   ShowNumeric := ShouldShowNumericValue(AAddress);
 
+  // Build cache entry for current parameters
+  NewCacheEntry.Level := ALevel;
+  NewCacheEntry.Color := Color;
+  NewCacheEntry.BackgroundColor := BackgroundColor;
+  NewCacheEntry.OutlineColor := OutlineColor;
+  NewCacheEntry.Threshold := Threshold;
+  NewCacheEntry.ShowNumeric := ShowNumeric;
+  NewCacheEntry.IsPending := False;
+  NewCacheEntry.Name := AName;
+
+  // Check if we already have an icon with identical parameters - skip GDI recreation
+  if FDeviceIcons.ContainsKey(AAddress) and
+     FIconCache.TryGetValue(AAddress, CachedEntry) and
+     IconCacheMatches(CachedEntry, NewCacheEntry) then
+  begin
+    Exit;
+  end;
+
   if FDeviceIcons.TryGetValue(AAddress, ExistingIcon) then
   begin
     // Update existing icon
@@ -522,6 +572,7 @@ begin
         if OldIconHandle <> 0 then
           DestroyIcon(OldIconHandle);
         FDeviceIcons[AAddress] := ExistingIcon;
+        FIconCache[AAddress] := NewCacheEntry;
       end
       else
       begin
@@ -547,6 +598,7 @@ begin
       Shell_NotifyIcon(NIM_SETVERSION, @IconData);
 
       FDeviceIcons.Add(AAddress, IconData);
+      FIconCache[AAddress] := NewCacheEntry;
       LogDebug('Battery tray icon added for %s', [AName], ClassName);
     end
     else
@@ -566,6 +618,7 @@ var
   Icon: TIcon;
   Tooltip: string;
   OldIconHandle: HICON;
+  NewCacheEntry, CachedEntry: TIconCacheEntry;
 begin
   if not FEnabled then
     Exit;
@@ -574,6 +627,24 @@ begin
   if not ShouldShowTrayIcon(AAddress) then
   begin
     RemoveDevice(AAddress);
+    Exit;
+  end;
+
+  // Build cache entry for pending icon
+  NewCacheEntry.Level := -1;
+  NewCacheEntry.Color := 0;
+  NewCacheEntry.BackgroundColor := 0;
+  NewCacheEntry.OutlineColor := 0;
+  NewCacheEntry.Threshold := 0;
+  NewCacheEntry.ShowNumeric := False;
+  NewCacheEntry.IsPending := True;
+  NewCacheEntry.Name := AName;
+
+  // Check if we already have a pending icon with same name - skip GDI recreation
+  if FDeviceIcons.ContainsKey(AAddress) and
+     FIconCache.TryGetValue(AAddress, CachedEntry) and
+     IconCacheMatches(CachedEntry, NewCacheEntry) then
+  begin
     Exit;
   end;
 
@@ -593,6 +664,7 @@ begin
         if OldIconHandle <> 0 then
           DestroyIcon(OldIconHandle);
         FDeviceIcons[AAddress] := ExistingIcon;
+        FIconCache[AAddress] := NewCacheEntry;
       end
       else
       begin
@@ -629,6 +701,7 @@ begin
       IconData.uTimeout := NOTIFYICON_VERSION_4;
       Shell_NotifyIcon(NIM_SETVERSION, @IconData);
       FDeviceIcons.Add(AAddress, IconData);
+      FIconCache[AAddress] := NewCacheEntry;
       LogDebug('Pending battery tray icon added for %s', [AName], ClassName);
     end
     else
@@ -653,8 +726,9 @@ begin
     LogDebug('Battery tray icon removed for device $%.12X', [AAddress], ClassName);
   end;
 
-  // Also remove battery state
+  // Also remove battery state and icon cache
   FBatteryStates.Remove(AAddress);
+  FIconCache.Remove(AAddress);
 end;
 
 procedure TBatteryTrayManager.ClearAll;
@@ -671,6 +745,7 @@ begin
   end;
   FDeviceIcons.Clear;
   FBatteryStates.Clear;
+  FIconCache.Clear;
   LogDebug('All battery tray icons cleared', ClassName);
 end;
 

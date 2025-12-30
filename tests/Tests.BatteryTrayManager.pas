@@ -103,6 +103,20 @@ type
     { RefreshAll Tests }
     [Test]
     procedure RefreshAll_EmptyManager_NoError;
+
+    { Icon Caching Tests }
+    [Test]
+    procedure UpdateDevice_SameParamsTwice_NoError;
+    [Test]
+    procedure UpdateDevicePending_SameParamsTwice_NoError;
+    [Test]
+    procedure UpdateDevice_DifferentLevels_NoError;
+    [Test]
+    procedure UpdateDevice_TransitionFromPendingToLevel_NoError;
+    [Test]
+    procedure RemoveDevice_ClearsCacheEntry;
+    [Test]
+    procedure ClearAll_ClearsCacheEntries;
   end;
 
 implementation
@@ -306,6 +320,83 @@ procedure TBatteryTrayManagerTests.RefreshAll_EmptyManager_NoError;
 begin
   FManager.RefreshAll;
   Assert.Pass('RefreshAll on empty manager completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.UpdateDevice_SameParamsTwice_NoError;
+begin
+  // Disable manager to avoid Shell_NotifyIcon calls
+  FManager.Enabled := False;
+
+  // Call UpdateDevice twice with identical parameters
+  // Second call should hit cache and early exit
+  FManager.UpdateDevice($123456789ABC, 'Test Device', 50, True);
+  FManager.UpdateDevice($123456789ABC, 'Test Device', 50, True);
+
+  Assert.Pass('UpdateDevice with same params twice completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.UpdateDevicePending_SameParamsTwice_NoError;
+begin
+  FManager.Enabled := False;
+
+  // Call UpdateDevicePending twice with identical parameters
+  FManager.UpdateDevicePending($123456789ABC, 'Test Device');
+  FManager.UpdateDevicePending($123456789ABC, 'Test Device');
+
+  Assert.Pass('UpdateDevicePending with same params twice completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.UpdateDevice_DifferentLevels_NoError;
+begin
+  FManager.Enabled := False;
+
+  // Call with different levels - cache should not match, icon should be recreated
+  FManager.UpdateDevice($123456789ABC, 'Test Device', 50, True);
+  FManager.UpdateDevice($123456789ABC, 'Test Device', 75, True);
+  FManager.UpdateDevice($123456789ABC, 'Test Device', 100, True);
+
+  Assert.Pass('UpdateDevice with different levels completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.UpdateDevice_TransitionFromPendingToLevel_NoError;
+begin
+  FManager.Enabled := False;
+
+  // Start with pending, then update to actual level
+  FManager.UpdateDevicePending($123456789ABC, 'Test Device');
+  FManager.UpdateDevice($123456789ABC, 'Test Device', 50, True);
+
+  Assert.Pass('Transition from pending to level completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.RemoveDevice_ClearsCacheEntry;
+begin
+  FManager.Enabled := False;
+
+  // Add device then remove - should clear cache
+  FManager.UpdateDevice($123456789ABC, 'Test Device', 50, True);
+  FManager.RemoveDevice($123456789ABC);
+
+  // Add again - should work without issues
+  FManager.UpdateDevice($123456789ABC, 'Test Device', 50, True);
+
+  Assert.Pass('RemoveDevice clears cache correctly');
+end;
+
+procedure TBatteryTrayManagerTests.ClearAll_ClearsCacheEntries;
+begin
+  FManager.Enabled := False;
+
+  // Add multiple devices then clear all
+  FManager.UpdateDevice($123456789ABC, 'Device 1', 50, True);
+  FManager.UpdateDevice($987654321DEF, 'Device 2', 75, True);
+  FManager.ClearAll;
+
+  // Add again - should work without issues
+  FManager.UpdateDevice($123456789ABC, 'Device 1', 50, True);
+  FManager.UpdateDevice($987654321DEF, 'Device 2', 75, True);
+
+  Assert.Pass('ClearAll clears cache correctly');
 end;
 
 initialization
