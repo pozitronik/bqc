@@ -148,6 +148,53 @@ type
     procedure Refresh_MultipleDevices_AddsAll;
   end;
 
+  /// <summary>
+  /// Test fixture for TRegistryNameCache.
+  /// Tests cache behavior including expiration and negative caching.
+  /// </summary>
+  [TestFixture]
+  TRegistryNameCacheTests = class
+  private
+    FCache: TRegistryNameCache;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    { Basic Cache Operations }
+    [Test]
+    procedure TryGetCached_EmptyCache_ReturnsFalse;
+    [Test]
+    procedure CacheResult_Found_StoresNameAndFound;
+    [Test]
+    procedure CacheResult_NotFound_StoresNegativeResult;
+    [Test]
+    procedure TryGetCached_AfterCacheFound_ReturnsTrue;
+    [Test]
+    procedure TryGetCached_AfterCacheNotFound_ReturnsTrueWithFoundFalse;
+
+    { Multiple Entries }
+    [Test]
+    procedure Cache_MultipleAddresses_StoresIndependently;
+    [Test]
+    procedure Cache_UpdateExisting_OverwritesPreviousValue;
+
+    { Clear Operation }
+    [Test]
+    procedure Clear_RemovesAllEntries;
+
+    { Count Property }
+    [Test]
+    procedure Count_EmptyCache_ReturnsZero;
+    [Test]
+    procedure Count_WithEntries_ReturnsCorrectCount;
+
+    { Expiration Behavior - using short expiry }
+    [Test]
+    procedure TryGetCached_ExpiredEntry_ReturnsFalse;
+  end;
+
 implementation
 
 { TDeviceRepositoryTests }
@@ -571,9 +618,168 @@ begin
   Assert.IsTrue(FRepository.Contains($333333333333));
 end;
 
+{ TRegistryNameCacheTests }
+
+procedure TRegistryNameCacheTests.Setup;
+begin
+  FCache := TRegistryNameCache.Create(60);  // 60 second expiry
+end;
+
+procedure TRegistryNameCacheTests.TearDown;
+begin
+  FCache.Free;
+end;
+
+procedure TRegistryNameCacheTests.TryGetCached_EmptyCache_ReturnsFalse;
+var
+  Name: string;
+  Found: Boolean;
+begin
+  Assert.IsFalse(FCache.TryGetCached($AABBCCDDEEFF, Name, Found));
+end;
+
+procedure TRegistryNameCacheTests.CacheResult_Found_StoresNameAndFound;
+var
+  Name: string;
+  Found: Boolean;
+begin
+  FCache.CacheResult($AABBCCDDEEFF, 'TestDevice', True);
+
+  Assert.IsTrue(FCache.TryGetCached($AABBCCDDEEFF, Name, Found));
+  Assert.AreEqual('TestDevice', Name);
+  Assert.IsTrue(Found);
+end;
+
+procedure TRegistryNameCacheTests.CacheResult_NotFound_StoresNegativeResult;
+var
+  Name: string;
+  Found: Boolean;
+begin
+  FCache.CacheResult($AABBCCDDEEFF, '', False);
+
+  Assert.IsTrue(FCache.TryGetCached($AABBCCDDEEFF, Name, Found));
+  Assert.AreEqual('', Name);
+  Assert.IsFalse(Found);
+end;
+
+procedure TRegistryNameCacheTests.TryGetCached_AfterCacheFound_ReturnsTrue;
+var
+  Name: string;
+  Found: Boolean;
+begin
+  FCache.CacheResult($AABBCCDDEEFF, 'CachedName', True);
+
+  Assert.IsTrue(FCache.TryGetCached($AABBCCDDEEFF, Name, Found));
+  Assert.IsTrue(Found);
+  Assert.AreEqual('CachedName', Name);
+end;
+
+procedure TRegistryNameCacheTests.TryGetCached_AfterCacheNotFound_ReturnsTrueWithFoundFalse;
+var
+  Name: string;
+  Found: Boolean;
+begin
+  // Cache a negative result (registry lookup failed)
+  FCache.CacheResult($AABBCCDDEEFF, '', False);
+
+  // Should return True (cache hit) but Found=False
+  Assert.IsTrue(FCache.TryGetCached($AABBCCDDEEFF, Name, Found));
+  Assert.IsFalse(Found, 'Found should be False for negative cached result');
+end;
+
+procedure TRegistryNameCacheTests.Cache_MultipleAddresses_StoresIndependently;
+var
+  Name: string;
+  Found: Boolean;
+begin
+  FCache.CacheResult($111111111111, 'Device1', True);
+  FCache.CacheResult($222222222222, 'Device2', True);
+  FCache.CacheResult($333333333333, '', False);  // Negative result
+
+  Assert.IsTrue(FCache.TryGetCached($111111111111, Name, Found));
+  Assert.AreEqual('Device1', Name);
+  Assert.IsTrue(Found);
+
+  Assert.IsTrue(FCache.TryGetCached($222222222222, Name, Found));
+  Assert.AreEqual('Device2', Name);
+  Assert.IsTrue(Found);
+
+  Assert.IsTrue(FCache.TryGetCached($333333333333, Name, Found));
+  Assert.AreEqual('', Name);
+  Assert.IsFalse(Found);
+end;
+
+procedure TRegistryNameCacheTests.Cache_UpdateExisting_OverwritesPreviousValue;
+var
+  Name: string;
+  Found: Boolean;
+begin
+  FCache.CacheResult($AABBCCDDEEFF, 'OldName', True);
+  FCache.CacheResult($AABBCCDDEEFF, 'NewName', True);
+
+  Assert.IsTrue(FCache.TryGetCached($AABBCCDDEEFF, Name, Found));
+  Assert.AreEqual('NewName', Name);
+end;
+
+procedure TRegistryNameCacheTests.Clear_RemovesAllEntries;
+var
+  Name: string;
+  Found: Boolean;
+begin
+  FCache.CacheResult($111111111111, 'Device1', True);
+  FCache.CacheResult($222222222222, 'Device2', True);
+
+  FCache.Clear;
+
+  Assert.IsFalse(FCache.TryGetCached($111111111111, Name, Found));
+  Assert.IsFalse(FCache.TryGetCached($222222222222, Name, Found));
+  Assert.AreEqual(0, FCache.Count);
+end;
+
+procedure TRegistryNameCacheTests.Count_EmptyCache_ReturnsZero;
+begin
+  Assert.AreEqual(0, FCache.Count);
+end;
+
+procedure TRegistryNameCacheTests.Count_WithEntries_ReturnsCorrectCount;
+begin
+  FCache.CacheResult($111111111111, 'Device1', True);
+  FCache.CacheResult($222222222222, 'Device2', True);
+  FCache.CacheResult($333333333333, '', False);
+
+  Assert.AreEqual(3, FCache.Count);
+end;
+
+procedure TRegistryNameCacheTests.TryGetCached_ExpiredEntry_ReturnsFalse;
+var
+  ShortExpiryCache: TRegistryNameCache;
+  Name: string;
+  Found: Boolean;
+begin
+  // Create cache with 1-second expiry for testing
+  ShortExpiryCache := TRegistryNameCache.Create(1);
+  try
+    ShortExpiryCache.CacheResult($AABBCCDDEEFF, 'TestDevice', True);
+
+    // Should be valid immediately
+    Assert.IsTrue(ShortExpiryCache.TryGetCached($AABBCCDDEEFF, Name, Found),
+      'Cache entry should be valid immediately');
+
+    // Wait for expiration
+    Sleep(1100);  // 1.1 seconds
+
+    // Should now be expired
+    Assert.IsFalse(ShortExpiryCache.TryGetCached($AABBCCDDEEFF, Name, Found),
+      'Cache entry should be expired after 1.1 seconds');
+  finally
+    ShortExpiryCache.Free;
+  end;
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TDeviceRepositoryTests);
   TDUnitX.RegisterTestFixture(TMockDeviceRepositoryTests);
   TDUnitX.RegisterTestFixture(TDeviceRepositoryRefreshTests);
+  TDUnitX.RegisterTestFixture(TRegistryNameCacheTests);
 
 end.

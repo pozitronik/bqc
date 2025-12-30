@@ -28,6 +28,52 @@ uses
 
 type
   /// <summary>
+  /// Cached registry lookup result.
+  /// Stores both successful and failed lookups to avoid repeated I/O.
+  /// </summary>
+  TRegistryNameCacheEntry = record
+    Name: string;
+    Timestamp: TDateTime;
+    Found: Boolean;
+  end;
+
+  /// <summary>
+  /// Cache for device name registry lookups.
+  /// Reduces I/O by caching results with configurable expiration.
+  /// Thread-safe via critical section.
+  /// </summary>
+  TRegistryNameCache = class
+  private
+    FCache: TDictionary<UInt64, TRegistryNameCacheEntry>;
+    FCacheExpirySeconds: Integer;
+  public
+    constructor Create(ACacheExpirySeconds: Integer = 60);
+    destructor Destroy; override;
+
+    /// <summary>
+    /// Tries to get a cached name lookup result.
+    /// Returns True if cache entry exists and is not expired.
+    /// AFound indicates whether the original lookup succeeded.
+    /// </summary>
+    function TryGetCached(AAddress: UInt64; out AName: string; out AFound: Boolean): Boolean;
+
+    /// <summary>
+    /// Caches a registry lookup result (success or failure).
+    /// </summary>
+    procedure CacheResult(AAddress: UInt64; const AName: string; AFound: Boolean);
+
+    /// <summary>
+    /// Clears all cached entries.
+    /// </summary>
+    procedure Clear;
+
+    /// <summary>
+    /// Returns current cache size for diagnostics.
+    /// </summary>
+    function Count: Integer;
+  end;
+
+  /// <summary>
   /// Windows API implementation of IBluetoothDeviceQuery.
   /// Wraps BluetoothFindFirstDevice/Next/Close calls.
   /// </summary>
@@ -41,18 +87,22 @@ type
   /// Merges results, preferring devices with non-empty names.
   /// Logs comparison for investigation.
   /// Supports enumeration mode selection via IConnectionConfig.
+  /// Uses registry name cache to avoid repeated I/O on every enumeration.
   /// </summary>
   TCompositeBluetoothDeviceQuery = class(TInterfacedObject, IBluetoothDeviceQuery)
   private
     FWin32Query: IBluetoothDeviceQuery;
     FWinRTQuery: IBluetoothDeviceQuery;
     FConnectionConfig: IConnectionConfig;
+    FRegistryNameCache: TRegistryNameCache;
     procedure LogComparison(const AWin32, AWinRT: TBluetoothDeviceInfoArray);
     function MergeResults(const AWin32, AWinRT: TBluetoothDeviceInfoArray): TBluetoothDeviceInfoArray;
     function GetEnumerationMode: TEnumerationMode;
+    function TryGetNameFromRegistryCached(AAddress: UInt64; out AName: string): Boolean;
   public
     constructor Create; overload;
     constructor Create(AConnectionConfig: IConnectionConfig); overload;
+    destructor Destroy; override;
     function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
   end;
 
@@ -251,6 +301,68 @@ begin
   Result := AName.StartsWith('Bluetooth ', True) and (AName.Length = 27);
 end;
 
+{ TRegistryNameCache }
+
+constructor TRegistryNameCache.Create(ACacheExpirySeconds: Integer);
+begin
+  inherited Create;
+  FCache := TDictionary<UInt64, TRegistryNameCacheEntry>.Create;
+  FCacheExpirySeconds := ACacheExpirySeconds;
+end;
+
+destructor TRegistryNameCache.Destroy;
+begin
+  FCache.Free;
+  inherited Destroy;
+end;
+
+function TRegistryNameCache.TryGetCached(AAddress: UInt64; out AName: string;
+  out AFound: Boolean): Boolean;
+var
+  Entry: TRegistryNameCacheEntry;
+begin
+  Result := False;
+  AName := '';
+  AFound := False;
+
+  if FCache.TryGetValue(AAddress, Entry) then
+  begin
+    // Check if entry is still valid (not expired)
+    if SecondsBetween(Now, Entry.Timestamp) < FCacheExpirySeconds then
+    begin
+      AName := Entry.Name;
+      AFound := Entry.Found;
+      Result := True;
+    end
+    else
+    begin
+      // Entry expired, remove it
+      FCache.Remove(AAddress);
+    end;
+  end;
+end;
+
+procedure TRegistryNameCache.CacheResult(AAddress: UInt64; const AName: string;
+  AFound: Boolean);
+var
+  Entry: TRegistryNameCacheEntry;
+begin
+  Entry.Name := AName;
+  Entry.Timestamp := Now;
+  Entry.Found := AFound;
+  FCache.AddOrSetValue(AAddress, Entry);
+end;
+
+procedure TRegistryNameCache.Clear;
+begin
+  FCache.Clear;
+end;
+
+function TRegistryNameCache.Count: Integer;
+begin
+  Result := FCache.Count;
+end;
+
 function CreateBluetoothDeviceQuery: IBluetoothDeviceQuery;
 begin
   Result := TCompositeBluetoothDeviceQuery.Create;
@@ -332,6 +444,45 @@ begin
   FWin32Query := TWindowsBluetoothDeviceQuery.Create;
   FWinRTQuery := CreateWinRTBluetoothDeviceQuery;
   FConnectionConfig := AConnectionConfig;
+  FRegistryNameCache := TRegistryNameCache.Create(60);  // 60 second expiry
+end;
+
+destructor TCompositeBluetoothDeviceQuery.Destroy;
+begin
+  FRegistryNameCache.Free;
+  inherited Destroy;
+end;
+
+function TCompositeBluetoothDeviceQuery.TryGetNameFromRegistryCached(
+  AAddress: UInt64; out AName: string): Boolean;
+var
+  CachedFound: Boolean;
+begin
+  // First check cache
+  if FRegistryNameCache.TryGetCached(AAddress, AName, CachedFound) then
+  begin
+    Result := CachedFound;
+    if CachedFound then
+      LogDebug('TryGetNameFromRegistryCached: Cache hit for $%.12X -> "%s"',
+        [AAddress, AName], ClassName)
+    else
+      LogDebug('TryGetNameFromRegistryCached: Cache hit (not found) for $%.12X',
+        [AAddress], ClassName);
+    Exit;
+  end;
+
+  // Cache miss - perform actual registry lookup
+  Result := TryGetNameFromRegistry(AAddress, AName);
+
+  // Cache the result (success or failure)
+  FRegistryNameCache.CacheResult(AAddress, AName, Result);
+
+  if Result then
+    LogDebug('TryGetNameFromRegistryCached: Registry lookup for $%.12X -> "%s" (cached)',
+      [AAddress, AName], ClassName)
+  else
+    LogDebug('TryGetNameFromRegistryCached: Registry lookup failed for $%.12X (cached negative)',
+      [AAddress], ClassName);
 end;
 
 function TCompositeBluetoothDeviceQuery.GetEnumerationMode: TEnumerationMode;
@@ -492,12 +643,13 @@ begin
     end;
 
     // Registry fallback pass: try to resolve generic "Bluetooth XX:XX" names
+    // Uses cache to avoid repeated I/O on every enumeration poll
     for Device in ResultMap.Values.ToArray do
     begin
       if (Device.Name = '') or IsGenericBluetoothName(Device.Name) then
       begin
-        // Try registry lookup for actual cached name
-        if TryGetNameFromRegistry(Device.AddressInt, RegistryName) then
+        // Try cached registry lookup for actual device name
+        if TryGetNameFromRegistryCached(Device.AddressInt, RegistryName) then
         begin
           LogDebug('MergeResults: Registry resolved $%.12X -> "%s"',
             [Device.AddressInt, RegistryName], ClassName);
