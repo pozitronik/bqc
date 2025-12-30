@@ -18,6 +18,7 @@ uses
   System.SysUtils,
   System.Classes,
   System.Types,
+  System.Generics.Collections,
   Vcl.Controls,
   Vcl.Graphics,
   Vcl.Forms,
@@ -92,6 +93,7 @@ type
   TDeviceListBox = class(TCustomControl)
   private
     FDisplayItems: TDeviceDisplayItemArray;
+    FDisplayItemIndexMap: TDictionary<UInt64, Integer>;  // Address -> Index for O(1) lookup
     FItemHeights: TArray<Integer>;
     FHoverIndex: Integer;
     FSelectedIndex: Integer;
@@ -246,6 +248,7 @@ constructor TDeviceListBox.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FDisplayItems := nil;
+  FDisplayItemIndexMap := TDictionary<UInt64, Integer>.Create;
   FHoverIndex := -1;
   FSelectedIndex := -1;
   FScrollPos := 0;
@@ -356,6 +359,7 @@ end;
 
 destructor TDeviceListBox.Destroy;
 begin
+  FDisplayItemIndexMap.Free;
   inherited Destroy;
 end;
 
@@ -416,8 +420,16 @@ begin
 end;
 
 procedure TDeviceListBox.SetDisplayItems(const AItems: TDeviceDisplayItemArray);
+var
+  I: Integer;
 begin
   FDisplayItems := AItems;
+
+  // Rebuild index map for O(1) lookup by device address
+  FDisplayItemIndexMap.Clear;
+  for I := 0 to High(FDisplayItems) do
+    FDisplayItemIndexMap.Add(FDisplayItems[I].Device.AddressInt, I);
+
   RecalculateItemHeights;
   FHoverIndex := -1;
   if FSelectedIndex >= Length(FDisplayItems) then
@@ -429,20 +441,17 @@ end;
 
 procedure TDeviceListBox.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
 var
-  I: Integer;
+  Index: Integer;
 begin
-  for I := 0 to High(FDisplayItems) do
+  // O(1) lookup using index map instead of O(n) linear search
+  if FDisplayItemIndexMap.TryGetValue(AItem.Device.AddressInt, Index) then
   begin
-    if FDisplayItems[I].Device.AddressInt = AItem.Device.AddressInt then
-    begin
-      FDisplayItems[I] := AItem;
-      // Recalculate height for this item in case profiles changed
-      if I < Length(FItemHeights) then
-        FItemHeights[I] := CalculateItemHeight(I);
-      UpdateScrollRange;
-      Invalidate;
-      Exit;
-    end;
+    FDisplayItems[Index] := AItem;
+    // Recalculate height for this item in case profiles changed
+    if Index < Length(FItemHeights) then
+      FItemHeights[Index] := CalculateItemHeight(Index);
+    UpdateScrollRange;
+    Invalidate;
   end;
 end;
 

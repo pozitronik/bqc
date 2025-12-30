@@ -65,6 +65,7 @@ uses
   Tests.AsyncExecutor in 'Tests.AsyncExecutor.pas',
   Tests.WinRTDeviceQuery in 'Tests.WinRTDeviceQuery.pas',
   Tests.ProfileQuery in 'Tests.ProfileQuery.pas',
+  Tests.DeviceList in 'Tests.DeviceList.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in '..\src\Application\Bluetooth.ConnectionStrategies.pas',
