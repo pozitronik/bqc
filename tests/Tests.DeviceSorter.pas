@@ -113,7 +113,8 @@ begin
     ALastSeen,
     SortGroup,
     TBatteryStatus.NotSupported,
-    ''
+    '',
+    []  // Empty profiles array
   );
 end;
 

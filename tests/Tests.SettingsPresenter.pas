@@ -234,10 +234,12 @@ begin
     FMockView as IConnectionSettingsView,
     FMockView as ILoggingSettingsView,
     FMockView as IBatteryTraySettingsView,
+    FMockView as IProfileSettingsView,
     FMockView as IDeviceSettingsView,
     FMockAppConfig,
     FMockDeviceConfigProvider,
-    FMockAppConfig.AsBatteryTrayConfig
+    FMockAppConfig.AsBatteryTrayConfig,
+    FMockAppConfig.AsProfileConfig
   );
 end;
 

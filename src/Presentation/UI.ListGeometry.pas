@@ -19,8 +19,14 @@ uses
 
 type
   /// <summary>
+  /// Array of item heights for variable-height list items.
+  /// </summary>
+  TItemHeightArray = TArray<Integer>;
+
+  /// <summary>
   /// Handles geometry calculations for a virtual list control.
   /// Stateless methods for calculating item positions and scroll ranges.
+  /// Supports both fixed-height and variable-height items.
   /// </summary>
   TListGeometry = class
   public
@@ -100,6 +106,54 @@ type
     /// Determines if an item rectangle is visible within the client area.
     /// </summary>
     class function IsItemVisible(const AItemRect: TRect; AClientHeight: Integer): Boolean;
+
+    { Variable height methods }
+
+    /// <summary>
+    /// Calculates the bounding rectangle for an item with variable heights.
+    /// </summary>
+    /// <param name="AIndex">Zero-based item index.</param>
+    /// <param name="AItemHeights">Array of item heights.</param>
+    /// <param name="AItemMargin">Margin between items in pixels.</param>
+    /// <param name="AClientWidth">Width of the client area.</param>
+    /// <param name="AScrollPos">Current scroll position.</param>
+    /// <returns>Rectangle defining the item's bounds.</returns>
+    class function GetItemRectVariable(AIndex: Integer;
+      const AItemHeights: TItemHeightArray; AItemMargin, AClientWidth,
+      AScrollPos: Integer): TRect;
+
+    /// <summary>
+    /// Finds the item index at the given coordinates with variable heights.
+    /// </summary>
+    class function ItemAtPosVariable(X, Y: Integer;
+      const AItemHeights: TItemHeightArray; AItemMargin, AClientWidth,
+      AScrollPos: Integer): Integer;
+
+    /// <summary>
+    /// Calculates the total content height with variable heights.
+    /// </summary>
+    class function CalculateTotalHeightVariable(
+      const AItemHeights: TItemHeightArray; AItemMargin: Integer): Integer;
+
+    /// <summary>
+    /// Calculates the maximum scroll position with variable heights.
+    /// </summary>
+    class function CalculateMaxScrollVariable(
+      const AItemHeights: TItemHeightArray; AItemMargin,
+      AClientHeight: Integer): Integer;
+
+    /// <summary>
+    /// Calculates scroll position to make an item visible with variable heights.
+    /// </summary>
+    class function ScrollPosToMakeVisibleVariable(AIndex: Integer;
+      const AItemHeights: TItemHeightArray; ACurrentScrollPos, AItemMargin,
+      AClientHeight: Integer): Integer;
+
+    /// <summary>
+    /// Calculates the top position of an item with variable heights (before scroll offset).
+    /// </summary>
+    class function GetItemTopVariable(AIndex: Integer;
+      const AItemHeights: TItemHeightArray; AItemMargin: Integer): Integer;
   end;
 
 implementation
@@ -181,6 +235,101 @@ class function TListGeometry.IsItemVisible(const AItemRect: TRect;
   AClientHeight: Integer): Boolean;
 begin
   Result := (AItemRect.Bottom > 0) and (AItemRect.Top < AClientHeight);
+end;
+
+{ Variable height methods }
+
+class function TListGeometry.GetItemTopVariable(AIndex: Integer;
+  const AItemHeights: TItemHeightArray; AItemMargin: Integer): Integer;
+var
+  I: Integer;
+begin
+  Result := AItemMargin;
+  for I := 0 to AIndex - 1 do
+    Result := Result + AItemHeights[I] + AItemMargin;
+end;
+
+class function TListGeometry.GetItemRectVariable(AIndex: Integer;
+  const AItemHeights: TItemHeightArray; AItemMargin, AClientWidth,
+  AScrollPos: Integer): TRect;
+begin
+  if (AIndex < 0) or (AIndex >= Length(AItemHeights)) then
+  begin
+    Result := TRect.Empty;
+    Exit;
+  end;
+
+  Result.Left := AItemMargin;
+  Result.Right := AClientWidth - AItemMargin;
+  Result.Top := GetItemTopVariable(AIndex, AItemHeights, AItemMargin) - AScrollPos;
+  Result.Bottom := Result.Top + AItemHeights[AIndex];
+end;
+
+class function TListGeometry.ItemAtPosVariable(X, Y: Integer;
+  const AItemHeights: TItemHeightArray; AItemMargin, AClientWidth,
+  AScrollPos: Integer): Integer;
+var
+  I: Integer;
+  R: TRect;
+begin
+  for I := 0 to High(AItemHeights) do
+  begin
+    R := GetItemRectVariable(I, AItemHeights, AItemMargin, AClientWidth, AScrollPos);
+    if (X >= R.Left) and (X < R.Right) and (Y >= R.Top) and (Y < R.Bottom) then
+      Exit(I);
+  end;
+  Result := -1;
+end;
+
+class function TListGeometry.CalculateTotalHeightVariable(
+  const AItemHeights: TItemHeightArray; AItemMargin: Integer): Integer;
+var
+  I: Integer;
+begin
+  if Length(AItemHeights) = 0 then
+    Result := AItemMargin
+  else
+  begin
+    Result := AItemMargin;
+    for I := 0 to High(AItemHeights) do
+      Result := Result + AItemHeights[I] + AItemMargin;
+  end;
+end;
+
+class function TListGeometry.CalculateMaxScrollVariable(
+  const AItemHeights: TItemHeightArray; AItemMargin,
+  AClientHeight: Integer): Integer;
+var
+  TotalHeight: Integer;
+begin
+  TotalHeight := CalculateTotalHeightVariable(AItemHeights, AItemMargin);
+  Result := Max(0, TotalHeight - AClientHeight);
+end;
+
+class function TListGeometry.ScrollPosToMakeVisibleVariable(AIndex: Integer;
+  const AItemHeights: TItemHeightArray; ACurrentScrollPos, AItemMargin,
+  AClientHeight: Integer): Integer;
+var
+  ItemTop, ItemBottom: Integer;
+begin
+  if (AIndex < 0) or (AIndex >= Length(AItemHeights)) then
+  begin
+    Result := ACurrentScrollPos;
+    Exit;
+  end;
+
+  ItemTop := GetItemTopVariable(AIndex, AItemHeights, AItemMargin);
+  ItemBottom := ItemTop + AItemHeights[AIndex];
+
+  if ItemTop < ACurrentScrollPos then
+    // Item is above visible area, scroll up
+    Result := ItemTop - AItemMargin
+  else if ItemBottom > ACurrentScrollPos + AClientHeight then
+    // Item is below visible area, scroll down
+    Result := ItemBottom - AClientHeight + AItemMargin
+  else
+    // Item is already visible
+    Result := ACurrentScrollPos;
 end;
 
 end.

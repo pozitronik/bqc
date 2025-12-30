@@ -1,4 +1,4 @@
-{*******************************************************}
+﻿{*******************************************************}
 {                                                       }
 {       Bluetooth Quick Connect                         }
 {       Custom Device List Control                      }
@@ -26,7 +26,8 @@ uses
   Bluetooth.Types,
   App.ConfigInterfaces,
   App.LayoutConfigIntf,
-  App.AppearanceConfigIntf;
+  App.AppearanceConfigIntf,
+  App.ProfileConfigIntf;
 
 type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
@@ -113,13 +114,17 @@ type
     /// <summary>Pre-formatted battery text (e.g., "85%").</summary>
     BatteryText: string;
 
+    /// <summary>Array of Bluetooth profiles available for this device.</summary>
+    Profiles: TBluetoothProfileArray;
+
     /// <summary>Creates a display item from device and config data.</summary>
     class function Create(const ADevice: TBluetoothDeviceInfo;
       const ADisplayName: string; AIsPinned: Boolean;
       AEffectiveDeviceType: TBluetoothDeviceType;
       const ALastSeenText: string; ALastSeen: TDateTime;
       ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
-      const ABatteryText: string): TDeviceDisplayItem; static;
+      const ABatteryText: string;
+      const AProfiles: TBluetoothProfileArray): TDeviceDisplayItem; static;
   end;
 
   TDeviceDisplayItemArray = TArray<TDeviceDisplayItem>;
@@ -134,6 +139,7 @@ type
   TDeviceListBox = class(TCustomControl)
   private
     FDisplayItems: TDeviceDisplayItemArray;
+    FItemHeights: TArray<Integer>;
     FHoverIndex: Integer;
     FSelectedIndex: Integer;
     FScrollPos: Integer;
@@ -146,6 +152,7 @@ type
     // Injected configuration interfaces (for layout/appearance only)
     FLayoutConfig: ILayoutConfig;
     FAppearanceConfig: IAppearanceConfig;
+    FProfileConfig: IProfileConfig;
 
     // Cached layout parameters (refreshed once per paint cycle)
     FCachedLayout: TCachedLayoutParams;
@@ -153,6 +160,7 @@ type
     procedure RefreshLayoutCache;
     function GetLayoutConfig: ILayoutConfig;
     function GetAppearanceConfig: IAppearanceConfig;
+    function GetProfileConfig: IProfileConfig;
 
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetSelectedIndex(AValue: Integer);
@@ -164,6 +172,10 @@ type
     procedure UpdateScrollRange;
     procedure ScrollTo(APos: Integer);
 
+    procedure RecalculateItemHeights;
+    function CalculateItemHeight(AIndex: Integer): Integer;
+    function GetProfileSectionHeight(AProfileCount: Integer): Integer;
+
     procedure DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
       const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
     function CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
@@ -173,11 +185,12 @@ type
       const AContext: TItemDrawContext);
     procedure DrawItemBottomLine(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
       const AContext: TItemDrawContext);
+    procedure DrawProfileSection(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
+      const AContext: TItemDrawContext);
     procedure DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
       ADeviceType: TBluetoothDeviceType);
     function GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Char;
     function GetBatteryIconChar(ALevel: Integer): Char;
-
     procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
     procedure WMGetDlgCode(var Message: TWMGetDlgCode); message WM_GETDLGCODE;
     procedure WMVScroll(var Message: TWMVScroll); message WM_VSCROLL;
@@ -218,6 +231,7 @@ type
     // Dependency injection properties (must be set before use)
     property LayoutConfig: ILayoutConfig read GetLayoutConfig write FLayoutConfig;
     property AppearanceConfig: IAppearanceConfig read GetAppearanceConfig write FAppearanceConfig;
+    property ProfileConfig: IProfileConfig read GetProfileConfig write FProfileConfig;
 
   published
     property Align;
@@ -241,6 +255,10 @@ const
   // Font names used for rendering
   FONT_UI = 'Segoe UI';
   FONT_ICONS = 'Segoe MDL2 Assets';
+
+  // Profile section constants
+  PROFILE_INDENT = 20;           // Indent from left edge
+  PROFILE_ICON_SIZE = 10;        // Font size for profile icons
 
   // Icon characters from Segoe MDL2 Assets
   ICON_PIN = #$E718;
@@ -305,7 +323,8 @@ class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
   AEffectiveDeviceType: TBluetoothDeviceType;
   const ALastSeenText: string; ALastSeen: TDateTime;
   ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
-  const ABatteryText: string): TDeviceDisplayItem;
+  const ABatteryText: string;
+  const AProfiles: TBluetoothProfileArray): TDeviceDisplayItem;
 begin
   Result.Device := ADevice;
   Result.DisplayName := ADisplayName;
@@ -316,6 +335,7 @@ begin
   Result.SortGroup := ASortGroup;
   Result.BatteryStatus := ABatteryStatus;
   Result.BatteryText := ABatteryText;
+  Result.Profiles := AProfiles;
 end;
 
 { TDeviceListBox }
@@ -345,6 +365,58 @@ end;
 function TDeviceListBox.GetAppearanceConfig: IAppearanceConfig;
 begin
   Result := FAppearanceConfig;
+end;
+
+function TDeviceListBox.GetProfileConfig: IProfileConfig;
+begin
+  Result := FProfileConfig;
+end;
+
+function TDeviceListBox.GetProfileSectionHeight(AProfileCount: Integer): Integer;
+var
+  ProfileFontSize: Integer;
+  LineHeight: Integer;
+begin
+  if AProfileCount <= 1 then
+    Result := 0
+  else
+  begin
+    // Calculate line height based on font size (approximately 2x font size in pixels)
+    if Assigned(FProfileConfig) then
+      ProfileFontSize := FProfileConfig.ProfileFontSize
+    else
+      ProfileFontSize := 7;
+    LineHeight := ProfileFontSize * 2;
+    // Profiles start right after status line, add bottom padding
+    Result := AProfileCount * LineHeight + LineHeight div 2;
+  end;
+end;
+
+function TDeviceListBox.CalculateItemHeight(AIndex: Integer): Integer;
+var
+  BaseHeight: Integer;
+  ProfileCount: Integer;
+begin
+  BaseHeight := LayoutConfig.ItemHeight;
+
+  // Add profile section height if profiles are shown
+  if Assigned(FProfileConfig) and FProfileConfig.ShowProfiles and
+     (AIndex >= 0) and (AIndex < Length(FDisplayItems)) then
+  begin
+    ProfileCount := Length(FDisplayItems[AIndex].Profiles);
+    Result := BaseHeight + GetProfileSectionHeight(ProfileCount);
+  end
+  else
+    Result := BaseHeight;
+end;
+
+procedure TDeviceListBox.RecalculateItemHeights;
+var
+  I: Integer;
+begin
+  SetLength(FItemHeights, Length(FDisplayItems));
+  for I := 0 to High(FDisplayItems) do
+    FItemHeights[I] := CalculateItemHeight(I);
 end;
 
 procedure TDeviceListBox.RefreshLayoutCache;
@@ -444,6 +516,7 @@ end;
 procedure TDeviceListBox.SetDisplayItems(const AItems: TDeviceDisplayItemArray);
 begin
   FDisplayItems := AItems;
+  RecalculateItemHeights;
   FHoverIndex := -1;
   if FSelectedIndex >= Length(FDisplayItems) then
     FSelectedIndex := -1;
@@ -461,6 +534,10 @@ begin
     if FDisplayItems[I].Device.AddressInt = AItem.Device.AddressInt then
     begin
       FDisplayItems[I] := AItem;
+      // Recalculate height for this item in case profiles changed
+      if I < Length(FItemHeights) then
+        FItemHeights[I] := CalculateItemHeight(I);
+      UpdateScrollRange;
       Invalidate;
       Exit;
     end;
@@ -488,35 +565,60 @@ end;
 
 function TDeviceListBox.GetItemRect(AIndex: Integer): TRect;
 begin
-  Result := TListGeometry.GetItemRect(
-    AIndex,
-    LayoutConfig.ItemHeight,
-    LayoutConfig.ItemMargin,
-    ClientWidth,
-    FScrollPos
-  );
+  if Length(FItemHeights) > 0 then
+    Result := TListGeometry.GetItemRectVariable(
+      AIndex,
+      FItemHeights,
+      LayoutConfig.ItemMargin,
+      ClientWidth,
+      FScrollPos
+    )
+  else
+    Result := TListGeometry.GetItemRect(
+      AIndex,
+      LayoutConfig.ItemHeight,
+      LayoutConfig.ItemMargin,
+      ClientWidth,
+      FScrollPos
+    );
 end;
 
 function TDeviceListBox.ItemAtPos(X, Y: Integer): Integer;
 begin
-  Result := TListGeometry.ItemAtPos(
-    X, Y,
-    GetItemCount,
-    LayoutConfig.ItemHeight,
-    LayoutConfig.ItemMargin,
-    ClientWidth,
-    FScrollPos
-  );
+  if Length(FItemHeights) > 0 then
+    Result := TListGeometry.ItemAtPosVariable(
+      X, Y,
+      FItemHeights,
+      LayoutConfig.ItemMargin,
+      ClientWidth,
+      FScrollPos
+    )
+  else
+    Result := TListGeometry.ItemAtPos(
+      X, Y,
+      GetItemCount,
+      LayoutConfig.ItemHeight,
+      LayoutConfig.ItemMargin,
+      ClientWidth,
+      FScrollPos
+    );
 end;
 
 procedure TDeviceListBox.UpdateScrollRange;
 begin
-  FMaxScroll := TListGeometry.CalculateMaxScroll(
-    GetItemCount,
-    LayoutConfig.ItemHeight,
-    LayoutConfig.ItemMargin,
-    ClientHeight
-  );
+  if Length(FItemHeights) > 0 then
+    FMaxScroll := TListGeometry.CalculateMaxScrollVariable(
+      FItemHeights,
+      LayoutConfig.ItemMargin,
+      ClientHeight
+    )
+  else
+    FMaxScroll := TListGeometry.CalculateMaxScroll(
+      GetItemCount,
+      LayoutConfig.ItemHeight,
+      LayoutConfig.ItemMargin,
+      ClientHeight
+    );
   FScrollPos := TListGeometry.ClampScrollPos(FScrollPos, FMaxScroll);
   UpdateScrollBar;
 end;
@@ -529,11 +631,17 @@ begin
   if not HandleAllocated then
     Exit;
 
-  TotalHeight := TListGeometry.CalculateTotalHeight(
-    GetItemCount,
-    LayoutConfig.ItemHeight,
-    LayoutConfig.ItemMargin
-  );
+  if Length(FItemHeights) > 0 then
+    TotalHeight := TListGeometry.CalculateTotalHeightVariable(
+      FItemHeights,
+      LayoutConfig.ItemMargin
+    )
+  else
+    TotalHeight := TListGeometry.CalculateTotalHeight(
+      GetItemCount,
+      LayoutConfig.ItemHeight,
+      LayoutConfig.ItemMargin
+    );
 
   SI.cbSize := SizeOf(TScrollInfo);
   SI.fMask := SIF_ALL;
@@ -564,13 +672,22 @@ begin
   if (AIndex < 0) or (AIndex >= GetItemCount) then
     Exit;
 
-  NewScrollPos := TListGeometry.ScrollPosToMakeVisible(
-    AIndex,
-    FScrollPos,
-    LayoutConfig.ItemHeight,
-    LayoutConfig.ItemMargin,
-    ClientHeight
-  );
+  if Length(FItemHeights) > 0 then
+    NewScrollPos := TListGeometry.ScrollPosToMakeVisibleVariable(
+      AIndex,
+      FItemHeights,
+      FScrollPos,
+      LayoutConfig.ItemMargin,
+      ClientHeight
+    )
+  else
+    NewScrollPos := TListGeometry.ScrollPosToMakeVisible(
+      AIndex,
+      FScrollPos,
+      LayoutConfig.ItemHeight,
+      LayoutConfig.ItemMargin,
+      ClientHeight
+    );
 
   if NewScrollPos <> FScrollPos then
     ScrollTo(NewScrollPos);
@@ -677,6 +794,7 @@ function TDeviceListBox.CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
 var
   StatusLineHeight: Integer;
   IconRect: TRect;
+  BaseHeight: Integer;
 begin
   // Store item rect for reference
   Result.ItemRect := ARect;
@@ -706,8 +824,13 @@ begin
   ACanvas.Font.Size := Result.StatusFontSize;
   StatusLineHeight := ACanvas.TextHeight('Ay');
 
+  // Get base height (without profile section) for proper positioning
+  // Status line should be anchored to base height, not expanded rect
+  BaseHeight := LayoutConfig.ItemHeight;
+
   Result.NameLineTop := ARect.Top + Result.ItemPadding;
-  Result.StatusLineTop := ARect.Bottom - Result.ItemPadding - StatusLineHeight;
+  // Anchor status line to base height area, not full expanded height
+  Result.StatusLineTop := ARect.Top + BaseHeight - Result.ItemPadding - StatusLineHeight;
 
   // Calculate text rect based on icon visibility
   if Result.ShowDeviceIcons then
@@ -875,11 +998,79 @@ begin
   end;
 end;
 
+procedure TDeviceListBox.DrawProfileSection(ACanvas: TCanvas;
+  const AItem: TDeviceDisplayItem; const AContext: TItemDrawContext);
+var
+  Style: TCustomStyleServices;
+  I: Integer;
+  ProfileTop: Integer;
+  ProfileFontSize: Integer;
+  LineHeight: Integer;
+  ProfileText: string;
+  TreeChar: string;
+  IsLast: Boolean;
+  TreeX: Integer;
+begin
+  if Length(AItem.Profiles) <= 1 then
+    Exit;
+
+  Style := TStyleManager.ActiveStyle;
+
+  // Get font size from config or use default
+  if Assigned(FProfileConfig) then
+    ProfileFontSize := FProfileConfig.ProfileFontSize
+  else
+    ProfileFontSize := 7;
+
+  // Calculate line height based on font size (must match GetProfileSectionHeight)
+  LineHeight := ProfileFontSize * 2;
+
+  // Calculate profile position - start just below status line
+  // Use status font to measure status line height correctly
+  ACanvas.Font.Name := FONT_UI;
+  ACanvas.Font.Size := AContext.StatusFontSize;
+  TreeX := AContext.TextRect.Left;
+  // Profiles start immediately after status text
+  ProfileTop := AContext.StatusLineTop + ACanvas.TextHeight('A');
+
+  // Now set up font for profiles
+  ACanvas.Font.Size := ProfileFontSize;
+  ACanvas.Font.Style := [];
+  ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+  ACanvas.Brush.Style := bsClear;
+
+  // Draw each profile with tree connectors
+  for I := 0 to High(AItem.Profiles) do
+  begin
+    ProfileText := AItem.Profiles[I].DisplayName;
+    IsLast := (I = High(AItem.Profiles));
+
+    // Use box-drawing characters for tree structure
+    if IsLast then
+      TreeChar := #$2514 + #$2500  // "└─" (corner + horizontal)
+    else
+      TreeChar := #$251C + #$2500; // "├─" (tee + horizontal)
+
+    // Draw tree connector
+    ACanvas.TextOut(TreeX, ProfileTop, TreeChar);
+
+    // Draw profile name (offset by connector width)
+    ACanvas.TextOut(
+      TreeX + ACanvas.TextWidth(TreeChar) + 4,
+      ProfileTop,
+      ProfileText
+    );
+
+    ProfileTop := ProfileTop + LineHeight;
+  end;
+end;
+
 procedure TDeviceListBox.DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
   const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
 var
   Context: TItemDrawContext;
   IconRect: TRect;
+  BaseHeight: Integer;
 begin
   // Create context with all layout parameters
   Context := CreateDrawContext(ACanvas, ARect, AIsHover, AIsSelected);
@@ -887,12 +1078,14 @@ begin
   // Draw background and border
   DrawItemBackground(ACanvas, Context);
 
-  // Draw device icon if enabled
+  // Calculate base height (without profile section) for icon centering
+  BaseHeight := LayoutConfig.ItemHeight;
+
+  // Draw device icon if enabled (centered in base height area)
   if Context.ShowDeviceIcons then
   begin
     IconRect.Left := Context.ItemRect.Left + Context.ItemPadding;
-    IconRect.Top := Context.ItemRect.Top +
-      ((Context.ItemRect.Bottom - Context.ItemRect.Top) - Context.IconSize) div 2;
+    IconRect.Top := Context.ItemRect.Top + (BaseHeight - Context.IconSize) div 2;
     IconRect.Right := IconRect.Left + Context.IconSize;
     IconRect.Bottom := IconRect.Top + Context.IconSize;
     DrawDeviceIcon(ACanvas, IconRect, AItem.EffectiveDeviceType);
@@ -901,6 +1094,10 @@ begin
   // Draw text content
   DrawItemTopLine(ACanvas, AItem, Context);
   DrawItemBottomLine(ACanvas, AItem, Context);
+
+  // Draw profile section if profiles are present
+  if Length(AItem.Profiles) > 1 then
+    DrawProfileSection(ACanvas, AItem, Context);
 
   ACanvas.Brush.Style := bsSolid;
 end;

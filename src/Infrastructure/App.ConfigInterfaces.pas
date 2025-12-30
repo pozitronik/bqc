@@ -26,7 +26,8 @@ uses
   App.ConnectionConfigIntf,
   App.NotificationConfigIntf,
   App.LogConfigIntf,
-  App.BatteryTrayConfigIntf;
+  App.BatteryTrayConfigIntf,
+  App.ProfileConfigIntf;
 
 type
   // Forward declaration for IAppConfig (used by ISettingsRepository and IDeviceConfigRepository)
@@ -335,6 +336,7 @@ type
     function AsConnectionConfig: IConnectionConfig;
     function AsNotificationConfig: INotificationConfig;
     function AsBatteryTrayConfig: IBatteryTrayConfig;
+    function AsProfileConfig: IProfileConfig;
     function AsDeviceConfigProvider: IDeviceConfigProvider;
 
     property ConfigPath: string read GetConfigPath;

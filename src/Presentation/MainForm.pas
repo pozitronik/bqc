@@ -533,6 +533,7 @@ begin
   // Inject configuration dependencies (eliminates Bootstrap fallback)
   FDeviceList.LayoutConfig := FLayoutConfig;
   FDeviceList.AppearanceConfig := FAppearanceConfig;
+  FDeviceList.ProfileConfig := Bootstrap.ProfileConfig;
 end;
 
 procedure TFormMain.ApplyTheme;
@@ -898,6 +899,7 @@ begin
       FAppConfig.AsLogConfig,
       FDeviceConfigProvider,
       FBatteryTrayConfig,
+      Bootstrap.ProfileConfig,
       FThemeManager
     );
     SettingsDialog.OnSettingsApplied := HandleSettingsApplied;

@@ -90,6 +90,183 @@ type
     detAttributeChange
   );
 
+  // -------------------------------------------------------------------------
+  // Bluetooth Profile Types
+  // -------------------------------------------------------------------------
+
+  /// <summary>
+  /// Represents the type of a Bluetooth profile/service.
+  /// </summary>
+  TBluetoothProfileType = (
+    /// <summary>Unknown or unrecognized profile.</summary>
+    bptUnknown,
+    /// <summary>Advanced Audio Distribution Profile - Sink (receive audio).</summary>
+    bptA2DPSink,
+    /// <summary>Advanced Audio Distribution Profile - Source (send audio).</summary>
+    bptA2DPSource,
+    /// <summary>Hands-Free Profile.</summary>
+    bptHFP,
+    /// <summary>Headset Profile.</summary>
+    bptHSP,
+    /// <summary>Audio/Video Remote Control Profile.</summary>
+    bptAVRCP,
+    /// <summary>Human Interface Device profile.</summary>
+    bptHID,
+    /// <summary>Serial Port Profile.</summary>
+    bptSPP,
+    /// <summary>Personal Area Network.</summary>
+    bptPAN,
+    /// <summary>Object Exchange (OBEX) profiles.</summary>
+    bptOBEX,
+    /// <summary>Phonebook Access Profile.</summary>
+    bptPBAP,
+    /// <summary>Message Access Profile.</summary>
+    bptMAP
+  );
+  TBluetoothProfileTypes = set of TBluetoothProfileType;
+
+  /// <summary>
+  /// Connection state of a Bluetooth profile.
+  /// </summary>
+  TProfileConnectionState = (
+    /// <summary>Profile state is unknown.</summary>
+    pcsUnknown,
+    /// <summary>Profile is available but not connected.</summary>
+    pcsAvailable,
+    /// <summary>Profile is currently connected.</summary>
+    pcsConnected
+  );
+
+  /// <summary>
+  /// Represents a single Bluetooth profile/service.
+  /// Immutable value type for thread safety.
+  /// </summary>
+  TBluetoothProfile = record
+  private
+    FProfileType: TBluetoothProfileType;
+    FServiceGuid: TGUID;
+    FConnectionState: TProfileConnectionState;
+  public
+    /// <summary>
+    /// Creates a new profile record.
+    /// </summary>
+    class function Create(
+      AProfileType: TBluetoothProfileType;
+      const AServiceGuid: TGUID;
+      AConnectionState: TProfileConnectionState
+    ): TBluetoothProfile; static;
+
+    /// <summary>
+    /// Returns a copy with updated connection state.
+    /// </summary>
+    function WithConnectionState(AState: TProfileConnectionState): TBluetoothProfile;
+
+    /// <summary>
+    /// Profile type.
+    /// </summary>
+    property ProfileType: TBluetoothProfileType read FProfileType;
+
+    /// <summary>
+    /// Service GUID for this profile.
+    /// </summary>
+    property ServiceGuid: TGUID read FServiceGuid;
+
+    /// <summary>
+    /// Current connection state of this profile.
+    /// </summary>
+    property ConnectionState: TProfileConnectionState read FConnectionState;
+
+    /// <summary>
+    /// Returns display name for this profile type.
+    /// </summary>
+    function DisplayName: string;
+
+    /// <summary>
+    /// Returns short name for this profile type.
+    /// </summary>
+    function ShortName: string;
+
+    /// <summary>
+    /// Whether this profile is currently connected.
+    /// </summary>
+    function IsConnected: Boolean;
+  end;
+
+  /// <summary>
+  /// Array of Bluetooth profiles.
+  /// </summary>
+  TBluetoothProfileArray = TArray<TBluetoothProfile>;
+
+  /// <summary>
+  /// Contains profile information for a device.
+  /// Immutable value type for thread safety.
+  /// </summary>
+  TDeviceProfileInfo = record
+  private
+    FDeviceAddress: UInt64;
+    FProfiles: TBluetoothProfileArray;
+    FLastUpdated: TDateTime;
+  public
+    /// <summary>
+    /// Creates a new device profile info record.
+    /// </summary>
+    class function Create(
+      ADeviceAddress: UInt64;
+      const AProfiles: TBluetoothProfileArray;
+      ALastUpdated: TDateTime
+    ): TDeviceProfileInfo; static;
+
+    /// <summary>
+    /// Creates an empty profile info for a device.
+    /// </summary>
+    class function Empty(ADeviceAddress: UInt64): TDeviceProfileInfo; static;
+
+    /// <summary>
+    /// Device Bluetooth address.
+    /// </summary>
+    property DeviceAddress: UInt64 read FDeviceAddress;
+
+    /// <summary>
+    /// Array of profiles for this device.
+    /// </summary>
+    property Profiles: TBluetoothProfileArray read FProfiles;
+
+    /// <summary>
+    /// When profile information was last updated.
+    /// </summary>
+    property LastUpdated: TDateTime read FLastUpdated;
+
+    /// <summary>
+    /// Number of profiles.
+    /// </summary>
+    function Count: Integer;
+
+    /// <summary>
+    /// Number of connected profiles.
+    /// </summary>
+    function ConnectedCount: Integer;
+
+    /// <summary>
+    /// Returns array of connected profiles only.
+    /// </summary>
+    function GetConnectedProfiles: TBluetoothProfileArray;
+
+    /// <summary>
+    /// Checks if device has a specific profile type.
+    /// </summary>
+    function HasProfile(AType: TBluetoothProfileType): Boolean;
+
+    /// <summary>
+    /// Gets connection state of a specific profile type.
+    /// </summary>
+    function GetProfileState(AType: TBluetoothProfileType): TProfileConnectionState;
+
+    /// <summary>
+    /// Whether any profiles are available.
+    /// </summary>
+    function HasProfiles: Boolean;
+  end;
+
   /// <summary>
   /// 6-byte Bluetooth MAC address.
   /// </summary>
@@ -312,6 +489,28 @@ function BluetoothAddressToUInt64(const AAddress: TBluetoothAddress): UInt64;
 /// <returns>Formatted MAC address string.</returns>
 function FormatAddressAsMAC(AAddressInt: UInt64): string;
 
+/// <summary>
+/// Maps a Bluetooth service GUID to a profile type.
+/// </summary>
+/// <param name="AGuid">The service GUID.</param>
+/// <returns>The profile type, or bptUnknown if not recognized.</returns>
+function GuidToProfileType(const AGuid: TGUID): TBluetoothProfileType;
+
+/// <summary>
+/// Maps an L2CAP PSM value to a profile type.
+/// </summary>
+/// <param name="APsm">The PSM value from L2CAP event.</param>
+/// <returns>The profile type, or bptUnknown if not recognized.</returns>
+function PsmToProfileType(APsm: Word): TBluetoothProfileType;
+
+/// <summary>
+/// Returns the short UUID (16-bit) from a full Bluetooth GUID.
+/// Bluetooth base UUID: 0000xxxx-0000-1000-8000-00805F9B34FB
+/// </summary>
+/// <param name="AGuid">The full GUID.</param>
+/// <returns>The 16-bit short UUID.</returns>
+function GetShortUUID(const AGuid: TGUID): Word;
+
 implementation
 
 { TBluetoothDeviceInfo }
@@ -372,6 +571,144 @@ end;
 function TBluetoothDeviceInfo.IsInputDevice: Boolean;
 begin
   Result := FDeviceType in [btKeyboard, btMouse, btGamepad, btHID];
+end;
+
+{ TBluetoothProfile }
+
+class function TBluetoothProfile.Create(
+  AProfileType: TBluetoothProfileType;
+  const AServiceGuid: TGUID;
+  AConnectionState: TProfileConnectionState
+): TBluetoothProfile;
+begin
+  Result.FProfileType := AProfileType;
+  Result.FServiceGuid := AServiceGuid;
+  Result.FConnectionState := AConnectionState;
+end;
+
+function TBluetoothProfile.WithConnectionState(
+  AState: TProfileConnectionState): TBluetoothProfile;
+begin
+  Result := Self;
+  Result.FConnectionState := AState;
+end;
+
+function TBluetoothProfile.DisplayName: string;
+begin
+  case FProfileType of
+    bptA2DPSink:   Result := 'A2DP (Audio Sink)';
+    bptA2DPSource: Result := 'A2DP (Audio Source)';
+    bptHFP:        Result := 'Hands-Free';
+    bptHSP:        Result := 'Headset';
+    bptAVRCP:      Result := 'Remote Control';
+    bptHID:        Result := 'HID';
+    bptSPP:        Result := 'Serial Port';
+    bptPAN:        Result := 'Network';
+    bptOBEX:       Result := 'Object Exchange';
+    bptPBAP:       Result := 'Phonebook';
+    bptMAP:        Result := 'Messages';
+  else
+    Result := 'Unknown';
+  end;
+end;
+
+function TBluetoothProfile.ShortName: string;
+begin
+  case FProfileType of
+    bptA2DPSink:   Result := 'A2DP';
+    bptA2DPSource: Result := 'A2DP-Src';
+    bptHFP:        Result := 'HFP';
+    bptHSP:        Result := 'HSP';
+    bptAVRCP:      Result := 'AVRCP';
+    bptHID:        Result := 'HID';
+    bptSPP:        Result := 'SPP';
+    bptPAN:        Result := 'PAN';
+    bptOBEX:       Result := 'OBEX';
+    bptPBAP:       Result := 'PBAP';
+    bptMAP:        Result := 'MAP';
+  else
+    Result := '?';
+  end;
+end;
+
+function TBluetoothProfile.IsConnected: Boolean;
+begin
+  Result := FConnectionState = pcsConnected;
+end;
+
+{ TDeviceProfileInfo }
+
+class function TDeviceProfileInfo.Create(
+  ADeviceAddress: UInt64;
+  const AProfiles: TBluetoothProfileArray;
+  ALastUpdated: TDateTime
+): TDeviceProfileInfo;
+begin
+  Result.FDeviceAddress := ADeviceAddress;
+  Result.FProfiles := AProfiles;
+  Result.FLastUpdated := ALastUpdated;
+end;
+
+class function TDeviceProfileInfo.Empty(ADeviceAddress: UInt64): TDeviceProfileInfo;
+begin
+  Result.FDeviceAddress := ADeviceAddress;
+  SetLength(Result.FProfiles, 0);
+  Result.FLastUpdated := 0;
+end;
+
+function TDeviceProfileInfo.Count: Integer;
+begin
+  Result := Length(FProfiles);
+end;
+
+function TDeviceProfileInfo.ConnectedCount: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to High(FProfiles) do
+    if FProfiles[I].IsConnected then
+      Inc(Result);
+end;
+
+function TDeviceProfileInfo.GetConnectedProfiles: TBluetoothProfileArray;
+var
+  I, Idx: Integer;
+begin
+  SetLength(Result, ConnectedCount);
+  Idx := 0;
+  for I := 0 to High(FProfiles) do
+    if FProfiles[I].IsConnected then
+    begin
+      Result[Idx] := FProfiles[I];
+      Inc(Idx);
+    end;
+end;
+
+function TDeviceProfileInfo.HasProfile(AType: TBluetoothProfileType): Boolean;
+var
+  I: Integer;
+begin
+  for I := 0 to High(FProfiles) do
+    if FProfiles[I].ProfileType = AType then
+      Exit(True);
+  Result := False;
+end;
+
+function TDeviceProfileInfo.GetProfileState(
+  AType: TBluetoothProfileType): TProfileConnectionState;
+var
+  I: Integer;
+begin
+  for I := 0 to High(FProfiles) do
+    if FProfiles[I].ProfileType = AType then
+      Exit(FProfiles[I].ConnectionState);
+  Result := pcsUnknown;
+end;
+
+function TDeviceProfileInfo.HasProfiles: Boolean;
+begin
+  Result := Length(FProfiles) > 0;
 end;
 
 { TBatteryStatus }
@@ -528,6 +865,77 @@ begin
     (AAddressInt shr 8) and $FF,
     AAddressInt and $FF
   ]);
+end;
+
+function GetShortUUID(const AGuid: TGUID): Word;
+begin
+  // Bluetooth base UUID: 0000xxxx-0000-1000-8000-00805F9B34FB
+  // The short UUID is in the D1 field (first 32 bits), lower 16 bits
+  Result := Word(AGuid.D1);
+end;
+
+function GuidToProfileType(const AGuid: TGUID): TBluetoothProfileType;
+var
+  ShortUUID: Word;
+begin
+  ShortUUID := GetShortUUID(AGuid);
+
+  case ShortUUID of
+    // Audio profiles
+    $110A: Result := bptA2DPSource;  // AudioSource
+    $110B: Result := bptA2DPSink;    // AudioSink
+    $110C: Result := bptAVRCP;       // A/V Remote Control Target
+    $110E: Result := bptAVRCP;       // A/V Remote Control Controller
+
+    // Voice profiles
+    $1108: Result := bptHSP;         // Headset
+    $1112: Result := bptHSP;         // Headset Audio Gateway
+    $111E: Result := bptHFP;         // Hands-Free
+    $111F: Result := bptHFP;         // Hands-Free Audio Gateway
+
+    // HID
+    $1124: Result := bptHID;         // Human Interface Device
+
+    // Serial
+    $1101: Result := bptSPP;         // Serial Port
+
+    // Network
+    $1115: Result := bptPAN;         // PANU
+    $1116: Result := bptPAN;         // NAP
+    $1117: Result := bptPAN;         // GN
+
+    // Object transfer
+    $1105: Result := bptOBEX;        // OBEX Object Push
+    $1106: Result := bptOBEX;        // OBEX File Transfer
+
+    // Phone profiles
+    $112F: Result := bptPBAP;        // Phonebook Access - PSE
+    $1130: Result := bptPBAP;        // Phonebook Access - PCE
+    $1132: Result := bptMAP;         // Message Access Server
+    $1133: Result := bptMAP;         // Message Notification Server
+    $1134: Result := bptMAP;         // Message Access Profile
+  else
+    Result := bptUnknown;
+  end;
+end;
+
+function PsmToProfileType(APsm: Word): TBluetoothProfileType;
+begin
+  // L2CAP PSM values
+  // Note: Some profiles share PSMs or use dynamic PSMs
+  case APsm of
+    $0001: Result := bptUnknown;     // SDP - not a user-facing profile
+    $0003: Result := bptSPP;         // RFCOMM (also used by HFP signaling)
+    $000F: Result := bptPAN;         // BNEP
+    $0011: Result := bptHID;         // HID Control
+    $0013: Result := bptHID;         // HID Interrupt
+    $0017: Result := bptAVRCP;       // AVCTP (Control)
+    $0019: Result := bptA2DPSink;    // AVDTP (A2DP streaming)
+    $001B: Result := bptAVRCP;       // AVCTP Browsing
+    $001F: Result := bptUnknown;     // ATT (BLE) - handled separately
+  else
+    Result := bptUnknown;
+  end;
 end;
 
 end.

@@ -80,6 +80,7 @@ const
   KEY_BATTERY_LOW_THRESHOLD = 'BatteryLowThreshold';
   KEY_BATTERY_NOTIFY_LOW = 'BatteryNotifyLow';
   KEY_BATTERY_NOTIFY_FULL = 'BatteryNotifyFull';
+  KEY_SHOW_PROFILES = 'ShowProfiles';
 
 /// <summary>
 /// Creates a device configuration repository.
@@ -239,6 +240,7 @@ begin
           DeviceConfig.BatteryTray.NotifyLowBattery := AIni.ReadInteger(Section, KEY_BATTERY_NOTIFY_LOW, -1);
           DeviceConfig.BatteryTray.NotifyFullyCharged := AIni.ReadInteger(Section, KEY_BATTERY_NOTIFY_FULL, -1);
           DeviceConfig.DeviceTypeOverride := AIni.ReadInteger(Section, KEY_DEVICE_TYPE_OVERRIDE, -1);
+          DeviceConfig.ShowProfiles := AIni.ReadInteger(Section, KEY_SHOW_PROFILES, -1);
           // Parse LastSeen as ISO 8601 datetime string
           LastSeenStr := AIni.ReadString(Section, KEY_LAST_SEEN, '');
           if LastSeenStr <> '' then
@@ -322,6 +324,9 @@ begin
     // Only save DeviceTypeOverride if it's set (not auto-detect)
     if Pair.Value.DeviceTypeOverride >= 0 then
       AIni.WriteInteger(SectionName, KEY_DEVICE_TYPE_OVERRIDE, Pair.Value.DeviceTypeOverride);
+    // Only save ShowProfiles if it's set (not using global)
+    if Pair.Value.ShowProfiles >= 0 then
+      AIni.WriteInteger(SectionName, KEY_SHOW_PROFILES, Pair.Value.ShowProfiles);
     // Save LastSeen as ISO 8601 datetime string
     if Pair.Value.LastSeen > 0 then
       AIni.WriteString(SectionName, KEY_LAST_SEEN, DateToISO8601(Pair.Value.LastSeen, False));

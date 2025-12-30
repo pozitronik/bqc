@@ -20,6 +20,7 @@ uses
   App.ConfigInterfaces,
   App.LogConfigIntf,
   App.BatteryTrayConfigIntf,
+  App.ProfileConfigIntf,
   App.SettingsPresenter,
   App.WinRTSupport,
   UI.Theme,
@@ -39,7 +40,8 @@ type
     IConnectionSettingsView,
     ILoggingSettingsView,
     IDeviceSettingsView,
-    IBatteryTraySettingsView)
+    IBatteryTraySettingsView,
+    IProfileSettingsView)
     PanelBottom: TPanel;
     ButtonOK: TButton;
     ButtonCancel: TButton;
@@ -117,6 +119,12 @@ type
     UpDownAddressSize: TUpDown;
     EditIconFontSize: TEdit;
     UpDownIconFontSize: TUpDown;
+    GroupProfiles: TGroupBox;
+    LabelProfileFontSize: TLabel;
+    LabelProfileFontSizePt: TLabel;
+    CheckShowProfiles: TCheckBox;
+    EditProfileFontSize: TEdit;
+    UpDownProfileFontSize: TUpDown;
 
     { Tab: Keys }
     TabKeys: TTabSheet;
@@ -258,6 +266,8 @@ type
     CheckDevicePinned: TCheckBox;
     CheckDeviceHidden: TCheckBox;
     CheckDeviceAutoConnect: TCheckBox;
+    LabelDeviceShowProfiles: TLabel;
+    ComboDeviceShowProfiles: TComboBox;
     LabelEnumerationMode: TLabel;
     LabelEnumerationModeHint: TLabel;
     ComboEnumerationMode: TComboBox;
@@ -324,6 +334,7 @@ type
     FLogConfig: ILogConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
     FBatteryTrayConfig: IBatteryTrayConfig;
+    FProfileConfig: IProfileConfig;
     FThemeManager: IThemeManager;
 
     { ISettingsDialogView implementation }
@@ -370,6 +381,10 @@ type
     function GetBatteryTraySettings: TBatteryTrayViewSettings;
     procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
 
+    { IProfileSettingsView implementation }
+    function GetProfileSettings: TProfileViewSettings;
+    procedure SetProfileSettings(const ASettings: TProfileViewSettings);
+
     { UI helpers }
     procedure InitUpDownLimits;
     procedure InitDeviceTypeCombo;
@@ -385,6 +400,7 @@ type
       ALogConfig: ILogConfig;
       ADeviceConfigProvider: IDeviceConfigProvider;
       ABatteryTrayConfig: IBatteryTrayConfig;
+      AProfileConfig: IProfileConfig;
       AThemeManager: IThemeManager
     );
     function GetOnSettingsApplied: TNotifyEvent;
@@ -422,6 +438,7 @@ procedure TFormSettings.Setup(
   ALogConfig: ILogConfig;
   ADeviceConfigProvider: IDeviceConfigProvider;
   ABatteryTrayConfig: IBatteryTrayConfig;
+  AProfileConfig: IProfileConfig;
   AThemeManager: IThemeManager
 );
 begin
@@ -429,6 +446,7 @@ begin
   FLogConfig := ALogConfig;
   FDeviceConfigProvider := ADeviceConfigProvider;
   FBatteryTrayConfig := ABatteryTrayConfig;
+  FProfileConfig := AProfileConfig;
   FThemeManager := AThemeManager;
 
   // Create presenter with injected dependencies
@@ -441,10 +459,12 @@ begin
     Self as IConnectionSettingsView,
     Self as ILoggingSettingsView,
     Self as IBatteryTraySettingsView,
+    Self as IProfileSettingsView,
     Self as IDeviceSettingsView,
     FAppConfig,
     FDeviceConfigProvider,
-    FBatteryTrayConfig
+    FBatteryTrayConfig,
+    FProfileConfig
   );
 end;
 
@@ -737,6 +757,8 @@ begin
   Result.BatteryThreshold := UpDownDeviceBatteryThreshold.Position;
   Result.BatteryNotifyLowIndex := ComboDeviceBatteryNotifyLow.ItemIndex;
   Result.BatteryNotifyFullIndex := ComboDeviceBatteryNotifyFull.ItemIndex;
+  // Profile display per-device setting
+  Result.ShowProfilesIndex := ComboDeviceShowProfiles.ItemIndex;
 end;
 
 procedure TFormSettings.SetDeviceSettings(const ASettings: TDeviceViewSettings);
@@ -788,6 +810,8 @@ begin
   UpDownDeviceBatteryThreshold.Position := ASettings.BatteryThreshold;
   ComboDeviceBatteryNotifyLow.ItemIndex := ASettings.BatteryNotifyLowIndex;
   ComboDeviceBatteryNotifyFull.ItemIndex := ASettings.BatteryNotifyFullIndex;
+  // Profile display per-device setting
+  ComboDeviceShowProfiles.ItemIndex := ASettings.ShowProfilesIndex;
 end;
 
 procedure TFormSettings.ClearDeviceSettings;
@@ -815,6 +839,8 @@ begin
   UpDownDeviceBatteryThreshold.Position := -1;
   ComboDeviceBatteryNotifyLow.ItemIndex := 0;
   ComboDeviceBatteryNotifyFull.ItemIndex := 0;
+  // Profile display per-device setting
+  ComboDeviceShowProfiles.ItemIndex := 0;  // Default
 end;
 
 { IBatteryTraySettingsView implementation }
@@ -874,6 +900,20 @@ begin
     LabelCustomOutlineColor.Visible := IsCustomOutline;
   if Assigned(ShapeCustomOutlineColor) then
     ShapeCustomOutlineColor.Visible := IsCustomOutline;
+end;
+
+{ IProfileSettingsView implementation }
+
+function TFormSettings.GetProfileSettings: TProfileViewSettings;
+begin
+  Result.ShowProfiles := CheckShowProfiles.Checked;
+  Result.ProfileFontSize := UpDownProfileFontSize.Position;
+end;
+
+procedure TFormSettings.SetProfileSettings(const ASettings: TProfileViewSettings);
+begin
+  CheckShowProfiles.Checked := ASettings.ShowProfiles;
+  UpDownProfileFontSize.Position := ASettings.ProfileFontSize;
 end;
 
 { UI helpers - Initialization }
@@ -1027,6 +1067,8 @@ begin
   EditDeviceBatteryThreshold.OnChange := HandleSettingChanged;
   ComboDeviceBatteryNotifyLow.OnChange := HandleSettingChanged;
   ComboDeviceBatteryNotifyFull.OnChange := HandleSettingChanged;
+  // Device profile display setting
+  ComboDeviceShowProfiles.OnChange := HandleSettingChanged;
 
   // Tab: Battery Tray (global)
   CheckShowBatteryTrayIcons.OnClick := HandleSettingChanged;
@@ -1068,6 +1110,10 @@ begin
   EditStatusSize.OnChange := HandleSettingChanged;
   EditAddressSize.OnChange := HandleSettingChanged;
   EditIconFontSize.OnChange := HandleSettingChanged;
+
+  // Profile settings
+  CheckShowProfiles.OnClick := HandleSettingChanged;
+  EditProfileFontSize.OnChange := HandleSettingChanged;
 end;
 
 procedure TFormSettings.ConfigureWinRTDependentControls;

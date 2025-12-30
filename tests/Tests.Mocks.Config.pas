@@ -21,7 +21,8 @@ uses
   App.LayoutConfigIntf,
   App.NotificationConfigIntf,
   App.DeviceConfigTypes,
-  App.BatteryTrayConfigIntf;
+  App.BatteryTrayConfigIntf,
+  App.ProfileConfigIntf;
 
 type
   /// <summary>
@@ -402,6 +403,29 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IProfileConfig for testing profile display features.
+  /// </summary>
+  TMockProfileConfig = class(TInterfacedObject, IProfileConfig)
+  private
+    FShowProfiles: Boolean;
+    FProfileFontSize: Integer;
+  public
+    constructor Create;
+
+    // IProfileConfig - getters
+    function GetShowProfiles: Boolean;
+    function GetProfileFontSize: Integer;
+
+    // IProfileConfig - setters
+    procedure SetShowProfiles(AValue: Boolean);
+    procedure SetProfileFontSize(AValue: Integer);
+
+    // Test setup properties
+    property ShowProfiles: Boolean read FShowProfiles write FShowProfiles;
+    property ProfileFontSize: Integer read FProfileFontSize write FProfileFontSize;
+  end;
+
+  /// <summary>
   /// Mock implementation of ILogConfig for testing.
   /// </summary>
   TMockLogConfig = class(TInterfacedObject, ILogConfig)
@@ -453,6 +477,7 @@ type
     FConnectionConfig: IConnectionConfig;
     FNotificationConfig: INotificationConfig;
     FBatteryTrayConfig: IBatteryTrayConfig;
+    FProfileConfig: IProfileConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
   public
     constructor Create;
@@ -475,6 +500,7 @@ type
     function AsConnectionConfig: IConnectionConfig;
     function AsNotificationConfig: INotificationConfig;
     function AsBatteryTrayConfig: IBatteryTrayConfig;
+    function AsProfileConfig: IProfileConfig;
     function AsDeviceConfigProvider: IDeviceConfigProvider;
 
     // Test verification
@@ -496,6 +522,7 @@ type
     property ConnectionConfig: IConnectionConfig read FConnectionConfig;
     property NotificationConfig: INotificationConfig read FNotificationConfig;
     property BatteryTrayConfig: IBatteryTrayConfig read FBatteryTrayConfig;
+    property ProfileConfig: IProfileConfig read FProfileConfig;
   end;
 
 implementation
@@ -1155,6 +1182,35 @@ begin
   FNotifyOnAutoConnect := AValue;
 end;
 
+{ TMockProfileConfig }
+
+constructor TMockProfileConfig.Create;
+begin
+  inherited Create;
+  FShowProfiles := False;  // Default to False for tests
+  FProfileFontSize := 7;
+end;
+
+function TMockProfileConfig.GetShowProfiles: Boolean;
+begin
+  Result := FShowProfiles;
+end;
+
+function TMockProfileConfig.GetProfileFontSize: Integer;
+begin
+  Result := FProfileFontSize;
+end;
+
+procedure TMockProfileConfig.SetShowProfiles(AValue: Boolean);
+begin
+  FShowProfiles := AValue;
+end;
+
+procedure TMockProfileConfig.SetProfileFontSize(AValue: Integer);
+begin
+  FProfileFontSize := AValue;
+end;
+
 { TMockLogConfig }
 
 constructor TMockLogConfig.Create;
@@ -1335,6 +1391,7 @@ begin
   FConnectionConfig := TMockConnectionConfig.Create;
   FNotificationConfig := TMockNotificationConfig.Create;
   FBatteryTrayConfig := TMockBatteryTrayConfig.Create;
+  FProfileConfig := TMockProfileConfig.Create;
   FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
 end;
 
@@ -1425,6 +1482,11 @@ end;
 function TMockAppConfig.AsBatteryTrayConfig: IBatteryTrayConfig;
 begin
   Result := FBatteryTrayConfig;
+end;
+
+function TMockAppConfig.AsProfileConfig: IProfileConfig;
+begin
+  Result := FProfileConfig;
 end;
 
 function TMockAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;

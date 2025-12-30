@@ -261,7 +261,8 @@ begin
   FDisplayItems := nil;
   FDisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
     FDeviceConfigProvider,
-    FAppearanceConfig
+    FAppearanceConfig,
+    FAppConfig.AsProfileConfig
   );
   FDelayedLoadTimer := nil;
   FUpdatingToggle := False;

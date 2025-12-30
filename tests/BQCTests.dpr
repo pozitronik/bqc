@@ -67,6 +67,7 @@ uses
   Bluetooth.DeviceWatcher in '..\src\Infrastructure\Bluetooth.DeviceWatcher.pas',
   Bluetooth.RadioControl in '..\src\Infrastructure\Bluetooth.RadioControl.pas',
   Bluetooth.BatteryQuery in '..\src\Infrastructure\Bluetooth.BatteryQuery.pas',
+  Bluetooth.ProfileQuery in '..\src\Infrastructure\Bluetooth.ProfileQuery.pas',
   App.ConfigEnums in '..\src\Infrastructure\App.ConfigEnums.pas',
   App.DeviceConfigTypes in '..\src\Infrastructure\App.DeviceConfigTypes.pas',
   App.LayoutConfigIntf in '..\src\Infrastructure\App.LayoutConfigIntf.pas',
@@ -109,7 +110,9 @@ uses
   App.BatteryTrayConfigIntf in '..\src\Infrastructure\App.BatteryTrayConfigIntf.pas',
   App.ConfigSection.BatteryTray in '..\src\Infrastructure\App.ConfigSection.BatteryTray.pas',
   App.SystemThemeDetector in '..\src\Infrastructure\App.SystemThemeDetector.pas',
-  App.WinRTSupport in '..\src\Infrastructure\App.WinRTSupport.pas';
+  App.WinRTSupport in '..\src\Infrastructure\App.WinRTSupport.pas',
+  App.ProfileConfigIntf in '..\src\Infrastructure\App.ProfileConfigIntf.pas',
+  App.ConfigSection.Profile in '..\src\Infrastructure\App.ConfigSection.Profile.pas';
 
 
 {$IFNDEF TESTINSIGHT}

@@ -21,7 +21,8 @@ uses
   App.AppearanceConfigIntf,
   App.LayoutConfigIntf,
   App.NotificationConfigIntf,
-  App.BatteryTrayConfigIntf;
+  App.BatteryTrayConfigIntf,
+  App.ProfileConfigIntf;
 
 type
   //----------------------------------------------------------------------------
@@ -130,6 +131,8 @@ type
     BatteryThreshold: Integer;       // -1=Default, or 0-100
     BatteryNotifyLowIndex: Integer;  // 0=Default, 1=No, 2=Yes
     BatteryNotifyFullIndex: Integer; // 0=Default, 1=No, 2=Yes
+    // Profile display per-device override
+    ShowProfilesIndex: Integer;      // 0=Default, 1=No, 2=Yes
   end;
 
   /// <summary>
@@ -145,6 +148,14 @@ type
     DefaultNotifyFullyCharged: Boolean;
     DefaultOutlineColorModeIndex: Integer;  // 0=Auto, 1=Light, 2=Dark, 3=Custom
     DefaultCustomOutlineColor: TColor;
+  end;
+
+  /// <summary>
+  /// Profile display settings.
+  /// </summary>
+  TProfileViewSettings = record
+    ShowProfiles: Boolean;
+    ProfileFontSize: Integer;
   end;
 
   //----------------------------------------------------------------------------
@@ -240,6 +251,15 @@ type
     procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
   end;
 
+  /// <summary>
+  /// Profile display settings view operations.
+  /// </summary>
+  IProfileSettingsView = interface
+    ['{F2A3B4C5-D6E7-8901-BCDE-F01234567890}']
+    function GetProfileSettings: TProfileViewSettings;
+    procedure SetProfileSettings(const ASettings: TProfileViewSettings);
+  end;
+
   //----------------------------------------------------------------------------
   // TDeviceSettingsPresenter - Device settings presenter (SRP-compliant)
   //----------------------------------------------------------------------------
@@ -317,6 +337,7 @@ type
     FConnectionSettingsView: IConnectionSettingsView;
     FLoggingSettingsView: ILoggingSettingsView;
     FBatteryTraySettingsView: IBatteryTraySettingsView;
+    FProfileSettingsView: IProfileSettingsView;
 
     FDevicePresenter: TDeviceSettingsPresenter;
     FAppConfig: IAppConfig;
@@ -335,6 +356,7 @@ type
     FNotificationConfig: INotificationConfig;
     FLogConfig: ILogConfig;
     FBatteryTrayConfig: IBatteryTrayConfig;
+    FProfileConfig: IProfileConfig;
 
     function ValidateHotkeys(const AHotkey: THotkeyViewSettings): Boolean;
   public
@@ -347,10 +369,12 @@ type
       AConnectionSettingsView: IConnectionSettingsView;
       ALoggingSettingsView: ILoggingSettingsView;
       ABatteryTraySettingsView: IBatteryTraySettingsView;
+      AProfileSettingsView: IProfileSettingsView;
       ADeviceSettingsView: IDeviceSettingsView;
       AAppConfig: IAppConfig;
       ADeviceConfigProvider: IDeviceConfigProvider;
-      ABatteryTrayConfig: IBatteryTrayConfig
+      ABatteryTrayConfig: IBatteryTrayConfig;
+      AProfileConfig: IProfileConfig
     );
     destructor Destroy; override;
 
@@ -493,6 +517,8 @@ begin
   Settings.BatteryThreshold := DeviceConfig.BatteryTray.LowBatteryThreshold;
   Settings.BatteryNotifyLowIndex := DeviceConfig.BatteryTray.NotifyLowBattery + UI_DEFAULT_ITEM_OFFSET;
   Settings.BatteryNotifyFullIndex := DeviceConfig.BatteryTray.NotifyFullyCharged + UI_DEFAULT_ITEM_OFFSET;
+  // Profile display per-device setting
+  Settings.ShowProfilesIndex := DeviceConfig.ShowProfiles + UI_DEFAULT_ITEM_OFFSET;
 
   FView.SetDeviceSettings(Settings);
 end;
@@ -529,6 +555,8 @@ begin
   DeviceConfig.BatteryTray.LowBatteryThreshold := Settings.BatteryThreshold;
   DeviceConfig.BatteryTray.NotifyLowBattery := Settings.BatteryNotifyLowIndex - UI_DEFAULT_ITEM_OFFSET;
   DeviceConfig.BatteryTray.NotifyFullyCharged := Settings.BatteryNotifyFullIndex - UI_DEFAULT_ITEM_OFFSET;
+  // Profile display per-device setting
+  DeviceConfig.ShowProfiles := Settings.ShowProfilesIndex - UI_DEFAULT_ITEM_OFFSET;
 
   FDeviceConfigProvider.SetDeviceConfig(DeviceConfig);
 end;
@@ -576,10 +604,12 @@ constructor TSettingsPresenter.Create(
   AConnectionSettingsView: IConnectionSettingsView;
   ALoggingSettingsView: ILoggingSettingsView;
   ABatteryTraySettingsView: IBatteryTraySettingsView;
+  AProfileSettingsView: IProfileSettingsView;
   ADeviceSettingsView: IDeviceSettingsView;
   AAppConfig: IAppConfig;
   ADeviceConfigProvider: IDeviceConfigProvider;
-  ABatteryTrayConfig: IBatteryTrayConfig
+  ABatteryTrayConfig: IBatteryTrayConfig;
+  AProfileConfig: IProfileConfig
 );
 begin
   inherited Create;
@@ -593,6 +623,7 @@ begin
   FConnectionSettingsView := AConnectionSettingsView;
   FLoggingSettingsView := ALoggingSettingsView;
   FBatteryTraySettingsView := ABatteryTraySettingsView;
+  FProfileSettingsView := AProfileSettingsView;
 
   FAppConfig := AAppConfig;
   FModified := False;
@@ -609,6 +640,7 @@ begin
   FNotificationConfig := AAppConfig.AsNotificationConfig;
   FLogConfig := AAppConfig.AsLogConfig;
   FBatteryTrayConfig := ABatteryTrayConfig;
+  FProfileConfig := AProfileConfig;
 
   // Create device settings presenter with delegation
   FDevicePresenter := TDeviceSettingsPresenter.Create(ADeviceSettingsView, ADeviceConfigProvider);
@@ -712,6 +744,15 @@ begin
     BatteryTray.DefaultOutlineColorModeIndex := Ord(FBatteryTrayConfig.DefaultOutlineColorMode);
     BatteryTray.DefaultCustomOutlineColor := FBatteryTrayConfig.DefaultCustomOutlineColor;
     FBatteryTraySettingsView.SetBatteryTraySettings(BatteryTray);
+  end;
+
+  // Profile settings
+  if Assigned(FProfileConfig) then
+  begin
+    var Profile: TProfileViewSettings;
+    Profile.ShowProfiles := FProfileConfig.ShowProfiles;
+    Profile.ProfileFontSize := FProfileConfig.ProfileFontSize;
+    FProfileSettingsView.SetProfileSettings(Profile);
   end;
 
   // Device list (delegated to device presenter)
@@ -833,6 +874,15 @@ begin
       FBatteryTrayConfig.DefaultNotifyFullyCharged := BatteryTray.DefaultNotifyFullyCharged;
       FBatteryTrayConfig.DefaultOutlineColorMode := TOutlineColorMode(BatteryTray.DefaultOutlineColorModeIndex);
       FBatteryTrayConfig.DefaultCustomOutlineColor := BatteryTray.DefaultCustomOutlineColor;
+    end;
+
+    // Profile settings
+    if Assigned(FProfileConfig) then
+    begin
+      var Profile: TProfileViewSettings;
+      Profile := FProfileSettingsView.GetProfileSettings;
+      FProfileConfig.ShowProfiles := Profile.ShowProfiles;
+      FProfileConfig.ProfileFontSize := Profile.ProfileFontSize;
     end;
 
     // Save configuration to file

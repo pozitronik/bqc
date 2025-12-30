@@ -513,17 +513,34 @@ end;
 procedure TBluetoothDeviceWatcher.ProcessL2CapEvent(AEventInfo: Pointer);
 var
   EventInfo: PBTH_L2CAP_EVENT_INFO;
+  ProfileType: TBluetoothProfileType;
+  ProfileName: string;
+  Profile: TBluetoothProfile;
 begin
   EventInfo := PBTH_L2CAP_EVENT_INFO(AEventInfo);
-  LogDebug('ProcessL2CapEvent: Address=$%.12X, PSM=%d, Connected=%d, Initiated=%d', [
+
+  // Map PSM to profile type for better logging
+  ProfileType := PsmToProfileType(EventInfo^.psm);
+  if ProfileType <> bptUnknown then
+  begin
+    // Create temporary profile to get display name
+    Profile := TBluetoothProfile.Create(ProfileType, TGUID.Empty, pcsUnknown);
+    ProfileName := Profile.ShortName;
+  end
+  else
+    ProfileName := Format('PSM=$%.4X', [EventInfo^.psm]);
+
+  LogDebug('ProcessL2CapEvent: Address=$%.12X, Profile=%s, Connected=%d, Initiated=%d', [
     EventInfo^.bthAddress,
-    EventInfo^.psm,
+    ProfileName,
     EventInfo^.connected,
     EventInfo^.initiated
   ], ClassName);
-  // L2CAP events are lower-level and less useful for UI updates.
-  // For now, we don't process these - HCI events and RadioInRange are more relevant.
-  // This could be extended in the future if needed.
+
+  // L2CAP events indicate profile-level connections.
+  // This information can be used to track which profiles are active.
+  // For now, we log this for research purposes.
+  // TODO: Emit OnProfileConnected/OnProfileDisconnected events for profile tracking.
 end;
 
 procedure TBluetoothDeviceWatcher.ProcessRadioInRange(AEventInfo: Pointer);

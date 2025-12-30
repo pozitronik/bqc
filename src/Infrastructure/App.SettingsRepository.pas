@@ -27,7 +27,8 @@ uses
   App.AppearanceConfigIntf,
   App.LayoutConfigIntf,
   App.NotificationConfigIntf,
-  App.BatteryTrayConfigIntf;
+  App.BatteryTrayConfigIntf,
+  App.ProfileConfigIntf;
 
 type
   /// <summary>
@@ -66,6 +67,7 @@ const
   SEC_DEVICE = 'Device';
   SEC_DEVICE_PREFIX = 'Device.';
   SEC_BATTERY_TRAY = 'BatteryTray';
+  SEC_PROFILE = 'Profile';
 
   // INI key names - [General]
   KEY_WINDOW = 'Window';
@@ -145,6 +147,10 @@ const
   KEY_DEFAULT_OUTLINE_COLOR_MODE = 'DefaultOutlineColorMode';
   KEY_DEFAULT_CUSTOM_OUTLINE_COLOR = 'DefaultCustomOutlineColor';
 
+  // INI key names - [Profile]
+  KEY_SHOW_PROFILES = 'ShowProfiles';
+  KEY_PROFILE_FONT_SIZE = 'ProfileFontSize';
+
   // Default values
   DEF_WINDOW_MODE = wmWindow;
   DEF_ON_TOP = False;
@@ -177,6 +183,10 @@ const
   DEF_NOTIFY_ON_DISCONNECT = nmNone;
   DEF_NOTIFY_ON_CONNECT_FAILED = nmNone;
   DEF_NOTIFY_ON_AUTO_CONNECT = nmNone;
+
+  // [Profile] defaults
+  DEF_SHOW_PROFILES = False;      // Disabled by default, user opt-in
+  DEF_PROFILE_FONT_SIZE = 7;      // Small font for profile tree
 
 implementation
 
@@ -365,6 +375,7 @@ var
   ConnectionCfg: IConnectionConfig;
   NotificationCfg: INotificationConfig;
   BatteryTrayCfg: IBatteryTrayConfig;
+  ProfileCfg: IProfileConfig;
 begin
   GeneralCfg := AConfig.AsGeneralConfig;
   WindowCfg := AConfig.AsWindowConfig;
@@ -377,6 +388,7 @@ begin
   ConnectionCfg := AConfig.AsConnectionConfig;
   NotificationCfg := AConfig.AsNotificationConfig;
   BatteryTrayCfg := AConfig.AsBatteryTrayConfig;
+  ProfileCfg := AConfig.AsProfileConfig;
 
   // [General]
   GeneralCfg.WindowMode := SafeReadWindowMode(AIni, SEC_GENERAL, KEY_WINDOW, DEF_WINDOW_MODE);
@@ -456,6 +468,10 @@ begin
   BatteryTrayCfg.DefaultNotifyFullyCharged := AIni.ReadBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_FULLY_CHARGED, DEF_NOTIFY_FULLY_CHARGED);
   BatteryTrayCfg.DefaultOutlineColorMode := SafeReadOutlineColorMode(AIni, SEC_BATTERY_TRAY, KEY_DEFAULT_OUTLINE_COLOR_MODE, DEF_OUTLINE_COLOR_MODE);
   BatteryTrayCfg.DefaultCustomOutlineColor := AIni.ReadInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_CUSTOM_OUTLINE_COLOR, DEF_CUSTOM_OUTLINE_COLOR);
+
+  // [Profile] section
+  ProfileCfg.ShowProfiles := AIni.ReadBool(SEC_PROFILE, KEY_SHOW_PROFILES, DEF_SHOW_PROFILES);
+  ProfileCfg.ProfileFontSize := AIni.ReadInteger(SEC_PROFILE, KEY_PROFILE_FONT_SIZE, DEF_PROFILE_FONT_SIZE);
 end;
 
 procedure TIniSettingsRepository.ValidateRanges(AConfig: IAppConfig);
@@ -515,6 +531,7 @@ var
   ConnectionCfg: IConnectionConfig;
   NotificationCfg: INotificationConfig;
   BatteryTrayCfg: IBatteryTrayConfig;
+  ProfileCfg: IProfileConfig;
 begin
   GeneralCfg := AConfig.AsGeneralConfig;
   WindowCfg := AConfig.AsWindowConfig;
@@ -527,6 +544,7 @@ begin
   ConnectionCfg := AConfig.AsConnectionConfig;
   NotificationCfg := AConfig.AsNotificationConfig;
   BatteryTrayCfg := AConfig.AsBatteryTrayConfig;
+  ProfileCfg := AConfig.AsProfileConfig;
 
   // [General]
   AIni.WriteInteger(SEC_GENERAL, KEY_WINDOW, Ord(GeneralCfg.WindowMode));
@@ -606,6 +624,10 @@ begin
   AIni.WriteBool(SEC_BATTERY_TRAY, KEY_DEFAULT_NOTIFY_FULLY_CHARGED, BatteryTrayCfg.DefaultNotifyFullyCharged);
   AIni.WriteInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_OUTLINE_COLOR_MODE, Ord(BatteryTrayCfg.DefaultOutlineColorMode));
   AIni.WriteInteger(SEC_BATTERY_TRAY, KEY_DEFAULT_CUSTOM_OUTLINE_COLOR, BatteryTrayCfg.DefaultCustomOutlineColor);
+
+  // [Profile] - profile display settings
+  AIni.WriteBool(SEC_PROFILE, KEY_SHOW_PROFILES, ProfileCfg.ShowProfiles);
+  AIni.WriteInteger(SEC_PROFILE, KEY_PROFILE_FONT_SIZE, ProfileCfg.ProfileFontSize);
 end;
 
 end.

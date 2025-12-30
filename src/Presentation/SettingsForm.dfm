@@ -61,7 +61,7 @@ object FormSettings: TFormSettings
     Top = 0
     Width = 544
     Height = 547
-    ActivePage = TabGeneral
+    ActivePage = TabDevices
     Align = alClient
     TabOrder = 1
     ExplicitWidth = 538
@@ -76,6 +76,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
+        ExplicitWidth = 530
         object LabelWindowMode: TLabel
           Left = 12
           Top = 27
@@ -103,6 +104,7 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's window:'
           TabOrder = 1
+          ExplicitWidth = 526
           object CheckMinimizeToTray: TCheckBox
             Left = 12
             Top = 25
@@ -128,6 +130,7 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's menu:'
           TabOrder = 2
+          ExplicitWidth = 526
           object CheckHideOnFocusLoss: TCheckBox
             Left = 12
             Top = 25
@@ -146,6 +149,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
+        ExplicitWidth = 530
         object LabelPositionMode: TLabel
           Left = 12
           Top = 28
@@ -501,14 +505,64 @@ object FormSettings: TFormSettings
           OnClick = ButtonResetLayoutClick
         end
       end
-      object GroupFontSizes: TGroupBox
+      object GroupProfiles: TGroupBox
         Left = 0
         Top = 215
+        Width = 536
+        Height = 55
+        Align = alTop
+        Caption = 'Profiles'
+        TabOrder = 2
+        object LabelProfileFontSize: TLabel
+          Left = 274
+          Top = 24
+          Width = 49
+          Height = 15
+          Caption = 'Font size:'
+        end
+        object LabelProfileFontSizePt: TLabel
+          Left = 396
+          Top = 24
+          Width = 11
+          Height = 15
+          Caption = 'pt'
+        end
+        object CheckShowProfiles: TCheckBox
+          Left = 12
+          Top = 24
+          Width = 250
+          Height = 17
+          Caption = 'Show connected device profiles'
+          TabOrder = 0
+        end
+        object EditProfileFontSize: TEdit
+          Left = 335
+          Top = 21
+          Width = 40
+          Height = 23
+          TabOrder = 1
+          Text = '7'
+        end
+        object UpDownProfileFontSize: TUpDown
+          Left = 375
+          Top = 21
+          Width = 17
+          Height = 23
+          Associate = EditProfileFontSize
+          Min = 6
+          Max = 14
+          Position = 7
+          TabOrder = 2
+        end
+      end
+      object GroupFontSizes: TGroupBox
+        Left = 0
+        Top = 270
         Width = 536
         Height = 95
         Align = alTop
         Caption = 'Font Sizes (pt)'
-        TabOrder = 2
+        TabOrder = 3
         object LabelDeviceNameSize: TLabel
           Left = 12
           Top = 24
@@ -806,7 +860,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Default Connection Settings'
         TabOrder = 0
-        ExplicitWidth = 530
         object LabelTimeout: TLabel
           Left = 12
           Top = 27
@@ -872,7 +925,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
-        ExplicitWidth = 530
         object LabelPollingMode: TLabel
           Left = 12
           Top = 27
@@ -984,7 +1036,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
-        ExplicitWidth = 530
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24
@@ -1598,6 +1649,13 @@ object FormSettings: TFormSettings
               Height = 15
               Caption = 'Type:'
             end
+            object LabelDeviceShowProfiles: TLabel
+              Left = 166
+              Top = 104
+              Width = 74
+              Height = 22
+              Caption = 'Show profiles:'
+            end
             object EditDeviceAlias: TEdit
               Left = 76
               Top = 22
@@ -1636,6 +1694,18 @@ object FormSettings: TFormSettings
               Height = 17
               Caption = 'Auto-connect on start'
               TabOrder = 4
+            end
+            object ComboDeviceShowProfiles: TComboBox
+              Left = 247
+              Top = 101
+              Width = 79
+              Height = 23
+              Style = csDropDownList
+              TabOrder = 5
+              Items.Strings = (
+                'Default'
+                'No'
+                'Yes')
             end
           end
         end

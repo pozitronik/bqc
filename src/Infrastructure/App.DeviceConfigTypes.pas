@@ -62,6 +62,7 @@ type
     BatteryTray: TDeviceBatteryConfig;
     DeviceTypeOverride: Integer;
     LastSeen: TDateTime;
+    ShowProfiles: Integer;  // -1=Global, 0=No, 1=Yes
 
     class function Default(AAddress: UInt64): TDeviceConfig; static;
   end;
@@ -107,6 +108,7 @@ begin
   Result.BatteryTray := TDeviceBatteryConfig.Default;
   Result.DeviceTypeOverride := -1;
   Result.LastSeen := 0;
+  Result.ShowProfiles := -1;  // Use global setting
 end;
 
 end.

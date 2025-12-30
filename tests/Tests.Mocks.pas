@@ -38,6 +38,7 @@ type
   TMockHotkeyConfig = Tests.Mocks.Config.TMockHotkeyConfig;
   TMockNotificationConfig = Tests.Mocks.Config.TMockNotificationConfig;
   TMockLogConfig = Tests.Mocks.Config.TMockLogConfig;
+  TMockProfileConfig = Tests.Mocks.Config.TMockProfileConfig;
   TMockAppConfig = Tests.Mocks.Config.TMockAppConfig;
 
 // Re-export types from Tests.Mocks.View

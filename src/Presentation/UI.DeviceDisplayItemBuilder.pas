@@ -20,6 +20,7 @@ uses
   App.ConfigInterfaces,
   App.DeviceConfigTypes,
   App.AppearanceConfigIntf,
+  App.ProfileConfigIntf,
   UI.DeviceList;
 
 type
@@ -39,6 +40,7 @@ type
   private
     FConfigProvider: IDeviceConfigQuery;
     FAppearanceConfig: IAppearanceConfig;
+    FProfileConfig: IProfileConfig;
     FBatteryCache: IBatteryCache;
   public
     /// <summary>
@@ -46,8 +48,10 @@ type
     /// </summary>
     /// <param name="AConfigProvider">Provider for device-specific configuration (read-only).</param>
     /// <param name="AAppearanceConfig">Provider for appearance settings.</param>
+    /// <param name="AProfileConfig">Provider for profile display settings.</param>
     constructor Create(AConfigProvider: IDeviceConfigQuery;
-      AAppearanceConfig: IAppearanceConfig);
+      AAppearanceConfig: IAppearanceConfig;
+      AProfileConfig: IProfileConfig);
 
     /// <summary>
     /// Sets the battery cache for battery status lookup.
@@ -85,17 +89,20 @@ implementation
 uses
   System.SysUtils,
   App.Logger,
+  Bluetooth.ProfileQuery,
   UI.DeviceFormatter,
   UI.DeviceSorter;
 
 { TDeviceDisplayItemBuilder }
 
 constructor TDeviceDisplayItemBuilder.Create(AConfigProvider: IDeviceConfigQuery;
-  AAppearanceConfig: IAppearanceConfig);
+  AAppearanceConfig: IAppearanceConfig;
+  AProfileConfig: IProfileConfig);
 begin
   inherited Create;
   FConfigProvider := AConfigProvider;
   FAppearanceConfig := AAppearanceConfig;
+  FProfileConfig := AProfileConfig;
   FBatteryCache := nil;
 end;
 
@@ -146,6 +153,8 @@ var
   LastSeenFormat: TLastSeenFormat;
   BatteryStatus: TBatteryStatus;
   BatteryText: string;
+  ProfileInfo: TDeviceProfileInfo;
+  Profiles: TBluetoothProfileArray;
 begin
   DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
   LastSeenFormat := FAppearanceConfig.LastSeenFormat;
@@ -162,6 +171,28 @@ begin
     BatteryText := '';
   end;
 
+  // Get device profiles if enabled and device is connected
+  // Per-device override: -1=Global, 0=No, 1=Yes
+  Profiles := nil;
+  if ADevice.IsConnected then
+  begin
+    var ShowProfiles: Boolean;
+    if DeviceConfig.ShowProfiles = -1 then
+      // Use global setting
+      ShowProfiles := Assigned(FProfileConfig) and FProfileConfig.ShowProfiles
+    else
+      // Use per-device setting
+      ShowProfiles := DeviceConfig.ShowProfiles = 1;
+
+    if ShowProfiles then
+    begin
+      ProfileInfo := TProfileQuery.GetDeviceProfiles(ADevice.AddressInt);
+      // Only include profiles if device has more than one
+      if ProfileInfo.Count > 1 then
+        Profiles := ProfileInfo.Profiles;
+    end;
+  end;
+
   Result := TDeviceDisplayItem.Create(
     ADevice,
     TDeviceFormatter.GetDisplayName(ADevice, DeviceConfig),
@@ -171,7 +202,8 @@ begin
     DeviceConfig.LastSeen,
     TDeviceFormatter.GetSortGroup(ADevice, DeviceConfig),
     BatteryStatus,
-    BatteryText
+    BatteryText,
+    Profiles
   );
 end;
 

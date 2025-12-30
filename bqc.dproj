@@ -152,6 +152,7 @@
         <DCCReference Include="src\Infrastructure\Bluetooth.AdapterQuery.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.DeviceConverter.pas"/>
         <DCCReference Include="src\Infrastructure\Bluetooth.BatteryQuery.pas"/>
+        <DCCReference Include="src\Infrastructure\Bluetooth.ProfileQuery.pas"/>
         <DCCReference Include="src\Infrastructure\App.Logger.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigEnums.pas"/>
         <DCCReference Include="src\Infrastructure\App.DeviceConfigTypes.pas"/>
@@ -161,6 +162,7 @@
         <DCCReference Include="src\Infrastructure\App.NotificationConfigIntf.pas"/>
         <DCCReference Include="src\Infrastructure\App.LogConfigIntf.pas"/>
         <DCCReference Include="src\Infrastructure\App.BatteryTrayConfigIntf.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ProfileConfigIntf.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigInterfaces.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigSectionTypes.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigSection.General.pas"/>
@@ -174,7 +176,9 @@
         <DCCReference Include="src\Infrastructure\App.ConfigSection.Connection.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigSection.Notification.pas"/>
         <DCCReference Include="src\Infrastructure\App.ConfigSection.BatteryTray.pas"/>
-        <DCCReference Include="src\Infrastructure\App.ConfigSections.pas"/>
+        <DCCReference Include="src\Infrastructure\App.ConfigSection.Profile.pas"/>
+        <DCCReference Include="src\Infrastructure\App.SystemThemeDetector.pas"/>
+        <DCCReference Include="src\Infrastructure\App.WinRTSupport.pas"/>
         <DCCReference Include="src\Infrastructure\App.Config.pas"/>
         <DCCReference Include="src\Infrastructure\App.SettingsRepository.pas"/>
         <DCCReference Include="src\Infrastructure\App.DeviceConfigRepository.pas"/>
@@ -196,6 +200,9 @@
         <DCCReference Include="src\Presentation\UI.BatteryTrayManager.pas"/>
         <DCCReference Include="src\Presentation\SettingsForm.pas">
             <Form>FormSettings</Form>
+        </DCCReference>
+        <DCCReference Include="src\Presentation\HotkeyPickerForm.pas">
+            <Form>FormHotkeyPicker</Form>
         </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

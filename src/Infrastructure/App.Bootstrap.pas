@@ -22,6 +22,7 @@ uses
   App.LayoutConfigIntf,
   App.NotificationConfigIntf,
   App.BatteryTrayConfigIntf,
+  App.ProfileConfigIntf,
   App.Autostart,
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
@@ -75,6 +76,7 @@ type
     function ConnectionConfig: IConnectionConfig;
     function NotificationConfig: INotificationConfig;
     function BatteryTrayConfig: IBatteryTrayConfig;
+    function ProfileConfig: IProfileConfig;
     function DeviceConfigProvider: IDeviceConfigProvider;
 
     // Services
@@ -267,6 +269,11 @@ end;
 function TAppBootstrap.BatteryTrayConfig: IBatteryTrayConfig;
 begin
   Result := GetConfig.AsBatteryTrayConfig;
+end;
+
+function TAppBootstrap.ProfileConfig: IProfileConfig;
+begin
+  Result := GetConfig.AsProfileConfig;
 end;
 
 function TAppBootstrap.DeviceConfigProvider: IDeviceConfigProvider;

@@ -114,6 +114,66 @@ const
   /// </summary>
   HumanInterfaceDeviceServiceClass_UUID: TGUID = '{00001124-0000-1000-8000-00805F9B34FB}';
 
+  /// <summary>
+  /// Advanced Audio Distribution Profile - Audio Source (A2DP).
+  /// Used for devices that send audio (e.g., phone sending to speaker).
+  /// </summary>
+  AudioSourceServiceClass_UUID: TGUID = '{0000110A-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// Audio/Video Remote Control Target (AVRCP).
+  /// Device being controlled (e.g., media player).
+  /// </summary>
+  AVRemoteControlTargetServiceClass_UUID: TGUID = '{0000110C-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// Serial Port Profile (SPP).
+  /// Virtual serial port over Bluetooth.
+  /// </summary>
+  SerialPortServiceClass_UUID: TGUID = '{00001101-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// Personal Area Network User (PANU).
+  /// Network client role.
+  /// </summary>
+  PANUServiceClass_UUID: TGUID = '{00001115-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// Network Access Point (NAP).
+  /// Network access point role for PAN.
+  /// </summary>
+  NAPServiceClass_UUID: TGUID = '{00001116-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// Group Ad-hoc Network (GN).
+  /// Group network role for PAN.
+  /// </summary>
+  GNServiceClass_UUID: TGUID = '{00001117-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// OBEX Object Push Profile (OPP).
+  /// For pushing objects like vCards.
+  /// </summary>
+  OBEXObjectPushServiceClass_UUID: TGUID = '{00001105-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// OBEX File Transfer Profile (FTP).
+  /// For file transfer operations.
+  /// </summary>
+  OBEXFileTransferServiceClass_UUID: TGUID = '{00001106-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// Phonebook Access Profile (PBAP) - PSE.
+  /// Phone book server equipment.
+  /// </summary>
+  PhonebookAccessPSEServiceClass_UUID: TGUID = '{0000112F-0000-1000-8000-00805F9B34FB}';
+
+  /// <summary>
+  /// Message Access Profile (MAP) - Server.
+  /// Message access server.
+  /// </summary>
+  MessageAccessServerServiceClass_UUID: TGUID = '{00001132-0000-1000-8000-00805F9B34FB}';
+
   // -------------------------------------------------------------------------
   // Class of Device (CoD) Major Device Classes
   // -------------------------------------------------------------------------
@@ -240,6 +300,20 @@ const
   HCI_CONNECTION_TYPE_ACL = 1;
   HCI_CONNECTION_TYPE_SCO = 2;
   HCI_CONNECTION_TYPE_LE  = 3;
+
+  // -------------------------------------------------------------------------
+  // L2CAP PSM (Protocol/Service Multiplexer) Values
+  // Used in BTH_L2CAP_EVENT_INFO.psm to identify profile connections
+  // -------------------------------------------------------------------------
+  L2CAP_PSM_SDP           = $0001;  // Service Discovery Protocol
+  L2CAP_PSM_RFCOMM        = $0003;  // RFCOMM (SPP, HFP signaling)
+  L2CAP_PSM_BNEP          = $000F;  // Bluetooth Network Encapsulation (PAN)
+  L2CAP_PSM_HID_CONTROL   = $0011;  // HID Control channel
+  L2CAP_PSM_HID_INTERRUPT = $0013;  // HID Interrupt channel
+  L2CAP_PSM_AVCTP         = $0017;  // Audio/Video Control (AVRCP)
+  L2CAP_PSM_AVDTP         = $0019;  // Audio/Video Distribution (A2DP)
+  L2CAP_PSM_AVCTP_BROWSE  = $001B;  // AVCTP Browsing channel
+  L2CAP_PSM_ATT           = $001F;  // Attribute Protocol (BLE)
 
 type
   /// <summary>

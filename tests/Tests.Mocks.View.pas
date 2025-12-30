@@ -31,7 +31,8 @@ type
     IConnectionSettingsView,
     ILoggingSettingsView,
     IDeviceSettingsView,
-    IBatteryTraySettingsView)
+    IBatteryTraySettingsView,
+    IProfileSettingsView)
   private
     FCloseWithOKCalled: Boolean;
     FCloseWithCancelCalled: Boolean;
@@ -67,6 +68,10 @@ type
     // Battery tray settings
     FBatteryTraySettings: TBatteryTrayViewSettings;
     FSetBatteryTrayCount: Integer;
+
+    // Profile settings
+    FProfileSettings: TProfileViewSettings;
+    FSetProfileCount: Integer;
 
     // Device settings
     FDeviceListItems: TArray<string>;
@@ -113,6 +118,10 @@ type
     function GetBatteryTraySettings: TBatteryTrayViewSettings;
     procedure SetBatteryTraySettings(const ASettings: TBatteryTrayViewSettings);
 
+    // IProfileSettingsView
+    function GetProfileSettings: TProfileViewSettings;
+    procedure SetProfileSettings(const ASettings: TProfileViewSettings);
+
     // IDeviceSettingsView
     procedure PopulateDeviceList(const AItems: TArray<string>);
     function GetSelectedDeviceIndex: Integer;
@@ -156,6 +165,10 @@ type
     // Battery tray
     property BatteryTraySettings: TBatteryTrayViewSettings read FBatteryTraySettings write FBatteryTraySettings;
     property SetBatteryTrayCount: Integer read FSetBatteryTrayCount;
+
+    // Profile
+    property ProfileSettings: TProfileViewSettings read FProfileSettings write FProfileSettings;
+    property SetProfileCount: Integer read FSetProfileCount;
 
     // Device
     property DeviceListItems: TArray<string> read FDeviceListItems;
@@ -362,6 +375,17 @@ procedure TMockSettingsView.SetBatteryTraySettings(const ASettings: TBatteryTray
 begin
   FBatteryTraySettings := ASettings;
   Inc(FSetBatteryTrayCount);
+end;
+
+function TMockSettingsView.GetProfileSettings: TProfileViewSettings;
+begin
+  Result := FProfileSettings;
+end;
+
+procedure TMockSettingsView.SetProfileSettings(const ASettings: TProfileViewSettings);
+begin
+  FProfileSettings := ASettings;
+  Inc(FSetProfileCount);
 end;
 
 procedure TMockSettingsView.PopulateThemeList(const ACurrentTheme: string);

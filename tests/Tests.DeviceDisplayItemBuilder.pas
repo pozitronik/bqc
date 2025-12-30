@@ -31,6 +31,7 @@ type
   private
     FConfigProvider: TMockDeviceConfigProvider;
     FAppearanceConfig: TMockAppearanceConfig;
+    FProfileConfig: TMockProfileConfig;
     FBuilder: TDeviceDisplayItemBuilder;
   public
     [Setup]
@@ -111,7 +112,8 @@ procedure TDeviceDisplayItemBuilderTests.Setup;
 begin
   FConfigProvider := TMockDeviceConfigProvider.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
-  FBuilder := TDeviceDisplayItemBuilder.Create(FConfigProvider, FAppearanceConfig);
+  FProfileConfig := TMockProfileConfig.Create;
+  FBuilder := TDeviceDisplayItemBuilder.Create(FConfigProvider, FAppearanceConfig, FProfileConfig);
 end;
 
 procedure TDeviceDisplayItemBuilderTests.TearDown;
