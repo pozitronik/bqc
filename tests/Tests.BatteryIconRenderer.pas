@@ -93,8 +93,6 @@ type
     procedure CreateBatteryIconAuto_WithOutlineColor_ReturnsValidIcon;
     [Test]
     procedure CreateUnknownBatteryIcon_WithOutlineColor_ReturnsValidIcon;
-    [Test]
-    procedure CreatePendingBatteryIcon_WithOutlineColor_ReturnsValidIcon;
 
     { Memory Management Tests }
     [Test]
@@ -472,19 +470,6 @@ begin
   try
     Assert.IsNotNull(Icon);
     Assert.IsTrue(Icon.Handle <> 0, 'Unknown battery icon should be valid with outline color');
-  finally
-    Icon.Free;
-  end;
-end;
-
-procedure TBatteryIconRendererTests.CreatePendingBatteryIcon_WithOutlineColor_ReturnsValidIcon;
-var
-  Icon: TIcon;
-begin
-  Icon := TBatteryIconRenderer.CreatePendingBatteryIcon(clWhite);
-  try
-    Assert.IsNotNull(Icon);
-    Assert.IsTrue(Icon.Handle <> 0, 'Pending battery icon should be valid with outline color');
   finally
     Icon.Free;
   end;

@@ -563,7 +563,6 @@ procedure TBatteryTrayManager.UpdateDevicePending(AAddress: UInt64; const AName:
 var
   IconData: TNotifyIconData;
   ExistingIcon: TNotifyIconData;
-  OutlineColor: TColor;
   Icon: TIcon;
   Tooltip: string;
   OldIconHandle: HICON;
@@ -579,12 +578,11 @@ begin
   end;
 
   Tooltip := Format('%s: ...', [AName]);
-  OutlineColor := GetEffectiveOutlineColor;
 
   if FDeviceIcons.TryGetValue(AAddress, ExistingIcon) then
   begin
     // Update existing icon to pending
-    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon(OutlineColor);
+    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
     try
       OldIconHandle := ExistingIcon.hIcon;
       ExistingIcon.hIcon := CopyIcon(Icon.Handle);
@@ -617,7 +615,7 @@ begin
     IconData.uFlags := NIF_ICON or NIF_TIP or NIF_MESSAGE or NIF_SHOWTIP;
     IconData.uCallbackMessage := WM_BATTERYTRAY_CALLBACK;
 
-    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon(OutlineColor);
+    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
     try
       IconData.hIcon := CopyIcon(Icon.Handle);
     finally
