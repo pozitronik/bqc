@@ -25,6 +25,35 @@ uses
 
 type
   /// <summary>
+  /// Interface for building display items from raw Bluetooth device data.
+  /// Abstracts the builder for testability via dependency injection.
+  /// </summary>
+  IDeviceDisplayItemBuilder = interface
+    ['{A7E8C3D2-1F4B-4A9E-B5C6-8D7F2E3A1B0C}']
+    /// <summary>
+    /// Sets the battery cache for battery status lookup.
+    /// </summary>
+    procedure SetBatteryCache(ABatteryCache: IBatteryCache);
+
+    /// <summary>
+    /// Builds display items from an array of raw devices.
+    /// Filters hidden devices, processes all data, and sorts the result.
+    /// </summary>
+    function BuildDisplayItems(const ADevices: TBluetoothDeviceInfoArray): TDeviceDisplayItemArray;
+
+    /// <summary>
+    /// Builds a single display item from a device.
+    /// Does not filter - use for updating existing items.
+    /// </summary>
+    function BuildDisplayItem(const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
+
+    /// <summary>
+    /// Checks if a device should be visible (not hidden and has a name).
+    /// </summary>
+    function IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
+  end;
+
+  /// <summary>
   /// Builds display items from raw Bluetooth device data.
   /// Responsibilities:
   ///   - Filter hidden devices
@@ -36,7 +65,7 @@ type
   /// This follows Information Expert: the builder has all needed
   /// information (configs) to build display items.
   /// </summary>
-  TDeviceDisplayItemBuilder = class
+  TDeviceDisplayItemBuilder = class(TInterfacedObject, IDeviceDisplayItemBuilder)
   private
     FConfigProvider: IDeviceConfigQuery;
     FAppearanceConfig: IAppearanceConfig;

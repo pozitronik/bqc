@@ -62,7 +62,7 @@ type
     FDevicesArrayCache: TBluetoothDeviceInfoArray;
     FDevicesArrayValid: Boolean;
     FDisplayItems: TDeviceDisplayItemArray;
-    FDisplayItemBuilder: TDeviceDisplayItemBuilder;
+    FDisplayItemBuilder: IDeviceDisplayItemBuilder;
     FDelayedLoadGeneration: Integer;  // Generation counter for delayed load cancellation
     FUpdatingToggle: Boolean;
 
@@ -143,6 +143,7 @@ type
     /// <param name="ARadioStateManager">Bluetooth radio state manager.</param>
     /// <param name="AAsyncExecutor">Async executor for background operations.</param>
     /// <param name="ABluetoothService">Bluetooth service for device operations.</param>
+    /// <param name="ADisplayItemBuilder">Builder for creating display items from devices.</param>
     constructor Create(
       ADeviceListView: IDeviceListView;
       AToggleView: IToggleView;
@@ -155,7 +156,8 @@ type
       AAppearanceConfig: IAppearanceConfig;
       ARadioStateManager: IRadioStateManager;
       AAsyncExecutor: IAsyncExecutor;
-      ABluetoothService: IBluetoothService
+      ABluetoothService: IBluetoothService;
+      ADisplayItemBuilder: IDeviceDisplayItemBuilder
     );
 
     /// <summary>
@@ -258,7 +260,8 @@ constructor TMainPresenter.Create(
   AAppearanceConfig: IAppearanceConfig;
   ARadioStateManager: IRadioStateManager;
   AAsyncExecutor: IAsyncExecutor;
-  ABluetoothService: IBluetoothService
+  ABluetoothService: IBluetoothService;
+  ADisplayItemBuilder: IDeviceDisplayItemBuilder
 );
 begin
   inherited Create;
@@ -278,18 +281,13 @@ begin
   FRadioStateManager := ARadioStateManager;
   FAsyncExecutor := AAsyncExecutor;
   FBluetoothService := ABluetoothService;
+  FDisplayItemBuilder := ADisplayItemBuilder;
   FBatteryCache := nil;
   FDeviceList := TList<TBluetoothDeviceInfo>.Create;
   FDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
   FDevicesArrayCache := nil;
   FDevicesArrayValid := False;
   FDisplayItems := nil;
-  FDisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
-    FDeviceConfigProvider,
-    FAppearanceConfig,
-    FAppConfig.AsProfileConfig,
-    CreateProfileQuery
-  );
   FDelayedLoadGeneration := 0;
   FUpdatingToggle := False;
   LogDebug('Created', ClassName);
@@ -301,7 +299,7 @@ begin
   FBatteryCache := nil;
   FDeviceIndexMap.Free;
   FDeviceList.Free;
-  FDisplayItemBuilder.Free;
+  // FDisplayItemBuilder is interface - reference counted, no Free needed
   LogDebug('Destroyed', ClassName);
   inherited;
 end;

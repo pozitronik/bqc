@@ -26,6 +26,7 @@ uses
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
   UI.DeviceList,
+  UI.DeviceDisplayItemBuilder,
   Tests.Mocks;
 
 type
@@ -51,6 +52,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TMainPresenter;
 
     procedure CreatePresenter;
@@ -180,6 +182,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TMainPresenter;
 
     procedure CreatePresenter;
@@ -224,6 +227,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TTestableMainPresenter;
 
     procedure CreatePresenter;
@@ -287,6 +291,7 @@ begin
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
   FPresenter := nil;
 end;
 
@@ -325,7 +330,8 @@ begin
     FAppearanceConfig,
     FRadioStateManager,
     FAsyncExecutor,
-    FBluetoothService
+    FBluetoothService,
+    FDisplayItemBuilder
   );
 end;
 
@@ -811,6 +817,7 @@ begin
   // Use non-synchronous mode to control when delayed procs execute
   FAsyncExecutor.Synchronous := False;
   FBluetoothService := TMockBluetoothService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
   FPresenter := nil;
 end;
 
@@ -844,7 +851,8 @@ begin
     FAppearanceConfig,
     FRadioStateManager,
     FAsyncExecutor,
-    FBluetoothService
+    FBluetoothService,
+    FDisplayItemBuilder
   );
 end;
 
@@ -1014,6 +1022,7 @@ begin
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
   FPresenter := nil;
 end;
 
@@ -1036,7 +1045,8 @@ begin
     FAppearanceConfig,
     FRadioStateManager,
     FAsyncExecutor,
-    FBluetoothService
+    FBluetoothService,
+    FDisplayItemBuilder
   );
 end;
 

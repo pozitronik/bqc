@@ -13,12 +13,16 @@ uses
   System.SysUtils,
   System.DateUtils,
   System.Generics.Collections,
+  Bluetooth.Types,
+  Bluetooth.Interfaces,
   App.ConfigEnums,
   App.Autostart,
   App.AsyncExecutor,
   App.LogConfigIntf,
   App.SystemClock,
-  UI.Theme;
+  App.DeviceDisplayTypes,
+  UI.Theme,
+  UI.DeviceDisplayItemBuilder;
 
 type
   /// <summary>
@@ -213,6 +217,44 @@ type
 
     /// <summary>Number of times Now was called.</summary>
     property NowCallCount: Integer read FNowCallCount;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IDeviceDisplayItemBuilder for testing.
+  /// Returns configurable display items without real config lookups.
+  /// </summary>
+  TMockDeviceDisplayItemBuilder = class(TInterfacedObject, IDeviceDisplayItemBuilder)
+  private
+    FBatteryCache: IBatteryCache;
+    FBuildDisplayItemsCallCount: Integer;
+    FBuildDisplayItemCallCount: Integer;
+    FIsVisibleCallCount: Integer;
+    FSetBatteryCacheCallCount: Integer;
+    FLastDevices: TBluetoothDeviceInfoArray;
+    FLastDevice: TBluetoothDeviceInfo;
+    FMockDisplayItems: TDeviceDisplayItemArray;
+    FMockVisibleResult: Boolean;
+  public
+    constructor Create;
+
+    // IDeviceDisplayItemBuilder
+    procedure SetBatteryCache(ABatteryCache: IBatteryCache);
+    function BuildDisplayItems(const ADevices: TBluetoothDeviceInfoArray): TDeviceDisplayItemArray;
+    function BuildDisplayItem(const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
+    function IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
+
+    // Test configuration - set these before calling methods
+    property MockDisplayItems: TDeviceDisplayItemArray read FMockDisplayItems write FMockDisplayItems;
+    property MockVisibleResult: Boolean read FMockVisibleResult write FMockVisibleResult;
+
+    // Verification properties
+    property BuildDisplayItemsCallCount: Integer read FBuildDisplayItemsCallCount;
+    property BuildDisplayItemCallCount: Integer read FBuildDisplayItemCallCount;
+    property IsVisibleCallCount: Integer read FIsVisibleCallCount;
+    property SetBatteryCacheCallCount: Integer read FSetBatteryCacheCallCount;
+    property LastDevices: TBluetoothDeviceInfoArray read FLastDevices;
+    property LastDevice: TBluetoothDeviceInfo read FLastDevice;
+    property BatteryCache: IBatteryCache read FBatteryCache;
   end;
 
 implementation
@@ -558,6 +600,74 @@ end;
 procedure TMockSystemClock.AdvanceSeconds(ASeconds: Integer);
 begin
   FCurrentTime := IncSecond(FCurrentTime, ASeconds);
+end;
+
+{ TMockDeviceDisplayItemBuilder }
+
+constructor TMockDeviceDisplayItemBuilder.Create;
+begin
+  inherited Create;
+  FBatteryCache := nil;
+  FBuildDisplayItemsCallCount := 0;
+  FBuildDisplayItemCallCount := 0;
+  FIsVisibleCallCount := 0;
+  FSetBatteryCacheCallCount := 0;
+  FMockDisplayItems := nil;
+  FMockVisibleResult := True;  // Default: all devices visible
+end;
+
+procedure TMockDeviceDisplayItemBuilder.SetBatteryCache(ABatteryCache: IBatteryCache);
+begin
+  Inc(FSetBatteryCacheCallCount);
+  FBatteryCache := ABatteryCache;
+end;
+
+function TMockDeviceDisplayItemBuilder.BuildDisplayItems(
+  const ADevices: TBluetoothDeviceInfoArray): TDeviceDisplayItemArray;
+var
+  I: Integer;
+begin
+  Inc(FBuildDisplayItemsCallCount);
+  FLastDevices := ADevices;
+
+  // If mock items are configured, return them
+  if Length(FMockDisplayItems) > 0 then
+    Exit(FMockDisplayItems);
+
+  // Otherwise, create simple display items from input devices
+  SetLength(Result, Length(ADevices));
+  for I := 0 to High(ADevices) do
+  begin
+    Result[I] := Default(TDeviceDisplayItem);
+    Result[I].Device := ADevices[I];
+    Result[I].DisplayName := ADevices[I].Name;
+    Result[I].IsPinned := False;
+    Result[I].EffectiveDeviceType := ADevices[I].DeviceType;
+    Result[I].SortGroup := 1;
+    Result[I].BatteryStatus := TBatteryStatus.NotSupported;
+  end;
+end;
+
+function TMockDeviceDisplayItemBuilder.BuildDisplayItem(
+  const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
+begin
+  Inc(FBuildDisplayItemCallCount);
+  FLastDevice := ADevice;
+
+  Result := Default(TDeviceDisplayItem);
+  Result.Device := ADevice;
+  Result.DisplayName := ADevice.Name;
+  Result.IsPinned := False;
+  Result.EffectiveDeviceType := ADevice.DeviceType;
+  Result.SortGroup := 1;
+  Result.BatteryStatus := TBatteryStatus.NotSupported;
+end;
+
+function TMockDeviceDisplayItemBuilder.IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
+begin
+  Inc(FIsVisibleCallCount);
+  FLastDevice := ADevice;
+  Result := FMockVisibleResult;
 end;
 
 end.

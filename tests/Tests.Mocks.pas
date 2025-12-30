@@ -67,6 +67,7 @@ type
   TMockThemeManager = Tests.Mocks.Infrastructure.TMockThemeManager;
   TMockLogger = Tests.Mocks.Infrastructure.TMockLogger;
   TMockAsyncExecutor = Tests.Mocks.Infrastructure.TMockAsyncExecutor;
+  TMockDeviceDisplayItemBuilder = Tests.Mocks.Infrastructure.TMockDeviceDisplayItemBuilder;
 
 {$ENDREGION}
 

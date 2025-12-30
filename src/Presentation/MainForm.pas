@@ -221,10 +221,12 @@ uses
   Vcl.Themes,
   ShellAPI,
   Bluetooth.Service,
+  Bluetooth.ProfileQuery,
   App.Logger,
   App.Bootstrap,
   App.SettingsPresenter,
   UI.WindowPositioner,
+  UI.DeviceDisplayItemBuilder,
   SettingsForm;
 
 {$R *.dfm}
@@ -694,6 +696,7 @@ end;
 procedure TFormMain.InitializePresenter;
 var
   BluetoothService: IBluetoothService;
+  DisplayItemBuilder: IDeviceDisplayItemBuilder;
 begin
   // Create Bluetooth service with its dependencies
   BluetoothService := CreateBluetoothService(
@@ -701,6 +704,14 @@ begin
     FConnectionConfig,
     FDeviceConfigProvider,
     FStrategyFactory
+  );
+
+  // Create display item builder with its dependencies
+  DisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
+    FDeviceConfigProvider,
+    FAppearanceConfig,
+    Bootstrap.ProfileConfig,
+    CreateProfileQuery
   );
 
   // Create and initialize presenter with injected dependencies
@@ -717,7 +728,8 @@ begin
     FAppearanceConfig,
     FRadioStateManager,
     CreateAsyncExecutor,
-    BluetoothService
+    BluetoothService,
+    DisplayItemBuilder
   );
   FPresenter.Initialize;
 end;
