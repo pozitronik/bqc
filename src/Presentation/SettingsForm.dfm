@@ -61,7 +61,7 @@ object FormSettings: TFormSettings
     Top = 0
     Width = 544
     Height = 547
-    ActivePage = TabDevices
+    ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
     ExplicitWidth = 538
@@ -76,7 +76,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
-        ExplicitWidth = 530
         object LabelWindowMode: TLabel
           Left = 12
           Top = 27
@@ -104,7 +103,6 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's window:'
           TabOrder = 1
-          ExplicitWidth = 526
           object CheckMinimizeToTray: TCheckBox
             Left = 12
             Top = 25
@@ -130,7 +128,6 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's menu:'
           TabOrder = 2
-          ExplicitWidth = 526
           object CheckHideOnFocusLoss: TCheckBox
             Left = 12
             Top = 25
@@ -149,7 +146,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
-        ExplicitWidth = 530
         object LabelPositionMode: TLabel
           Left = 12
           Top = 28
@@ -1253,6 +1249,7 @@ object FormSettings: TFormSettings
         Align = alLeft
         BevelOuter = bvNone
         TabOrder = 0
+        ExplicitHeight = 500
         object ListDevices: TListBox
           Left = 0
           Top = 0
@@ -1262,6 +1259,7 @@ object FormSettings: TFormSettings
           ItemHeight = 15
           TabOrder = 0
           OnClick = ListDevicesClick
+          ExplicitHeight = 468
         end
         object PanelDeviceButtons: TPanel
           Left = 0
@@ -1271,6 +1269,7 @@ object FormSettings: TFormSettings
           Align = alBottom
           BevelOuter = bvNone
           TabOrder = 1
+          ExplicitTop = 468
           object ButtonForgetDevice: TButton
             Left = 0
             Top = 4
@@ -1299,6 +1298,8 @@ object FormSettings: TFormSettings
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 1
+        ExplicitWidth = 330
+        ExplicitHeight = 500
         object GroupDeviceInfo: TGroupBox
           Left = 0
           Top = 0
@@ -1307,6 +1308,8 @@ object FormSettings: TFormSettings
           Align = alClient
           Caption = 'Device Settings'
           TabOrder = 0
+          ExplicitWidth = 330
+          ExplicitHeight = 500
           object GroupDeviceConnection: TGroupBox
             Left = 2
             Top = 151
@@ -1315,6 +1318,7 @@ object FormSettings: TFormSettings
             Align = alTop
             Caption = 'Connection (overrides global parameters)'
             TabOrder = 1
+            ExplicitWidth = 326
             object LabelDeviceTimeout: TLabel
               Left = 12
               Top = 25
@@ -1384,6 +1388,7 @@ object FormSettings: TFormSettings
             Align = alTop
             Caption = 'Notifications (overrides global parameters)'
             TabOrder = 2
+            ExplicitWidth = 326
             object LabelDeviceNotifyConnect: TLabel
               Left = 12
               Top = 27
@@ -1469,6 +1474,7 @@ object FormSettings: TFormSettings
             Align = alTop
             Caption = 'Battery Tray Icon (overrides global parameters)'
             TabOrder = 3
+            ExplicitWidth = 326
             object LabelDeviceBatteryTrayIcon: TLabel
               Left = 12
               Top = 24
@@ -1635,6 +1641,7 @@ object FormSettings: TFormSettings
             Align = alTop
             Caption = 'General'
             TabOrder = 0
+            ExplicitWidth = 326
             object LabelDeviceAlias: TLabel
               Left = 12
               Top = 25
@@ -1653,7 +1660,7 @@ object FormSettings: TFormSettings
               Left = 166
               Top = 104
               Width = 74
-              Height = 22
+              Height = 15
               Caption = 'Show profiles:'
             end
             object EditDeviceAlias: TEdit

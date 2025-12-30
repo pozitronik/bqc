@@ -31,6 +31,7 @@ uses
   App.BatteryTrayConfigIntf,
   App.MainViewInterfaces,
   App.MainPresenter,
+  App.AsyncExecutor,
   UI.Theme,
   UI.DeviceList,
   UI.TrayManager,
@@ -705,7 +706,8 @@ begin
     FPollingConfig,
     FConnectionConfig,
     FStrategyFactory,
-    FRadioStateManager
+    FRadioStateManager,
+    CreateAsyncExecutor
   );
   FPresenter.Initialize;
 end;

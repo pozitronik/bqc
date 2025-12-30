@@ -21,6 +21,7 @@ uses
   App.ConfigInterfaces,
   App.MainViewInterfaces,
   App.MainPresenter,
+  App.AsyncExecutor,
   Bluetooth.Types,
   Bluetooth.RadioControl,
   UI.DeviceList,
@@ -40,6 +41,7 @@ type
     FConnectionConfig: TMockConnectionConfig;
     FStrategyFactory: TMockConnectionStrategyFactory;
     FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
     FPresenter: TMainPresenter;
 
     procedure CreatePresenter;
@@ -169,6 +171,7 @@ begin
   FConnectionConfig := TMockConnectionConfig.Create;
   FStrategyFactory := TMockConnectionStrategyFactory.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
   FPresenter := nil;
 end;
 
@@ -208,7 +211,8 @@ begin
     FPollingConfig,
     FConnectionConfig,
     FStrategyFactory,
-    FRadioStateManager
+    FRadioStateManager,
+    FAsyncExecutor
   );
 end;
 

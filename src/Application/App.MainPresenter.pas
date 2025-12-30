@@ -22,6 +22,7 @@ uses
   App.ConfigInterfaces,
   App.AppearanceConfigIntf,
   App.ConnectionConfigIntf,
+  App.AsyncExecutor,
   UI.DeviceList,
   UI.DeviceDisplayItemBuilder;
 
@@ -59,6 +60,7 @@ type
     FConnectionConfig: IConnectionConfig;
     FStrategyFactory: IConnectionStrategyFactory;
     FRadioStateManager: IRadioStateManager;
+    FAsyncExecutor: IAsyncExecutor;
     FBatteryCache: IBatteryCache;
     FDeviceList: TList<TBluetoothDeviceInfo>;
     FDevicesArrayCache: TBluetoothDeviceInfoArray;
@@ -138,6 +140,7 @@ type
     /// <param name="AConnectionConfig">Connection settings.</param>
     /// <param name="AStrategyFactory">Connection strategy factory.</param>
     /// <param name="ARadioStateManager">Bluetooth radio state manager.</param>
+    /// <param name="AAsyncExecutor">Async executor for background operations.</param>
     constructor Create(
       ADeviceListView: IDeviceListView;
       AToggleView: IToggleView;
@@ -151,7 +154,8 @@ type
       APollingConfig: IPollingConfig;
       AConnectionConfig: IConnectionConfig;
       AStrategyFactory: IConnectionStrategyFactory;
-      ARadioStateManager: IRadioStateManager
+      ARadioStateManager: IRadioStateManager;
+      AAsyncExecutor: IAsyncExecutor
     );
 
     /// <summary>
@@ -255,7 +259,8 @@ constructor TMainPresenter.Create(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
   AStrategyFactory: IConnectionStrategyFactory;
-  ARadioStateManager: IRadioStateManager
+  ARadioStateManager: IRadioStateManager;
+  AAsyncExecutor: IAsyncExecutor
 );
 begin
   inherited Create;
@@ -276,6 +281,7 @@ begin
   FConnectionConfig := AConnectionConfig;
   FStrategyFactory := AStrategyFactory;
   FRadioStateManager := ARadioStateManager;
+  FAsyncExecutor := AAsyncExecutor;
 
   FBluetoothService := nil;
   FBatteryCache := nil;
@@ -486,12 +492,12 @@ var
 begin
   LDevice := ADevice;
   LService := FBluetoothService;
-  TThread.CreateAnonymousThread(
+  FAsyncExecutor.RunAsync(
     procedure
     begin
       LService.Connect(LDevice);
     end
-  ).Start;
+  );
 end;
 
 procedure TMainPresenter.ToggleConnectionAsync(const ADevice: TBluetoothDeviceInfo);
@@ -501,14 +507,14 @@ var
 begin
   LDevice := ADevice;
   LService := FBluetoothService;
-  TThread.CreateAnonymousThread(
+  FAsyncExecutor.RunAsync(
     procedure
     begin
       LogDebug('ToggleConnectionAsync: Calling ToggleConnection', ClassName);
       LService.ToggleConnection(LDevice);
       LogDebug('ToggleConnectionAsync: Complete', ClassName);
     end
-  ).Start;
+  );
 end;
 
 procedure TMainPresenter.SetRadioStateAsync(AEnable: Boolean);
@@ -524,7 +530,7 @@ begin
   LStatusView := FStatusView;
   LRadioStateManager := FRadioStateManager;
 
-  TThread.CreateAnonymousThread(
+  FAsyncExecutor.RunAsync(
     procedure
     var
       LResult: TRadioControlResult;
@@ -568,7 +574,7 @@ begin
         end
       );
     end
-  ).Start;
+  );
 end;
 
 function TMainPresenter.GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
@@ -848,10 +854,9 @@ begin
   LAddress := AAddress;
   LBatteryCache := FBatteryCache;
 
-  TThread.CreateAnonymousThread(
+  FAsyncExecutor.RunDelayed(
     procedure
     begin
-      Sleep(ADelayMs);
       TThread.Queue(nil,
         procedure
         begin
@@ -859,8 +864,9 @@ begin
             LBatteryCache.RequestRefresh(LAddress);
         end
       );
-    end
-  ).Start;
+    end,
+    ADelayMs
+  );
 end;
 
 { Public methods called by View }

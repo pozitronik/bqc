@@ -65,6 +65,7 @@ type
   TMockAutostartManager = Tests.Mocks.Infrastructure.TMockAutostartManager;
   TMockThemeManager = Tests.Mocks.Infrastructure.TMockThemeManager;
   TMockLogger = Tests.Mocks.Infrastructure.TMockLogger;
+  TMockAsyncExecutor = Tests.Mocks.Infrastructure.TMockAsyncExecutor;
 
 {$ENDREGION}
 

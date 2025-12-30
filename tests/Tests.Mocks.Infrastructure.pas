@@ -11,8 +11,10 @@ interface
 
 uses
   System.SysUtils,
+  System.Generics.Collections,
   App.ConfigEnums,
   App.Autostart,
+  App.AsyncExecutor,
   App.LogConfigIntf,
   UI.Theme;
 
@@ -123,6 +125,58 @@ type
     property WarningCallCount: Integer read FWarningCallCount;
     property ErrorCallCount: Integer read FErrorCallCount;
     property ConfigureCallCount: Integer read FConfigureCallCount;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IAsyncExecutor for testing.
+  /// By default defers execution (non-synchronous) to match production behavior.
+  /// Set Synchronous := True to execute procedures immediately for deterministic tests.
+  /// </summary>
+  TMockAsyncExecutor = class(TInterfacedObject, IAsyncExecutor)
+  private
+    FSynchronous: Boolean;
+    FRunAsyncCallCount: Integer;
+    FRunDelayedCallCount: Integer;
+    FPendingProcs: TList<TProc>;
+    FPendingDelays: TList<Integer>;
+    FLastDelayMs: Integer;
+    function GetPendingCount: Integer;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    // IAsyncExecutor
+    procedure RunAsync(AProc: TProc);
+    procedure RunDelayed(AProc: TProc; ADelayMs: Integer);
+
+    /// <summary>
+    /// Executes all pending procedures in order.
+    /// Only has effect when Synchronous = False.
+    /// </summary>
+    procedure ExecutePending;
+
+    /// <summary>
+    /// Clears all pending procedures without executing them.
+    /// </summary>
+    procedure ClearPending;
+
+    /// <summary>
+    /// When True (default), procedures execute immediately when RunAsync/RunDelayed called.
+    /// When False, procedures are queued and must be executed via ExecutePending.
+    /// </summary>
+    property Synchronous: Boolean read FSynchronous write FSynchronous;
+
+    /// <summary>Number of RunAsync calls made.</summary>
+    property RunAsyncCallCount: Integer read FRunAsyncCallCount;
+
+    /// <summary>Number of RunDelayed calls made.</summary>
+    property RunDelayedCallCount: Integer read FRunDelayedCallCount;
+
+    /// <summary>Number of procedures waiting to execute (when Synchronous=False).</summary>
+    property PendingCount: Integer read GetPendingCount;
+
+    /// <summary>Delay value from most recent RunDelayed call.</summary>
+    property LastDelayMs: Integer read FLastDelayMs;
   end;
 
 implementation
@@ -378,6 +432,70 @@ begin
     Result[Idx] := Msg;
     Inc(Idx);
   end;
+end;
+
+{ TMockAsyncExecutor }
+
+function TMockAsyncExecutor.GetPendingCount: Integer;
+begin
+  Result := FPendingProcs.Count;
+end;
+
+constructor TMockAsyncExecutor.Create;
+begin
+  inherited Create;
+  // Default to async (non-synchronous) to maintain existing test behavior.
+  // Tests that need synchronous execution should set Synchronous := True.
+  FSynchronous := False;
+  FRunAsyncCallCount := 0;
+  FRunDelayedCallCount := 0;
+  FPendingProcs := TList<TProc>.Create;
+  FPendingDelays := TList<Integer>.Create;
+  FLastDelayMs := 0;
+end;
+
+destructor TMockAsyncExecutor.Destroy;
+begin
+  FPendingProcs.Free;
+  FPendingDelays.Free;
+  inherited;
+end;
+
+procedure TMockAsyncExecutor.RunAsync(AProc: TProc);
+begin
+  Inc(FRunAsyncCallCount);
+  if FSynchronous then
+    AProc()
+  else
+    FPendingProcs.Add(AProc);
+end;
+
+procedure TMockAsyncExecutor.RunDelayed(AProc: TProc; ADelayMs: Integer);
+begin
+  Inc(FRunDelayedCallCount);
+  FLastDelayMs := ADelayMs;
+  if FSynchronous then
+    AProc()  // Execute immediately, ignoring delay
+  else
+  begin
+    FPendingProcs.Add(AProc);
+    FPendingDelays.Add(ADelayMs);
+  end;
+end;
+
+procedure TMockAsyncExecutor.ExecutePending;
+var
+  I: Integer;
+begin
+  for I := 0 to FPendingProcs.Count - 1 do
+    FPendingProcs[I]();
+  ClearPending;
+end;
+
+procedure TMockAsyncExecutor.ClearPending;
+begin
+  FPendingProcs.Clear;
+  FPendingDelays.Clear;
 end;
 
 end.
