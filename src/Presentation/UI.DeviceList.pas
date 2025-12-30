@@ -69,6 +69,8 @@ type
   /// </summary>
   TCachedLayoutParams = record
     // From ILayoutConfig
+    ItemHeight: Integer;
+    ItemMargin: Integer;
     ItemPadding: Integer;
     IconSize: Integer;
     CornerRadius: Integer;
@@ -118,11 +120,12 @@ type
     function GetProfileConfig: IProfileConfig;
 
     procedure SetShowAddresses(AValue: Boolean);
+    procedure SetLayoutConfig(AValue: ILayoutConfig);
+    procedure SetAppearanceConfig(AValue: IAppearanceConfig);
     procedure SetSelectedIndex(AValue: Integer);
     function GetDevice(AIndex: Integer): TBluetoothDeviceInfo;
     function GetDeviceCount: Integer;
     function GetItemCount: Integer;
-    function GetItemRect(AIndex: Integer): TRect;
     function ItemAtPos(X, Y: Integer): Integer;
     procedure UpdateScrollRange;
     procedure ScrollTo(APos: Integer);
@@ -130,6 +133,7 @@ type
     procedure RecalculateItemHeights;
     function CalculateItemHeight(AIndex: Integer): Integer;
     function GetProfileSectionHeight(AProfileCount: Integer): Integer;
+    function GetProfileLineHeight: Integer;
 
     procedure DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
       const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
@@ -174,6 +178,7 @@ type
     function GetSelectedDevice: TBluetoothDeviceInfo;
     function GetSelectedDisplayItem: TDeviceDisplayItem;
     procedure EnsureVisible(AIndex: Integer);
+    function GetItemRect(AIndex: Integer): TRect;
 
     property Devices[AIndex: Integer]: TBluetoothDeviceInfo read GetDevice;
     property DeviceCount: Integer read GetDeviceCount;
@@ -184,8 +189,8 @@ type
     property OnSelectionChanged: TNotifyEvent read FOnSelectionChanged write FOnSelectionChanged;
 
     // Dependency injection properties (must be set before use)
-    property LayoutConfig: ILayoutConfig read GetLayoutConfig write FLayoutConfig;
-    property AppearanceConfig: IAppearanceConfig read GetAppearanceConfig write FAppearanceConfig;
+    property LayoutConfig: ILayoutConfig read GetLayoutConfig write SetLayoutConfig;
+    property AppearanceConfig: IAppearanceConfig read GetAppearanceConfig write SetAppearanceConfig;
     property ProfileConfig: IProfileConfig read GetProfileConfig write FProfileConfig;
 
   published
@@ -214,6 +219,8 @@ const
   // Profile section constants
   PROFILE_INDENT = 20;           // Indent from left edge
   PROFILE_ICON_SIZE = 10;        // Font size for profile icons
+  DEFAULT_PROFILE_FONT_SIZE = 7; // Fallback when config unavailable
+  PROFILE_LINE_HEIGHT_FACTOR = 2; // LineHeight = FontSize * Factor
 
   // Icon characters from Segoe MDL2 Assets
   ICON_PIN = #$E718;
@@ -277,21 +284,26 @@ begin
   Result := FProfileConfig;
 end;
 
+function TDeviceListBox.GetProfileLineHeight: Integer;
+var
+  FontSize: Integer;
+begin
+  if Assigned(FProfileConfig) then
+    FontSize := FProfileConfig.ProfileFontSize
+  else
+    FontSize := DEFAULT_PROFILE_FONT_SIZE;
+  Result := FontSize * PROFILE_LINE_HEIGHT_FACTOR;
+end;
+
 function TDeviceListBox.GetProfileSectionHeight(AProfileCount: Integer): Integer;
 var
-  ProfileFontSize: Integer;
   LineHeight: Integer;
 begin
   if AProfileCount <= 1 then
     Result := 0
   else
   begin
-    // Calculate line height based on font size (approximately 2x font size in pixels)
-    if Assigned(FProfileConfig) then
-      ProfileFontSize := FProfileConfig.ProfileFontSize
-    else
-      ProfileFontSize := 7;
-    LineHeight := ProfileFontSize * 2;
+    LineHeight := GetProfileLineHeight;
     // Profiles start right after status line, add bottom padding
     Result := AProfileCount * LineHeight + LineHeight div 2;
   end;
@@ -302,7 +314,7 @@ var
   BaseHeight: Integer;
   ProfileCount: Integer;
 begin
-  BaseHeight := LayoutConfig.ItemHeight;
+  BaseHeight := FCachedLayout.ItemHeight;
 
   // Add profile section height if profiles are shown
   if Assigned(FProfileConfig) and FProfileConfig.ShowProfiles and
@@ -329,6 +341,8 @@ begin
   // Cache layout config values (avoids repeated interface queries per item)
   if Assigned(FLayoutConfig) then
   begin
+    FCachedLayout.ItemHeight := FLayoutConfig.ItemHeight;
+    FCachedLayout.ItemMargin := FLayoutConfig.ItemMargin;
     FCachedLayout.ItemPadding := FLayoutConfig.ItemPadding;
     FCachedLayout.IconSize := FLayoutConfig.IconSize;
     FCachedLayout.CornerRadius := FLayoutConfig.CornerRadius;
@@ -355,6 +369,18 @@ begin
     FShowAddresses := AValue;
     Invalidate;
   end;
+end;
+
+procedure TDeviceListBox.SetLayoutConfig(AValue: ILayoutConfig);
+begin
+  FLayoutConfig := AValue;
+  RefreshLayoutCache;
+end;
+
+procedure TDeviceListBox.SetAppearanceConfig(AValue: IAppearanceConfig);
+begin
+  FAppearanceConfig := AValue;
+  RefreshLayoutCache;
 end;
 
 destructor TDeviceListBox.Destroy;
@@ -480,15 +506,15 @@ begin
     Result := TListGeometry.GetItemRectVariable(
       AIndex,
       FItemHeights,
-      LayoutConfig.ItemMargin,
+      FCachedLayout.ItemMargin,
       ClientWidth,
       FScrollPos
     )
   else
     Result := TListGeometry.GetItemRect(
       AIndex,
-      LayoutConfig.ItemHeight,
-      LayoutConfig.ItemMargin,
+      FCachedLayout.ItemHeight,
+      FCachedLayout.ItemMargin,
       ClientWidth,
       FScrollPos
     );
@@ -500,7 +526,7 @@ begin
     Result := TListGeometry.ItemAtPosVariable(
       X, Y,
       FItemHeights,
-      LayoutConfig.ItemMargin,
+      FCachedLayout.ItemMargin,
       ClientWidth,
       FScrollPos
     )
@@ -508,8 +534,8 @@ begin
     Result := TListGeometry.ItemAtPos(
       X, Y,
       GetItemCount,
-      LayoutConfig.ItemHeight,
-      LayoutConfig.ItemMargin,
+      FCachedLayout.ItemHeight,
+      FCachedLayout.ItemMargin,
       ClientWidth,
       FScrollPos
     );
@@ -520,14 +546,14 @@ begin
   if Length(FItemHeights) > 0 then
     FMaxScroll := TListGeometry.CalculateMaxScrollVariable(
       FItemHeights,
-      LayoutConfig.ItemMargin,
+      FCachedLayout.ItemMargin,
       ClientHeight
     )
   else
     FMaxScroll := TListGeometry.CalculateMaxScroll(
       GetItemCount,
-      LayoutConfig.ItemHeight,
-      LayoutConfig.ItemMargin,
+      FCachedLayout.ItemHeight,
+      FCachedLayout.ItemMargin,
       ClientHeight
     );
   FScrollPos := TListGeometry.ClampScrollPos(FScrollPos, FMaxScroll);
@@ -545,13 +571,13 @@ begin
   if Length(FItemHeights) > 0 then
     TotalHeight := TListGeometry.CalculateTotalHeightVariable(
       FItemHeights,
-      LayoutConfig.ItemMargin
+      FCachedLayout.ItemMargin
     )
   else
     TotalHeight := TListGeometry.CalculateTotalHeight(
       GetItemCount,
-      LayoutConfig.ItemHeight,
-      LayoutConfig.ItemMargin
+      FCachedLayout.ItemHeight,
+      FCachedLayout.ItemMargin
     );
 
   SI.cbSize := SizeOf(TScrollInfo);
@@ -588,15 +614,15 @@ begin
       AIndex,
       FItemHeights,
       FScrollPos,
-      LayoutConfig.ItemMargin,
+      FCachedLayout.ItemMargin,
       ClientHeight
     )
   else
     NewScrollPos := TListGeometry.ScrollPosToMakeVisible(
       AIndex,
       FScrollPos,
-      LayoutConfig.ItemHeight,
-      LayoutConfig.ItemMargin,
+      FCachedLayout.ItemHeight,
+      FCachedLayout.ItemMargin,
       ClientHeight
     );
 
@@ -621,7 +647,7 @@ var
   ItemHeight: Integer;
 begin
   NewPos := FScrollPos;
-  ItemHeight := LayoutConfig.ItemHeight;
+  ItemHeight := FCachedLayout.ItemHeight;
 
   case Message.ScrollCode of
     SB_LINEUP:
@@ -737,7 +763,7 @@ begin
 
   // Get base height (without profile section) for proper positioning
   // Status line should be anchored to base height, not expanded rect
-  BaseHeight := LayoutConfig.ItemHeight;
+  BaseHeight := FCachedLayout.ItemHeight;
 
   Result.NameLineTop := ARect.Top + Result.ItemPadding;
   // Anchor status line to base height area, not full expanded height
@@ -931,10 +957,10 @@ begin
   if Assigned(FProfileConfig) then
     ProfileFontSize := FProfileConfig.ProfileFontSize
   else
-    ProfileFontSize := 7;
+    ProfileFontSize := DEFAULT_PROFILE_FONT_SIZE;
 
-  // Calculate line height based on font size (must match GetProfileSectionHeight)
-  LineHeight := ProfileFontSize * 2;
+  // Use shared helper to ensure consistency with GetProfileSectionHeight
+  LineHeight := GetProfileLineHeight;
 
   // Calculate profile position - start just below status line
   // Use status font to measure status line height correctly
@@ -990,7 +1016,7 @@ begin
   DrawItemBackground(ACanvas, Context);
 
   // Calculate base height (without profile section) for icon centering
-  BaseHeight := LayoutConfig.ItemHeight;
+  BaseHeight := FCachedLayout.ItemHeight;
 
   // Draw device icon if enabled (centered in base height area)
   if Context.ShowDeviceIcons then
