@@ -90,6 +90,11 @@ function CreateConnectionStrategyFactory: IConnectionStrategyFactory;
 
 implementation
 
+const
+  // Higher priority strategies are tried first during connection
+  STRATEGY_PRIORITY_NORMAL = 100;   // Device-specific strategies (Audio, HID)
+  STRATEGY_PRIORITY_FALLBACK = 0;   // Generic fallback when no specific match
+
 { TBaseConnectionStrategy }
 
 function TBaseConnectionStrategy.CanHandle(ADeviceType: TBluetoothDeviceType): Boolean;
@@ -117,7 +122,7 @@ end;
 constructor TAudioConnectionStrategy.Create;
 begin
   inherited Create;
-  FPriority := 100;
+  FPriority := STRATEGY_PRIORITY_NORMAL;
   FSupportedTypes := [btAudioOutput, btAudioInput, btHeadset];
   // A2DP Audio Sink, Handsfree, Headset profiles
   FServiceGuids := [
@@ -133,7 +138,7 @@ end;
 constructor THIDConnectionStrategy.Create;
 begin
   inherited Create;
-  FPriority := 100;
+  FPriority := STRATEGY_PRIORITY_NORMAL;
   FSupportedTypes := [btKeyboard, btMouse, btGamepad, btHID];
   // HID profile
   FServiceGuids := [
@@ -146,7 +151,7 @@ end;
 constructor TGenericConnectionStrategy.Create;
 begin
   inherited Create;
-  FPriority := 0; // Lowest priority - fallback
+  FPriority := STRATEGY_PRIORITY_FALLBACK;
   FSupportedTypes := []; // Will handle any via CanHandle override
   // Try common profiles
   FServiceGuids := [

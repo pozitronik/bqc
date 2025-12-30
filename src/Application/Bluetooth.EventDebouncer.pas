@@ -19,6 +19,10 @@ uses
   Bluetooth.Types,
   Bluetooth.Interfaces;
 
+const
+  // Windows fires multiple Bluetooth events for single state change
+  DEFAULT_DEBOUNCE_MS = 500;
+
 type
   /// <summary>
   /// Debounces Bluetooth device events to prevent duplicate processing.
@@ -44,7 +48,7 @@ type
     /// Creates a debouncer with the specified debounce interval.
     /// </summary>
     /// <param name="ADebounceMs">Minimum milliseconds between identical events.</param>
-    constructor Create(ADebounceMs: Integer = 500);
+    constructor Create(ADebounceMs: Integer = DEFAULT_DEBOUNCE_MS);
 
     destructor Destroy; override;
 

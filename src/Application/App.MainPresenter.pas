@@ -212,6 +212,12 @@ uses
   Bluetooth.BatteryQuery,
   UI.DeviceFormatter;
 
+const
+  // Debounces rapid device list updates after connection state changes
+  DELAYED_LOAD_INTERVAL_MS = 500;
+  // Windows battery drivers need time to update after device reconnects
+  BATTERY_REFRESH_DELAY_MS = 10000;
+
 { TMainPresenter }
 
 constructor TMainPresenter.Create(
@@ -280,7 +286,7 @@ begin
   // Create delayed load timer
   FDelayedLoadTimer := TTimer.Create(nil);
   FDelayedLoadTimer.Enabled := False;
-  FDelayedLoadTimer.Interval := 500;
+  FDelayedLoadTimer.Interval := DELAYED_LOAD_INTERVAL_MS;
   FDelayedLoadTimer.OnTimer := HandleDelayedLoadTimer;
 
   // Create battery cache if battery display is enabled
@@ -675,7 +681,7 @@ begin
         if (FBatteryCache <> nil) and FAppearanceConfig.ShowBatteryLevel then
         begin
           FBatteryCache.SetBatteryStatus(LDevice.AddressInt, TBatteryStatus.Pending);
-          ScheduleDelayedBatteryRefresh(LDevice.AddressInt, 10000);  // 10 seconds delay
+          ScheduleDelayedBatteryRefresh(LDevice.AddressInt, BATTERY_REFRESH_DELAY_MS);
         end;
       end
       else if LDevice.ConnectionState = csDisconnected then

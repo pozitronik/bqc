@@ -149,6 +149,10 @@ const
   BATTERY_LOW_COLOR = clRed;
   BATTERY_UNKNOWN_COLOR = clGray;
 
+  // Font sizes for icon text - optimized for 16x16 icon legibility
+  ICON_FONT_SIZE_NORMAL = 7;    // For short text: "?", "...", "0"-"99"
+  ICON_FONT_SIZE_SMALL = 5;     // For long text: "99+" (3+ characters)
+
 implementation
 
 { TBatteryIconRenderer }
@@ -220,7 +224,7 @@ begin
 
     // Draw question mark in center
     Bitmap.Canvas.Font.Name := 'Segoe UI';
-    Bitmap.Canvas.Font.Size := 7;
+    Bitmap.Canvas.Font.Size := ICON_FONT_SIZE_NORMAL;
     Bitmap.Canvas.Font.Color := BATTERY_UNKNOWN_COLOR;
     Bitmap.Canvas.Font.Style := [fsBold];
     Bitmap.Canvas.Brush.Style := bsClear;
@@ -285,7 +289,7 @@ begin
     // Draw ellipsis centered in icon (no battery outline)
     EllipsisText := '...';
     Bitmap.Canvas.Font.Name := 'Segoe UI';
-    Bitmap.Canvas.Font.Size := 7;
+    Bitmap.Canvas.Font.Size := ICON_FONT_SIZE_NORMAL;
     Bitmap.Canvas.Font.Color := BATTERY_UNKNOWN_COLOR;
     Bitmap.Canvas.Font.Style := [fsBold];
     Bitmap.Canvas.Brush.Style := bsClear;
@@ -301,7 +305,7 @@ begin
 
     // Draw mask - only make ellipsis text area opaque
     MaskBmp.Canvas.Font.Name := 'Segoe UI';
-    MaskBmp.Canvas.Font.Size := 7;
+    MaskBmp.Canvas.Font.Size := ICON_FONT_SIZE_NORMAL;
     MaskBmp.Canvas.Font.Style := [fsBold];
     MaskBmp.Canvas.Brush.Color := clBlack;  // Opaque
     MaskBmp.Canvas.Font.Color := clBlack;   // Opaque text
@@ -491,9 +495,9 @@ begin
 
   // Adjust font size based on digit count
   if Length(Text) >= 3 then
-    ACanvas.Font.Size := 5
+    ACanvas.Font.Size := ICON_FONT_SIZE_SMALL
   else
-    ACanvas.Font.Size := 7;
+    ACanvas.Font.Size := ICON_FONT_SIZE_NORMAL;
 
   TextWidth := ACanvas.TextWidth(Text);
   TextHeight := ACanvas.TextHeight(Text);
@@ -557,9 +561,9 @@ begin
       MaskBmp.Canvas.Font.Name := 'Segoe UI';
       MaskBmp.Canvas.Font.Style := [fsBold];
       if Length(Text) >= 3 then
-        MaskBmp.Canvas.Font.Size := 5
+        MaskBmp.Canvas.Font.Size := ICON_FONT_SIZE_SMALL
       else
-        MaskBmp.Canvas.Font.Size := 7;
+        MaskBmp.Canvas.Font.Size := ICON_FONT_SIZE_NORMAL;
 
       MaskBmp.Canvas.Brush.Color := clBlack;  // Opaque
       MaskBmp.Canvas.Font.Color := clBlack;   // Opaque text
