@@ -14,6 +14,7 @@ uses
   System.SysUtils,
   System.DateUtils,
   Bluetooth.Types,
+  Bluetooth.Interfaces,
   App.ConfigEnums,
   App.ConfigInterfaces,
   App.DeviceConfigTypes,
@@ -32,6 +33,7 @@ type
     FConfigProvider: TMockDeviceConfigProvider;
     FAppearanceConfig: TMockAppearanceConfig;
     FProfileConfig: TMockProfileConfig;
+    FProfileQuery: TMockProfileQuery;
     FBuilder: TDeviceDisplayItemBuilder;
   public
     [Setup]
@@ -113,7 +115,9 @@ begin
   FConfigProvider := TMockDeviceConfigProvider.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
   FProfileConfig := TMockProfileConfig.Create;
-  FBuilder := TDeviceDisplayItemBuilder.Create(FConfigProvider, FAppearanceConfig, FProfileConfig);
+  FProfileQuery := TMockProfileQuery.Create;
+  FBuilder := TDeviceDisplayItemBuilder.Create(
+    FConfigProvider, FAppearanceConfig, FProfileConfig, FProfileQuery);
 end;
 
 procedure TDeviceDisplayItemBuilderTests.TearDown;

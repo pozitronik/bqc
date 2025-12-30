@@ -603,6 +603,28 @@ type
   end;
 
   /// <summary>
+  /// Interface for querying Bluetooth device profiles (enabled services).
+  /// Single Responsibility: Only handles profile enumeration.
+  /// Separates Windows API calls from business logic for testability.
+  /// </summary>
+  IProfileQuery = interface
+    ['{B8C9D0E1-FFFF-0000-1111-222233334444}']
+
+    /// <summary>
+    /// Gets profile information for a device.
+    /// Queries enabled services and converts to profile types.
+    /// </summary>
+    /// <param name="ADeviceAddress">Device Bluetooth address.</param>
+    /// <returns>Device profile information record.</returns>
+    function GetDeviceProfiles(ADeviceAddress: UInt64): TDeviceProfileInfo;
+
+    /// <summary>
+    /// Clears any cached profile information.
+    /// </summary>
+    procedure ClearCache;
+  end;
+
+  /// <summary>
   /// Callback type for battery query execution results.
   /// </summary>
   TBatteryQueryCallback = reference to procedure(AAddress: UInt64; const AStatus: TBatteryStatus);

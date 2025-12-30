@@ -460,6 +460,33 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IProfileQuery for testing.
+  /// Returns configurable profile information without Windows API calls.
+  /// </summary>
+  TMockProfileQuery = class(TInterfacedObject, IProfileQuery)
+  private
+    FProfiles: TDictionary<UInt64, TDeviceProfileInfo>;
+    FGetDeviceProfilesCallCount: Integer;
+    FClearCacheCallCount: Integer;
+    FLastQueryAddress: UInt64;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    // IProfileQuery
+    function GetDeviceProfiles(ADeviceAddress: UInt64): TDeviceProfileInfo;
+    procedure ClearCache;
+
+    // Test helpers
+    procedure SetProfileInfo(ADeviceAddress: UInt64; const AInfo: TDeviceProfileInfo);
+
+    // Test verification
+    property GetDeviceProfilesCallCount: Integer read FGetDeviceProfilesCallCount;
+    property ClearCacheCallCount: Integer read FClearCacheCallCount;
+    property LastQueryAddress: UInt64 read FLastQueryAddress;
+  end;
+
+  /// <summary>
   /// Helper function to create test device info records.
   /// </summary>
 function CreateTestDevice(
@@ -1238,6 +1265,44 @@ procedure TMockBluetoothService.SimulateError(const AMessage: string; AErrorCode
 begin
   if Assigned(FOnError) then
     FOnError(Self, AMessage, AErrorCode);
+end;
+
+{ TMockProfileQuery }
+
+constructor TMockProfileQuery.Create;
+begin
+  inherited Create;
+  FProfiles := TDictionary<UInt64, TDeviceProfileInfo>.Create;
+  FGetDeviceProfilesCallCount := 0;
+  FClearCacheCallCount := 0;
+  FLastQueryAddress := 0;
+end;
+
+destructor TMockProfileQuery.Destroy;
+begin
+  FProfiles.Free;
+  inherited Destroy;
+end;
+
+function TMockProfileQuery.GetDeviceProfiles(ADeviceAddress: UInt64): TDeviceProfileInfo;
+begin
+  Inc(FGetDeviceProfilesCallCount);
+  FLastQueryAddress := ADeviceAddress;
+
+  if not FProfiles.TryGetValue(ADeviceAddress, Result) then
+    Result := TDeviceProfileInfo.Empty(ADeviceAddress);
+end;
+
+procedure TMockProfileQuery.ClearCache;
+begin
+  Inc(FClearCacheCallCount);
+  FProfiles.Clear;
+end;
+
+procedure TMockProfileQuery.SetProfileInfo(ADeviceAddress: UInt64;
+  const AInfo: TDeviceProfileInfo);
+begin
+  FProfiles.AddOrSetValue(ADeviceAddress, AInfo);
 end;
 
 end.

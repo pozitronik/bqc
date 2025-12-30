@@ -41,6 +41,7 @@ type
     FConfigProvider: IDeviceConfigQuery;
     FAppearanceConfig: IAppearanceConfig;
     FProfileConfig: IProfileConfig;
+    FProfileQuery: IProfileQuery;
     FBatteryCache: IBatteryCache;
     /// <summary>
     /// Internal visibility check using pre-loaded config to avoid redundant lookups.
@@ -59,9 +60,11 @@ type
     /// <param name="AConfigProvider">Provider for device-specific configuration (read-only).</param>
     /// <param name="AAppearanceConfig">Provider for appearance settings.</param>
     /// <param name="AProfileConfig">Provider for profile display settings.</param>
+    /// <param name="AProfileQuery">Query for device Bluetooth profiles.</param>
     constructor Create(AConfigProvider: IDeviceConfigQuery;
       AAppearanceConfig: IAppearanceConfig;
-      AProfileConfig: IProfileConfig);
+      AProfileConfig: IProfileConfig;
+      AProfileQuery: IProfileQuery);
 
     /// <summary>
     /// Sets the battery cache for battery status lookup.
@@ -100,7 +103,6 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   App.Logger,
-  Bluetooth.ProfileQuery,
   UI.DeviceFormatter,
   UI.DeviceSorter;
 
@@ -108,12 +110,14 @@ uses
 
 constructor TDeviceDisplayItemBuilder.Create(AConfigProvider: IDeviceConfigQuery;
   AAppearanceConfig: IAppearanceConfig;
-  AProfileConfig: IProfileConfig);
+  AProfileConfig: IProfileConfig;
+  AProfileQuery: IProfileQuery);
 begin
   inherited Create;
   FConfigProvider := AConfigProvider;
   FAppearanceConfig := AAppearanceConfig;
   FProfileConfig := AProfileConfig;
+  FProfileQuery := AProfileQuery;
   FBatteryCache := nil;
 end;
 
@@ -199,9 +203,9 @@ begin
       // Use per-device setting
       ShowProfiles := AConfig.ShowProfiles = 1;
 
-    if ShowProfiles then
+    if ShowProfiles and Assigned(FProfileQuery) then
     begin
-      ProfileInfo := TProfileQuery.GetDeviceProfiles(ADevice.AddressInt);
+      ProfileInfo := FProfileQuery.GetDeviceProfiles(ADevice.AddressInt);
       // Only include profiles if device has more than one
       if ProfileInfo.Count > 1 then
         Profiles := ProfileInfo.Profiles;

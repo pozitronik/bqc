@@ -244,6 +244,7 @@ uses
   App.DeviceConfigTypes,
   Bluetooth.Service,
   Bluetooth.BatteryQuery,
+  Bluetooth.ProfileQuery,
   UI.DeviceFormatter;
 
 const
@@ -301,7 +302,8 @@ begin
   FDisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
     FDeviceConfigProvider,
     FAppearanceConfig,
-    FAppConfig.AsProfileConfig
+    FAppConfig.AsProfileConfig,
+    CreateProfileQuery
   );
   FDelayedLoadGeneration := 0;
   FUpdatingToggle := False;

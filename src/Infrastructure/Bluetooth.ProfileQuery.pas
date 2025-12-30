@@ -4,7 +4,9 @@
 {       Profile Query Implementation                    }
 {                                                       }
 {       Enumerates and queries Bluetooth profiles       }
-{       for paired devices.                             }
+{       for paired devices. Implements IProfileQuery    }
+{       with optional caching to reduce Windows API     }
+{       calls during device list updates.               }
 {                                                       }
 {*******************************************************}
 
@@ -17,48 +19,121 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   Bluetooth.Types,
-  Bluetooth.WinAPI;
+  Bluetooth.Interfaces,
+  Bluetooth.WinAPI,
+  App.SystemClock;
 
 type
   /// <summary>
-  /// Provides profile enumeration and query functionality.
+  /// Cached profile entry with timestamp.
   /// </summary>
-  TProfileQuery = class
+  TProfileCacheEntry = record
+    ProfileInfo: TDeviceProfileInfo;
+    CachedAt: TDateTime;
+  end;
+
+  /// <summary>
+  /// Provides profile enumeration and query functionality.
+  /// Implements IProfileQuery with optional caching to reduce
+  /// Windows API calls when refreshing device lists.
+  /// </summary>
+  TProfileQuery = class(TInterfacedObject, IProfileQuery)
   private const
     LOG_SOURCE = 'ProfileQuery';
     MAX_SERVICES = 32;
+    // Cache duration: profile info rarely changes, cache for 30 seconds
+    CACHE_DURATION_MS = 30000;
+  private
+    FClock: ISystemClock;
+    FCache: TDictionary<UInt64, TProfileCacheEntry>;
+    FLock: TObject;
+
+    function IsCacheValid(const AEntry: TProfileCacheEntry): Boolean;
+    function QueryProfilesFromWindows(ADeviceAddress: UInt64): TDeviceProfileInfo;
   public
+    /// <summary>
+    /// Creates a new profile query instance with caching.
+    /// </summary>
+    /// <param name="AClock">Clock for cache expiration timing.</param>
+    constructor Create(AClock: ISystemClock);
+    destructor Destroy; override;
+
+    { IProfileQuery }
+    function GetDeviceProfiles(ADeviceAddress: UInt64): TDeviceProfileInfo;
+    procedure ClearCache;
+
     /// <summary>
     /// Enumerates enabled service GUIDs for a device.
     /// </summary>
     /// <param name="ADeviceAddress">Device Bluetooth address.</param>
     /// <returns>Array of enabled service GUIDs.</returns>
-    class function EnumerateEnabledServices(ADeviceAddress: UInt64): TArray<TGUID>;
-
-    /// <summary>
-    /// Gets profile information for a device.
-    /// Queries enabled services and converts to profile types.
-    /// </summary>
-    /// <param name="ADeviceAddress">Device Bluetooth address.</param>
-    /// <returns>Device profile information record.</returns>
-    class function GetDeviceProfiles(ADeviceAddress: UInt64): TDeviceProfileInfo;
+    function EnumerateEnabledServices(ADeviceAddress: UInt64): TArray<TGUID>;
 
     /// <summary>
     /// Logs detailed profile information for debugging.
     /// </summary>
     /// <param name="ADeviceAddress">Device Bluetooth address.</param>
     /// <param name="ADeviceName">Device name for logging.</param>
-    class procedure LogDeviceProfiles(ADeviceAddress: UInt64; const ADeviceName: string);
+    procedure LogDeviceProfiles(ADeviceAddress: UInt64; const ADeviceName: string);
   end;
+
+/// <summary>
+/// Creates a profile query instance for production use.
+/// </summary>
+function CreateProfileQuery: IProfileQuery;
 
 implementation
 
 uses
+  System.DateUtils,
   App.Logger;
+
+{ Factory function }
+
+function CreateProfileQuery: IProfileQuery;
+begin
+  Result := TProfileQuery.Create(SystemClock);
+end;
 
 { TProfileQuery }
 
-class function TProfileQuery.EnumerateEnabledServices(
+constructor TProfileQuery.Create(AClock: ISystemClock);
+begin
+  inherited Create;
+  Assert(AClock <> nil, 'ISystemClock is required');
+  FClock := AClock;
+  FCache := TDictionary<UInt64, TProfileCacheEntry>.Create;
+  FLock := TObject.Create;
+  LogDebug('Created with caching enabled (duration=%d ms)', [CACHE_DURATION_MS], LOG_SOURCE);
+end;
+
+destructor TProfileQuery.Destroy;
+begin
+  FCache.Free;
+  FLock.Free;
+  inherited Destroy;
+end;
+
+function TProfileQuery.IsCacheValid(const AEntry: TProfileCacheEntry): Boolean;
+var
+  ElapsedMs: Int64;
+begin
+  ElapsedMs := MilliSecondsBetween(FClock.Now, AEntry.CachedAt);
+  Result := ElapsedMs < CACHE_DURATION_MS;
+end;
+
+procedure TProfileQuery.ClearCache;
+begin
+  TMonitor.Enter(FLock);
+  try
+    FCache.Clear;
+    LogDebug('Cache cleared', LOG_SOURCE);
+  finally
+    TMonitor.Exit(FLock);
+  end;
+end;
+
+function TProfileQuery.EnumerateEnabledServices(
   ADeviceAddress: UInt64): TArray<TGUID>;
 var
   DeviceInfo: BLUETOOTH_DEVICE_INFO;
@@ -110,7 +185,7 @@ begin
   LogDebug('EnumerateEnabledServices: Found %d services for %.12X', [ServiceCount, ADeviceAddress], LOG_SOURCE);
 end;
 
-class function TProfileQuery.GetDeviceProfiles(
+function TProfileQuery.QueryProfilesFromWindows(
   ADeviceAddress: UInt64): TDeviceProfileInfo;
 var
   Services: TArray<TGUID>;
@@ -156,10 +231,52 @@ begin
   // Trim array to actual count
   SetLength(Profiles, ProfileCount);
 
-  Result := TDeviceProfileInfo.Create(ADeviceAddress, Profiles, Now);
+  Result := TDeviceProfileInfo.Create(ADeviceAddress, Profiles, FClock.Now);
 end;
 
-class procedure TProfileQuery.LogDeviceProfiles(ADeviceAddress: UInt64;
+function TProfileQuery.GetDeviceProfiles(
+  ADeviceAddress: UInt64): TDeviceProfileInfo;
+var
+  Entry: TProfileCacheEntry;
+begin
+  TMonitor.Enter(FLock);
+  try
+    // Check cache first
+    if FCache.TryGetValue(ADeviceAddress, Entry) then
+    begin
+      if IsCacheValid(Entry) then
+      begin
+        LogDebug('GetDeviceProfiles: Cache hit for %.12X', [ADeviceAddress], LOG_SOURCE);
+        Result := Entry.ProfileInfo;
+        Exit;
+      end
+      else
+      begin
+        // Cache expired, remove entry
+        FCache.Remove(ADeviceAddress);
+        LogDebug('GetDeviceProfiles: Cache expired for %.12X', [ADeviceAddress], LOG_SOURCE);
+      end;
+    end;
+  finally
+    TMonitor.Exit(FLock);
+  end;
+
+  // Query from Windows API (outside lock to avoid blocking)
+  LogDebug('GetDeviceProfiles: Querying Windows API for %.12X', [ADeviceAddress], LOG_SOURCE);
+  Result := QueryProfilesFromWindows(ADeviceAddress);
+
+  // Store in cache
+  TMonitor.Enter(FLock);
+  try
+    Entry.ProfileInfo := Result;
+    Entry.CachedAt := FClock.Now;
+    FCache.AddOrSetValue(ADeviceAddress, Entry);
+  finally
+    TMonitor.Exit(FLock);
+  end;
+end;
+
+procedure TProfileQuery.LogDeviceProfiles(ADeviceAddress: UInt64;
   const ADeviceName: string);
 var
   ProfileInfo: TDeviceProfileInfo;

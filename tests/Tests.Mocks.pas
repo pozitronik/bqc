@@ -59,6 +59,7 @@ type
   TMockRadioStateManager = Tests.Mocks.Bluetooth.TMockRadioStateManager;
   TMockBatteryCache = Tests.Mocks.Bluetooth.TMockBatteryCache;
   TMockBluetoothService = Tests.Mocks.Bluetooth.TMockBluetoothService;
+  TMockProfileQuery = Tests.Mocks.Bluetooth.TMockProfileQuery;
 
 // Re-export types from Tests.Mocks.Infrastructure
 type
