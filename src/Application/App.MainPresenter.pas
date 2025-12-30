@@ -20,7 +20,6 @@ uses
   App.MainViewInterfaces,
   App.ConfigInterfaces,
   App.AppearanceConfigIntf,
-  App.ConnectionConfigIntf,
   App.AsyncExecutor,
   App.DeviceDisplayTypes,
   UI.DeviceDisplayItemBuilder;
@@ -55,9 +54,6 @@ type
     FGeneralConfig: IGeneralConfig;
     FWindowConfig: IWindowConfig;
     FAppearanceConfig: IAppearanceConfig;
-    FPollingConfig: IPollingConfig;
-    FConnectionConfig: IConnectionConfig;
-    FStrategyFactory: IConnectionStrategyFactory;
     FRadioStateManager: IRadioStateManager;
     FAsyncExecutor: IAsyncExecutor;
     FBatteryCache: IBatteryCache;
@@ -144,11 +140,9 @@ type
     /// <param name="AGeneralConfig">General settings (window mode).</param>
     /// <param name="AWindowConfig">Window settings (close to tray).</param>
     /// <param name="AAppearanceConfig">Appearance settings for display items.</param>
-    /// <param name="APollingConfig">Polling settings for device monitor.</param>
-    /// <param name="AConnectionConfig">Connection settings.</param>
-    /// <param name="AStrategyFactory">Connection strategy factory.</param>
     /// <param name="ARadioStateManager">Bluetooth radio state manager.</param>
     /// <param name="AAsyncExecutor">Async executor for background operations.</param>
+    /// <param name="ABluetoothService">Bluetooth service for device operations.</param>
     constructor Create(
       ADeviceListView: IDeviceListView;
       AToggleView: IToggleView;
@@ -159,11 +153,9 @@ type
       AGeneralConfig: IGeneralConfig;
       AWindowConfig: IWindowConfig;
       AAppearanceConfig: IAppearanceConfig;
-      APollingConfig: IPollingConfig;
-      AConnectionConfig: IConnectionConfig;
-      AStrategyFactory: IConnectionStrategyFactory;
       ARadioStateManager: IRadioStateManager;
-      AAsyncExecutor: IAsyncExecutor
+      AAsyncExecutor: IAsyncExecutor;
+      ABluetoothService: IBluetoothService
     );
 
     /// <summary>
@@ -242,7 +234,6 @@ uses
   App.Logger,
   App.ConfigEnums,
   App.DeviceConfigTypes,
-  Bluetooth.Service,
   Bluetooth.BatteryQuery,
   Bluetooth.ProfileQuery,
   UI.DeviceFormatter;
@@ -265,11 +256,9 @@ constructor TMainPresenter.Create(
   AGeneralConfig: IGeneralConfig;
   AWindowConfig: IWindowConfig;
   AAppearanceConfig: IAppearanceConfig;
-  APollingConfig: IPollingConfig;
-  AConnectionConfig: IConnectionConfig;
-  AStrategyFactory: IConnectionStrategyFactory;
   ARadioStateManager: IRadioStateManager;
-  AAsyncExecutor: IAsyncExecutor
+  AAsyncExecutor: IAsyncExecutor;
+  ABluetoothService: IBluetoothService
 );
 begin
   inherited Create;
@@ -286,13 +275,9 @@ begin
   FGeneralConfig := AGeneralConfig;
   FWindowConfig := AWindowConfig;
   FAppearanceConfig := AAppearanceConfig;
-  FPollingConfig := APollingConfig;
-  FConnectionConfig := AConnectionConfig;
-  FStrategyFactory := AStrategyFactory;
   FRadioStateManager := ARadioStateManager;
   FAsyncExecutor := AAsyncExecutor;
-
-  FBluetoothService := nil;
+  FBluetoothService := ABluetoothService;
   FBatteryCache := nil;
   FDeviceList := TList<TBluetoothDeviceInfo>.Create;
   FDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
@@ -336,18 +321,11 @@ begin
     FDisplayItemBuilder.SetBatteryCache(FBatteryCache);
   end;
 
-  // Create Bluetooth service
-  LogDebug('Initialize: Creating Bluetooth service', ClassName);
-  FBluetoothService := CreateBluetoothService(
-    FPollingConfig,
-    FConnectionConfig,
-    FDeviceConfigProvider,
-    FStrategyFactory
-  );
+  // Wire up Bluetooth service event handlers
   FBluetoothService.OnDeviceStateChanged := HandleDeviceStateChanged;
   FBluetoothService.OnDeviceListChanged := HandleDeviceListChanged;
   FBluetoothService.OnError := HandleError;
-  LogDebug('Initialize: Bluetooth service created', ClassName);
+  LogDebug('Initialize: Bluetooth service event handlers wired', ClassName);
 
   // Check Bluetooth radio state
   if FRadioStateManager.GetState(RadioEnabled) then

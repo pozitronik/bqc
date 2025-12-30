@@ -23,6 +23,7 @@ uses
   App.MainPresenter,
   App.AsyncExecutor,
   Bluetooth.Types,
+  Bluetooth.Interfaces,
   Bluetooth.RadioControl,
   UI.DeviceList,
   Tests.Mocks;
@@ -47,11 +48,9 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
-    FPollingConfig: TMockPollingConfig;
-    FConnectionConfig: TMockConnectionConfig;
-    FStrategyFactory: TMockConnectionStrategyFactory;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
     FPresenter: TMainPresenter;
 
     procedure CreatePresenter;
@@ -178,11 +177,9 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
-    FPollingConfig: TMockPollingConfig;
-    FConnectionConfig: TMockConnectionConfig;
-    FStrategyFactory: TMockConnectionStrategyFactory;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
     FPresenter: TMainPresenter;
 
     procedure CreatePresenter;
@@ -224,11 +221,9 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
-    FPollingConfig: TMockPollingConfig;
-    FConnectionConfig: TMockConnectionConfig;
-    FStrategyFactory: TMockConnectionStrategyFactory;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
     FPresenter: TTestableMainPresenter;
 
     procedure CreatePresenter;
@@ -289,11 +284,9 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
-  FPollingConfig := TMockPollingConfig.Create;
-  FConnectionConfig := TMockConnectionConfig.Create;
-  FStrategyFactory := TMockConnectionStrategyFactory.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
+  FBluetoothService := TMockBluetoothService.Create;
   FPresenter := nil;
 end;
 
@@ -330,11 +323,9 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
-    FPollingConfig,
-    FConnectionConfig,
-    FStrategyFactory,
     FRadioStateManager,
-    FAsyncExecutor
+    FAsyncExecutor,
+    FBluetoothService
   );
 end;
 
@@ -815,13 +806,11 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
-  FPollingConfig := TMockPollingConfig.Create;
-  FConnectionConfig := TMockConnectionConfig.Create;
-  FStrategyFactory := TMockConnectionStrategyFactory.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   // Use non-synchronous mode to control when delayed procs execute
   FAsyncExecutor.Synchronous := False;
+  FBluetoothService := TMockBluetoothService.Create;
   FPresenter := nil;
 end;
 
@@ -853,11 +842,9 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
-    FPollingConfig,
-    FConnectionConfig,
-    FStrategyFactory,
     FRadioStateManager,
-    FAsyncExecutor
+    FAsyncExecutor,
+    FBluetoothService
   );
 end;
 
@@ -1024,11 +1011,9 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
-  FPollingConfig := TMockPollingConfig.Create;
-  FConnectionConfig := TMockConnectionConfig.Create;
-  FStrategyFactory := TMockConnectionStrategyFactory.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
+  FBluetoothService := TMockBluetoothService.Create;
   FPresenter := nil;
 end;
 
@@ -1049,11 +1034,9 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
-    FPollingConfig,
-    FConnectionConfig,
-    FStrategyFactory,
     FRadioStateManager,
-    FAsyncExecutor
+    FAsyncExecutor,
+    FBluetoothService
   );
 end;
 

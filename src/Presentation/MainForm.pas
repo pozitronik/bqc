@@ -220,6 +220,7 @@ implementation
 uses
   Vcl.Themes,
   ShellAPI,
+  Bluetooth.Service,
   App.Logger,
   App.Bootstrap,
   App.SettingsPresenter,
@@ -691,7 +692,17 @@ begin
 end;
 
 procedure TFormMain.InitializePresenter;
+var
+  BluetoothService: IBluetoothService;
 begin
+  // Create Bluetooth service with its dependencies
+  BluetoothService := CreateBluetoothService(
+    FPollingConfig,
+    FConnectionConfig,
+    FDeviceConfigProvider,
+    FStrategyFactory
+  );
+
   // Create and initialize presenter with injected dependencies
   // Pass Self as each focused interface (ISP-compliant)
   FPresenter := TMainPresenter.Create(
@@ -704,11 +715,9 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
-    FPollingConfig,
-    FConnectionConfig,
-    FStrategyFactory,
     FRadioStateManager,
-    CreateAsyncExecutor
+    CreateAsyncExecutor,
+    BluetoothService
   );
   FPresenter.Initialize;
 end;
