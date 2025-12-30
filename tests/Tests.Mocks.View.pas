@@ -207,6 +207,9 @@ type
     FHideViewCalled: Boolean;
     FClearDevicesCalled: Boolean;
     FForceCloseCalled: Boolean;
+
+    function GetShowDisplayItemsCalled: Boolean;
+    procedure SetShowDisplayItemsCalled(AValue: Boolean);
   public
     constructor Create;
 
@@ -245,13 +248,16 @@ type
     property LastNotificationFlags: TNotificationFlags read FLastNotificationFlags;
 
     // Call counts
-    property ShowDisplayItemsCount: Integer read FShowDisplayItemsCount;
+    property ShowDisplayItemsCount: Integer read FShowDisplayItemsCount write FShowDisplayItemsCount;
     property ShowStatusCount: Integer read FShowStatusCount;
     property ShowNotificationCount: Integer read FShowNotificationCount;
     property ShowViewCalled: Boolean read FShowViewCalled;
     property HideViewCalled: Boolean read FHideViewCalled;
     property ClearDevicesCalled: Boolean read FClearDevicesCalled;
     property ForceCloseCalled: Boolean read FForceCloseCalled;
+
+    // Helper properties for test assertions
+    property ShowDisplayItemsCalled: Boolean read GetShowDisplayItemsCalled write SetShowDisplayItemsCalled;
   end;
 
 implementation
@@ -443,6 +449,19 @@ begin
   FShowDisplayItemsCount := 0;
   FShowStatusCount := 0;
   FShowNotificationCount := 0;
+end;
+
+function TMockMainView.GetShowDisplayItemsCalled: Boolean;
+begin
+  Result := FShowDisplayItemsCount > 0;
+end;
+
+procedure TMockMainView.SetShowDisplayItemsCalled(AValue: Boolean);
+begin
+  if AValue then
+    Inc(FShowDisplayItemsCount)
+  else
+    FShowDisplayItemsCount := 0;
 end;
 
 procedure TMockMainView.ShowDisplayItems(const AItems: TDeviceDisplayItemArray);

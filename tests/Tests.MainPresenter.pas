@@ -166,6 +166,52 @@ type
   end;
 
   /// <summary>
+  /// Tests for delayed load behavior using IAsyncExecutor.RunDelayed.
+  /// Verifies debouncing, cancellation, and correct timing.
+  /// </summary>
+  [TestFixture]
+  TDelayedLoadTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FPollingConfig: TMockPollingConfig;
+    FConnectionConfig: TMockConnectionConfig;
+    FStrategyFactory: TMockConnectionStrategyFactory;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FPresenter: TMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure RadioEnabled_CallsRunDelayed;
+
+    [Test]
+    procedure RadioEnabled_UsesCorrectDelayInterval;
+
+    [Test]
+    procedure RadioEnabled_DelayedLoadExecutesLoadDevices;
+
+    [Test]
+    procedure RadioDisabled_CancelsPendingDelayedLoad;
+
+    [Test]
+    procedure MultipleRadioStateChanges_DebouncesProperly;
+
+    [Test]
+    procedure Shutdown_CancelsPendingDelayedLoad;
+  end;
+
+  /// <summary>
   /// Tests for device index map functionality (O(1) lookup).
   /// Uses TTestableMainPresenter to access protected methods.
   /// </summary>
@@ -759,6 +805,215 @@ begin
   Assert.IsFalse(FPresenter.IsUpdatingToggle, 'IsUpdatingToggle should be False after Initialize');
 end;
 
+{ TDelayedLoadTests }
+
+procedure TDelayedLoadTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FPollingConfig := TMockPollingConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FStrategyFactory := TMockConnectionStrategyFactory.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  // Use non-synchronous mode to control when delayed procs execute
+  FAsyncExecutor.Synchronous := False;
+  FPresenter := nil;
+end;
+
+procedure TDelayedLoadTests.TearDown;
+var
+  I: Integer;
+begin
+  // Process any pending TThread.Queue calls
+  for I := 1 to 5 do
+  begin
+    Sleep(20);
+    CheckSynchronize(0);
+  end;
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  FPresenter.Free;
+end;
+
+procedure TDelayedLoadTests.CreatePresenter;
+begin
+  FPresenter := TMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FPollingConfig,
+    FConnectionConfig,
+    FStrategyFactory,
+    FRadioStateManager,
+    FAsyncExecutor
+  );
+end;
+
+procedure TDelayedLoadTests.RadioEnabled_CallsRunDelayed;
+begin
+  // Arrange: Start with radio disabled
+  FRadioStateManager.RadioEnabled := False;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  // Reset counter after initialization
+  FAsyncExecutor.ClearPending;
+  // Store initial RunDelayed call count (might have been called during init)
+  var InitialCount := FAsyncExecutor.RunDelayedCallCount;
+
+  // Act: Simulate radio state changing to enabled
+  FRadioStateManager.SimulateStateChanged(True);
+
+  // Assert: RunDelayed should have been called
+  Assert.IsTrue(FAsyncExecutor.RunDelayedCallCount > InitialCount,
+    'RunDelayed should be called when radio becomes enabled');
+end;
+
+procedure TDelayedLoadTests.RadioEnabled_UsesCorrectDelayInterval;
+begin
+  // Arrange: Start with radio disabled
+  FRadioStateManager.RadioEnabled := False;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+  FAsyncExecutor.ClearPending;
+
+  // Act: Simulate radio state changing to enabled
+  FRadioStateManager.SimulateStateChanged(True);
+
+  // Assert: Delay should be 500ms (DELAYED_LOAD_INTERVAL_MS)
+  Assert.AreEqual(500, FAsyncExecutor.LastDelayMs,
+    'Delayed load should use 500ms interval');
+end;
+
+procedure TDelayedLoadTests.RadioEnabled_DelayedLoadExecutesLoadDevices;
+begin
+  // Arrange: Start with radio disabled
+  FRadioStateManager.RadioEnabled := False;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  // Clear any pending operations
+  FAsyncExecutor.ClearPending;
+  FView.ShowDisplayItemsCalled := False;
+
+  // Act: Simulate radio state changing to enabled
+  FRadioStateManager.SimulateStateChanged(True);
+
+  // Execute the pending delayed proc
+  FAsyncExecutor.ExecutePending;
+  // Process TThread.Queue calls
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: LoadDevices should have been called (via ShowDisplayItems)
+  Assert.IsTrue(FView.ShowDisplayItemsCalled,
+    'LoadDevices should execute after delayed callback');
+end;
+
+procedure TDelayedLoadTests.RadioDisabled_CancelsPendingDelayedLoad;
+begin
+  // Arrange: Start with radio disabled
+  FRadioStateManager.RadioEnabled := False;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+  FAsyncExecutor.ClearPending;
+  FView.ShowDisplayItemsCalled := False;
+
+  // Schedule a delayed load
+  FRadioStateManager.SimulateStateChanged(True);
+
+  // Act: Disable radio before delayed load executes (cancels pending)
+  FRadioStateManager.SimulateStateChanged(False);
+
+  // Execute the pending procs
+  FAsyncExecutor.ExecutePending;
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: LoadDevices should NOT have been called because load was cancelled
+  // The delayed callback checks generation counter and skips if changed
+  Assert.IsFalse(FView.ShowDisplayItemsCalled,
+    'LoadDevices should be cancelled when radio is disabled before execution');
+end;
+
+procedure TDelayedLoadTests.MultipleRadioStateChanges_DebouncesProperly;
+var
+  ShowDisplayItemsCount: Integer;
+begin
+  // Arrange: Start with radio disabled
+  FRadioStateManager.RadioEnabled := False;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+  FAsyncExecutor.ClearPending;
+
+  // Act: Rapidly toggle radio state multiple times
+  FRadioStateManager.SimulateStateChanged(True);
+  FRadioStateManager.SimulateStateChanged(False);
+  FRadioStateManager.SimulateStateChanged(True);
+  FRadioStateManager.SimulateStateChanged(False);
+  FRadioStateManager.SimulateStateChanged(True);  // Final state is enabled
+
+  // Record initial state
+  FView.ShowDisplayItemsCount := 0;
+
+  // Execute all pending procs
+  FAsyncExecutor.ExecutePending;
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: Only the last delayed load should execute
+  ShowDisplayItemsCount := FView.ShowDisplayItemsCount;
+  Assert.AreEqual(1, ShowDisplayItemsCount,
+    'Only one LoadDevices should execute due to debouncing');
+end;
+
+procedure TDelayedLoadTests.Shutdown_CancelsPendingDelayedLoad;
+begin
+  // Arrange: Start with radio disabled
+  FRadioStateManager.RadioEnabled := False;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+  FAsyncExecutor.ClearPending;
+  FView.ShowDisplayItemsCalled := False;
+
+  // Schedule a delayed load
+  FRadioStateManager.SimulateStateChanged(True);
+
+  // Act: Shutdown before delayed load executes
+  FPresenter.Shutdown;
+
+  // Execute the pending procs
+  FAsyncExecutor.ExecutePending;
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: LoadDevices should NOT have been called
+  Assert.IsFalse(FView.ShowDisplayItemsCalled,
+    'LoadDevices should be cancelled when Shutdown is called');
+end;
+
 { TDeviceIndexMapTests }
 
 procedure TDeviceIndexMapTests.Setup;
@@ -927,6 +1182,7 @@ end;
 
 initialization
   TDUnitX.RegisterTestFixture(TMainPresenterTests);
+  TDUnitX.RegisterTestFixture(TDelayedLoadTests);
   TDUnitX.RegisterTestFixture(TDeviceIndexMapTests);
 
 end.

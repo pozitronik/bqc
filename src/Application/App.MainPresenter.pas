@@ -14,7 +14,6 @@ uses
   System.Classes,
   System.TypInfo,
   System.Generics.Collections,
-  Vcl.ExtCtrls,
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
@@ -68,7 +67,7 @@ type
     FDevicesArrayValid: Boolean;
     FDisplayItems: TDeviceDisplayItemArray;
     FDisplayItemBuilder: TDeviceDisplayItemBuilder;
-    FDelayedLoadTimer: TTimer;
+    FDelayedLoadGeneration: Integer;  // Generation counter for delayed load cancellation
     FUpdatingToggle: Boolean;
 
     { Service event handlers }
@@ -76,7 +75,6 @@ type
     procedure HandleDeviceListChanged(Sender: TObject);
     procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
-    procedure HandleDelayedLoadTimer(Sender: TObject);
     procedure HandleBatteryQueryCompleted(Sender: TObject; ADeviceAddress: UInt64;
       const AStatus: TBatteryStatus);
 
@@ -86,6 +84,7 @@ type
     { Internal methods }
     procedure LoadDevices;
     procedure LoadDevicesDelayed;
+    procedure CancelDelayedLoad;
     procedure AutoConnectDevices;
     procedure ConnectDeviceAsync(const ADevice: TBluetoothDeviceInfo);
     procedure ToggleConnectionAsync(const ADevice: TBluetoothDeviceInfo);
@@ -304,7 +303,7 @@ begin
     FAppearanceConfig,
     FAppConfig.AsProfileConfig
   );
-  FDelayedLoadTimer := nil;
+  FDelayedLoadGeneration := 0;
   FUpdatingToggle := False;
   LogDebug('Created', ClassName);
 end;
@@ -325,12 +324,6 @@ var
   RadioEnabled: Boolean;
 begin
   LogDebug('Initialize: Starting', ClassName);
-
-  // Create delayed load timer
-  FDelayedLoadTimer := TTimer.Create(nil);
-  FDelayedLoadTimer.Enabled := False;
-  FDelayedLoadTimer.Interval := DELAYED_LOAD_INTERVAL_MS;
-  FDelayedLoadTimer.OnTimer := HandleDelayedLoadTimer;
 
   // Create battery cache if battery display is enabled
   if FAppearanceConfig.ShowBatteryLevel then
@@ -393,13 +386,8 @@ procedure TMainPresenter.Shutdown;
 begin
   LogDebug('Shutdown: Starting', ClassName);
 
-  // Stop delayed load timer
-  if FDelayedLoadTimer <> nil then
-  begin
-    FDelayedLoadTimer.Enabled := False;
-    FDelayedLoadTimer.Free;
-    FDelayedLoadTimer := nil;
-  end;
+  // Cancel any pending delayed load
+  CancelDelayedLoad;
 
   // Stop radio state watching
   if FRadioStateManager <> nil then
@@ -466,9 +454,41 @@ begin
 end;
 
 procedure TMainPresenter.LoadDevicesDelayed;
+var
+  CapturedGeneration: Integer;
 begin
-  FDelayedLoadTimer.Enabled := False;
-  FDelayedLoadTimer.Enabled := True;
+  // Increment generation to invalidate any pending delayed loads (debounce)
+  Inc(FDelayedLoadGeneration);
+  CapturedGeneration := FDelayedLoadGeneration;
+  LogDebug('LoadDevicesDelayed: Scheduling with generation=%d', [CapturedGeneration], ClassName);
+
+  FAsyncExecutor.RunDelayed(
+    procedure
+    begin
+      TThread.Queue(nil,
+        procedure
+        begin
+          // Only execute if generation hasn't changed (not cancelled/superseded)
+          if FDelayedLoadGeneration = CapturedGeneration then
+          begin
+            LogDebug('LoadDevicesDelayed: Executing generation=%d', [CapturedGeneration], ClassName);
+            LoadDevices;
+          end
+          else
+            LogDebug('LoadDevicesDelayed: Skipped generation=%d (current=%d)',
+              [CapturedGeneration, FDelayedLoadGeneration], ClassName);
+        end
+      );
+    end,
+    DELAYED_LOAD_INTERVAL_MS
+  );
+end;
+
+procedure TMainPresenter.CancelDelayedLoad;
+begin
+  // Increment generation to invalidate all pending delayed loads
+  Inc(FDelayedLoadGeneration);
+  LogDebug('CancelDelayedLoad: New generation=%d', [FDelayedLoadGeneration], ClassName);
 end;
 
 procedure TMainPresenter.AutoConnectDevices;
@@ -810,16 +830,9 @@ begin
   else
   begin
     FStatusView.ShowStatus('Bluetooth disabled');
-    if FDelayedLoadTimer <> nil then
-      FDelayedLoadTimer.Enabled := False;
+    CancelDelayedLoad;
     FDeviceListView.ClearDevices;
   end;
-end;
-
-procedure TMainPresenter.HandleDelayedLoadTimer(Sender: TObject);
-begin
-  FDelayedLoadTimer.Enabled := False;
-  LoadDevices;
 end;
 
 procedure TMainPresenter.HandleBatteryQueryCompleted(Sender: TObject;
