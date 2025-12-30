@@ -15,6 +15,7 @@ uses
   System.DateUtils,
   Bluetooth.Types,
   Bluetooth.Interfaces,
+  Bluetooth.BatteryQuery,
   App.ConfigEnums,
   App.ConfigInterfaces,
   App.DeviceConfigTypes,
@@ -118,6 +119,8 @@ begin
   FProfileQuery := TMockProfileQuery.Create;
   FBuilder := TDeviceDisplayItemBuilder.Create(
     FConfigProvider, FAppearanceConfig, FProfileConfig, FProfileQuery);
+  // Set null battery cache to satisfy null object pattern requirement
+  FBuilder.SetBatteryCache(CreateNullBatteryCache);
 end;
 
 procedure TDeviceDisplayItemBuilderTests.TearDown;

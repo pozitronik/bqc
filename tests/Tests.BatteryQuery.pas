@@ -99,6 +99,46 @@ type
     procedure Execute_QueryThrowsException_CallsCallbackWithUnknown;
   end;
 
+  /// <summary>
+  /// Tests for TNullBatteryCache (Null Object pattern).
+  /// Verifies all operations are safe no-ops.
+  /// </summary>
+  [TestFixture]
+  TNullBatteryCacheTests = class
+  private
+    FCache: IBatteryCache;
+  public
+    [Setup]
+    procedure Setup;
+
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure GetBatteryStatus_ReturnsNotSupported;
+
+    [Test]
+    procedure SetBatteryStatus_DoesNotCrash;
+
+    [Test]
+    procedure HasCachedStatus_ReturnsFalse;
+
+    [Test]
+    procedure RequestRefresh_DoesNotCrash;
+
+    [Test]
+    procedure RequestRefreshAll_DoesNotCrash;
+
+    [Test]
+    procedure Clear_DoesNotCrash;
+
+    [Test]
+    procedure Remove_DoesNotCrash;
+
+    [Test]
+    procedure OnQueryCompleted_CanBeSet;
+  end;
+
   [TestFixture]
   TBatteryCacheTests = class
   private
@@ -407,6 +447,82 @@ begin
   Assert.IsFalse(CallbackStatus.HasLevel, 'Status should not have level for Unknown');
 end;
 
+{ TNullBatteryCacheTests }
+
+procedure TNullBatteryCacheTests.Setup;
+begin
+  FCache := CreateNullBatteryCache;
+end;
+
+procedure TNullBatteryCacheTests.TearDown;
+begin
+  FCache := nil;
+end;
+
+procedure TNullBatteryCacheTests.GetBatteryStatus_ReturnsNotSupported;
+var
+  Status: TBatteryStatus;
+begin
+  Status := FCache.GetBatteryStatus($001122334455);
+
+  Assert.IsFalse(Status.IsSupported, 'Null cache should return NotSupported');
+  Assert.IsFalse(Status.HasLevel, 'Null cache should not have level');
+end;
+
+procedure TNullBatteryCacheTests.SetBatteryStatus_DoesNotCrash;
+begin
+  // Should silently do nothing
+  FCache.SetBatteryStatus($001122334455, TBatteryStatus.Create(75));
+
+  // Verify it didn't store the value
+  Assert.IsFalse(FCache.HasCachedStatus($001122334455));
+end;
+
+procedure TNullBatteryCacheTests.HasCachedStatus_ReturnsFalse;
+begin
+  Assert.IsFalse(FCache.HasCachedStatus($001122334455));
+end;
+
+procedure TNullBatteryCacheTests.RequestRefresh_DoesNotCrash;
+begin
+  // Should silently do nothing
+  FCache.RequestRefresh($001122334455);
+  Assert.Pass;
+end;
+
+procedure TNullBatteryCacheTests.RequestRefreshAll_DoesNotCrash;
+var
+  Addresses: TArray<UInt64>;
+begin
+  Addresses := [$111111111111, $222222222222, $333333333333];
+
+  // Should silently do nothing
+  FCache.RequestRefreshAll(Addresses);
+  Assert.Pass;
+end;
+
+procedure TNullBatteryCacheTests.Clear_DoesNotCrash;
+begin
+  // Should silently do nothing
+  FCache.Clear;
+  Assert.Pass;
+end;
+
+procedure TNullBatteryCacheTests.Remove_DoesNotCrash;
+begin
+  // Should silently do nothing
+  FCache.Remove($001122334455);
+  Assert.Pass;
+end;
+
+procedure TNullBatteryCacheTests.OnQueryCompleted_CanBeSet;
+begin
+  // Setting OnQueryCompleted to nil should not crash
+  FCache.OnQueryCompleted := nil;
+  // Getting OnQueryCompleted should return nil
+  Assert.IsFalse(Assigned(FCache.OnQueryCompleted), 'Should return nil handler');
+end;
+
 { TBatteryCacheTests }
 
 procedure TBatteryCacheTests.Setup;
@@ -523,6 +639,7 @@ initialization
   TDUnitX.RegisterTestFixture(TBatteryQueryStrategyTests);
   TDUnitX.RegisterTestFixture(TBatteryQueryTests);
   TDUnitX.RegisterTestFixture(TSyncBatteryQueryExecutorTests);
+  TDUnitX.RegisterTestFixture(TNullBatteryCacheTests);
   TDUnitX.RegisterTestFixture(TBatteryCacheTests);
 
 end.

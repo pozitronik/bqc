@@ -127,6 +127,28 @@ type
   end;
 
   /// <summary>
+  /// Null Object implementation of IBatteryCache.
+  /// All operations are safe no-ops. Used when battery feature is disabled.
+  /// Eliminates null checks throughout the codebase.
+  /// </summary>
+  TNullBatteryCache = class(TInterfacedObject, IBatteryCache)
+  private
+    FOnQueryCompleted: TBatteryQueryCompletedEvent;
+  public
+    function GetBatteryStatus(ADeviceAddress: UInt64): TBatteryStatus;
+    procedure SetBatteryStatus(ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
+    function HasCachedStatus(ADeviceAddress: UInt64): Boolean;
+    procedure RequestRefresh(ADeviceAddress: UInt64);
+    procedure RequestRefreshAll(const ADeviceAddresses: TArray<UInt64>);
+    procedure Clear;
+    procedure Remove(ADeviceAddress: UInt64);
+    function GetOnQueryCompleted: TBatteryQueryCompletedEvent;
+    procedure SetOnQueryCompleted(AValue: TBatteryQueryCompletedEvent);
+    property OnQueryCompleted: TBatteryQueryCompletedEvent
+      read GetOnQueryCompleted write SetOnQueryCompleted;
+  end;
+
+  /// <summary>
   /// Implementation of IBatteryCache for caching battery levels.
   /// Thread-safe cache that delegates async execution to IBatteryQueryExecutor.
   /// SRP: This class focuses on cache storage and event coordination only.
@@ -206,6 +228,12 @@ function CreateBatteryCacheWithExecutor(AExecutor: IBatteryQueryExecutor): IBatt
 /// Factory function for dependency injection.
 /// </summary>
 function CreateBatteryCache(ABatteryQuery: IBatteryQuery): IBatteryCache;
+
+/// <summary>
+/// Creates a null battery cache (Null Object pattern).
+/// All operations are safe no-ops. Use when battery feature is disabled.
+/// </summary>
+function CreateNullBatteryCache: IBatteryCache;
 
 /// <summary>
 /// Queries battery level for a Bluetooth device.
@@ -1545,6 +1573,54 @@ begin
     ACallback(ADeviceAddress, Status);
 end;
 
+{ TNullBatteryCache }
+
+function TNullBatteryCache.GetBatteryStatus(ADeviceAddress: UInt64): TBatteryStatus;
+begin
+  Result := TBatteryStatus.NotSupported;
+end;
+
+procedure TNullBatteryCache.SetBatteryStatus(ADeviceAddress: UInt64;
+  const AStatus: TBatteryStatus);
+begin
+  // No-op: null object ignores all writes
+end;
+
+function TNullBatteryCache.HasCachedStatus(ADeviceAddress: UInt64): Boolean;
+begin
+  Result := False;
+end;
+
+procedure TNullBatteryCache.RequestRefresh(ADeviceAddress: UInt64);
+begin
+  // No-op: null object never refreshes
+end;
+
+procedure TNullBatteryCache.RequestRefreshAll(const ADeviceAddresses: TArray<UInt64>);
+begin
+  // No-op: null object never refreshes
+end;
+
+procedure TNullBatteryCache.Clear;
+begin
+  // No-op: nothing to clear
+end;
+
+procedure TNullBatteryCache.Remove(ADeviceAddress: UInt64);
+begin
+  // No-op: nothing to remove
+end;
+
+function TNullBatteryCache.GetOnQueryCompleted: TBatteryQueryCompletedEvent;
+begin
+  Result := FOnQueryCompleted;
+end;
+
+procedure TNullBatteryCache.SetOnQueryCompleted(AValue: TBatteryQueryCompletedEvent);
+begin
+  FOnQueryCompleted := AValue;
+end;
+
 { TBatteryCache }
 
 constructor TBatteryCache.Create(AExecutor: IBatteryQueryExecutor);
@@ -1703,6 +1779,11 @@ end;
 function CreateBatteryCache(ABatteryQuery: IBatteryQuery): IBatteryCache;
 begin
   Result := TBatteryCache.Create(CreateAsyncBatteryQueryExecutor(ABatteryQuery));
+end;
+
+function CreateNullBatteryCache: IBatteryCache;
+begin
+  Result := TNullBatteryCache.Create;
 end;
 
 end.

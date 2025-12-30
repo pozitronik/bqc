@@ -208,17 +208,12 @@ var
 begin
   LastSeenFormat := FAppearanceConfig.LastSeenFormat;
 
-  // Get battery status from cache if available and enabled
-  if (FBatteryCache <> nil) and FAppearanceConfig.ShowBatteryLevel then
-  begin
-    BatteryStatus := FBatteryCache.GetBatteryStatus(ADevice.AddressInt);
-    BatteryText := TDeviceFormatter.FormatBatteryLevel(BatteryStatus);
-  end
+  // Get battery status from cache (null object returns NotSupported when disabled)
+  BatteryStatus := FBatteryCache.GetBatteryStatus(ADevice.AddressInt);
+  if BatteryStatus.IsSupported then
+    BatteryText := TDeviceFormatter.FormatBatteryLevel(BatteryStatus)
   else
-  begin
-    BatteryStatus := TBatteryStatus.NotSupported;
     BatteryText := '';
-  end;
 
   // Get device profiles if enabled and device is connected
   // Per-device override: -1=Global, 0=No, 1=Yes

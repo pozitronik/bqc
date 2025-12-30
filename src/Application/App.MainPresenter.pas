@@ -316,14 +316,20 @@ var
 begin
   LogDebug('Initialize: Starting', ClassName);
 
-  // Create battery cache if battery display is enabled
+  // Create battery cache - use real cache when enabled, null object when disabled
+  // Null Object pattern eliminates null checks throughout the codebase
   if FAppearanceConfig.ShowBatteryLevel then
   begin
     LogDebug('Initialize: Creating battery cache', ClassName);
     FBatteryCache := CreateBatteryCache(CreateBatteryQuery);
-    FBatteryCache.OnQueryCompleted := HandleBatteryQueryCompleted;
-    FDisplayItemBuilder.SetBatteryCache(FBatteryCache);
+  end
+  else
+  begin
+    LogDebug('Initialize: Using null battery cache (feature disabled)', ClassName);
+    FBatteryCache := CreateNullBatteryCache;
   end;
+  FBatteryCache.OnQueryCompleted := HandleBatteryQueryCompleted;
+  FDisplayItemBuilder.SetBatteryCache(FBatteryCache);
 
   // Wire up Bluetooth service event handlers
   FBluetoothService.OnDeviceStateChanged := HandleDeviceStateChanged;
@@ -749,7 +755,7 @@ begin
         // Do NOT request immediate refresh because Windows device properties (used by
         // SetupAPI) take several seconds to update after device reconnects.
         // Schedule delayed refresh to get accurate battery level.
-        if (FBatteryCache <> nil) and FAppearanceConfig.ShowBatteryLevel then
+        if FAppearanceConfig.ShowBatteryLevel then
         begin
           FBatteryCache.SetBatteryStatus(LDevice.AddressInt, TBatteryStatus.Pending);
           ScheduleDelayedBatteryRefresh(LDevice.AddressInt, BATTERY_REFRESH_DELAY_MS);
@@ -760,8 +766,7 @@ begin
         // Update LastSeen on disconnect - this is the last time device was active
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
         // Invalidate battery cache so next connect won't show stale value
-        if FBatteryCache <> nil then
-          FBatteryCache.Remove(LDevice.AddressInt);
+        FBatteryCache.Remove(LDevice.AddressInt);
       end
       else
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, 0);
@@ -848,9 +853,8 @@ var
   I, Count: Integer;
   Device: TBluetoothDeviceInfo;
 begin
-  if FBatteryCache = nil then
-    Exit;
-
+  // Skip if battery display is disabled (null object will no-op anyway,
+  // but this avoids collecting addresses unnecessarily)
   if not FAppearanceConfig.ShowBatteryLevel then
     Exit;
 
@@ -880,9 +884,6 @@ var
   LAddress: UInt64;
   LBatteryCache: IBatteryCache;
 begin
-  if FBatteryCache = nil then
-    Exit;
-
   LAddress := AAddress;
   LBatteryCache := FBatteryCache;
 
@@ -892,8 +893,8 @@ begin
       TThread.Queue(nil,
         procedure
         begin
-          if LBatteryCache <> nil then
-            LBatteryCache.RequestRefresh(LAddress);
+          // LBatteryCache is always valid (real or null object)
+          LBatteryCache.RequestRefresh(LAddress);
         end
       );
     end,
