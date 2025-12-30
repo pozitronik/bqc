@@ -201,6 +201,8 @@ type
 
     // Call counts for verification
     FShowDisplayItemsCount: Integer;
+    FUpdateDisplayItemCount: Integer;
+    FLastUpdatedDisplayItem: TDeviceDisplayItem;
     FShowStatusCount: Integer;
     FShowNotificationCount: Integer;
     FShowViewCalled: Boolean;
@@ -249,6 +251,8 @@ type
 
     // Call counts
     property ShowDisplayItemsCount: Integer read FShowDisplayItemsCount write FShowDisplayItemsCount;
+    property UpdateDisplayItemCount: Integer read FUpdateDisplayItemCount write FUpdateDisplayItemCount;
+    property LastUpdatedDisplayItem: TDeviceDisplayItem read FLastUpdatedDisplayItem;
     property ShowStatusCount: Integer read FShowStatusCount;
     property ShowNotificationCount: Integer read FShowNotificationCount;
     property ShowViewCalled: Boolean read FShowViewCalled;
@@ -447,6 +451,7 @@ begin
   FHideViewCalled := False;
   FClearDevicesCalled := False;
   FShowDisplayItemsCount := 0;
+  FUpdateDisplayItemCount := 0;
   FShowStatusCount := 0;
   FShowNotificationCount := 0;
 end;
@@ -474,6 +479,8 @@ procedure TMockMainView.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
 var
   I: Integer;
 begin
+  Inc(FUpdateDisplayItemCount);
+  FLastUpdatedDisplayItem := AItem;
   for I := 0 to High(FDisplayItems) do
     if FDisplayItems[I].Device.AddressInt = AItem.Device.AddressInt then
     begin

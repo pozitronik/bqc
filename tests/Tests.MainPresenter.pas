@@ -38,6 +38,10 @@ type
     procedure UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
     function FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
     function GetDeviceCount: Integer;
+    /// <summary>
+    /// Exposes HandleBatteryQueryCompleted for testing single-item update behavior.
+    /// </summary>
+    procedure SimulateBatteryQueryCompleted(ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
   end;
 
   [TestFixture]
@@ -276,6 +280,12 @@ end;
 function TTestableMainPresenter.GetDeviceCount: Integer;
 begin
   Result := inherited GetDeviceCount;
+end;
+
+procedure TTestableMainPresenter.SimulateBatteryQueryCompleted(
+  ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
+begin
+  inherited HandleBatteryQueryCompleted(nil, ADeviceAddress, AStatus);
 end;
 
 { TMainPresenterTests }
@@ -1173,9 +1183,171 @@ begin
   Assert.AreEqual(UInt64(0), Found.AddressInt, 'Should return empty record for non-existent address');
 end;
 
+{ TBatteryQueryCompletionTests }
+
+/// <summary>
+/// Tests for battery query completion behavior.
+/// Verifies O(1) single-item update instead of full display refresh.
+/// </summary>
+type
+  [TestFixture]
+  TBatteryQueryCompletionTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
+    FPresenter: TTestableMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure BatteryQueryCompleted_ExistingDevice_CallsUpdateDisplayItem;
+
+    [Test]
+    procedure BatteryQueryCompleted_ExistingDevice_DoesNotCallShowDisplayItems;
+
+    [Test]
+    procedure BatteryQueryCompleted_NonExistingDevice_DoesNotCallUpdateDisplayItem;
+
+    [Test]
+    procedure BatteryQueryCompleted_ExistingDevice_UpdatesCorrectDevice;
+  end;
+
+procedure TBatteryQueryCompletionTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  FBluetoothService := TMockBluetoothService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
+  FPresenter := nil;
+end;
+
+procedure TBatteryQueryCompletionTests.TearDown;
+begin
+  FPresenter.Free;
+end;
+
+procedure TBatteryQueryCompletionTests.CreatePresenter;
+begin
+  FPresenter := TTestableMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FRadioStateManager,
+    FAsyncExecutor,
+    FBluetoothService,
+    FDisplayItemBuilder
+  );
+end;
+
+procedure TBatteryQueryCompletionTests.BatteryQueryCompleted_ExistingDevice_CallsUpdateDisplayItem;
+var
+  Device: TBluetoothDeviceInfo;
+  BatteryStatus: TBatteryStatus;
+begin
+  // Arrange: Create presenter and add a device to its list
+  CreatePresenter;
+  Device := CreateTestDevice($001122334455, 'Test Headphones', btAudioOutput, csConnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  FView.UpdateDisplayItemCount := 0;  // Reset counter after any setup calls
+
+  // Act: Simulate battery query completion
+  BatteryStatus := TBatteryStatus.Create(75);
+  FPresenter.SimulateBatteryQueryCompleted($001122334455, BatteryStatus);
+
+  // Assert: UpdateDisplayItem should be called once
+  Assert.AreEqual(1, FView.UpdateDisplayItemCount,
+    'UpdateDisplayItem should be called exactly once for single device battery update');
+end;
+
+procedure TBatteryQueryCompletionTests.BatteryQueryCompleted_ExistingDevice_DoesNotCallShowDisplayItems;
+var
+  Device: TBluetoothDeviceInfo;
+  BatteryStatus: TBatteryStatus;
+  InitialShowCount: Integer;
+begin
+  // Arrange: Create presenter and add a device
+  CreatePresenter;
+  Device := CreateTestDevice($001122334455, 'Test Headphones', btAudioOutput, csConnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  InitialShowCount := FView.ShowDisplayItemsCount;  // Capture initial count
+
+  // Act: Simulate battery query completion
+  BatteryStatus := TBatteryStatus.Create(50);
+  FPresenter.SimulateBatteryQueryCompleted($001122334455, BatteryStatus);
+
+  // Assert: ShowDisplayItems should NOT be called (no full refresh)
+  Assert.AreEqual(InitialShowCount, FView.ShowDisplayItemsCount,
+    'ShowDisplayItems should not be called - battery update uses single-item update');
+end;
+
+procedure TBatteryQueryCompletionTests.BatteryQueryCompleted_NonExistingDevice_DoesNotCallUpdateDisplayItem;
+var
+  BatteryStatus: TBatteryStatus;
+begin
+  // Arrange: Create presenter with empty device list
+  CreatePresenter;
+  FView.UpdateDisplayItemCount := 0;
+
+  // Act: Simulate battery query for non-existent device
+  BatteryStatus := TBatteryStatus.Create(100);
+  FPresenter.SimulateBatteryQueryCompleted($999999999999, BatteryStatus);
+
+  // Assert: No update should occur
+  Assert.AreEqual(0, FView.UpdateDisplayItemCount,
+    'UpdateDisplayItem should not be called for non-existent device');
+end;
+
+procedure TBatteryQueryCompletionTests.BatteryQueryCompleted_ExistingDevice_UpdatesCorrectDevice;
+var
+  Device1, Device2: TBluetoothDeviceInfo;
+  BatteryStatus: TBatteryStatus;
+begin
+  // Arrange: Create presenter and add multiple devices
+  CreatePresenter;
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csConnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FView.UpdateDisplayItemCount := 0;
+
+  // Act: Simulate battery query for Device 2
+  BatteryStatus := TBatteryStatus.Create(85);
+  FPresenter.SimulateBatteryQueryCompleted($222222222222, BatteryStatus);
+
+  // Assert: Correct device address should be updated
+  Assert.AreEqual(UInt64($222222222222), FView.LastUpdatedDisplayItem.Device.AddressInt,
+    'Should update the correct device by address');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TMainPresenterTests);
   TDUnitX.RegisterTestFixture(TDelayedLoadTests);
   TDUnitX.RegisterTestFixture(TDeviceIndexMapTests);
+  TDUnitX.RegisterTestFixture(TBatteryQueryCompletionTests);
 
 end.

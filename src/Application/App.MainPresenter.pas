@@ -71,8 +71,6 @@ type
     procedure HandleDeviceListChanged(Sender: TObject);
     procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
-    procedure HandleBatteryQueryCompleted(Sender: TObject; ADeviceAddress: UInt64;
-      const AStatus: TBatteryStatus);
 
     procedure RefreshBatteryForConnectedDevices;
     procedure ScheduleDelayedBatteryRefresh(AAddress: UInt64; ADelayMs: Integer);
@@ -109,6 +107,14 @@ type
     procedure SetToggleStateSafe(AState: Boolean);
 
   protected
+    /// <summary>
+    /// Handles battery query completion event.
+    /// Updates single display item using O(1) lookup instead of full refresh.
+    /// Protected for testability.
+    /// </summary>
+    procedure HandleBatteryQueryCompleted(Sender: TObject; ADeviceAddress: UInt64;
+      const AStatus: TBatteryStatus);
+
     /// <summary>
     /// Updates existing device or adds new one.
     /// Uses O(1) dictionary lookup + O(1) list update/append.
@@ -815,10 +821,25 @@ end;
 
 procedure TMainPresenter.HandleBatteryQueryCompleted(Sender: TObject;
   ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
+var
+  Device: TBluetoothDeviceInfo;
+  DisplayItem: TDeviceDisplayItem;
 begin
   LogDebug('HandleBatteryQueryCompleted: Address=$%.12X, Level=%d', [ADeviceAddress, AStatus.Level], ClassName);
-  // Rebuild display items to show updated battery level
-  RefreshDisplayItems;
+
+  // Find the device in our cache - O(1) lookup
+  Device := FindDeviceByAddress(ADeviceAddress);
+  if Device.AddressInt = 0 then
+  begin
+    LogDebug('HandleBatteryQueryCompleted: Device not found, skipping update', ClassName);
+    Exit;
+  end;
+
+  // Build single display item and update UI - O(1) update instead of O(n) full rebuild
+  // Battery level doesn't affect sort order, so single-item update is safe
+  DisplayItem := FDisplayItemBuilder.BuildDisplayItem(Device);
+  FDeviceListView.UpdateDisplayItem(DisplayItem);
+  LogDebug('HandleBatteryQueryCompleted: Updated single display item', ClassName);
 end;
 
 procedure TMainPresenter.RefreshBatteryForConnectedDevices;
