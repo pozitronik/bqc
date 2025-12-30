@@ -18,7 +18,7 @@ interface
 
 uses
   Winapi.Windows,
-  UI.DeviceList;
+  App.DeviceDisplayTypes;
 
 type
   /// <summary>

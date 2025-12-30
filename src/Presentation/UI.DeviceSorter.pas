@@ -13,7 +13,7 @@ unit UI.DeviceSorter;
 interface
 
 uses
-  UI.DeviceList;
+  App.DeviceDisplayTypes;
 
 type
   /// <summary>

@@ -23,7 +23,7 @@ uses
   App.AppearanceConfigIntf,
   App.ConnectionConfigIntf,
   App.AsyncExecutor,
-  UI.DeviceList,
+  App.DeviceDisplayTypes,
   UI.DeviceDisplayItemBuilder;
 
 type

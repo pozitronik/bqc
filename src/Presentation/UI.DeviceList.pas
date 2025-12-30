@@ -27,7 +27,8 @@ uses
   App.ConfigInterfaces,
   App.LayoutConfigIntf,
   App.AppearanceConfigIntf,
-  App.ProfileConfigIntf;
+  App.ProfileConfigIntf,
+  App.DeviceDisplayTypes;
 
 type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
@@ -80,54 +81,6 @@ type
     ShowLastSeen: Boolean;
     ConnectedColor: TColor;
   end;
-
-  /// <summary>
-  /// Pre-processed display item for device list rendering.
-  /// Contains all data needed for display without further config lookups.
-  /// Created by presenter, consumed by view (Information Expert pattern).
-  /// </summary>
-  TDeviceDisplayItem = record
-    /// <summary>Original device data from Bluetooth service.</summary>
-    Device: TBluetoothDeviceInfo;
-
-    /// <summary>Display name (alias if set, otherwise device name).</summary>
-    DisplayName: string;
-
-    /// <summary>Whether device is pinned to top of list.</summary>
-    IsPinned: Boolean;
-
-    /// <summary>Effective device type (override or auto-detected).</summary>
-    EffectiveDeviceType: TBluetoothDeviceType;
-
-    /// <summary>Pre-formatted last seen text based on appearance config.</summary>
-    LastSeenText: string;
-
-    /// <summary>Raw last seen value for sorting.</summary>
-    LastSeen: TDateTime;
-
-    /// <summary>Sort group: 0=Pinned, 1=Connected (not pinned), 2=Disconnected.</summary>
-    SortGroup: Integer;
-
-    /// <summary>Battery status for devices supporting Battery Service.</summary>
-    BatteryStatus: TBatteryStatus;
-
-    /// <summary>Pre-formatted battery text (e.g., "85%").</summary>
-    BatteryText: string;
-
-    /// <summary>Array of Bluetooth profiles available for this device.</summary>
-    Profiles: TBluetoothProfileArray;
-
-    /// <summary>Creates a display item from device and config data.</summary>
-    class function Create(const ADevice: TBluetoothDeviceInfo;
-      const ADisplayName: string; AIsPinned: Boolean;
-      AEffectiveDeviceType: TBluetoothDeviceType;
-      const ALastSeenText: string; ALastSeen: TDateTime;
-      ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
-      const ABatteryText: string;
-      const AProfiles: TBluetoothProfileArray): TDeviceDisplayItem; static;
-  end;
-
-  TDeviceDisplayItemArray = TArray<TDeviceDisplayItem>;
 
   TDeviceDisplayItemClickEvent = procedure(Sender: TObject;
     const AItem: TDeviceDisplayItem) of object;
@@ -286,57 +239,6 @@ const
   // Default control dimensions
   DEFAULT_CONTROL_WIDTH = 300;
   DEFAULT_CONTROL_HEIGHT = 400;
-
-{ TDeviceDisplayItem }
-
-{ TODO: Consider refactoring to builder pattern if requirements change.
-  Current design analysis (2024-12):
-
-  This factory method takes 7 parameters, which could suggest a builder pattern.
-  However, after analysis, the current approach was retained because:
-
-  1. All parameters are REQUIRED - there are no optional fields with defaults.
-     A builder pattern primarily benefits when you have optional parameters
-     that vary by call site.
-
-  2. Single creation site - TDeviceDisplayItemBuilder.BuildDisplayItem is the
-     only production code that calls this method. Test code creates instances
-     directly but this is acceptable for testing.
-
-  3. TDeviceDisplayItemBuilder already serves as a conceptual builder - it
-     gathers data from multiple sources (device info, config, formatter)
-     and produces the display item.
-
-  When to reconsider this decision:
-  - If new optional fields are added (e.g., custom icons, badges)
-  - If multiple creation sites emerge with different parameter combinations
-  - If the parameter list grows beyond 10 parameters
-
-  Alternative patterns considered:
-  - Full builder class: TDisplayItemBuilder.ForDevice(D).WithPinned(P)...Build
-  - Parameter object record: TDeviceDisplayItemParams with all fields
-  - Named parameter simulation via fluent interface
-
-  See also: TDeviceDisplayItemBuilder in UI.DeviceDisplayItemBuilder.pas }
-class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
-  const ADisplayName: string; AIsPinned: Boolean;
-  AEffectiveDeviceType: TBluetoothDeviceType;
-  const ALastSeenText: string; ALastSeen: TDateTime;
-  ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
-  const ABatteryText: string;
-  const AProfiles: TBluetoothProfileArray): TDeviceDisplayItem;
-begin
-  Result.Device := ADevice;
-  Result.DisplayName := ADisplayName;
-  Result.IsPinned := AIsPinned;
-  Result.EffectiveDeviceType := AEffectiveDeviceType;
-  Result.LastSeenText := ALastSeenText;
-  Result.LastSeen := ALastSeen;
-  Result.SortGroup := ASortGroup;
-  Result.BatteryStatus := ABatteryStatus;
-  Result.BatteryText := ABatteryText;
-  Result.Profiles := AProfiles;
-end;
 
 { TDeviceListBox }
 

@@ -21,7 +21,7 @@ uses
   App.DeviceConfigTypes,
   App.AppearanceConfigIntf,
   App.ProfileConfigIntf,
-  UI.DeviceList;
+  App.DeviceDisplayTypes;
 
 type
   /// <summary>

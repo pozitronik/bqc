@@ -109,6 +109,7 @@ uses
   App.SettingsPresenter in '..\src\Application\App.SettingsPresenter.pas',
   App.MainPresenter in '..\src\Application\App.MainPresenter.pas',
   App.MainViewInterfaces in '..\src\Application\App.MainViewInterfaces.pas',
+  App.DeviceDisplayTypes in '..\src\Application\App.DeviceDisplayTypes.pas',
   App.Autostart in '..\src\Infrastructure\App.Autostart.pas',
   UI.DeviceList in '..\src\Presentation\UI.DeviceList.pas',
   UI.ListGeometry in '..\src\Presentation\UI.ListGeometry.pas',

@@ -15,7 +15,7 @@ uses
   System.DateUtils,
   Bluetooth.Types,
   App.ConfigInterfaces,
-  UI.DeviceList,
+  App.DeviceDisplayTypes,
   UI.DeviceSorter,
   Tests.Mocks;
 

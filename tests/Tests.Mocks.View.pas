@@ -16,7 +16,7 @@ uses
   Bluetooth.Types,
   App.MainViewInterfaces,
   App.SettingsPresenter,
-  UI.DeviceList;
+  App.DeviceDisplayTypes;
 
 type
   /// <summary>

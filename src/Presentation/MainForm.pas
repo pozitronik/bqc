@@ -32,6 +32,7 @@ uses
   App.MainViewInterfaces,
   App.MainPresenter,
   App.AsyncExecutor,
+  App.DeviceDisplayTypes,
   UI.Theme,
   UI.DeviceList,
   UI.TrayManager,
