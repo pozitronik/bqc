@@ -119,7 +119,8 @@ uses
   Bluetooth.DeviceRepository,
   Bluetooth.ConnectionExecutor,
   Bluetooth.AdapterQuery,
-  Bluetooth.EventDebouncer;
+  Bluetooth.EventDebouncer,
+  App.SystemClock;
 
 function CreateBluetoothService(
   APollingConfig: IPollingConfig;
@@ -132,7 +133,7 @@ var
   Debouncer: IEventDebouncer;
 begin
   MonitorFactory := TDeviceMonitorFactory.Create(APollingConfig);
-  Debouncer := TDeviceEventDebouncer.Create(500); // 500ms default debounce interval
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 500);
   Result := TBluetoothService.Create(
     AConnectionConfig,
     ADeviceConfigProvider,

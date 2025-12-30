@@ -24,7 +24,8 @@ uses
   Bluetooth.DeviceConverter,
   Bluetooth.WinRTDeviceQuery,
   App.ConfigEnums,
-  App.ConnectionConfigIntf;
+  App.ConnectionConfigIntf,
+  App.SystemClock;
 
 type
   /// <summary>
@@ -46,8 +47,9 @@ type
   private
     FCache: TDictionary<UInt64, TRegistryNameCacheEntry>;
     FCacheExpirySeconds: Integer;
+    FClock: ISystemClock;
   public
-    constructor Create(ACacheExpirySeconds: Integer = 60);
+    constructor Create(AClock: ISystemClock; ACacheExpirySeconds: Integer = 60);
     destructor Destroy; override;
 
     /// <summary>
@@ -303,11 +305,14 @@ end;
 
 { TRegistryNameCache }
 
-constructor TRegistryNameCache.Create(ACacheExpirySeconds: Integer);
+constructor TRegistryNameCache.Create(AClock: ISystemClock;
+  ACacheExpirySeconds: Integer);
 begin
   inherited Create;
+  Assert(AClock <> nil, 'ISystemClock is required');
   FCache := TDictionary<UInt64, TRegistryNameCacheEntry>.Create;
   FCacheExpirySeconds := ACacheExpirySeconds;
+  FClock := AClock;
 end;
 
 destructor TRegistryNameCache.Destroy;
@@ -328,7 +333,7 @@ begin
   if FCache.TryGetValue(AAddress, Entry) then
   begin
     // Check if entry is still valid (not expired)
-    if SecondsBetween(Now, Entry.Timestamp) < FCacheExpirySeconds then
+    if SecondsBetween(FClock.Now, Entry.Timestamp) < FCacheExpirySeconds then
     begin
       AName := Entry.Name;
       AFound := Entry.Found;
@@ -348,7 +353,7 @@ var
   Entry: TRegistryNameCacheEntry;
 begin
   Entry.Name := AName;
-  Entry.Timestamp := Now;
+  Entry.Timestamp := FClock.Now;
   Entry.Found := AFound;
   FCache.AddOrSetValue(AAddress, Entry);
 end;
@@ -444,7 +449,7 @@ begin
   FWin32Query := TWindowsBluetoothDeviceQuery.Create;
   FWinRTQuery := CreateWinRTBluetoothDeviceQuery;
   FConnectionConfig := AConnectionConfig;
-  FRegistryNameCache := TRegistryNameCache.Create(60);  // 60 second expiry
+  FRegistryNameCache := TRegistryNameCache.Create(SystemClock, 60);
 end;
 
 destructor TCompositeBluetoothDeviceQuery.Destroy;

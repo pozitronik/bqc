@@ -11,11 +11,13 @@ interface
 
 uses
   System.SysUtils,
+  System.DateUtils,
   System.Generics.Collections,
   App.ConfigEnums,
   App.Autostart,
   App.AsyncExecutor,
   App.LogConfigIntf,
+  App.SystemClock,
   UI.Theme;
 
 type
@@ -177,6 +179,40 @@ type
 
     /// <summary>Delay value from most recent RunDelayed call.</summary>
     property LastDelayMs: Integer read FLastDelayMs;
+  end;
+
+  /// <summary>
+  /// Mock implementation of ISystemClock for testing.
+  /// Provides controllable time for deterministic tests.
+  /// </summary>
+  TMockSystemClock = class(TInterfacedObject, ISystemClock)
+  private
+    FCurrentTime: TDateTime;
+    FNowCallCount: Integer;
+  public
+    constructor Create;
+
+    // ISystemClock
+    function Now: TDateTime;
+
+    /// <summary>
+    /// Advances time by the specified number of milliseconds.
+    /// </summary>
+    procedure AdvanceMs(AMilliseconds: Integer);
+
+    /// <summary>
+    /// Advances time by the specified number of seconds.
+    /// </summary>
+    procedure AdvanceSeconds(ASeconds: Integer);
+
+    /// <summary>
+    /// The current time value returned by Now.
+    /// Set this to control what time the mock reports.
+    /// </summary>
+    property CurrentTime: TDateTime read FCurrentTime write FCurrentTime;
+
+    /// <summary>Number of times Now was called.</summary>
+    property NowCallCount: Integer read FNowCallCount;
   end;
 
 implementation
@@ -496,6 +532,32 @@ procedure TMockAsyncExecutor.ClearPending;
 begin
   FPendingProcs.Clear;
   FPendingDelays.Clear;
+end;
+
+{ TMockSystemClock }
+
+constructor TMockSystemClock.Create;
+begin
+  inherited Create;
+  // Default to a fixed known time for predictable tests
+  FCurrentTime := EncodeDateTime(2024, 6, 15, 12, 0, 0, 0);
+  FNowCallCount := 0;
+end;
+
+function TMockSystemClock.Now: TDateTime;
+begin
+  Inc(FNowCallCount);
+  Result := FCurrentTime;
+end;
+
+procedure TMockSystemClock.AdvanceMs(AMilliseconds: Integer);
+begin
+  FCurrentTime := IncMilliSecond(FCurrentTime, AMilliseconds);
+end;
+
+procedure TMockSystemClock.AdvanceSeconds(ASeconds: Integer);
+begin
+  FCurrentTime := IncSecond(FCurrentTime, ASeconds);
 end;
 
 end.

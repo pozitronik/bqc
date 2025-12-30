@@ -17,7 +17,9 @@ uses
   System.SyncObjs,
   Bluetooth.Types,
   Bluetooth.Interfaces,
-  Bluetooth.EventDebouncer;
+  Bluetooth.EventDebouncer,
+  App.SystemClock,
+  Tests.Mocks.Infrastructure;
 
 type
   /// <summary>
@@ -181,6 +183,55 @@ type
     procedure ShouldProcess_WithVeryShortDebounce_AllowsQuickReprocess;
   end;
 
+  /// <summary>
+  /// Test fixture for debouncer with injectable clock.
+  /// These tests demonstrate the value of ISystemClock abstraction by
+  /// testing exact timing boundaries without Sleep() calls.
+  /// </summary>
+  [TestFixture]
+  TDebouncerClockTests = class
+  private
+    FDebouncer: TDeviceEventDebouncer;
+    FMockClock: TMockSystemClock;
+    FClockRef: ISystemClock; // Prevents premature release of FMockClock
+    const
+      TEST_ADDRESS = UInt64($AABBCCDDEEFF);
+      DEBOUNCE_MS = 500;
+  public
+    [Setup]
+    procedure Setup;
+
+    [TearDown]
+    procedure TearDown;
+
+    { Exact boundary tests - impossible without clock control }
+    [Test]
+    procedure ShouldProcess_ExactlyAtDebounceThreshold_AllowsEvent;
+
+    [Test]
+    procedure ShouldProcess_OneMillisecondBeforeThreshold_FiltersEvent;
+
+    [Test]
+    procedure ShouldProcess_OneMillisecondAfterThreshold_AllowsEvent;
+
+    { Time progression without Sleep - fast, deterministic tests }
+    [Test]
+    procedure ShouldProcess_TimeAdvancedPastDebounce_AllowsReprocess;
+
+    [Test]
+    procedure ShouldProcess_MultipleTimeAdvancements_TracksCorrectly;
+
+    { Edge cases only testable with clock control }
+    [Test]
+    procedure ShouldProcess_ClockGoesBackward_HandlesGracefully;
+
+    [Test]
+    procedure ShouldProcess_VeryLongTimeBetweenEvents_AllowsReprocess;
+
+    [Test]
+    procedure ShouldProcess_ExactlyZeroElapsed_FiltersEvent;
+  end;
+
 implementation
 
 { TDeviceEventDebouncerTests }
@@ -188,7 +239,7 @@ implementation
 procedure TDeviceEventDebouncerTests.Setup;
 begin
   // Create with short debounce for faster tests
-  FDebouncer := TDeviceEventDebouncer.Create(100);
+  FDebouncer := TDeviceEventDebouncer.Create(SystemClock, 100);
 end;
 
 procedure TDeviceEventDebouncerTests.TearDown;
@@ -200,7 +251,7 @@ procedure TDeviceEventDebouncerTests.Create_DefaultDebounceMs_Is500;
 var
   Debouncer: TDeviceEventDebouncer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create;
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock);
   try
     Assert.AreEqual(500, Debouncer.DebounceMs);
   finally
@@ -212,7 +263,7 @@ procedure TDeviceEventDebouncerTests.Create_CustomDebounceMs_SetsValue;
 var
   Debouncer: TDeviceEventDebouncer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(1000);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 1000);
   try
     Assert.AreEqual(1000, Debouncer.DebounceMs);
   finally
@@ -224,7 +275,7 @@ procedure TDeviceEventDebouncerTests.Create_ZeroDebounceMs_AllowsImmediateReproc
 var
   Debouncer: TDeviceEventDebouncer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(0);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 0);
   try
     // First call
     Assert.IsTrue(Debouncer.ShouldProcess(TEST_ADDRESS_1, detConnect, csConnected));
@@ -240,7 +291,7 @@ var
   Debouncer: TDeviceEventDebouncer;
 begin
   // Negative debounce should be clamped to 0 (no debounce)
-  Debouncer := TDeviceEventDebouncer.Create(-100);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, -100);
   try
     // Verify negative value was clamped to 0
     Assert.AreEqual(0, Debouncer.DebounceMs, 'Negative value should be clamped to 0');
@@ -384,7 +435,7 @@ procedure TDeviceEventDebouncerTests.DebounceMs_GetReturnsSetValue;
 var
   Debouncer: TDeviceEventDebouncer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(750);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 750);
   try
     Assert.AreEqual(750, Debouncer.DebounceMs);
   finally
@@ -397,7 +448,7 @@ var
   Debouncer: TDeviceEventDebouncer;
 begin
   // Create with large debounce
-  Debouncer := TDeviceEventDebouncer.Create(10000);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 10000);
   try
     // First event
     Assert.IsTrue(Debouncer.ShouldProcess(TEST_ADDRESS_1, detConnect, csConnected));
@@ -494,7 +545,7 @@ var
   Debouncer: TDeviceEventDebouncer;
 begin
   // Create a dedicated debouncer for this test to avoid interface reference issues
-  Debouncer := TDeviceEventDebouncer.Create(50);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 50);
   ExceptionLock := TCriticalSection.Create;
   AllDone := TEvent.Create(nil, True, False, '');
   try
@@ -581,7 +632,7 @@ var
   ThreadsFinished: Integer;
   Debouncer: TDeviceEventDebouncer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(50);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 50);
   ExceptionLock := TCriticalSection.Create;
   AllDone := TEvent.Create(nil, True, False, '');
   try
@@ -700,7 +751,7 @@ var
   ThreadsFinished: Integer;
   Debouncer: TDeviceEventDebouncer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(50);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 50);
   ExceptionLock := TCriticalSection.Create;
   AllDone := TEvent.Create(nil, True, False, '');
   try
@@ -812,7 +863,7 @@ var
   I: Integer;
   AllPassed: Boolean;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(0);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 0);
   try
     AllPassed := True;
     // With DebounceMs = 0, every call should return True
@@ -835,7 +886,7 @@ procedure TDeviceEventDebouncerTests.ShouldProcess_NegativeDebounceMs_TreatedAsZ
 var
   Debouncer: TDeviceEventDebouncer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(-500);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, -500);
   try
     // Negative value should be clamped to 0
     Assert.AreEqual(0, Debouncer.DebounceMs, 'Negative debounce should be clamped to 0');
@@ -929,7 +980,7 @@ var
   Debouncer: TDeviceEventDebouncer;
   ProcessedCount: Integer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(100);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 100);
   try
     ProcessedCount := 0;
 
@@ -963,7 +1014,7 @@ procedure TDeviceEventDebouncerTests.SetDebounceMs_Boundary_VeryLargeValue;
 var
   Debouncer: TDeviceEventDebouncer;
 begin
-  Debouncer := TDeviceEventDebouncer.Create(100);
+  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 100);
   try
     // Set to MaxInt
     Debouncer.DebounceMs := MaxInt;
@@ -995,7 +1046,7 @@ end;
 procedure TDebouncerTimingTests.Setup;
 begin
   // Use very short debounce for timing tests
-  FDebouncer := TDeviceEventDebouncer.Create(10);
+  FDebouncer := TDeviceEventDebouncer.Create(SystemClock, 10);
 end;
 
 procedure TDebouncerTimingTests.TearDown;
@@ -1019,8 +1070,151 @@ begin
     'After debounce period, event should be processed again');
 end;
 
+{ TDebouncerClockTests }
+
+procedure TDebouncerClockTests.Setup;
+begin
+  FMockClock := TMockSystemClock.Create;
+  FClockRef := FMockClock; // Hold interface ref to prevent premature release
+  FMockClock.CurrentTime := EncodeDateTime(2024, 12, 15, 10, 0, 0, 0);
+  FDebouncer := TDeviceEventDebouncer.Create(FClockRef, DEBOUNCE_MS);
+end;
+
+procedure TDebouncerClockTests.TearDown;
+begin
+  FDebouncer.Free;
+  FMockClock := nil;
+  FClockRef := nil; // Release interface reference, allowing clock destruction
+end;
+
+procedure TDebouncerClockTests.ShouldProcess_ExactlyAtDebounceThreshold_AllowsEvent;
+begin
+  // First event at T=0
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected));
+
+  // Advance clock exactly to threshold (500ms)
+  FMockClock.CurrentTime := IncMilliSecond(FMockClock.CurrentTime, DEBOUNCE_MS);
+
+  // At exactly the threshold, event should be allowed (>= comparison)
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+    'Event exactly at debounce threshold should be allowed');
+end;
+
+procedure TDebouncerClockTests.ShouldProcess_OneMillisecondBeforeThreshold_FiltersEvent;
+begin
+  // First event at T=0
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected));
+
+  // Advance clock to 499ms (1ms before threshold)
+  FMockClock.CurrentTime := IncMilliSecond(FMockClock.CurrentTime, DEBOUNCE_MS - 1);
+
+  // Should still be filtered (elapsed < debounce)
+  Assert.IsFalse(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+    'Event 1ms before threshold should be filtered');
+end;
+
+procedure TDebouncerClockTests.ShouldProcess_OneMillisecondAfterThreshold_AllowsEvent;
+begin
+  // First event at T=0
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected));
+
+  // Advance clock to 501ms (1ms after threshold)
+  FMockClock.CurrentTime := IncMilliSecond(FMockClock.CurrentTime, DEBOUNCE_MS + 1);
+
+  // Should be allowed (elapsed > debounce)
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+    'Event 1ms after threshold should be allowed');
+end;
+
+procedure TDebouncerClockTests.ShouldProcess_TimeAdvancedPastDebounce_AllowsReprocess;
+begin
+  // First event
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected));
+
+  // Immediate duplicate - filtered
+  Assert.IsFalse(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected));
+
+  // Advance time past debounce window (no Sleep needed!)
+  FMockClock.CurrentTime := IncMilliSecond(FMockClock.CurrentTime, DEBOUNCE_MS + 100);
+
+  // Should now be allowed
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+    'After time advances past debounce, event should be allowed');
+end;
+
+procedure TDebouncerClockTests.ShouldProcess_MultipleTimeAdvancements_TracksCorrectly;
+var
+  I: Integer;
+begin
+  // Process 5 events, each after debounce window
+  for I := 1 to 5 do
+  begin
+    Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+      Format('Event %d should be allowed', [I]));
+
+    // Immediate duplicate should be filtered
+    Assert.IsFalse(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+      Format('Duplicate of event %d should be filtered', [I]));
+
+    // Advance time past debounce for next iteration
+    FMockClock.CurrentTime := IncMilliSecond(FMockClock.CurrentTime, DEBOUNCE_MS + 10);
+  end;
+end;
+
+procedure TDebouncerClockTests.ShouldProcess_ClockGoesBackward_HandlesGracefully;
+begin
+  // Test with T0 = initial time from Setup
+  // Advance to T0+1000ms and record first event
+  FMockClock.CurrentTime := IncMilliSecond(FMockClock.CurrentTime, 1000);
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected));
+
+  // Clock goes backward 500ms: now at T0+500ms, last event at T0+1000ms
+  FMockClock.CurrentTime := IncMilliSecond(FMockClock.CurrentTime, -500);
+
+  // MilliSecondsBetween returns absolute value: |(T0+500) - (T0+1000)| = 500ms
+  // Debounce check: 500 < 500 is False, so event is ALLOWED (>= threshold)
+  // This behavior is reasonable: absolute time distance determines debounce expiry
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+    'When clock goes backward by exactly debounce time, event is allowed');
+  // Second event now recorded at T0+500ms
+
+  // Clock goes backward 300ms: now at T0+200ms, last event at T0+500ms
+  FMockClock.CurrentTime := IncMilliSecond(FMockClock.CurrentTime, -300);
+
+  // Elapsed = |(T0+200) - (T0+500)| = 300ms < 500ms debounce
+  Assert.IsFalse(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+    'When clock goes backward by less than debounce, event is filtered');
+end;
+
+procedure TDebouncerClockTests.ShouldProcess_VeryLongTimeBetweenEvents_AllowsReprocess;
+begin
+  // First event
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected));
+
+  // Advance time by 1 year (extreme case)
+  FMockClock.CurrentTime := IncDay(FMockClock.CurrentTime, 365);
+
+  // Should definitely be allowed
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+    'Event after very long time should be allowed');
+end;
+
+procedure TDebouncerClockTests.ShouldProcess_ExactlyZeroElapsed_FiltersEvent;
+begin
+  // First event
+  Assert.IsTrue(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected));
+
+  // Don't advance clock at all - time is frozen
+  // This is the ultimate duplicate scenario
+
+  // Should be filtered (0ms elapsed < 500ms debounce)
+  Assert.IsFalse(FDebouncer.ShouldProcess(TEST_ADDRESS, detConnect, csConnected),
+    'Event with exactly zero elapsed time should be filtered');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TDeviceEventDebouncerTests);
   TDUnitX.RegisterTestFixture(TDebouncerTimingTests);
+  TDUnitX.RegisterTestFixture(TDebouncerClockTests);
 
 end.

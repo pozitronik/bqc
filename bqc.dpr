@@ -28,6 +28,7 @@ uses
   Bluetooth.ProfileQuery in 'src\Infrastructure\Bluetooth.ProfileQuery.pas',
   App.Logger in 'src\Infrastructure\App.Logger.pas',
   App.AsyncExecutor in 'src\Infrastructure\App.AsyncExecutor.pas',
+  App.SystemClock in 'src\Infrastructure\App.SystemClock.pas',
   App.ConfigEnums in 'src\Infrastructure\App.ConfigEnums.pas',
   App.DeviceConfigTypes in 'src\Infrastructure\App.DeviceConfigTypes.pas',
   App.LayoutConfigIntf in 'src\Infrastructure\App.LayoutConfigIntf.pas',

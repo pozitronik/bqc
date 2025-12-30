@@ -106,6 +106,7 @@ uses
   App.Bootstrap in '..\src\Infrastructure\App.Bootstrap.pas',
   App.Logger in '..\src\Infrastructure\App.Logger.pas',
   App.AsyncExecutor in '..\src\Infrastructure\App.AsyncExecutor.pas',
+  App.SystemClock in '..\src\Infrastructure\App.SystemClock.pas',
   App.SettingsPresenter in '..\src\Application\App.SettingsPresenter.pas',
   App.MainPresenter in '..\src\Application\App.MainPresenter.pas',
   App.MainViewInterfaces in '..\src\Application\App.MainViewInterfaces.pas',

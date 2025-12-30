@@ -17,7 +17,8 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   Bluetooth.Types,
-  Bluetooth.Interfaces;
+  Bluetooth.Interfaces,
+  App.SystemClock;
 
 const
   // Windows fires multiple Bluetooth events for single state change
@@ -36,6 +37,7 @@ type
     FLastEvents: TDictionary<string, TDateTime>;
     FDebounceMs: Integer;
     FLock: TObject;
+    FClock: ISystemClock;
 
     function MakeKey(AAddress: UInt64; AEventType: TDeviceEventType;
       AConnectionState: TBluetoothConnectionState): string;
@@ -47,8 +49,9 @@ type
     /// <summary>
     /// Creates a debouncer with the specified debounce interval.
     /// </summary>
+    /// <param name="AClock">Clock for time source.</param>
     /// <param name="ADebounceMs">Minimum milliseconds between identical events.</param>
-    constructor Create(ADebounceMs: Integer = DEFAULT_DEBOUNCE_MS);
+    constructor Create(AClock: ISystemClock; ADebounceMs: Integer = DEFAULT_DEBOUNCE_MS);
 
     destructor Destroy; override;
 
@@ -81,9 +84,11 @@ uses
 
 { TDeviceEventDebouncer }
 
-constructor TDeviceEventDebouncer.Create(ADebounceMs: Integer);
+constructor TDeviceEventDebouncer.Create(AClock: ISystemClock;
+  ADebounceMs: Integer);
 begin
   inherited Create;
+  Assert(AClock <> nil, 'ISystemClock is required');
   FLastEvents := TDictionary<string, TDateTime>.Create;
   // Clamp negative values to 0 (no debounce)
   if ADebounceMs < 0 then
@@ -91,6 +96,7 @@ begin
   else
     FDebounceMs := ADebounceMs;
   FLock := TObject.Create;
+  FClock := AClock;
   LogDebug('Created with debounce interval=%d ms', [FDebounceMs], ClassName);
 end;
 
@@ -143,7 +149,7 @@ begin
 
     if FLastEvents.TryGetValue(Key, LastTime) then
     begin
-      ElapsedMs := MilliSecondsBetween(Now, LastTime);
+      ElapsedMs := MilliSecondsBetween(FClock.Now, LastTime);
       if ElapsedMs < FDebounceMs then
       begin
         LogDebug('Filtered duplicate event: %s (elapsed=%d ms < %d ms)',
@@ -154,7 +160,7 @@ begin
     end;
 
     // Record this event and allow processing
-    FLastEvents.AddOrSetValue(Key, Now);
+    FLastEvents.AddOrSetValue(Key, FClock.Now);
     LogDebug('Processing event: %s', [Key], ClassName);
     Result := True;
   finally

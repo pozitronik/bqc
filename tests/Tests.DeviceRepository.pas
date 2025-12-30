@@ -15,7 +15,9 @@ uses
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.DeviceRepository,
-  Tests.Mocks;
+  App.SystemClock,
+  Tests.Mocks,
+  Tests.Mocks.Infrastructure;
 
 type
   /// <summary>
@@ -156,6 +158,8 @@ type
   TRegistryNameCacheTests = class
   private
     FCache: TRegistryNameCache;
+    FMockClock: TMockSystemClock;
+    FClockRef: ISystemClock;
   public
     [Setup]
     procedure Setup;
@@ -622,12 +626,16 @@ end;
 
 procedure TRegistryNameCacheTests.Setup;
 begin
-  FCache := TRegistryNameCache.Create(60);  // 60 second expiry
+  FMockClock := TMockSystemClock.Create;
+  FClockRef := FMockClock;
+  FCache := TRegistryNameCache.Create(FClockRef, 60);  // 60 second expiry
 end;
 
 procedure TRegistryNameCacheTests.TearDown;
 begin
   FCache.Free;
+  FMockClock := nil;
+  FClockRef := nil;
 end;
 
 procedure TRegistryNameCacheTests.TryGetCached_EmptyCache_ReturnsFalse;
@@ -756,8 +764,8 @@ var
   Name: string;
   Found: Boolean;
 begin
-  // Create cache with 1-second expiry for testing
-  ShortExpiryCache := TRegistryNameCache.Create(1);
+  // Create cache with 1-second expiry using fixture's mock clock
+  ShortExpiryCache := TRegistryNameCache.Create(FClockRef, 1);
   try
     ShortExpiryCache.CacheResult($AABBCCDDEEFF, 'TestDevice', True);
 
@@ -765,12 +773,12 @@ begin
     Assert.IsTrue(ShortExpiryCache.TryGetCached($AABBCCDDEEFF, Name, Found),
       'Cache entry should be valid immediately');
 
-    // Wait for expiration
-    Sleep(1100);  // 1.1 seconds
+    // Advance mock clock past expiration - no Sleep needed!
+    FMockClock.AdvanceSeconds(2);
 
     // Should now be expired
     Assert.IsFalse(ShortExpiryCache.TryGetCached($AABBCCDDEEFF, Name, Found),
-      'Cache entry should be expired after 1.1 seconds');
+      'Cache entry should be expired after advancing clock');
   finally
     ShortExpiryCache.Free;
   end;
