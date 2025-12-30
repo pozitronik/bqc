@@ -28,6 +28,16 @@ uses
   Tests.Mocks;
 
 type
+  /// <summary>
+  /// Testable subclass that exposes protected methods for unit testing.
+  /// </summary>
+  TTestableMainPresenter = class(TMainPresenter)
+  public
+    procedure UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
+    function FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
+    function GetDeviceCount: Integer;
+  end;
+
   [TestFixture]
   TMainPresenterTests = class
   private
@@ -155,7 +165,73 @@ type
     procedure IsUpdatingToggle_ReturnsFalseAfterInitialize;
   end;
 
+  /// <summary>
+  /// Tests for device index map functionality (O(1) lookup).
+  /// Uses TTestableMainPresenter to access protected methods.
+  /// </summary>
+  [TestFixture]
+  TDeviceIndexMapTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FPollingConfig: TMockPollingConfig;
+    FConnectionConfig: TMockConnectionConfig;
+    FStrategyFactory: TMockConnectionStrategyFactory;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FPresenter: TTestableMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure FindDeviceByAddress_EmptyList_ReturnsEmptyRecord;
+
+    [Test]
+    procedure UpdateOrAddDevice_NewDevice_AddsToList;
+
+    [Test]
+    procedure UpdateOrAddDevice_NewDevice_CanBeFoundByAddress;
+
+    [Test]
+    procedure UpdateOrAddDevice_ExistingDevice_UpdatesInPlace;
+
+    [Test]
+    procedure UpdateOrAddDevice_MultipleDevices_AllCanBeFound;
+
+    [Test]
+    procedure UpdateOrAddDevice_MixedAddAndUpdate_MaintainsConsistency;
+
+    [Test]
+    procedure FindDeviceByAddress_NonExistentAddress_ReturnsEmptyRecord;
+  end;
+
 implementation
+
+{ TTestableMainPresenter }
+
+procedure TTestableMainPresenter.UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
+begin
+  inherited UpdateOrAddDevice(ADevice);
+end;
+
+function TTestableMainPresenter.FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
+begin
+  Result := inherited FindDeviceByAddress(AAddress);
+end;
+
+function TTestableMainPresenter.GetDeviceCount: Integer;
+begin
+  Result := inherited GetDeviceCount;
+end;
 
 { TMainPresenterTests }
 
@@ -683,7 +759,174 @@ begin
   Assert.IsFalse(FPresenter.IsUpdatingToggle, 'IsUpdatingToggle should be False after Initialize');
 end;
 
+{ TDeviceIndexMapTests }
+
+procedure TDeviceIndexMapTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FPollingConfig := TMockPollingConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FStrategyFactory := TMockConnectionStrategyFactory.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  FPresenter := nil;
+end;
+
+procedure TDeviceIndexMapTests.TearDown;
+begin
+  FPresenter.Free;
+end;
+
+procedure TDeviceIndexMapTests.CreatePresenter;
+begin
+  FPresenter := TTestableMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FPollingConfig,
+    FConnectionConfig,
+    FStrategyFactory,
+    FRadioStateManager,
+    FAsyncExecutor
+  );
+end;
+
+procedure TDeviceIndexMapTests.FindDeviceByAddress_EmptyList_ReturnsEmptyRecord;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+
+  Device := FPresenter.FindDeviceByAddress($001122334455);
+
+  Assert.AreEqual(UInt64(0), Device.AddressInt, 'Should return empty record for non-existent device');
+end;
+
+procedure TDeviceIndexMapTests.UpdateOrAddDevice_NewDevice_AddsToList;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($001122334455, 'Test Device', btAudioOutput, csDisconnected);
+
+  FPresenter.UpdateOrAddDevice(Device);
+
+  Assert.AreEqual(1, FPresenter.GetDeviceCount, 'Should have 1 device after add');
+end;
+
+procedure TDeviceIndexMapTests.UpdateOrAddDevice_NewDevice_CanBeFoundByAddress;
+var
+  Device, FoundDevice: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($001122334455, 'Test Device', btAudioOutput, csDisconnected);
+
+  FPresenter.UpdateOrAddDevice(Device);
+  FoundDevice := FPresenter.FindDeviceByAddress($001122334455);
+
+  Assert.AreEqual(Device.AddressInt, FoundDevice.AddressInt);
+  Assert.AreEqual(Device.Name, FoundDevice.Name);
+end;
+
+procedure TDeviceIndexMapTests.UpdateOrAddDevice_ExistingDevice_UpdatesInPlace;
+var
+  Device1, Device2, FoundDevice: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($001122334455, 'Test Device', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($001122334455, 'Updated Name', btAudioOutput, csConnected);
+
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+
+  Assert.AreEqual(1, FPresenter.GetDeviceCount, 'Should still have 1 device after update');
+  FoundDevice := FPresenter.FindDeviceByAddress($001122334455);
+  Assert.AreEqual('Updated Name', FoundDevice.Name, 'Name should be updated');
+  Assert.AreEqual(Ord(csConnected), Ord(FoundDevice.ConnectionState), 'State should be updated');
+end;
+
+procedure TDeviceIndexMapTests.UpdateOrAddDevice_MultipleDevices_AllCanBeFound;
+var
+  Device1, Device2, Device3: TBluetoothDeviceInfo;
+  Found1, Found2, Found3: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  Device3 := CreateTestDevice($333333333333, 'Device 3', btMouse, csDisconnected);
+
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FPresenter.UpdateOrAddDevice(Device3);
+
+  Assert.AreEqual(3, FPresenter.GetDeviceCount, 'Should have 3 devices');
+
+  Found1 := FPresenter.FindDeviceByAddress($111111111111);
+  Found2 := FPresenter.FindDeviceByAddress($222222222222);
+  Found3 := FPresenter.FindDeviceByAddress($333333333333);
+
+  Assert.AreEqual('Device 1', Found1.Name);
+  Assert.AreEqual('Device 2', Found2.Name);
+  Assert.AreEqual('Device 3', Found3.Name);
+end;
+
+procedure TDeviceIndexMapTests.UpdateOrAddDevice_MixedAddAndUpdate_MaintainsConsistency;
+var
+  Device1, Device2, Device3, UpdatedDevice2: TBluetoothDeviceInfo;
+  Found1, Found2, Found3: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  // Add three devices
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  Device3 := CreateTestDevice($333333333333, 'Device 3', btMouse, csDisconnected);
+
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FPresenter.UpdateOrAddDevice(Device3);
+
+  // Update middle device
+  UpdatedDevice2 := CreateTestDevice($222222222222, 'Device 2 Updated', btKeyboard, csDisconnected);
+  FPresenter.UpdateOrAddDevice(UpdatedDevice2);
+
+  // Verify all devices still accessible with correct data
+  Assert.AreEqual(3, FPresenter.GetDeviceCount, 'Count should remain 3');
+
+  Found1 := FPresenter.FindDeviceByAddress($111111111111);
+  Found2 := FPresenter.FindDeviceByAddress($222222222222);
+  Found3 := FPresenter.FindDeviceByAddress($333333333333);
+
+  Assert.AreEqual('Device 1', Found1.Name, 'Device 1 should be unchanged');
+  Assert.AreEqual('Device 2 Updated', Found2.Name, 'Device 2 should be updated');
+  Assert.AreEqual('Device 3', Found3.Name, 'Device 3 should be unchanged');
+end;
+
+procedure TDeviceIndexMapTests.FindDeviceByAddress_NonExistentAddress_ReturnsEmptyRecord;
+var
+  Device, Found: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  Found := FPresenter.FindDeviceByAddress($999999999999);
+
+  Assert.AreEqual(UInt64(0), Found.AddressInt, 'Should return empty record for non-existent address');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TMainPresenterTests);
+  TDUnitX.RegisterTestFixture(TDeviceIndexMapTests);
 
 end.

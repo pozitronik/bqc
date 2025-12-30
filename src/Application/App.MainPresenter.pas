@@ -63,6 +63,7 @@ type
     FAsyncExecutor: IAsyncExecutor;
     FBatteryCache: IBatteryCache;
     FDeviceList: TList<TBluetoothDeviceInfo>;
+    FDeviceIndexMap: TDictionary<UInt64, Integer>;  // Address -> Index for O(1) lookup
     FDevicesArrayCache: TBluetoothDeviceInfoArray;
     FDevicesArrayValid: Boolean;
     FDisplayItems: TDeviceDisplayItemArray;
@@ -107,21 +108,29 @@ type
     procedure InvalidateDevicesArrayCache;
 
     /// <summary>
-    /// Updates existing device or adds new one using TList for O(1) operations.
+    /// Sets toggle state while preventing recursive event handling.
+    /// Wraps the state change with FUpdatingToggle guard.
+    /// </summary>
+    procedure SetToggleStateSafe(AState: Boolean);
+
+  protected
+    /// <summary>
+    /// Updates existing device or adds new one.
+    /// Uses O(1) dictionary lookup + O(1) list update/append.
     /// </summary>
     procedure UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
 
     /// <summary>
     /// Finds a device in the internal device list by address.
-    /// Returns empty record (AddressInt=0) if not found.
+    /// Uses O(1) dictionary lookup. Returns empty record (AddressInt=0) if not found.
     /// </summary>
     function FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
 
     /// <summary>
-    /// Sets toggle state while preventing recursive event handling.
-    /// Wraps the state change with FUpdatingToggle guard.
+    /// Returns the number of devices in the internal list.
+    /// Exposed for testing to verify index map consistency.
     /// </summary>
-    procedure SetToggleStateSafe(AState: Boolean);
+    function GetDeviceCount: Integer;
 
   public
     /// <summary>
@@ -286,6 +295,7 @@ begin
   FBluetoothService := nil;
   FBatteryCache := nil;
   FDeviceList := TList<TBluetoothDeviceInfo>.Create;
+  FDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
   FDevicesArrayCache := nil;
   FDevicesArrayValid := False;
   FDisplayItems := nil;
@@ -303,6 +313,7 @@ destructor TMainPresenter.Destroy;
 begin
   Shutdown;
   FBatteryCache := nil;
+  FDeviceIndexMap.Free;
   FDeviceList.Free;
   FDisplayItemBuilder.Free;
   LogDebug('Destroyed', ClassName);
@@ -396,6 +407,7 @@ begin
 
   // Release service
   FBluetoothService := nil;
+  FDeviceIndexMap.Clear;
   FDeviceList.Clear;
   InvalidateDevicesArrayCache;
 
@@ -413,10 +425,14 @@ begin
     Devices := FBluetoothService.GetPairedDevices;
     LogDebug('LoadDevices: Got %d devices', [Length(Devices)], ClassName);
 
-    // Replace list contents with new devices
+    // Replace list contents with new devices and rebuild index map
+    FDeviceIndexMap.Clear;
     FDeviceList.Clear;
     for I := 0 to High(Devices) do
+    begin
       FDeviceList.Add(Devices[I]);
+      FDeviceIndexMap.Add(Devices[I].AddressInt, I);
+    end;
     InvalidateDevicesArrayCache;
 
     // Register all discovered devices to persistent config
@@ -640,37 +656,41 @@ end;
 
 procedure TMainPresenter.UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
 var
-  I: Integer;
+  Index: Integer;
 begin
-  // TList provides O(1) update at index and O(1) amortized append.
-  // Previous O(n) array copy pattern replaced for performance.
-
-  // Check if device exists and update in-place
-  for I := 0 to FDeviceList.Count - 1 do
+  // O(1) lookup via dictionary, O(1) update at index or O(1) amortized append
+  if FDeviceIndexMap.TryGetValue(ADevice.AddressInt, Index) then
   begin
-    if FDeviceList[I].AddressInt = ADevice.AddressInt then
-    begin
-      FDeviceList[I] := ADevice;
-      InvalidateDevicesArrayCache;
-      LogDebug('UpdateOrAddDevice: Updated device at index %d', [I], ClassName);
-      Exit;
-    end;
+    // Device exists - update in-place (index doesn't change)
+    FDeviceList[Index] := ADevice;
+    InvalidateDevicesArrayCache;
+    LogDebug('UpdateOrAddDevice: Updated device at index %d', [Index], ClassName);
+  end
+  else
+  begin
+    // Device not found - append and add to index map
+    Index := FDeviceList.Count;
+    FDeviceList.Add(ADevice);
+    FDeviceIndexMap.Add(ADevice.AddressInt, Index);
+    InvalidateDevicesArrayCache;
+    LogDebug('UpdateOrAddDevice: Added new device, total=%d', [FDeviceList.Count], ClassName);
   end;
-
-  // Device not found, append to list
-  FDeviceList.Add(ADevice);
-  InvalidateDevicesArrayCache;
-  LogDebug('UpdateOrAddDevice: Added new device, total=%d', [FDeviceList.Count], ClassName);
 end;
 
 function TMainPresenter.FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
 var
-  I: Integer;
+  Index: Integer;
 begin
-  Result := Default(TBluetoothDeviceInfo);  // Empty record with AddressInt=0
-  for I := 0 to FDeviceList.Count - 1 do
-    if FDeviceList[I].AddressInt = AAddress then
-      Exit(FDeviceList[I]);
+  // O(1) lookup via dictionary
+  if FDeviceIndexMap.TryGetValue(AAddress, Index) then
+    Result := FDeviceList[Index]
+  else
+    Result := Default(TBluetoothDeviceInfo);  // Empty record with AddressInt=0
+end;
+
+function TMainPresenter.GetDeviceCount: Integer;
+begin
+  Result := FDeviceList.Count;
 end;
 
 procedure TMainPresenter.SetToggleStateSafe(AState: Boolean);
