@@ -29,6 +29,7 @@ type
   /// <summary>
   /// Logger implementation.
   /// Thread-safe file-based logging with severity levels and source identification.
+  /// This is a singleton - prevent reference counting from destroying it.
   /// </summary>
   TLogger = class(TInterfacedObject, ILogger)
   private
@@ -41,6 +42,14 @@ type
 
     procedure WriteToFile(ALevel: TLogLevel; const AMessage: string;
       const ASource: string);
+  protected
+    /// <summary>
+    /// Override to prevent automatic destruction when refcount hits zero.
+    /// Singleton lifetime is managed by unit finalization, not reference counting.
+    /// Without this, storing ILogger in a field causes premature destruction
+    /// when the field is released, leaving GLogger as a dangling pointer.
+    /// </summary>
+    function _Release: Integer; stdcall;
   public
     constructor Create;
     destructor Destroy; override;
@@ -259,6 +268,16 @@ destructor TLogger.Destroy;
 begin
   FLock.Free;
   inherited Destroy;
+end;
+
+function TLogger._Release: Integer;
+begin
+  Result := AtomicDecrement(FRefCount);
+  // Auto-destroy when refcount hits 0, UNLESS this is the global singleton.
+  // The singleton is explicitly freed in unit finalization, not by refcounting.
+  // Test-created instances (not via Logger function) still auto-destroy normally.
+  if (Result = 0) and (Self <> GLogger) then
+    Destroy;
 end;
 
 procedure TLogger.Configure(AEnabled: Boolean; const AFilename: string;
