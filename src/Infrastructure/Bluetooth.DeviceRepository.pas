@@ -111,6 +111,7 @@ type
   /// <summary>
   /// Repository for Bluetooth device storage and retrieval.
   /// Uses injected IBluetoothDeviceQuery for enumeration (testable).
+  /// Caches ToArray result to avoid O(n) allocation on every GetAll call.
   /// </summary>
   TBluetoothDeviceRepository = class(TInterfacedObject, IDeviceRepository)
   private
@@ -118,7 +119,12 @@ type
     FDeviceQuery: IBluetoothDeviceQuery;
     FOnListChanged: TDeviceListChangedEvent;
 
+    // Array cache to avoid repeated ToArray allocations in hot path
+    FDevicesArrayCache: TBluetoothDeviceInfoArray;
+    FDevicesArrayValid: Boolean;
+
     procedure DoListChanged;
+    procedure InvalidateCache;
 
   protected
     { IDeviceRepository }
@@ -693,9 +699,21 @@ begin
   inherited Destroy;
 end;
 
+procedure TBluetoothDeviceRepository.InvalidateCache;
+begin
+  FDevicesArrayValid := False;
+  SetLength(FDevicesArrayCache, 0);
+end;
+
 function TBluetoothDeviceRepository.GetAll: TBluetoothDeviceInfoArray;
 begin
-  Result := FDevices.Values.ToArray;
+  // Return cached array if valid, avoiding O(n) ToArray allocation
+  if not FDevicesArrayValid then
+  begin
+    FDevicesArrayCache := FDevices.Values.ToArray;
+    FDevicesArrayValid := True;
+  end;
+  Result := FDevicesArrayCache;
 end;
 
 function TBluetoothDeviceRepository.GetByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
@@ -721,6 +739,7 @@ var
 begin
   IsNew := not FDevices.ContainsKey(ADevice.AddressInt);
   FDevices.AddOrSetValue(ADevice.AddressInt, ADevice);
+  InvalidateCache;
 
   if IsNew then
     DoListChanged;
@@ -735,6 +754,7 @@ begin
   begin
     Result := Device.WithConnectionState(AState);
     FDevices[AAddress] := Result;
+    InvalidateCache;
   end
   else
     FillChar(Result, SizeOf(Result), 0);
@@ -748,7 +768,10 @@ begin
   FDevices.Remove(AAddress);
 
   if Existed then
+  begin
+    InvalidateCache;
     DoListChanged;
+  end;
 end;
 
 procedure TBluetoothDeviceRepository.Clear;
@@ -759,7 +782,10 @@ begin
   FDevices.Clear;
 
   if HadDevices then
+  begin
+    InvalidateCache;
     DoListChanged;
+  end;
 end;
 
 procedure TBluetoothDeviceRepository.Refresh;
@@ -775,6 +801,7 @@ begin
   for Device in Devices do
     FDevices.AddOrSetValue(Device.AddressInt, Device);
 
+  InvalidateCache;
   LogDebug('Refresh: Found %d paired devices', [FDevices.Count], ClassName);
   DoListChanged;
 end;

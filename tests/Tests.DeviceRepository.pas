@@ -151,6 +151,46 @@ type
   end;
 
   /// <summary>
+  /// Test fixture for TBluetoothDeviceRepository array caching.
+  /// Verifies that GetAll returns cached array and modifications invalidate cache.
+  /// </summary>
+  [TestFixture]
+  TDeviceRepositoryArrayCacheTests = class
+  private
+    FMockQuery: TMockBluetoothDeviceQuery;
+    FRepository: IDeviceRepository;
+    function CreateTestDevice(AAddress: UInt64; const AName: string;
+      AState: TBluetoothConnectionState = csDisconnected): TBluetoothDeviceInfo;
+  public
+    [Setup]
+    procedure Setup;
+
+    { Cache Hit Tests - consecutive GetAll calls return same array }
+    [Test]
+    procedure GetAll_ConsecutiveCalls_ReturnsSameArrayInstance;
+    [Test]
+    procedure GetAll_AfterEmptyRepository_ReturnsSameEmptyArray;
+
+    { Cache Invalidation Tests - modifications invalidate cache }
+    [Test]
+    procedure GetAll_AfterAddOrUpdate_ReturnsNewArray;
+    [Test]
+    procedure GetAll_AfterUpdateConnectionState_ReturnsNewArray;
+    [Test]
+    procedure GetAll_AfterRemove_ReturnsNewArray;
+    [Test]
+    procedure GetAll_AfterClear_ReturnsNewArray;
+    [Test]
+    procedure GetAll_AfterRefresh_ReturnsNewArray;
+
+    { Data Correctness After Invalidation }
+    [Test]
+    procedure GetAll_AfterAddOrUpdate_ReflectsNewDevice;
+    [Test]
+    procedure GetAll_AfterRemove_ReflectsRemovedDevice;
+  end;
+
+  /// <summary>
   /// Test fixture for TRegistryNameCache.
   /// Tests cache behavior including expiration and negative caching.
   /// </summary>
@@ -622,6 +662,168 @@ begin
   Assert.IsTrue(FRepository.Contains($333333333333));
 end;
 
+{ TDeviceRepositoryArrayCacheTests }
+
+procedure TDeviceRepositoryArrayCacheTests.Setup;
+begin
+  FMockQuery := TMockBluetoothDeviceQuery.Create;
+  FRepository := TBluetoothDeviceRepository.Create(FMockQuery);
+end;
+
+function TDeviceRepositoryArrayCacheTests.CreateTestDevice(AAddress: UInt64;
+  const AName: string; AState: TBluetoothConnectionState): TBluetoothDeviceInfo;
+var
+  Address: TBluetoothAddress;
+begin
+  FillChar(Address, SizeOf(Address), 0);
+  Address[0] := AAddress and $FF;
+  Address[1] := (AAddress shr 8) and $FF;
+  Address[2] := (AAddress shr 16) and $FF;
+  Address[3] := (AAddress shr 24) and $FF;
+  Address[4] := (AAddress shr 32) and $FF;
+  Address[5] := (AAddress shr 40) and $FF;
+
+  Result := TBluetoothDeviceInfo.Create(
+    Address,
+    AAddress,
+    AName,
+    btAudioOutput,
+    AState,
+    True,
+    True,
+    0,
+    Now,
+    Now
+  );
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_ConsecutiveCalls_ReturnsSameArrayInstance;
+var
+  Arr1, Arr2: TBluetoothDeviceInfoArray;
+begin
+  // Add a device to have non-empty array
+  FRepository.AddOrUpdate(CreateTestDevice($AABBCCDDEEFF, 'TestDevice'));
+
+  Arr1 := FRepository.GetAll;
+  Arr2 := FRepository.GetAll;
+
+  // Same array instance means same pointer - cache is working
+  Assert.AreEqual(Pointer(Arr1), Pointer(Arr2),
+    'Consecutive GetAll calls should return same array instance (cache hit)');
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_AfterEmptyRepository_ReturnsSameEmptyArray;
+var
+  Arr1, Arr2: TBluetoothDeviceInfoArray;
+begin
+  Arr1 := FRepository.GetAll;
+  Arr2 := FRepository.GetAll;
+
+  // Even empty arrays should be cached
+  Assert.AreEqual(Pointer(Arr1), Pointer(Arr2),
+    'Empty repository should return same cached empty array');
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_AfterAddOrUpdate_ReturnsNewArray;
+var
+  Arr1, Arr2: TBluetoothDeviceInfoArray;
+begin
+  FRepository.AddOrUpdate(CreateTestDevice($111111111111, 'Device1'));
+  Arr1 := FRepository.GetAll;
+
+  // Adding new device should invalidate cache
+  FRepository.AddOrUpdate(CreateTestDevice($222222222222, 'Device2'));
+  Arr2 := FRepository.GetAll;
+
+  Assert.AreNotEqual(Pointer(Arr1), Pointer(Arr2),
+    'AddOrUpdate should invalidate cache and return new array');
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_AfterUpdateConnectionState_ReturnsNewArray;
+var
+  Arr1, Arr2: TBluetoothDeviceInfoArray;
+begin
+  FRepository.AddOrUpdate(CreateTestDevice($AABBCCDDEEFF, 'TestDevice', csDisconnected));
+  Arr1 := FRepository.GetAll;
+
+  FRepository.UpdateConnectionState($AABBCCDDEEFF, csConnected);
+  Arr2 := FRepository.GetAll;
+
+  Assert.AreNotEqual(Pointer(Arr1), Pointer(Arr2),
+    'UpdateConnectionState should invalidate cache and return new array');
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_AfterRemove_ReturnsNewArray;
+var
+  Arr1, Arr2: TBluetoothDeviceInfoArray;
+begin
+  FRepository.AddOrUpdate(CreateTestDevice($AABBCCDDEEFF, 'TestDevice'));
+  Arr1 := FRepository.GetAll;
+
+  FRepository.Remove($AABBCCDDEEFF);
+  Arr2 := FRepository.GetAll;
+
+  Assert.AreNotEqual(Pointer(Arr1), Pointer(Arr2),
+    'Remove should invalidate cache and return new array');
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_AfterClear_ReturnsNewArray;
+var
+  Arr1, Arr2: TBluetoothDeviceInfoArray;
+begin
+  FRepository.AddOrUpdate(CreateTestDevice($AABBCCDDEEFF, 'TestDevice'));
+  Arr1 := FRepository.GetAll;
+
+  FRepository.Clear;
+  Arr2 := FRepository.GetAll;
+
+  Assert.AreNotEqual(Pointer(Arr1), Pointer(Arr2),
+    'Clear should invalidate cache and return new array');
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_AfterRefresh_ReturnsNewArray;
+var
+  Arr1, Arr2: TBluetoothDeviceInfoArray;
+begin
+  FMockQuery.AddDevice(CreateTestDevice($AABBCCDDEEFF, 'TestDevice'));
+  FRepository.Refresh;
+  Arr1 := FRepository.GetAll;
+
+  // Clear mock and refresh again
+  FMockQuery.ClearDevices;
+  FRepository.Refresh;
+  Arr2 := FRepository.GetAll;
+
+  Assert.AreNotEqual(Pointer(Arr1), Pointer(Arr2),
+    'Refresh should invalidate cache and return new array');
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_AfterAddOrUpdate_ReflectsNewDevice;
+var
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  FRepository.AddOrUpdate(CreateTestDevice($111111111111, 'Device1'));
+  FRepository.AddOrUpdate(CreateTestDevice($222222222222, 'Device2'));
+
+  Devices := FRepository.GetAll;
+
+  Assert.AreEqual(Integer(2), Integer(Length(Devices)), 'Should contain both devices after cache invalidation');
+end;
+
+procedure TDeviceRepositoryArrayCacheTests.GetAll_AfterRemove_ReflectsRemovedDevice;
+var
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  FRepository.AddOrUpdate(CreateTestDevice($111111111111, 'Device1'));
+  FRepository.AddOrUpdate(CreateTestDevice($222222222222, 'Device2'));
+  FRepository.Remove($111111111111);
+
+  Devices := FRepository.GetAll;
+
+  Assert.AreEqual(Integer(1), Integer(Length(Devices)), 'Should contain only remaining device after cache invalidation');
+  Assert.AreEqual(UInt64($222222222222), Devices[0].AddressInt);
+end;
+
 { TRegistryNameCacheTests }
 
 procedure TRegistryNameCacheTests.Setup;
@@ -788,6 +990,7 @@ initialization
   TDUnitX.RegisterTestFixture(TDeviceRepositoryTests);
   TDUnitX.RegisterTestFixture(TMockDeviceRepositoryTests);
   TDUnitX.RegisterTestFixture(TDeviceRepositoryRefreshTests);
+  TDUnitX.RegisterTestFixture(TDeviceRepositoryArrayCacheTests);
   TDUnitX.RegisterTestFixture(TRegistryNameCacheTests);
 
 end.
