@@ -42,6 +42,16 @@ type
     FAppearanceConfig: IAppearanceConfig;
     FProfileConfig: IProfileConfig;
     FBatteryCache: IBatteryCache;
+    /// <summary>
+    /// Internal visibility check using pre-loaded config to avoid redundant lookups.
+    /// </summary>
+    function IsVisibleWithConfig(const ADevice: TBluetoothDeviceInfo;
+      const AConfig: TDeviceConfig): Boolean;
+    /// <summary>
+    /// Internal display item builder using pre-loaded config to avoid redundant lookups.
+    /// </summary>
+    function BuildDisplayItemWithConfig(const ADevice: TBluetoothDeviceInfo;
+      const AConfig: TDeviceConfig): TDeviceDisplayItem;
   public
     /// <summary>
     /// Creates a new builder instance with required dependencies.
@@ -88,6 +98,7 @@ implementation
 
 uses
   System.SysUtils,
+  System.Generics.Collections,
   App.Logger,
   Bluetooth.ProfileQuery,
   UI.DeviceFormatter,
@@ -111,25 +122,22 @@ begin
   FBatteryCache := ABatteryCache;
 end;
 
-function TDeviceDisplayItemBuilder.IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
+function TDeviceDisplayItemBuilder.IsVisibleWithConfig(
+  const ADevice: TBluetoothDeviceInfo; const AConfig: TDeviceConfig): Boolean;
 var
-  DeviceConfig: TDeviceConfig;
   EffectiveName: string;
 begin
   LogDebug('IsVisible: Checking device Address=$%.12X, Name="%s"', [ADevice.AddressInt, ADevice.Name], ClassName);
 
-  // Load config FIRST to check effective name and hidden status
-  DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
-
   // Calculate effective display name using the same fallback chain as GetDisplayName
   // Priority: Alias > API Name > Cached Name > "Device " + MAC
-  EffectiveName := TDeviceFormatter.GetDisplayName(ADevice, DeviceConfig);
+  EffectiveName := TDeviceFormatter.GetDisplayName(ADevice, AConfig);
 
   LogDebug('IsVisible: Config loaded - Hidden=%s, Alias="%s", ConfigName="%s", EffectiveName="%s"',
-    [BoolToStr(DeviceConfig.Hidden, True), DeviceConfig.Alias, DeviceConfig.Name, EffectiveName], ClassName);
+    [BoolToStr(AConfig.Hidden, True), AConfig.Alias, AConfig.Name, EffectiveName], ClassName);
 
   // Skip hidden devices
-  if DeviceConfig.Hidden then
+  if AConfig.Hidden then
   begin
     LogDebug('IsVisible: FILTERED - device is hidden', ClassName);
     Exit(False);
@@ -146,17 +154,25 @@ begin
   Result := True;
 end;
 
-function TDeviceDisplayItemBuilder.BuildDisplayItem(
-  const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
+function TDeviceDisplayItemBuilder.IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
 var
   DeviceConfig: TDeviceConfig;
+begin
+  // Public method loads config and delegates to internal method
+  DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
+  Result := IsVisibleWithConfig(ADevice, DeviceConfig);
+end;
+
+function TDeviceDisplayItemBuilder.BuildDisplayItemWithConfig(
+  const ADevice: TBluetoothDeviceInfo; const AConfig: TDeviceConfig): TDeviceDisplayItem;
+var
   LastSeenFormat: TLastSeenFormat;
   BatteryStatus: TBatteryStatus;
   BatteryText: string;
   ProfileInfo: TDeviceProfileInfo;
   Profiles: TBluetoothProfileArray;
+  ShowProfiles: Boolean;
 begin
-  DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
   LastSeenFormat := FAppearanceConfig.LastSeenFormat;
 
   // Get battery status from cache if available and enabled
@@ -176,13 +192,12 @@ begin
   Profiles := nil;
   if ADevice.IsConnected then
   begin
-    var ShowProfiles: Boolean;
-    if DeviceConfig.ShowProfiles = -1 then
+    if AConfig.ShowProfiles = -1 then
       // Use global setting
       ShowProfiles := Assigned(FProfileConfig) and FProfileConfig.ShowProfiles
     else
       // Use per-device setting
-      ShowProfiles := DeviceConfig.ShowProfiles = 1;
+      ShowProfiles := AConfig.ShowProfiles = 1;
 
     if ShowProfiles then
     begin
@@ -195,23 +210,35 @@ begin
 
   Result := TDeviceDisplayItem.Create(
     ADevice,
-    TDeviceFormatter.GetDisplayName(ADevice, DeviceConfig),
-    DeviceConfig.Pinned,
-    TDeviceFormatter.GetEffectiveDeviceType(ADevice, DeviceConfig),
-    TDeviceFormatter.FormatLastSeen(DeviceConfig.LastSeen, LastSeenFormat),
-    DeviceConfig.LastSeen,
-    TDeviceFormatter.GetSortGroup(ADevice, DeviceConfig),
+    TDeviceFormatter.GetDisplayName(ADevice, AConfig),
+    AConfig.Pinned,
+    TDeviceFormatter.GetEffectiveDeviceType(ADevice, AConfig),
+    TDeviceFormatter.FormatLastSeen(AConfig.LastSeen, LastSeenFormat),
+    AConfig.LastSeen,
+    TDeviceFormatter.GetSortGroup(ADevice, AConfig),
     BatteryStatus,
     BatteryText,
     Profiles
   );
 end;
 
+function TDeviceDisplayItemBuilder.BuildDisplayItem(
+  const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
+var
+  DeviceConfig: TDeviceConfig;
+begin
+  // Public method loads config and delegates to internal method
+  DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
+  Result := BuildDisplayItemWithConfig(ADevice, DeviceConfig);
+end;
+
 function TDeviceDisplayItemBuilder.BuildDisplayItems(
   const ADevices: TBluetoothDeviceInfoArray): TDeviceDisplayItemArray;
 var
-  I, Count: Integer;
+  I: Integer;
   Device: TBluetoothDeviceInfo;
+  DeviceConfig: TDeviceConfig;
+  VisibleItems: TList<TDeviceDisplayItem>;
 begin
   LogDebug('BuildDisplayItems: Input count=%d', [Length(ADevices)], ClassName);
 
@@ -220,26 +247,26 @@ begin
     LogDebug('BuildDisplayItems: Input[%d] Address=$%.12X, Name="%s"',
       [I, ADevices[I].AddressInt, ADevices[I].Name], ClassName);
 
-  // First pass: count visible devices
-  Count := 0;
-  for Device in ADevices do
-    if IsVisible(Device) then
-      Inc(Count);
-
-  LogDebug('BuildDisplayItems: Visible count=%d', [Count], ClassName);
-
-  // Allocate result array
-  SetLength(Result, Count);
-
-  // Second pass: build items for visible devices
-  I := 0;
-  for Device in ADevices do
-  begin
-    if IsVisible(Device) then
+  // Single pass: load config once per device, check visibility, build item
+  VisibleItems := TList<TDeviceDisplayItem>.Create;
+  try
+    for Device in ADevices do
     begin
-      Result[I] := BuildDisplayItem(Device);
-      Inc(I);
+      // Load config once per device
+      DeviceConfig := FConfigProvider.GetDeviceConfig(Device.AddressInt);
+
+      // Check visibility using pre-loaded config
+      if IsVisibleWithConfig(Device, DeviceConfig) then
+        // Build display item using same pre-loaded config
+        VisibleItems.Add(BuildDisplayItemWithConfig(Device, DeviceConfig));
     end;
+
+    LogDebug('BuildDisplayItems: Visible count=%d', [VisibleItems.Count], ClassName);
+
+    // Convert to array
+    Result := VisibleItems.ToArray;
+  finally
+    VisibleItems.Free;
   end;
 
   // Sort the result
