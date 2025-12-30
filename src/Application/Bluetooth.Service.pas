@@ -103,13 +103,20 @@ type
 
 /// <summary>
 /// Creates the default Bluetooth service instance.
-/// Factory function for dependency injection.
+/// Factory function with optional dependency overrides for testability.
+/// When nil is passed for optional parameters, default implementations are created.
 /// </summary>
 function CreateBluetoothService(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
   ADeviceConfigProvider: IDeviceConfigQuery;
-  AStrategyFactory: IConnectionStrategyFactory
+  AStrategyFactory: IConnectionStrategyFactory;
+  // Optional dependencies - nil means use default implementation
+  ADeviceMonitor: IDeviceMonitor = nil;
+  ADeviceRepository: IDeviceRepository = nil;
+  AConnectionExecutor: IConnectionExecutor = nil;
+  AAdapterQuery: IBluetoothAdapterQuery = nil;
+  AEventDebouncer: IEventDebouncer = nil
 ): IBluetoothService;
 
 implementation
@@ -126,23 +133,59 @@ function CreateBluetoothService(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
   ADeviceConfigProvider: IDeviceConfigQuery;
-  AStrategyFactory: IConnectionStrategyFactory
+  AStrategyFactory: IConnectionStrategyFactory;
+  ADeviceMonitor: IDeviceMonitor;
+  ADeviceRepository: IDeviceRepository;
+  AConnectionExecutor: IConnectionExecutor;
+  AAdapterQuery: IBluetoothAdapterQuery;
+  AEventDebouncer: IEventDebouncer
 ): IBluetoothService;
 var
+  LDeviceMonitor: IDeviceMonitor;
+  LDeviceRepository: IDeviceRepository;
+  LConnectionExecutor: IConnectionExecutor;
+  LAdapterQuery: IBluetoothAdapterQuery;
+  LEventDebouncer: IEventDebouncer;
   MonitorFactory: IDeviceMonitorFactory;
-  Debouncer: IEventDebouncer;
 begin
-  MonitorFactory := TDeviceMonitorFactory.Create(APollingConfig);
-  Debouncer := TDeviceEventDebouncer.Create(SystemClock, 500);
+  // Use provided dependencies or create defaults
+  if ADeviceMonitor <> nil then
+    LDeviceMonitor := ADeviceMonitor
+  else
+  begin
+    MonitorFactory := TDeviceMonitorFactory.Create(APollingConfig);
+    LDeviceMonitor := MonitorFactory.CreateMonitor;
+  end;
+
+  if ADeviceRepository <> nil then
+    LDeviceRepository := ADeviceRepository
+  else
+    LDeviceRepository := CreateDeviceRepository(AConnectionConfig);
+
+  if AConnectionExecutor <> nil then
+    LConnectionExecutor := AConnectionExecutor
+  else
+    LConnectionExecutor := CreateConnectionExecutor;
+
+  if AAdapterQuery <> nil then
+    LAdapterQuery := AAdapterQuery
+  else
+    LAdapterQuery := CreateAdapterQuery;
+
+  if AEventDebouncer <> nil then
+    LEventDebouncer := AEventDebouncer
+  else
+    LEventDebouncer := TDeviceEventDebouncer.Create(SystemClock, 500);
+
   Result := TBluetoothService.Create(
     AConnectionConfig,
     ADeviceConfigProvider,
     AStrategyFactory,
-    MonitorFactory.CreateMonitor,
-    CreateDeviceRepository(AConnectionConfig),
-    CreateConnectionExecutor,
-    CreateAdapterQuery,
-    Debouncer
+    LDeviceMonitor,
+    LDeviceRepository,
+    LConnectionExecutor,
+    LAdapterQuery,
+    LEventDebouncer
   );
 end;
 

@@ -75,6 +75,51 @@ type
     procedure ToggleConnection_DisconnectedDevice_Connects;
   end;
 
+  /// <summary>
+  /// Tests for CreateBluetoothService factory function.
+  /// Verifies that optional dependencies can be injected for testability.
+  /// </summary>
+  [TestFixture]
+  TCreateBluetoothServiceFactoryTests = class
+  private
+    FPollingConfig: IPollingConfig;
+    FConnectionConfig: IConnectionConfig;
+    FDeviceConfigProvider: IDeviceConfigProvider;
+    FStrategyFactory: IConnectionStrategyFactory;
+    FMockStrategyFactory: TMockConnectionStrategyFactory;
+    // Interface references for proper cleanup
+    FDeviceMonitor: IDeviceMonitor;
+    FDeviceRepository: IDeviceRepository;
+    FConnectionExecutor: IConnectionExecutor;
+    FAdapterQuery: IBluetoothAdapterQuery;
+    FEventDebouncer: IEventDebouncer;
+    // Object references for test setup
+    FMockDeviceMonitor: TMockDeviceMonitor;
+    FMockDeviceRepository: TMockDeviceRepository;
+    FMockConnectionExecutor: TMockConnectionExecutor;
+    FMockAdapterQuery: TMockAdapterQuery;
+    FMockEventDebouncer: TMockEventDebouncer;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    { Factory with default dependencies }
+    [Test]
+    procedure Factory_WithNilDependencies_CreatesService;
+
+    { Factory with injected dependencies }
+    [Test]
+    procedure Factory_WithInjectedRepository_UsesProvidedRepository;
+    [Test]
+    procedure Factory_WithInjectedExecutor_UsesProvidedExecutor;
+    [Test]
+    procedure Factory_WithInjectedAdapterQuery_UsesProvidedQuery;
+    [Test]
+    procedure Factory_WithAllMocks_UsesAllProvidedDependencies;
+  end;
+
 implementation
 
 { TBluetoothServiceTests }
@@ -315,7 +360,213 @@ begin
     'Toggle on disconnected device should connect (Enable=True)');
 end;
 
+{ TCreateBluetoothServiceFactoryTests }
+
+procedure TCreateBluetoothServiceFactoryTests.Setup;
+var
+  Strategy: TMockConnectionStrategy;
+begin
+  FPollingConfig := TMockPollingConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FMockStrategyFactory := TMockConnectionStrategyFactory.Create;
+  FStrategyFactory := FMockStrategyFactory;
+
+  // Register a default strategy
+  Strategy := TMockConnectionStrategy.Create;
+  Strategy.ServiceGuids := [StringToGUID('{00001108-0000-1000-8000-00805F9B34FB}')];
+  Strategy.CanHandleResult := True;
+  FMockStrategyFactory.RegisterStrategy(Strategy);
+
+  // Create mocks for optional dependencies
+  // Store both object and interface references for proper refcount management
+  FMockDeviceMonitor := TMockDeviceMonitor.Create;
+  FDeviceMonitor := FMockDeviceMonitor;
+  FMockDeviceRepository := TMockDeviceRepository.Create;
+  FDeviceRepository := FMockDeviceRepository;
+  FMockConnectionExecutor := TMockConnectionExecutor.Create;
+  FConnectionExecutor := FMockConnectionExecutor;
+  FMockAdapterQuery := TMockAdapterQuery.Create;
+  FAdapterQuery := FMockAdapterQuery;
+  FMockEventDebouncer := TMockEventDebouncer.Create;
+  FEventDebouncer := FMockEventDebouncer;
+end;
+
+procedure TCreateBluetoothServiceFactoryTests.TearDown;
+begin
+  // Clear interface references first to release objects
+  FDeviceMonitor := nil;
+  FDeviceRepository := nil;
+  FConnectionExecutor := nil;
+  FAdapterQuery := nil;
+  FEventDebouncer := nil;
+  // Clear object references (already freed via interface)
+  FMockDeviceMonitor := nil;
+  FMockDeviceRepository := nil;
+  FMockConnectionExecutor := nil;
+  FMockAdapterQuery := nil;
+  FMockEventDebouncer := nil;
+  // Clear other interface references
+  FPollingConfig := nil;
+  FConnectionConfig := nil;
+  FDeviceConfigProvider := nil;
+  FStrategyFactory := nil;
+  FMockStrategyFactory := nil;
+end;
+
+procedure TCreateBluetoothServiceFactoryTests.Factory_WithNilDependencies_CreatesService;
+var
+  Service: IBluetoothService;
+begin
+  // Act - call factory with all nil optional dependencies (uses defaults)
+  Service := CreateBluetoothService(
+    FPollingConfig,
+    FConnectionConfig,
+    FDeviceConfigProvider,
+    FStrategyFactory,
+    nil,  // DeviceMonitor
+    nil,  // DeviceRepository
+    nil,  // ConnectionExecutor
+    nil,  // AdapterQuery
+    nil   // EventDebouncer
+  );
+
+  // Assert
+  Assert.IsNotNull(Service, 'Factory should create service with default dependencies');
+end;
+
+procedure TCreateBluetoothServiceFactoryTests.Factory_WithInjectedRepository_UsesProvidedRepository;
+var
+  Service: IBluetoothService;
+  Device: TBluetoothDeviceInfo;
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  // Arrange - add device to mock repository
+  Device := CreateTestDevice($AABBCCDDEEFF, 'TestDevice', btAudioOutput, csConnected);
+  FMockDeviceRepository.AddOrUpdate(Device);
+
+  // Act - create service with injected repository
+  Service := CreateBluetoothService(
+    FPollingConfig,
+    FConnectionConfig,
+    FDeviceConfigProvider,
+    FStrategyFactory,
+    FMockDeviceMonitor,
+    FMockDeviceRepository,
+    nil,
+    FMockAdapterQuery,
+    FMockEventDebouncer
+  );
+
+  // Assert - service should use our mock repository
+  Devices := Service.GetPairedDevices;
+  Assert.AreEqual(Integer(1), Integer(Length(Devices)),
+    'Service should use injected repository containing our test device');
+  Assert.AreEqual('TestDevice', Devices[0].Name);
+end;
+
+procedure TCreateBluetoothServiceFactoryTests.Factory_WithInjectedExecutor_UsesProvidedExecutor;
+var
+  Service: IBluetoothService;
+  ConnManager: IBluetoothConnectionManager;
+  Device: TBluetoothDeviceInfo;
+begin
+  // Arrange
+  Device := CreateTestDevice($AABBCCDDEEFF, 'TestDevice', btAudioOutput, csDisconnected);
+  FMockConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
+
+  // Create service with injected executor
+  Service := CreateBluetoothService(
+    FPollingConfig,
+    FConnectionConfig,
+    FDeviceConfigProvider,
+    FStrategyFactory,
+    FMockDeviceMonitor,
+    FMockDeviceRepository,
+    FMockConnectionExecutor,
+    FMockAdapterQuery,
+    FMockEventDebouncer
+  );
+
+  Supports(Service, IBluetoothConnectionManager, ConnManager);
+
+  // Act
+  ConnManager.Connect(Device);
+
+  // Assert - our mock executor should have been called
+  Assert.AreEqual(1, FMockConnectionExecutor.ExecuteCallCount,
+    'Service should use injected connection executor');
+end;
+
+procedure TCreateBluetoothServiceFactoryTests.Factory_WithInjectedAdapterQuery_UsesProvidedQuery;
+var
+  Service: IBluetoothService;
+begin
+  // Arrange - set adapter as unavailable
+  FMockAdapterQuery.AdapterAvailable := False;
+
+  // Act - create service with injected adapter query
+  Service := CreateBluetoothService(
+    FPollingConfig,
+    FConnectionConfig,
+    FDeviceConfigProvider,
+    FStrategyFactory,
+    FMockDeviceMonitor,
+    FMockDeviceRepository,
+    FMockConnectionExecutor,
+    FMockAdapterQuery,
+    FMockEventDebouncer
+  );
+
+  // Assert - service should use our mock adapter query
+  Assert.IsFalse(Service.IsAdapterAvailable,
+    'Service should use injected adapter query returning unavailable');
+
+  // Change mock state and verify
+  FMockAdapterQuery.AdapterAvailable := True;
+  Assert.IsTrue(Service.IsAdapterAvailable,
+    'Service should reflect updated mock adapter state');
+end;
+
+procedure TCreateBluetoothServiceFactoryTests.Factory_WithAllMocks_UsesAllProvidedDependencies;
+var
+  Service: IBluetoothService;
+  ConnManager: IBluetoothConnectionManager;
+  Device: TBluetoothDeviceInfo;
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  // Arrange - setup all mocks
+  Device := CreateTestDevice($AABBCCDDEEFF, 'TestDevice', btAudioOutput, csDisconnected);
+  FMockDeviceRepository.AddOrUpdate(Device);
+  FMockAdapterQuery.AdapterAvailable := True;
+  FMockConnectionExecutor.ExecuteResult := TConnectionResult.Ok;
+
+  // Act - create service with all injected dependencies
+  Service := CreateBluetoothService(
+    FPollingConfig,
+    FConnectionConfig,
+    FDeviceConfigProvider,
+    FStrategyFactory,
+    FMockDeviceMonitor,
+    FMockDeviceRepository,
+    FMockConnectionExecutor,
+    FMockAdapterQuery,
+    FMockEventDebouncer
+  );
+
+  // Assert - verify all mocks are used
+  Assert.IsTrue(Service.IsAdapterAvailable, 'Should use mock adapter query');
+
+  Devices := Service.GetPairedDevices;
+  Assert.AreEqual(Integer(1), Integer(Length(Devices)), 'Should use mock repository');
+
+  Supports(Service, IBluetoothConnectionManager, ConnManager);
+  ConnManager.Connect(Device);
+  Assert.AreEqual(1, FMockConnectionExecutor.ExecuteCallCount, 'Should use mock executor');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TBluetoothServiceTests);
+  TDUnitX.RegisterTestFixture(TCreateBluetoothServiceFactoryTests);
 
 end.
