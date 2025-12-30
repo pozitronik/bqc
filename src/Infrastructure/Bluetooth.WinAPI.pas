@@ -181,7 +181,8 @@ type
     /// </summary>
     bthAddress: UInt64;
     /// <summary>
-    /// Connection type (0 = ACL, 1 = SCO).
+    /// Connection type: HCI_CONNECTION_TYPE_ACL (1) for data,
+    /// HCI_CONNECTION_TYPE_SCO (2) for voice, HCI_CONNECTION_TYPE_LE (3) for BLE.
     /// </summary>
     connectionType: Byte;
     /// <summary>
@@ -231,6 +232,14 @@ const
   BDIF_PAIRED           = $00000008;
   BDIF_PERSONAL         = $00000010;
   BDIF_CONNECTED        = $00000020;
+
+  // HCI connection types for BTH_HCI_EVENT_INFO.connectionType
+  // ACL = data connections (A2DP audio streaming, file transfer)
+  // SCO = synchronous voice (HFP hands-free calls)
+  // LE = Bluetooth Low Energy
+  HCI_CONNECTION_TYPE_ACL = 1;
+  HCI_CONNECTION_TYPE_SCO = 2;
+  HCI_CONNECTION_TYPE_LE  = 3;
 
 type
   /// <summary>

@@ -102,6 +102,7 @@ type
     procedure ProcessL2CapEvent(AEventInfo: Pointer);
     procedure ProcessRadioInRange(AEventInfo: Pointer);
     procedure ProcessRadioOutOfRange(AAddress: Pointer);
+    function QueryDeviceConnectionState(AAddress: UInt64): TBluetoothConnectionState;
 
     function OpenBluetoothRadio: Boolean;
     procedure CloseBluetoothRadio;
@@ -419,10 +420,37 @@ begin
   end;
 end;
 
+function TBluetoothDeviceWatcher.QueryDeviceConnectionState(
+  AAddress: UInt64): TBluetoothConnectionState;
+var
+  DeviceInfo: BLUETOOTH_DEVICE_INFO;
+  ErrorCode: DWORD;
+begin
+  // Query actual device state via Windows API
+  InitDeviceInfo(DeviceInfo);
+  DeviceInfo.Address.ullLong := AAddress;
+
+  ErrorCode := BluetoothGetDeviceInfo(0, DeviceInfo);
+  if ErrorCode = ERROR_SUCCESS then
+  begin
+    if DeviceInfo.fConnected then
+      Result := csConnected
+    else
+      Result := csDisconnected;
+  end
+  else
+  begin
+    LogDebug('QueryDeviceConnectionState: BluetoothGetDeviceInfo failed, error=%d',
+      [ErrorCode], ClassName);
+    Result := csUnknown;
+  end;
+end;
+
 procedure TBluetoothDeviceWatcher.ProcessHciEvent(AEventInfo: Pointer);
 var
   EventInfo: PBTH_HCI_EVENT_INFO;
   DeviceAddress: UInt64;
+  ActualState: TBluetoothConnectionState;
 begin
   EventInfo := PBTH_HCI_EVENT_INFO(AEventInfo);
   // bthAddress is UInt64 (BTH_ADDR), not BLUETOOTH_ADDRESS record
@@ -434,6 +462,42 @@ begin
     EventInfo^.connected
   ], ClassName);
 
+  // SCO events (voice/HFP profile) don't represent full device connect/disconnect.
+  // Audio devices switch between A2DP (ACL) and HFP (SCO) during calls.
+  // Verify actual state before firing events for SCO to avoid:
+  // - False disconnects when call ends but A2DP is still active
+  // - Battery status reset when HFP connects on already-connected device
+  if EventInfo^.connectionType = HCI_CONNECTION_TYPE_SCO then
+  begin
+    ActualState := QueryDeviceConnectionState(DeviceAddress);
+    LogDebug('ProcessHciEvent: SCO event, verified state=%d', [Ord(ActualState)], ClassName);
+
+    if EventInfo^.connected <> 0 then
+    begin
+      // SCO connect - only fire if device wasn't already connected
+      if ActualState <> csConnected then
+      begin
+        LogDebug('ProcessHciEvent: SCO connect on new device, firing OnDeviceConnected', ClassName);
+        DoDeviceConnected(DeviceAddress);
+      end
+      else
+        LogDebug('ProcessHciEvent: Device already connected, ignoring SCO connect (profile switch)', ClassName);
+    end
+    else
+    begin
+      // SCO disconnect - only fire if device is actually disconnected
+      if ActualState <> csConnected then
+      begin
+        LogDebug('ProcessHciEvent: SCO disconnect, device not connected, firing OnDeviceDisconnected', ClassName);
+        DoDeviceDisconnected(DeviceAddress);
+      end
+      else
+        LogDebug('ProcessHciEvent: Device still connected (A2DP active), ignoring SCO disconnect', ClassName);
+    end;
+    Exit;
+  end;
+
+  // ACL and other connection types - handle normally
   if EventInfo^.connected <> 0 then
   begin
     LogDebug('ProcessHciEvent: Firing OnDeviceConnected', ClassName);
