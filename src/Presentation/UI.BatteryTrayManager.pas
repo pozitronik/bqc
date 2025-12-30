@@ -498,6 +498,7 @@ procedure TBatteryTrayManager.UpdateDevice(AAddress: UInt64;
 var
   IconData: TNotifyIconData;
   ExistingIcon: TNotifyIconData;
+  HasExistingIcon: Boolean;
   Color: TColor;
   BackgroundColor: TColor;
   OutlineColor: TColor;
@@ -545,15 +546,18 @@ begin
   NewCacheEntry.IsPending := False;
   NewCacheEntry.Name := AName;
 
+  // Single dictionary lookup for existing icon (avoid redundant ContainsKey + TryGetValue)
+  HasExistingIcon := FDeviceIcons.TryGetValue(AAddress, ExistingIcon);
+
   // Check if we already have an icon with identical parameters - skip GDI recreation
-  if FDeviceIcons.ContainsKey(AAddress) and
+  if HasExistingIcon and
      FIconCache.TryGetValue(AAddress, CachedEntry) and
      IconCacheMatches(CachedEntry, NewCacheEntry) then
   begin
     Exit;
   end;
 
-  if FDeviceIcons.TryGetValue(AAddress, ExistingIcon) then
+  if HasExistingIcon then
   begin
     // Update existing icon
     if ShowNumeric then
