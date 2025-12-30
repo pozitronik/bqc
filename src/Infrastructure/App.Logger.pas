@@ -31,6 +31,13 @@ type
   /// Thread-safe file-based logging with severity levels and source identification.
   /// This is a singleton - prevent reference counting from destroying it.
   /// </summary>
+  /// <remarks>
+  /// ARCHITECTURAL NOTE: Do not inject ILogger via dependency injection.
+  /// Logging is a cross-cutting concern - global LogDebug/LogInfo/etc functions
+  /// are simpler and appropriate. The singleton pattern with global access is
+  /// intentional. The _Release override exists as a safety net in case someone
+  /// does inject ILogger, but this is not the recommended pattern.
+  /// </remarks>
   TLogger = class(TInterfacedObject, ILogger)
   private
     FLogFile: string;

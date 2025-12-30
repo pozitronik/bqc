@@ -30,6 +30,14 @@ type
   /// Coordinates between the View (Form) and the Model (Services).
   /// Dependencies are injected via constructor for testability.
   /// </summary>
+  /// <remarks>
+  /// ARCHITECTURAL NOTE: The constructor has many parameters by design.
+  /// Each parameter is a focused interface (ISP), making dependencies explicit
+  /// and testable. Alternatives like config aggregates or parameter objects
+  /// would hide dependencies and reduce clarity. The parameter count reflects
+  /// real complexity - this is the main application coordinator. Tests confirm
+  /// the design works well with mock injection.
+  /// </remarks>
   TMainPresenter = class
   private
     { View interfaces (ISP-compliant) }
