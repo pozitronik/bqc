@@ -108,6 +108,13 @@ type
     /// </summary>
     procedure SetToggleStateSafe(AState: Boolean);
 
+    /// <summary>
+    /// Queues a procedure to run on the main thread with shutdown guard.
+    /// Centralizes the FIsShutdown check pattern to prevent async callbacks
+    /// from accessing freed state after presenter shutdown.
+    /// </summary>
+    procedure QueueIfNotShutdown(AProc: TProc);
+
   protected
     /// <summary>
     /// Handles battery query completion event.
@@ -474,12 +481,9 @@ begin
   FAsyncExecutor.RunDelayed(
     procedure
     begin
-      TThread.Queue(nil,
+      QueueIfNotShutdown(
         procedure
         begin
-          // Skip if presenter is shutting down
-          if FIsShutdown then
-            Exit;
           // Only execute if generation hasn't changed (not cancelled/superseded)
           if FDelayedLoadGeneration = CapturedGeneration then
           begin
@@ -585,12 +589,9 @@ begin
     begin
       LResult := LRadioStateManager.SetState(AEnable);
 
-      TThread.Queue(nil,
+      QueueIfNotShutdown(
         procedure
         begin
-          // Skip if presenter is shutting down
-          if FIsShutdown then
-            Exit;
           case LResult of
             rcSuccess:
               begin
@@ -743,6 +744,17 @@ begin
   end;
 end;
 
+procedure TMainPresenter.QueueIfNotShutdown(AProc: TProc);
+begin
+  TThread.Queue(nil,
+    procedure
+    begin
+      if not FIsShutdown then
+        AProc();
+    end
+  );
+end;
+
 { Service event handlers }
 
 procedure TMainPresenter.HandleDeviceStateChanged(Sender: TObject;
@@ -763,13 +775,9 @@ begin
 
   LDevice := ADevice;
 
-  TThread.Queue(nil,
+  QueueIfNotShutdown(
     procedure
     begin
-      // Skip if presenter is shutting down
-      if FIsShutdown then
-        Exit;
-
       LogInfo('HandleDeviceStateChanged (queued): Updating device list for %s, State=%d (%s)', [
         LDevice.Name, Ord(LDevice.ConnectionState),
         GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(LDevice.ConnectionState))
@@ -824,11 +832,9 @@ end;
 
 procedure TMainPresenter.HandleDeviceListChanged(Sender: TObject);
 begin
-  TThread.Queue(nil,
+  QueueIfNotShutdown(
     procedure
     begin
-      if FIsShutdown then
-        Exit;
       LoadDevices;
     end
   );
@@ -837,11 +843,9 @@ end;
 procedure TMainPresenter.HandleError(Sender: TObject; const AMessage: string;
   AErrorCode: Cardinal);
 begin
-  TThread.Queue(nil,
+  QueueIfNotShutdown(
     procedure
     begin
-      if FIsShutdown then
-        Exit;
       if AErrorCode <> 0 then
         FStatusView.ShowStatus(Format('Error: %s (%d)', [AMessage, AErrorCode]))
       else
@@ -926,11 +930,9 @@ begin
   FAsyncExecutor.RunDelayed(
     procedure
     begin
-      TThread.Queue(nil,
+      QueueIfNotShutdown(
         procedure
         begin
-          if FIsShutdown then
-            Exit;
           // LBatteryCache is always valid (real or null object)
           LBatteryCache.RequestRefresh(LAddress);
         end
