@@ -21,6 +21,7 @@ uses
   App.ConfigInterfaces,
   App.AppearanceConfigIntf,
   App.ConnectionConfigIntf,
+  App.AsyncExecutor,
   UI.DeviceList,
   UI.DeviceDisplayItemBuilder;
 
@@ -51,6 +52,11 @@ type
     FStrategyFactory: IConnectionStrategyFactory;
     FRadioStateManager: IRadioStateManager;
     FBatteryCache: IBatteryCache;
+    /// <summary>
+    /// Async executor for background operations (DIP for testability).
+    /// Inject TThreadPoolExecutor for production, TSynchronousExecutor for tests.
+    /// </summary>
+    FAsyncExecutor: IAsyncExecutor;
     FDevices: TBluetoothDeviceInfoArray;
     FDisplayItems: TDeviceDisplayItemArray;
     FDisplayItemBuilder: TDeviceDisplayItemBuilder;
@@ -115,6 +121,7 @@ type
     /// <param name="AConnectionConfig">Connection settings.</param>
     /// <param name="AStrategyFactory">Connection strategy factory.</param>
     /// <param name="ARadioStateManager">Bluetooth radio state manager.</param>
+    /// <param name="AAsyncExecutor">Async executor for background operations (optional, defaults to TThreadPoolExecutor).</param>
     constructor Create(
       ADeviceListView: IDeviceListView;
       AToggleView: IToggleView;
@@ -128,7 +135,8 @@ type
       APollingConfig: IPollingConfig;
       AConnectionConfig: IConnectionConfig;
       AStrategyFactory: IConnectionStrategyFactory;
-      ARadioStateManager: IRadioStateManager
+      ARadioStateManager: IRadioStateManager;
+      AAsyncExecutor: IAsyncExecutor = nil
     );
 
     /// <summary>
@@ -226,7 +234,8 @@ constructor TMainPresenter.Create(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
   AStrategyFactory: IConnectionStrategyFactory;
-  ARadioStateManager: IRadioStateManager
+  ARadioStateManager: IRadioStateManager;
+  AAsyncExecutor: IAsyncExecutor
 );
 begin
   inherited Create;
@@ -247,6 +256,12 @@ begin
   FConnectionConfig := AConnectionConfig;
   FStrategyFactory := AStrategyFactory;
   FRadioStateManager := ARadioStateManager;
+
+  // Use provided executor or create default (production uses threads)
+  if AAsyncExecutor <> nil then
+    FAsyncExecutor := AAsyncExecutor
+  else
+    FAsyncExecutor := CreateAsyncExecutor;
 
   FBluetoothService := nil;
   FBatteryCache := nil;
@@ -443,14 +458,17 @@ var
   LDevice: TBluetoothDeviceInfo;
   LService: IBluetoothService;
 begin
+  // Capture for closure
   LDevice := ADevice;
   LService := FBluetoothService;
-  TThread.CreateAnonymousThread(
+
+  // Use injected executor for testability (DIP)
+  FAsyncExecutor.Execute(
     procedure
     begin
       LService.Connect(LDevice);
     end
-  ).Start;
+  );
 end;
 
 procedure TMainPresenter.ToggleConnectionAsync(const ADevice: TBluetoothDeviceInfo);
@@ -458,16 +476,19 @@ var
   LDevice: TBluetoothDeviceInfo;
   LService: IBluetoothService;
 begin
+  // Capture for closure
   LDevice := ADevice;
   LService := FBluetoothService;
-  TThread.CreateAnonymousThread(
+
+  // Use injected executor for testability (DIP)
+  FAsyncExecutor.Execute(
     procedure
     begin
       LogDebug('ToggleConnectionAsync: Calling ToggleConnection', ClassName);
       LService.ToggleConnection(LDevice);
       LogDebug('ToggleConnectionAsync: Complete', ClassName);
     end
-  ).Start;
+  );
 end;
 
 procedure TMainPresenter.SetRadioStateAsync(AEnable: Boolean);
@@ -476,58 +497,57 @@ var
   LToggleView: IToggleView;
   LStatusView: IStatusView;
   LRadioStateManager: IRadioStateManager;
+  LResult: TRadioControlResult;
 begin
-  // Capture interface references for async thread
+  // Capture interface references for async callback
   LDeviceListView := FDeviceListView;
   LToggleView := FToggleView;
   LStatusView := FStatusView;
   LRadioStateManager := FRadioStateManager;
 
-  TThread.CreateAnonymousThread(
+  // Use injected executor with callback pattern for testability (DIP)
+  FAsyncExecutor.ExecuteWithCallback(
+    // Work on background thread
     procedure
-    var
-      LResult: TRadioControlResult;
     begin
       LResult := LRadioStateManager.SetState(AEnable);
-
-      TThread.Queue(nil,
-        procedure
-        begin
-          case LResult of
-            rcSuccess:
-              begin
-                if AEnable then
-                begin
-                  LStatusView.ShowStatus('Bluetooth enabled');
-                  LoadDevices;
-                end
-                else
-                begin
-                  LStatusView.ShowStatus('Bluetooth disabled');
-                  LDeviceListView.ClearDevices;
-                end;
-              end;
-            rcAccessDenied:
-              begin
-                LStatusView.ShowStatus('Access denied - check Windows settings');
-                SetToggleStateSafe(not AEnable);
-              end;
-            rcDeviceNotFound:
-              begin
-                LStatusView.ShowStatus('Bluetooth adapter not found');
-                SetToggleStateSafe(False);
-                LToggleView.SetToggleEnabled(False);
-              end;
-          else
+    end,
+    // Callback on main thread
+    procedure
+    begin
+      case LResult of
+        rcSuccess:
+          begin
+            if AEnable then
             begin
-              LStatusView.ShowStatus('Failed to change Bluetooth state');
-              SetToggleStateSafe(not AEnable);
+              LStatusView.ShowStatus('Bluetooth enabled');
+              LoadDevices;
+            end
+            else
+            begin
+              LStatusView.ShowStatus('Bluetooth disabled');
+              LDeviceListView.ClearDevices;
             end;
           end;
-        end
-      );
+        rcAccessDenied:
+          begin
+            LStatusView.ShowStatus('Access denied - check Windows settings');
+            SetToggleStateSafe(not AEnable);
+          end;
+        rcDeviceNotFound:
+          begin
+            LStatusView.ShowStatus('Bluetooth adapter not found');
+            SetToggleStateSafe(False);
+            LToggleView.SetToggleEnabled(False);
+          end;
+      else
+        begin
+          LStatusView.ShowStatus('Failed to change Bluetooth state');
+          SetToggleStateSafe(not AEnable);
+        end;
+      end;
     end
-  ).Start;
+  );
 end;
 
 function TMainPresenter.GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
