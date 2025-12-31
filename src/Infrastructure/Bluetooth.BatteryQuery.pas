@@ -105,18 +105,10 @@ implementation
 
 uses
   Winapi.ActiveX,
-  App.Logger;
+  App.Logger,
+  WinRT.AsyncHelpers;
 
 const
-  // WinRT initialization
-  RO_INIT_MULTITHREADED = 1;
-
-  // Async operation status
-  AsyncStatus_Started   = 0;
-  AsyncStatus_Completed = 1;
-  AsyncStatus_Canceled  = 2;
-  AsyncStatus_Error     = 3;
-
   // GATT communication status
   GattCommunicationStatus_Success      = 0;
   GattCommunicationStatus_Unreachable  = 1;
@@ -153,8 +145,6 @@ const
   GUID_DEVCLASS_BLUETOOTH: TGUID = '{E0CBF06C-CD8B-4647-BB8A-263B43F0F974}';
 
 type
-  HSTRING = type THandle;
-
   // SetupAPI types
   HDEVINFO = THandle;
   DEVPROPTYPE = Cardinal;
@@ -246,27 +236,7 @@ type
   IGattDeviceService = interface;
   IGattCharacteristic = interface;
 
-  /// <summary>
-  /// Base WinRT interface.
-  /// </summary>
-  IInspectable = interface(IUnknown)
-    ['{AF86E2E0-B12D-4C6A-9C5A-D7AA65101E90}']
-    function GetIids(out iidCount: Cardinal; out iids: PGUID): HRESULT; stdcall;
-    function GetRuntimeClassName(out className: HSTRING): HRESULT; stdcall;
-    function GetTrustLevel(out trustLevel: Integer): HRESULT; stdcall;
-  end;
-
-  /// <summary>
-  /// Async operation info interface.
-  /// </summary>
-  IAsyncInfo = interface(IInspectable)
-    ['{00000036-0000-0000-C000-000000000046}']
-    function get_Id(out id: Cardinal): HRESULT; stdcall;
-    function get_Status(out status: Integer): HRESULT; stdcall;
-    function get_ErrorCode(out errorCode: HRESULT): HRESULT; stdcall;
-    function Cancel: HRESULT; stdcall;
-    function Close: HRESULT; stdcall;
-  end;
+  // IInspectable and IAsyncInfo are imported from WinRT.AsyncHelpers
 
   /// <summary>
   /// Generic async operation completed handler (not used but required for interface).
@@ -497,156 +467,66 @@ type
     function GetDeviceSelector(out selector: HSTRING): HRESULT; stdcall;
   end;
 
-// External WinRT functions
-function WindowsCreateString(sourceString: PWideChar; length: Cardinal;
-  out str: HSTRING): HRESULT; stdcall; external 'combase.dll';
-
-function WindowsDeleteString(str: HSTRING): HRESULT; stdcall;
-  external 'combase.dll';
-
-function RoInitialize(initType: Cardinal): HRESULT; stdcall;
-  external 'combase.dll';
-
-function RoGetActivationFactory(activatableClassId: HSTRING; const iid: TGUID;
-  out factory: IInspectable): HRESULT; stdcall; external 'combase.dll';
-
-/// <summary>
-/// Creates an HSTRING from a Delphi string.
-/// </summary>
-function CreateHString(const AStr: string): HSTRING;
-begin
-  Result := 0;
-  if AStr <> '' then
-    WindowsCreateString(PWideChar(AStr), Length(AStr), Result);
-end;
-
-/// <summary>
-/// Frees an HSTRING.
-/// </summary>
-procedure FreeHString(AStr: HSTRING);
-begin
-  if AStr <> 0 then
-    WindowsDeleteString(AStr);
-end;
-
-/// <summary>
-/// Waits for an async operation to complete with polling.
-/// </summary>
-function WaitForAsyncOperation(const AAsyncInfo: IAsyncInfo;
-  ATimeoutMs: Cardinal): Boolean;
-var
-  Status: Integer;
-  StartTime: Cardinal;
-begin
-  Result := False;
-  if AAsyncInfo = nil then
-  begin
-    LogDebug('WaitForAsyncOperation: AAsyncInfo is nil', LOG_SOURCE);
-    Exit;
-  end;
-
-  StartTime := GetTickCount;
-  repeat
-    if Failed(AAsyncInfo.get_Status(Status)) then
-    begin
-      LogDebug('WaitForAsyncOperation: get_Status failed', LOG_SOURCE);
-      Exit;
-    end;
-
-    if Status <> AsyncStatus_Started then
-    begin
-      Result := (Status = AsyncStatus_Completed);
-      if not Result then
-        LogDebug('WaitForAsyncOperation: Async status=%d (not completed)', [Status], LOG_SOURCE);
-      Exit;
-    end;
-
-    Sleep(10);
-  until (GetTickCount - StartTime) > ATimeoutMs;
-
-  LogDebug('WaitForAsyncOperation: Timeout after %dms', [ATimeoutMs], LOG_SOURCE);
-end;
+// WinRT helper functions (CreateHString, FreeHString, WaitForAsyncOperation,
+// GetActivationFactory, EnsureWinRTInitialized) are imported from WinRT.AsyncHelpers
 
 /// <summary>
 /// Gets BluetoothLEDevice from Bluetooth address.
+/// Uses WinRT.AsyncHelpers for async operation handling.
 /// </summary>
 function GetBluetoothLEDevice(AAddress: UInt64; ATimeoutMs: Cardinal;
   out ADevice: IBluetoothLEDevice): Boolean;
 var
   HR: HRESULT;
-  ClassName: HSTRING;
   Factory: IInspectable;
   Statics: IBluetoothLEDeviceStatics;
   AsyncOp: IAsyncOperationBluetoothLEDevice;
-  AsyncInfo: IAsyncInfo;
+  AsyncResult: TWinRTAsyncResult;
 begin
   Result := False;
   ADevice := nil;
 
-  HR := RoInitialize(RO_INIT_MULTITHREADED);
-  if Failed(HR) and (HR <> RPC_E_CHANGED_MODE) then
+  // Use helper to get activation factory (handles WinRT init and HSTRING)
+  if not GetActivationFactory(RuntimeClass_BluetoothLEDevice,
+    IBluetoothLEDeviceStatics, Factory) then
+    Exit;
+
+  HR := Factory.QueryInterface(IBluetoothLEDeviceStatics, Statics);
+  if Failed(HR) or (Statics = nil) then
   begin
-    LogDebug('RoInitialize failed: 0x%.8X', [HR], LOG_SOURCE);
+    LogDebug('QueryInterface for statics failed: 0x%.8X', [HR], LOG_SOURCE);
     Exit;
   end;
 
-  ClassName := CreateHString(RuntimeClass_BluetoothLEDevice);
-  if ClassName = 0 then
+  HR := Statics.FromBluetoothAddressAsync(AAddress, AsyncOp);
+  if Failed(HR) or (AsyncOp = nil) then
   begin
-    LogDebug('Failed to create HSTRING for class name', LOG_SOURCE);
+    LogDebug('FromBluetoothAddressAsync failed: 0x%.8X', [HR], LOG_SOURCE);
     Exit;
   end;
 
-  try
-    HR := RoGetActivationFactory(ClassName, IBluetoothLEDeviceStatics, Factory);
-    if Failed(HR) or (Factory = nil) then
-    begin
-      LogDebug('RoGetActivationFactory failed: 0x%.8X', [HR], LOG_SOURCE);
-      Exit;
-    end;
-
-    HR := Factory.QueryInterface(IBluetoothLEDeviceStatics, Statics);
-    if Failed(HR) or (Statics = nil) then
-    begin
-      LogDebug('QueryInterface for statics failed: 0x%.8X', [HR], LOG_SOURCE);
-      Exit;
-    end;
-
-    HR := Statics.FromBluetoothAddressAsync(AAddress, AsyncOp);
-    if Failed(HR) or (AsyncOp = nil) then
-    begin
-      LogDebug('FromBluetoothAddressAsync failed: 0x%.8X', [HR], LOG_SOURCE);
-      Exit;
-    end;
-
-    if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
-    begin
-      LogDebug('Failed to get IAsyncInfo', LOG_SOURCE);
-      Exit;
-    end;
-
-    if not WaitForAsyncOperation(AsyncInfo, ATimeoutMs) then
-    begin
-      LogDebug('Async operation timed out or failed', LOG_SOURCE);
-      Exit;
-    end;
-
-    HR := AsyncOp.GetResults(ADevice);
-    if Failed(HR) or (ADevice = nil) then
-    begin
-      LogDebug('GetResults failed: 0x%.8X (Device=%p) - Device may be Classic Bluetooth, not BLE', [HR, Pointer(ADevice)], LOG_SOURCE);
-      Exit;
-    end;
-
-    Result := True;
-    LogDebug('Successfully got BluetoothLEDevice for address $%.12X', [AAddress], LOG_SOURCE);
-  finally
-    FreeHString(ClassName);
+  // Use helper to wait for async operation
+  AsyncResult := ExecuteAsyncWithTimeout(AsyncOp, ATimeoutMs);
+  if not AsyncResult.Success then
+  begin
+    LogDebug('Async operation failed: %s', [AsyncResult.ErrorMessage], LOG_SOURCE);
+    Exit;
   end;
+
+  HR := AsyncOp.GetResults(ADevice);
+  if Failed(HR) or (ADevice = nil) then
+  begin
+    LogDebug('GetResults failed: 0x%.8X - Device may be Classic Bluetooth, not BLE', [HR], LOG_SOURCE);
+    Exit;
+  end;
+
+  Result := True;
+  LogDebug('Successfully got BluetoothLEDevice for address $%.12X', [AAddress], LOG_SOURCE);
 end;
 
 /// <summary>
 /// Gets the Battery Service from a BluetoothLEDevice.
+/// Uses WinRT.AsyncHelpers for async operation handling.
 /// </summary>
 function GetBatteryService(const ADevice: IBluetoothLEDevice; ATimeoutMs: Cardinal;
   out AService: IGattDeviceService): Boolean;
@@ -654,7 +534,7 @@ var
   HR: HRESULT;
   Device3: IBluetoothLEDevice3;
   AsyncOp: IAsyncOperationGattDeviceServicesResult;
-  AsyncInfo: IAsyncInfo;
+  AsyncResult: TWinRTAsyncResult;
   ServicesResult: IGattDeviceServicesResult;
   Status: Integer;
   Services: IInspectable;
@@ -680,15 +560,11 @@ begin
     Exit;
   end;
 
-  if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
+  // Use helper to wait for async operation
+  AsyncResult := ExecuteAsyncWithTimeout(AsyncOp, ATimeoutMs);
+  if not AsyncResult.Success then
   begin
-    LogDebug('Failed to get IAsyncInfo for services', LOG_SOURCE);
-    Exit;
-  end;
-
-  if not WaitForAsyncOperation(AsyncInfo, ATimeoutMs) then
-  begin
-    LogDebug('Services async operation timed out', LOG_SOURCE);
+    LogDebug('Services async operation failed: %s', [AsyncResult.ErrorMessage], LOG_SOURCE);
     Exit;
   end;
 
@@ -740,6 +616,7 @@ end;
 
 /// <summary>
 /// Gets the Battery Level characteristic from the Battery Service.
+/// Uses WinRT.AsyncHelpers for async operation handling.
 /// </summary>
 function GetBatteryLevelCharacteristic(const AService: IGattDeviceService;
   ATimeoutMs: Cardinal; out ACharacteristic: IGattCharacteristic): Boolean;
@@ -747,7 +624,7 @@ var
   HR: HRESULT;
   Service3: IGattDeviceService3;
   AsyncOp: IAsyncOperationGattCharacteristicsResult;
-  AsyncInfo: IAsyncInfo;
+  AsyncResult: TWinRTAsyncResult;
   CharsResult: IGattCharacteristicsResult;
   Status: Integer;
   Chars: IInspectable;
@@ -771,15 +648,11 @@ begin
     Exit;
   end;
 
-  if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
+  // Use helper to wait for async operation
+  AsyncResult := ExecuteAsyncWithTimeout(AsyncOp, ATimeoutMs);
+  if not AsyncResult.Success then
   begin
-    LogDebug('Failed to get IAsyncInfo for characteristics', LOG_SOURCE);
-    Exit;
-  end;
-
-  if not WaitForAsyncOperation(AsyncInfo, ATimeoutMs) then
-  begin
-    LogDebug('Characteristics async operation timed out', LOG_SOURCE);
+    LogDebug('Characteristics async operation failed: %s', [AsyncResult.ErrorMessage], LOG_SOURCE);
     Exit;
   end;
 
@@ -831,13 +704,14 @@ end;
 
 /// <summary>
 /// Reads the battery level value from the characteristic.
+/// Uses WinRT.AsyncHelpers for async operation handling.
 /// </summary>
 function ReadBatteryLevel(const ACharacteristic: IGattCharacteristic;
   ATimeoutMs: Cardinal; out ALevel: Integer): Boolean;
 var
   HR: HRESULT;
   AsyncOp: IAsyncOperationGattReadResult;
-  AsyncInfo: IAsyncInfo;
+  AsyncResult: TWinRTAsyncResult;
   ReadResult: IGattReadResult;
   Status: Integer;
   Buffer: IBuffer;
@@ -855,15 +729,11 @@ begin
     Exit;
   end;
 
-  if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
+  // Use helper to wait for async operation
+  AsyncResult := ExecuteAsyncWithTimeout(AsyncOp, ATimeoutMs);
+  if not AsyncResult.Success then
   begin
-    LogDebug('Failed to get IAsyncInfo for read', LOG_SOURCE);
-    Exit;
-  end;
-
-  if not WaitForAsyncOperation(AsyncInfo, ATimeoutMs) then
-  begin
-    LogDebug('Read async operation timed out', LOG_SOURCE);
+    LogDebug('Read async operation failed: %s', [AsyncResult.ErrorMessage], LOG_SOURCE);
     Exit;
   end;
 
