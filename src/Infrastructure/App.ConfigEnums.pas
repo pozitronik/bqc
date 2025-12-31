@@ -88,6 +88,17 @@ type
   );
 
   /// <summary>
+  /// Bluetooth platform mode.
+  /// Determines which Bluetooth API platform to use (Classic Win32 vs WinRT).
+  /// Allows explicit platform selection for debugging and Windows 7 support.
+  /// </summary>
+  TBluetoothPlatform = (
+    bpAuto,     // Auto-detect: WinRT if available, otherwise Classic (0)
+    bpClassic,  // Force Classic Bluetooth (Win32 APIs) - Works on Win7-Win11 (1)
+    bpWinRT     // Force WinRT Bluetooth APIs - Requires Win8+ (2)
+  );
+
+  /// <summary>
   /// Battery icon outline color mode for taskbar visibility.
   /// Controls how the outline color is determined.
   /// </summary>

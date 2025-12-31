@@ -76,13 +76,19 @@ type
   end;
 
   /// <summary>
-  /// Windows API implementation of IBluetoothDeviceQuery.
+  /// Classic Bluetooth (Win32 API) implementation of IBluetoothDeviceQuery.
   /// Wraps BluetoothFindFirstDevice/Next/Close calls.
+  /// Works on Windows 7-11 for Classic Bluetooth devices (no BLE).
   /// </summary>
-  TWindowsBluetoothDeviceQuery = class(TInterfacedObject, IBluetoothDeviceQuery)
+  TClassicBluetoothDeviceQuery = class(TInterfacedObject, IBluetoothDeviceQuery)
   public
     function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
   end;
+
+  /// <summary>
+  /// Backward compatibility alias for existing code.
+  /// </summary>
+  TWindowsBluetoothDeviceQuery = TClassicBluetoothDeviceQuery;
 
   /// <summary>
   /// Composite query that uses both Win32 and WinRT APIs.
@@ -172,7 +178,8 @@ implementation
 uses
   System.Classes,
   System.Win.Registry,
-  App.Logger;
+  App.Logger,
+  App.WinRTSupport;
 
 const
   BTHPORT_DEVICES_KEY = 'SYSTEM\CurrentControlSet\Services\BTHPORT\Parameters\Devices';
@@ -394,9 +401,9 @@ begin
   Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery(AConnectionConfig));
 end;
 
-{ TWindowsBluetoothDeviceQuery }
+{ TClassicBluetoothDeviceQuery }
 
-function TWindowsBluetoothDeviceQuery.EnumeratePairedDevices: TBluetoothDeviceInfoArray;
+function TClassicBluetoothDeviceQuery.EnumeratePairedDevices: TBluetoothDeviceInfoArray;
 var
   SearchParams: BLUETOOTH_DEVICE_SEARCH_PARAMS;
   DeviceInfo: BLUETOOTH_DEVICE_INFO;
@@ -450,12 +457,39 @@ begin
 end;
 
 constructor TCompositeBluetoothDeviceQuery.Create(AConnectionConfig: IConnectionConfig);
+var
+  Platform: TBluetoothPlatform;
 begin
   inherited Create;
-  FWin32Query := TWindowsBluetoothDeviceQuery.Create;
-  FWinRTQuery := CreateWinRTBluetoothDeviceQuery;
   FConnectionConfig := AConnectionConfig;
   FRegistryNameCache := TRegistryNameCache.Create(SystemClock, 60);
+
+  // Determine platform: use config if available, otherwise auto-detect
+  if Assigned(AConnectionConfig) then
+    Platform := TWinRTSupport.SelectPlatform(AConnectionConfig.BluetoothPlatform)
+  else
+    Platform := TWinRTSupport.SelectPlatform(bpAuto);
+
+  // Create only the query for the selected platform
+  case Platform of
+    bpClassic:
+      begin
+        FWin32Query := TClassicBluetoothDeviceQuery.Create;
+        FWinRTQuery := nil;  // Classic platform only
+        LogDebug('TCompositeBluetoothDeviceQuery: Using Classic Bluetooth (Win32) platform', ClassName);
+      end;
+    bpWinRT:
+      begin
+        FWin32Query := nil;
+        FWinRTQuery := CreateWinRTBluetoothDeviceQuery;  // WinRT platform only
+        LogDebug('TCompositeBluetoothDeviceQuery: Using WinRT Bluetooth platform', ClassName);
+      end;
+  else
+    // Fallback: create both for composite mode (shouldn't happen with proper SelectPlatform)
+    FWin32Query := TClassicBluetoothDeviceQuery.Create;
+    FWinRTQuery := CreateWinRTBluetoothDeviceQuery;
+    LogWarning('TCompositeBluetoothDeviceQuery: Unexpected platform, creating both queries', ClassName);
+  end;
 end;
 
 destructor TCompositeBluetoothDeviceQuery.Destroy;
@@ -509,6 +543,25 @@ var
   Win32Devices, WinRTDevices: TBluetoothDeviceInfoArray;
   Mode: TEnumerationMode;
 begin
+  // Platform selection overrides enumeration mode
+  // If only one query is available, use it regardless of mode
+  if not Assigned(FWin32Query) and Assigned(FWinRTQuery) then
+  begin
+    // WinRT platform only
+    Result := FWinRTQuery.EnumeratePairedDevices;
+    LogDebug('EnumeratePairedDevices: WinRT platform, %d devices', [Length(Result)], ClassName);
+    Exit;
+  end;
+
+  if Assigned(FWin32Query) and not Assigned(FWinRTQuery) then
+  begin
+    // Classic platform only
+    Result := FWin32Query.EnumeratePairedDevices;
+    LogDebug('EnumeratePairedDevices: Classic platform, %d devices', [Length(Result)], ClassName);
+    Exit;
+  end;
+
+  // Both queries available - use enumeration mode
   Mode := GetEnumerationMode;
   LogDebug('EnumeratePairedDevices: Starting enumeration, mode=%d', [Ord(Mode)], ClassName);
 

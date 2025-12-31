@@ -15,7 +15,8 @@ interface
 uses
   Winapi.Windows,
   Winapi.Messages,
-  System.Classes;
+  System.Classes,
+  App.ConfigEnums;
 
 type
   /// <summary>
@@ -128,10 +129,11 @@ type
   end;
 
   /// <summary>
-  /// Implementation of IRadioStateManager.
-  /// Wraps WinRT radio control functions and provides state change watching.
+  /// Classic Bluetooth radio control (Win32 APIs).
+  /// Read-only implementation - radio control requires WinRT (Windows 8+).
+  /// GetState works, but SetState returns rasNotSupported.
   /// </summary>
-  TRadioStateManager = class(TInterfacedObject, IRadioStateManager)
+  TClassicRadioControl = class(TInterfacedObject, IRadioStateManager)
   private
     FWatcher: TBluetoothRadioWatcher;
     FOnStateChanged: TRadioStateChangedEvent;
@@ -149,6 +151,41 @@ type
     function GetOnStateChanged: TRadioStateChangedEvent;
     procedure SetOnStateChanged(AValue: TRadioStateChangedEvent);
   end;
+
+  /// <summary>
+  /// WinRT radio control implementation (Windows 8+).
+  /// Wraps WinRT radio control functions and provides state change watching.
+  /// Supports both GetState and SetState operations.
+  /// </summary>
+  TWinRTRadioControl = class(TInterfacedObject, IRadioStateManager)
+  private
+    FWatcher: TBluetoothRadioWatcher;
+    FOnStateChanged: TRadioStateChangedEvent;
+    procedure HandleWatcherStateChanged(Sender: TObject; AEnabled: Boolean);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    { IRadioStateManager }
+    function GetState(out AEnabled: Boolean): Boolean;
+    function SetState(AEnable: Boolean): TRadioControlResult;
+    function SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+    procedure StartWatching;
+    procedure StopWatching;
+    function GetOnStateChanged: TRadioStateChangedEvent;
+    procedure SetOnStateChanged(AValue: TRadioStateChangedEvent);
+  end;
+
+  /// <summary>
+  /// Backward compatibility alias for existing code.
+  /// </summary>
+  TRadioStateManager = TWinRTRadioControl;
+
+/// <summary>
+/// Creates the appropriate radio state manager based on platform.
+/// Returns TClassicRadioControl for bpClassic, TWinRTRadioControl for bpWinRT.
+/// </summary>
+function CreateRadioStateManager(APlatform: TBluetoothPlatform): IRadioStateManager;
 
 /// <summary>
 /// Enables or disables the Bluetooth radio adapter using WinRT API.
@@ -485,58 +522,142 @@ end;
 
 { TRadioStateManager }
 
-constructor TRadioStateManager.Create;
+{ TWinRTRadioControl }
+
+constructor TWinRTRadioControl.Create;
 begin
   inherited Create;
   FWatcher := TBluetoothRadioWatcher.Create;
   FWatcher.OnStateChanged := HandleWatcherStateChanged;
 end;
 
-destructor TRadioStateManager.Destroy;
+destructor TWinRTRadioControl.Destroy;
 begin
   FWatcher.Free;
   inherited Destroy;
 end;
 
-function TRadioStateManager.GetState(out AEnabled: Boolean): Boolean;
+function TWinRTRadioControl.GetState(out AEnabled: Boolean): Boolean;
 begin
   Result := GetBluetoothRadioState(AEnabled);
 end;
 
-function TRadioStateManager.SetState(AEnable: Boolean): TRadioControlResult;
+function TWinRTRadioControl.SetState(AEnable: Boolean): TRadioControlResult;
 begin
   Result := SetBluetoothRadioState(AEnable);
 end;
 
-function TRadioStateManager.SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+function TWinRTRadioControl.SetStateEx(AEnable: Boolean): TRadioControlResultEx;
 begin
   Result := SetBluetoothRadioStateEx(AEnable);
 end;
 
-procedure TRadioStateManager.StartWatching;
+procedure TWinRTRadioControl.StartWatching;
 begin
   FWatcher.Start;
 end;
 
-procedure TRadioStateManager.StopWatching;
+procedure TWinRTRadioControl.StopWatching;
 begin
   FWatcher.Stop;
 end;
 
-function TRadioStateManager.GetOnStateChanged: TRadioStateChangedEvent;
+function TWinRTRadioControl.GetOnStateChanged: TRadioStateChangedEvent;
 begin
   Result := FOnStateChanged;
 end;
 
-procedure TRadioStateManager.SetOnStateChanged(AValue: TRadioStateChangedEvent);
+procedure TWinRTRadioControl.SetOnStateChanged(AValue: TRadioStateChangedEvent);
 begin
   FOnStateChanged := AValue;
 end;
 
-procedure TRadioStateManager.HandleWatcherStateChanged(Sender: TObject; AEnabled: Boolean);
+procedure TWinRTRadioControl.HandleWatcherStateChanged(Sender: TObject; AEnabled: Boolean);
 begin
   if Assigned(FOnStateChanged) then
     FOnStateChanged(Self, AEnabled);
+end;
+
+{ TClassicRadioControl }
+
+constructor TClassicRadioControl.Create;
+begin
+  inherited Create;
+  FWatcher := TBluetoothRadioWatcher.Create;
+  FWatcher.OnStateChanged := HandleWatcherStateChanged;
+end;
+
+destructor TClassicRadioControl.Destroy;
+begin
+  FWatcher.Free;
+  inherited Destroy;
+end;
+
+function TClassicRadioControl.GetState(out AEnabled: Boolean): Boolean;
+begin
+  // Classic Bluetooth can read radio state via Win32 APIs
+  Result := GetBluetoothRadioState(AEnabled);
+end;
+
+function TClassicRadioControl.SetState(AEnable: Boolean): TRadioControlResult;
+begin
+  // Classic Bluetooth (Win32) does not support radio control without admin privileges
+  // Return rcAccessDenied to indicate graceful degradation
+  Result := rcAccessDenied;
+end;
+
+function TClassicRadioControl.SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+begin
+  // Classic Bluetooth does not support radio control
+  Result.Result := rcAccessDenied;
+  Result.ErrorCode := ERROR_NOT_SUPPORTED;
+end;
+
+procedure TClassicRadioControl.StartWatching;
+begin
+  FWatcher.Start;
+end;
+
+procedure TClassicRadioControl.StopWatching;
+begin
+  FWatcher.Stop;
+end;
+
+function TClassicRadioControl.GetOnStateChanged: TRadioStateChangedEvent;
+begin
+  Result := FOnStateChanged;
+end;
+
+procedure TClassicRadioControl.SetOnStateChanged(AValue: TRadioStateChangedEvent);
+begin
+  FOnStateChanged := AValue;
+end;
+
+procedure TClassicRadioControl.HandleWatcherStateChanged(Sender: TObject; AEnabled: Boolean);
+begin
+  if Assigned(FOnStateChanged) then
+    FOnStateChanged(Self, AEnabled);
+end;
+
+{ Factory function }
+
+function CreateRadioStateManager(APlatform: TBluetoothPlatform): IRadioStateManager;
+begin
+  case APlatform of
+    bpClassic:
+      Result := TClassicRadioControl.Create;
+    bpWinRT:
+      Result := TWinRTRadioControl.Create;
+    bpAuto:
+      // Auto-detect: Use actual platform detection
+      if TWinRTSupport.IsAvailable then
+        Result := TWinRTRadioControl.Create
+      else
+        Result := TClassicRadioControl.Create;
+  else
+    // Fallback to auto-detection
+    Result := CreateRadioStateManager(bpAuto);
+  end;
 end;
 
 end.

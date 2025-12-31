@@ -16,6 +16,7 @@ interface
 
 uses
   App.ConfigInterfaces,
+  App.ConfigEnums,
   App.ConnectionConfigIntf,
   App.LogConfigIntf,
   App.AppearanceConfigIntf,
@@ -301,9 +302,15 @@ begin
 end;
 
 function TAppBootstrap.RadioStateManager: IRadioStateManager;
+var
+  Platform: TBluetoothPlatform;
 begin
   if FRadioStateManager = nil then
-    FRadioStateManager := TRadioStateManager.Create;
+  begin
+    // Select platform based on configuration
+    Platform := ConnectionConfig.BluetoothPlatform;
+    FRadioStateManager := CreateRadioStateManager(Platform);
+  end;
   Result := FRadioStateManager;
 end;
 

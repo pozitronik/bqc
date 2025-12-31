@@ -12,9 +12,18 @@ unit App.WinRTSupport;
 
 interface
 
+uses
+  System.SysUtils,
+  App.ConfigEnums;
+
 type
   /// <summary>
-  /// Provides WinRT availability detection.
+  /// Exception raised when WinRT platform is requested but not available.
+  /// </summary>
+  EBluetoothPlatformError = class(Exception);
+
+  /// <summary>
+  /// Provides WinRT availability detection and platform selection.
   /// WinRT APIs (combase.dll) are only available on Windows 8+.
   /// </summary>
   TWinRTSupport = class
@@ -29,6 +38,13 @@ type
     /// Result is cached after first call.
     /// </summary>
     class function IsAvailable: Boolean;
+
+    /// <summary>
+    /// Selects the appropriate Bluetooth platform based on preference and availability.
+    /// Returns the platform to use after validation.
+    /// Raises EBluetoothPlatformError if WinRT is requested but not available.
+    /// </summary>
+    class function SelectPlatform(APreferred: TBluetoothPlatform): TBluetoothPlatform;
 
     /// <summary>
     /// Returns True if the current Windows version supports dark mode.
@@ -103,6 +119,32 @@ begin
   if not FChecked then
     CheckAvailability;
   Result := FAvailable;
+end;
+
+class function TWinRTSupport.SelectPlatform(APreferred: TBluetoothPlatform): TBluetoothPlatform;
+begin
+  case APreferred of
+    bpAuto:
+      // Auto-detect: WinRT if available, otherwise Classic
+      if IsAvailable then
+        Result := bpWinRT
+      else
+        Result := bpClassic;
+
+    bpClassic:
+      // Classic Bluetooth always allowed (Win7-Win11)
+      Result := bpClassic;
+
+    bpWinRT:
+      // WinRT requires Windows 8+
+      if IsAvailable then
+        Result := bpWinRT
+      else
+        raise EBluetoothPlatformError.Create('WinRT Bluetooth APIs are not available on this system. ' +
+          'WinRT requires Windows 8 or later. Switch to Classic or Auto mode in settings.');
+  else
+    Result := bpAuto;  // Fallback
+  end;
 end;
 
 class function TWinRTSupport.IsDarkModeSupported: Boolean;
