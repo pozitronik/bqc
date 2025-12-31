@@ -774,11 +774,21 @@ begin
 
   QueueIfNotShutdown(
     procedure
+    var
+      RadioEnabled: Boolean;
     begin
       LogInfo('HandleDeviceStateChanged (queued): Updating device list for %s, State=%d (%s)', [
         LDevice.Name, Ord(LDevice.ConnectionState),
         GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(LDevice.ConnectionState))
       ], ClassName);
+
+      // Ignore device state changes when radio is disabled to prevent race condition where
+      // async device state events arrive after ClearDevices was called during radio shutdown
+      if not FRadioStateManager.GetState(RadioEnabled) or not RadioEnabled then
+      begin
+        LogDebug('HandleDeviceStateChanged (queued): Radio disabled, ignoring event', ClassName);
+        Exit;
+      end;
 
       // Update local cache using copy-on-write pattern
       UpdateOrAddDevice(LDevice);

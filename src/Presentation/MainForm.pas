@@ -1102,6 +1102,34 @@ end;
 procedure TFormMain.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
 begin
   FDeviceList.UpdateDisplayItem(AItem);
+
+  // Update battery tray icon for this device (same logic as ShowDisplayItems)
+  if Assigned(FBatteryTrayManager) then
+  begin
+    if AItem.Device.IsConnected then
+    begin
+      if AItem.BatteryStatus.IsPending then
+        // Show pending icon while battery is being refreshed
+        FBatteryTrayManager.UpdateDevicePending(
+          AItem.Device.AddressInt,
+          AItem.DisplayName
+        )
+      else if AItem.BatteryStatus.Level >= 0 then
+        // Show battery level icon
+        FBatteryTrayManager.UpdateDevice(
+          AItem.Device.AddressInt,
+          AItem.DisplayName,
+          AItem.BatteryStatus.Level,
+          True
+        )
+      else
+        // Battery not supported or unknown - remove icon
+        FBatteryTrayManager.RemoveDevice(AItem.Device.AddressInt);
+    end
+    else
+      // Remove tray icon for disconnected devices
+      FBatteryTrayManager.RemoveDevice(AItem.Device.AddressInt);
+  end;
 end;
 
 procedure TFormMain.ClearDevices;
