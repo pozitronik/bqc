@@ -19,6 +19,12 @@ uses
 
 type
   /// <summary>
+  /// Procedure type for error handling in async operations.
+  /// Called on main thread when an exception occurs during async work.
+  /// </summary>
+  TAsyncErrorHandler = reference to procedure(const AException: Exception);
+
+  /// <summary>
   /// Interface for executing code asynchronously.
   /// Enables dependency injection for testable async operations.
   /// </summary>
@@ -35,6 +41,14 @@ type
     /// The delay and execution both happen in a background thread.
     /// </summary>
     procedure RunDelayed(AProc: TProc; ADelayMs: Integer);
+
+    /// <summary>
+    /// Executes a procedure asynchronously with error handling.
+    /// If an exception occurs during execution, the error handler is called on the main thread.
+    /// </summary>
+    /// <param name="AWork">The work to execute asynchronously.</param>
+    /// <param name="AOnError">Error handler called on main thread if exception occurs.</param>
+    procedure RunAsyncWithErrorHandler(AWork: TProc; AOnError: TAsyncErrorHandler);
   end;
 
   /// <summary>
@@ -45,6 +59,56 @@ type
   public
     procedure RunAsync(AProc: TProc);
     procedure RunDelayed(AProc: TProc; ADelayMs: Integer);
+    procedure RunAsyncWithErrorHandler(AWork: TProc; AOnError: TAsyncErrorHandler);
+  end;
+
+  /// <summary>
+  /// Synchronous implementation for testing.
+  /// Executes procedures immediately on the calling thread for deterministic behavior.
+  /// Tracks execution counts for test verification.
+  /// </summary>
+  TSynchronousExecutor = class(TInterfacedObject, IAsyncExecutor)
+  private
+    FRunAsyncCount: Integer;
+    FRunDelayedCount: Integer;
+    FRunAsyncWithErrorHandlerCount: Integer;
+    FLastException: Exception;
+  public
+    destructor Destroy; override;
+    /// <summary>
+    /// Executes procedure immediately (synchronously).
+    /// </summary>
+    procedure RunAsync(AProc: TProc);
+
+    /// <summary>
+    /// Executes procedure immediately, ignoring delay (synchronously).
+    /// </summary>
+    procedure RunDelayed(AProc: TProc; ADelayMs: Integer);
+
+    /// <summary>
+    /// Executes procedure immediately with error capture (synchronously).
+    /// </summary>
+    procedure RunAsyncWithErrorHandler(AWork: TProc; AOnError: TAsyncErrorHandler);
+
+    /// <summary>
+    /// Number of times RunAsync was called.
+    /// </summary>
+    property RunAsyncCount: Integer read FRunAsyncCount;
+
+    /// <summary>
+    /// Number of times RunDelayed was called.
+    /// </summary>
+    property RunDelayedCount: Integer read FRunDelayedCount;
+
+    /// <summary>
+    /// Number of times RunAsyncWithErrorHandler was called.
+    /// </summary>
+    property RunAsyncWithErrorHandlerCount: Integer read FRunAsyncWithErrorHandlerCount;
+
+    /// <summary>
+    /// Last exception captured by RunAsyncWithErrorHandler (for test assertions).
+    /// </summary>
+    property LastException: Exception read FLastException;
   end;
 
 /// <summary>
@@ -75,6 +139,74 @@ begin
       AProc();
     end
   ).Start;
+end;
+
+procedure TThreadAsyncExecutor.RunAsyncWithErrorHandler(AWork: TProc; AOnError: TAsyncErrorHandler);
+begin
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        AWork();
+      except
+        on E: Exception do
+        begin
+          if Assigned(AOnError) then
+          begin
+            TThread.Queue(nil,
+              procedure
+              begin
+                AOnError(E);
+              end
+            );
+          end;
+        end;
+      end;
+    end
+  ).Start;
+end;
+
+{ TSynchronousExecutor }
+
+destructor TSynchronousExecutor.Destroy;
+begin
+  FLastException.Free;
+  inherited;
+end;
+
+procedure TSynchronousExecutor.RunAsync(AProc: TProc);
+begin
+  Inc(FRunAsyncCount);
+  if Assigned(AProc) then
+    AProc();
+end;
+
+procedure TSynchronousExecutor.RunDelayed(AProc: TProc; ADelayMs: Integer);
+begin
+  Inc(FRunDelayedCount);
+  // Ignore delay in test mode - execute immediately
+  if Assigned(AProc) then
+    AProc();
+end;
+
+procedure TSynchronousExecutor.RunAsyncWithErrorHandler(AWork: TProc; AOnError: TAsyncErrorHandler);
+begin
+  Inc(FRunAsyncWithErrorHandlerCount);
+  if Assigned(AWork) then
+  begin
+    try
+      AWork();
+    except
+      on E: Exception do
+      begin
+        // Acquire exception object for storage (prevents auto-free)
+        FreeAndNil(FLastException);  // Free previous exception if exists
+        FLastException := Exception(AcquireExceptionObject);
+        if Assigned(AOnError) then
+          AOnError(E);  // Pass original E to handler
+      end;
+    end;
+  end;
 end;
 
 { Factory function }

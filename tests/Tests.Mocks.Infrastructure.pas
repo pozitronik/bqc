@@ -154,6 +154,7 @@ type
     // IAsyncExecutor
     procedure RunAsync(AProc: TProc);
     procedure RunDelayed(AProc: TProc; ADelayMs: Integer);
+    procedure RunAsyncWithErrorHandler(AWork: TProc; AOnError: TAsyncErrorHandler);
 
     /// <summary>
     /// Executes all pending procedures in order.
@@ -558,6 +559,23 @@ begin
   begin
     FPendingProcs.Add(AProc);
     FPendingDelays.Add(ADelayMs);
+  end;
+end;
+
+procedure TMockAsyncExecutor.RunAsyncWithErrorHandler(AWork: TProc; AOnError: TAsyncErrorHandler);
+begin
+  // For mock, just execute synchronously with error handling
+  if Assigned(AWork) then
+  begin
+    try
+      AWork();
+    except
+      on E: Exception do
+      begin
+        if Assigned(AOnError) then
+          AOnError(E);
+      end;
+    end;
   end;
 end;
 
