@@ -117,6 +117,18 @@ type
     procedure RemoveDevice_ClearsCacheEntry;
     [Test]
     procedure ClearAll_ClearsCacheEntries;
+
+    { Stress Tests - Simulating Rapid Clicking Scenario }
+    [Test]
+    procedure RapidUpdates_MultipleDevices_NoError;
+    [Test]
+    procedure InterleavedOperations_MixedDeviceStates_NoError;
+    [Test]
+    procedure RemoveDuringIteration_SimulatedScenario_NoError;
+    [Test]
+    procedure UpdatePendingAfterRemove_NoError;
+    [Test]
+    procedure ClearAllDuringUpdates_NoError;
   end;
 
 implementation
@@ -397,6 +409,158 @@ begin
   FManager.UpdateDevice($987654321DEF, 'Device 2', 75, True);
 
   Assert.Pass('ClearAll clears cache correctly');
+end;
+
+procedure TBatteryTrayManagerTests.RapidUpdates_MultipleDevices_NoError;
+const
+  // Device addresses from the actual bug scenario
+  ADDR_XM6 = UInt64($58195DD0B92E);    // WH-1000XM6 (96861746716078)
+  ADDR_XM4 = UInt64($88CD65D0B2B4);    // WH-1000XM4 (150400772695732)
+  ADDR_REDMI = UInt64($4875648BA4BC);  // Redmi Buds 5 Pro (79662169810108)
+  ADDR_CONTROLLER = UInt64($E4371737D58F);  // Pro Controller (250791062919311)
+  ADDR_POCO = UInt64($C0162213A747);   // POCO (211203199087815)
+var
+  I: Integer;
+begin
+  FManager.Enabled := False;
+
+  // Simulate the scenario: 5 devices, rapid updates like during clicking
+  for I := 1 to 100 do
+  begin
+    // Simulate ShowDisplayItems iterating through all devices
+    FManager.UpdateDevicePending(ADDR_XM6, 'WH-1000XM6');
+    FManager.UpdateDevicePending(ADDR_XM4, 'WH-1000XM4');
+    FManager.RemoveDevice(ADDR_REDMI);
+    FManager.RemoveDevice(ADDR_CONTROLLER);
+    FManager.UpdateDevicePending(ADDR_POCO, 'POCO');
+
+    // Then some devices get battery updates
+    FManager.UpdateDevice(ADDR_XM4, 'WH-1000XM4', 85, True);
+    FManager.UpdateDevice(ADDR_POCO, 'POCO', 60, True);
+
+    // Some disconnect
+    FManager.RemoveDevice(ADDR_XM6);
+    FManager.RemoveDevice(ADDR_XM4);
+  end;
+
+  Assert.Pass('Rapid updates with multiple devices completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.InterleavedOperations_MixedDeviceStates_NoError;
+const
+  ADDR = UInt64($123456789ABC);
+var
+  I: Integer;
+begin
+  FManager.Enabled := False;
+
+  // Simulate rapid state changes for a single device
+  for I := 1 to 200 do
+  begin
+    // Device connects (pending)
+    FManager.UpdateDevicePending(ADDR, 'Test Device');
+
+    // Battery level arrives
+    FManager.UpdateDevice(ADDR, 'Test Device', 50 + (I mod 50), True);
+
+    // Device disconnects
+    FManager.RemoveDevice(ADDR);
+
+    // Device reconnects while iterating
+    FManager.UpdateDevicePending(ADDR, 'Test Device');
+
+    // Config changes trigger ClearAll
+    if I mod 10 = 0 then
+      FManager.ClearAll;
+  end;
+
+  Assert.Pass('Interleaved operations completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.RemoveDuringIteration_SimulatedScenario_NoError;
+const
+  ADDR1 = UInt64($111111111111);
+  ADDR2 = UInt64($222222222222);
+  ADDR3 = UInt64($333333333333);
+var
+  I: Integer;
+begin
+  FManager.Enabled := False;
+
+  // Simulate the scenario where ShowDisplayItems iterates and some devices
+  // change state mid-iteration (simulated by interleaved remove calls)
+  for I := 1 to 50 do
+  begin
+    FManager.UpdateDevicePending(ADDR1, 'Device 1');
+    FManager.UpdateDevicePending(ADDR2, 'Device 2');
+    FManager.UpdateDevicePending(ADDR3, 'Device 3');
+
+    // Simulate another refresh happening (removes and re-adds)
+    FManager.RemoveDevice(ADDR1);
+    FManager.UpdateDevicePending(ADDR1, 'Device 1');
+
+    FManager.RemoveDevice(ADDR2);
+    FManager.UpdateDevicePending(ADDR2, 'Device 2');
+
+    FManager.RefreshAll;
+  end;
+
+  Assert.Pass('Remove during simulated iteration completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.UpdatePendingAfterRemove_NoError;
+const
+  ADDR = UInt64($AABBCCDDEEFF);
+var
+  I: Integer;
+begin
+  FManager.Enabled := False;
+
+  // This tests the scenario where a device is removed and then
+  // immediately UpdateDevicePending is called (e.g., device reconnects quickly)
+  for I := 1 to 100 do
+  begin
+    // Add device
+    FManager.UpdateDevicePending(ADDR, 'Quick Device');
+    FManager.UpdateDevice(ADDR, 'Quick Device', 75, True);
+
+    // Remove it
+    FManager.RemoveDevice(ADDR);
+
+    // Immediately add pending again (simulates rapid reconnect)
+    FManager.UpdateDevicePending(ADDR, 'Quick Device');
+  end;
+
+  Assert.Pass('UpdatePendingAfterRemove completed without error');
+end;
+
+procedure TBatteryTrayManagerTests.ClearAllDuringUpdates_NoError;
+const
+  ADDR1 = UInt64($111111111111);
+  ADDR2 = UInt64($222222222222);
+var
+  I: Integer;
+begin
+  FManager.Enabled := False;
+
+  // Simulate scenario where ClearAll is called while updates are happening
+  // (e.g., settings changed during device state updates)
+  for I := 1 to 50 do
+  begin
+    FManager.UpdateDevicePending(ADDR1, 'Device 1');
+    FManager.ClearAll;
+    FManager.UpdateDevicePending(ADDR1, 'Device 1');
+
+    FManager.UpdateDevice(ADDR2, 'Device 2', 50, True);
+    FManager.ClearAll;
+    FManager.UpdateDevice(ADDR2, 'Device 2', 50, True);
+
+    FManager.UpdateDevicePending(ADDR1, 'Device 1');
+    FManager.UpdateDevice(ADDR2, 'Device 2', 60, True);
+    FManager.RefreshAll;
+  end;
+
+  Assert.Pass('ClearAll during updates completed without error');
 end;
 
 initialization

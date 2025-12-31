@@ -102,6 +102,7 @@ type
     FOnDeviceClick: TDeviceTrayClickEvent;
     FOnBatteryNotification: TBatteryNotificationEvent;
     FEnabled: Boolean;
+    FInUpdate: Boolean;  // Re-entrancy guard: Shell_NotifyIcon can pump Windows messages
 
     function GetNextIconId: Cardinal;
     function CreateNotifyIconData(AAddress: UInt64; const AName: string;
@@ -193,6 +194,7 @@ begin
   FIconCache := TDictionary<UInt64, TIconCacheEntry>.Create;
   FNextIconId := 1000; // Start from 1000 to avoid conflicts with main tray icon
   FEnabled := True;
+  FInUpdate := False;
 end;
 
 destructor TBatteryTrayManager.Destroy;
@@ -512,6 +514,16 @@ begin
   if not FEnabled then
     Exit;
 
+  // Re-entrancy guard: Shell_NotifyIcon can pump Windows messages, potentially
+  // triggering another RefreshDisplayItems while we're in the middle of an update.
+  // Skip nested updates to prevent dictionary corruption.
+  if FInUpdate then
+  begin
+    LogWarning('UpdateDevice: Re-entrancy detected for %s (Address=$%.12X), skipping',
+      [AName, AAddress], ClassName);
+    Exit;
+  end;
+
   // Remove icon if device is not connected or battery level is invalid
   if not AIsConnected or (ALevel < 0) then
   begin
@@ -557,61 +569,66 @@ begin
     Exit;
   end;
 
-  if HasExistingIcon then
-  begin
-    // Update existing icon
-    if ShowNumeric then
-      Icon := TBatteryIconRenderer.CreateNumericIcon(ALevel, Color, BackgroundColor)
-    else
-      Icon := TBatteryIconRenderer.CreateBatteryIconAuto(ALevel, Color, BackgroundColor, Threshold, OutlineColor);
-    try
-      OldIconHandle := ExistingIcon.hIcon;
-      ExistingIcon.hIcon := CopyIcon(Icon.Handle);
-      Tooltip := Format('%s: %d%%', [AName, ALevel]);
-      StrLCopy(ExistingIcon.szTip, PChar(Tooltip), Length(ExistingIcon.szTip) - 1);
-
-      if Shell_NotifyIcon(NIM_MODIFY, @ExistingIcon) then
-      begin
-        // Success - destroy old icon handle and update dictionary
-        if OldIconHandle <> 0 then
-          DestroyIcon(OldIconHandle);
-        FDeviceIcons[AAddress] := ExistingIcon;
-        FIconCache[AAddress] := NewCacheEntry;
-      end
-      else
-      begin
-        // Failed - destroy new icon handle, keep old one
-        if ExistingIcon.hIcon <> 0 then
-          DestroyIcon(ExistingIcon.hIcon);
-        ExistingIcon.hIcon := OldIconHandle; // Restore old handle
-        LogWarning('Failed to update battery tray icon for %s', [AName], ClassName);
-      end;
-    finally
-      Icon.Free;
-    end;
-  end
-  else
-  begin
-    // Create new icon
-    IconData := CreateNotifyIconData(AAddress, AName, ALevel, Color, BackgroundColor, ShowNumeric);
-    if Shell_NotifyIcon(NIM_ADD, @IconData) then
+  FInUpdate := True;
+  try
+    if HasExistingIcon then
     begin
-      // Set version for modern behavior (prevents issues on hover)
-      // Note: uTimeout and uVersion share the same union offset
-      IconData.uTimeout := NOTIFYICON_VERSION_4;
-      Shell_NotifyIcon(NIM_SETVERSION, @IconData);
+      // Update existing icon
+      if ShowNumeric then
+        Icon := TBatteryIconRenderer.CreateNumericIcon(ALevel, Color, BackgroundColor)
+      else
+        Icon := TBatteryIconRenderer.CreateBatteryIconAuto(ALevel, Color, BackgroundColor, Threshold, OutlineColor);
+      try
+        OldIconHandle := ExistingIcon.hIcon;
+        ExistingIcon.hIcon := CopyIcon(Icon.Handle);
+        Tooltip := Format('%s: %d%%', [AName, ALevel]);
+        StrLCopy(ExistingIcon.szTip, PChar(Tooltip), Length(ExistingIcon.szTip) - 1);
 
-      FDeviceIcons.Add(AAddress, IconData);
-      FIconCache[AAddress] := NewCacheEntry;
-      LogDebug('Battery tray icon added for %s', [AName], ClassName);
+        if Shell_NotifyIcon(NIM_MODIFY, @ExistingIcon) then
+        begin
+          // Success - destroy old icon handle and update dictionary
+          if OldIconHandle <> 0 then
+            DestroyIcon(OldIconHandle);
+          FDeviceIcons[AAddress] := ExistingIcon;
+          FIconCache[AAddress] := NewCacheEntry;
+        end
+        else
+        begin
+          // Failed - destroy new icon handle, keep old one
+          if ExistingIcon.hIcon <> 0 then
+            DestroyIcon(ExistingIcon.hIcon);
+          ExistingIcon.hIcon := OldIconHandle; // Restore old handle
+          LogWarning('Failed to update battery tray icon for %s', [AName], ClassName);
+        end;
+      finally
+        Icon.Free;
+      end;
     end
     else
     begin
-      // Failed to add icon, cleanup
-      if IconData.hIcon <> 0 then
-        DestroyIcon(IconData.hIcon);
-      LogWarning('Failed to add battery tray icon for %s', [AName], ClassName);
+      // Create new icon
+      IconData := CreateNotifyIconData(AAddress, AName, ALevel, Color, BackgroundColor, ShowNumeric);
+      if Shell_NotifyIcon(NIM_ADD, @IconData) then
+      begin
+        // Set version for modern behavior (prevents issues on hover)
+        // Note: uTimeout and uVersion share the same union offset
+        IconData.uTimeout := NOTIFYICON_VERSION_4;
+        Shell_NotifyIcon(NIM_SETVERSION, @IconData);
+
+        FDeviceIcons.Add(AAddress, IconData);
+        FIconCache[AAddress] := NewCacheEntry;
+        LogDebug('Battery tray icon added for %s', [AName], ClassName);
+      end
+      else
+      begin
+        // Failed to add icon, cleanup
+        if IconData.hIcon <> 0 then
+          DestroyIcon(IconData.hIcon);
+        LogWarning('Failed to add battery tray icon for %s', [AName], ClassName);
+      end;
     end;
+  finally
+    FInUpdate := False;
   end;
 end;
 
@@ -626,6 +643,16 @@ var
 begin
   if not FEnabled then
     Exit;
+
+  // Re-entrancy guard: Shell_NotifyIcon can pump Windows messages, potentially
+  // triggering another RefreshDisplayItems while we're in the middle of an update.
+  // Skip nested updates to prevent dictionary corruption.
+  if FInUpdate then
+  begin
+    LogWarning('UpdateDevicePending: Re-entrancy detected for %s (Address=$%.12X), skipping',
+      [AName, AAddress], ClassName);
+    Exit;
+  end;
 
   // Check if we should show tray icon for this device
   if not ShouldShowTrayIcon(AAddress) then
@@ -654,66 +681,71 @@ begin
 
   Tooltip := Format('%s: ...', [AName]);
 
-  if FDeviceIcons.TryGetValue(AAddress, ExistingIcon) then
-  begin
-    // Update existing icon to pending
-    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
-    try
-      OldIconHandle := ExistingIcon.hIcon;
-      ExistingIcon.hIcon := CopyIcon(Icon.Handle);
-      StrLCopy(ExistingIcon.szTip, PChar(Tooltip), Length(ExistingIcon.szTip) - 1);
-
-      if Shell_NotifyIcon(NIM_MODIFY, @ExistingIcon) then
-      begin
-        if OldIconHandle <> 0 then
-          DestroyIcon(OldIconHandle);
-        FDeviceIcons[AAddress] := ExistingIcon;
-        FIconCache[AAddress] := NewCacheEntry;
-      end
-      else
-      begin
-        if ExistingIcon.hIcon <> 0 then
-          DestroyIcon(ExistingIcon.hIcon);
-        ExistingIcon.hIcon := OldIconHandle;
-        LogWarning('Failed to update battery tray icon to pending for %s', [AName], ClassName);
-      end;
-    finally
-      Icon.Free;
-    end;
-  end
-  else
-  begin
-    // Create new pending icon
-    FillChar(IconData, SizeOf(IconData), 0);
-    IconData.cbSize := SizeOf(TNotifyIconData);
-    IconData.Wnd := FOwnerHandle;
-    IconData.uID := GetNextIconId;
-    IconData.uFlags := NIF_ICON or NIF_TIP or NIF_MESSAGE or NIF_SHOWTIP;
-    IconData.uCallbackMessage := WM_BATTERYTRAY_CALLBACK;
-
-    Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
-    try
-      IconData.hIcon := CopyIcon(Icon.Handle);
-    finally
-      Icon.Free;
-    end;
-
-    StrLCopy(IconData.szTip, PChar(Tooltip), Length(IconData.szTip) - 1);
-
-    if Shell_NotifyIcon(NIM_ADD, @IconData) then
+  FInUpdate := True;
+  try
+    if FDeviceIcons.TryGetValue(AAddress, ExistingIcon) then
     begin
-      IconData.uTimeout := NOTIFYICON_VERSION_4;
-      Shell_NotifyIcon(NIM_SETVERSION, @IconData);
-      FDeviceIcons.Add(AAddress, IconData);
-      FIconCache[AAddress] := NewCacheEntry;
-      LogDebug('Pending battery tray icon added for %s', [AName], ClassName);
+      // Update existing icon to pending
+      Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
+      try
+        OldIconHandle := ExistingIcon.hIcon;
+        ExistingIcon.hIcon := CopyIcon(Icon.Handle);
+        StrLCopy(ExistingIcon.szTip, PChar(Tooltip), Length(ExistingIcon.szTip) - 1);
+
+        if Shell_NotifyIcon(NIM_MODIFY, @ExistingIcon) then
+        begin
+          if OldIconHandle <> 0 then
+            DestroyIcon(OldIconHandle);
+          FDeviceIcons[AAddress] := ExistingIcon;
+          FIconCache[AAddress] := NewCacheEntry;
+        end
+        else
+        begin
+          if ExistingIcon.hIcon <> 0 then
+            DestroyIcon(ExistingIcon.hIcon);
+          ExistingIcon.hIcon := OldIconHandle;
+          LogWarning('Failed to update battery tray icon to pending for %s', [AName], ClassName);
+        end;
+      finally
+        Icon.Free;
+      end;
     end
     else
     begin
-      if IconData.hIcon <> 0 then
-        DestroyIcon(IconData.hIcon);
-      LogWarning('Failed to add pending battery tray icon for %s', [AName], ClassName);
+      // Create new pending icon
+      FillChar(IconData, SizeOf(IconData), 0);
+      IconData.cbSize := SizeOf(TNotifyIconData);
+      IconData.Wnd := FOwnerHandle;
+      IconData.uID := GetNextIconId;
+      IconData.uFlags := NIF_ICON or NIF_TIP or NIF_MESSAGE or NIF_SHOWTIP;
+      IconData.uCallbackMessage := WM_BATTERYTRAY_CALLBACK;
+
+      Icon := TBatteryIconRenderer.CreatePendingBatteryIcon;
+      try
+        IconData.hIcon := CopyIcon(Icon.Handle);
+      finally
+        Icon.Free;
+      end;
+
+      StrLCopy(IconData.szTip, PChar(Tooltip), Length(IconData.szTip) - 1);
+
+      if Shell_NotifyIcon(NIM_ADD, @IconData) then
+      begin
+        IconData.uTimeout := NOTIFYICON_VERSION_4;
+        Shell_NotifyIcon(NIM_SETVERSION, @IconData);
+        FDeviceIcons.Add(AAddress, IconData);
+        FIconCache[AAddress] := NewCacheEntry;
+        LogDebug('Pending battery tray icon added for %s', [AName], ClassName);
+      end
+      else
+      begin
+        if IconData.hIcon <> 0 then
+          DestroyIcon(IconData.hIcon);
+        LogWarning('Failed to add pending battery tray icon for %s', [AName], ClassName);
+      end;
     end;
+  finally
+    FInUpdate := False;
   end;
 end;
 
