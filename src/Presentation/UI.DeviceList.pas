@@ -404,6 +404,7 @@ end;
 procedure TDeviceListBox.Clear;
 begin
   FDisplayItems := nil;
+  FDisplayItemIndexMap.Clear;  // Clear index map to prevent stale lookups
   FHoverIndex := -1;
   FSelectedIndex := -1;
   FScrollPos := 0;
