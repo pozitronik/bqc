@@ -54,6 +54,7 @@ uses
   App.ConfigSection.Profile in 'src\Infrastructure\App.ConfigSection.Profile.pas',
   App.SystemThemeDetector in 'src\Infrastructure\App.SystemThemeDetector.pas',
   App.WinRTSupport in 'src\Infrastructure\App.WinRTSupport.pas',
+  WinRT.AsyncHelpers in 'src\Infrastructure\WinRT.AsyncHelpers.pas',
   App.Config in 'src\Infrastructure\App.Config.pas',
   App.SettingsRepository in 'src\Infrastructure\App.SettingsRepository.pas',
   App.DeviceConfigRepository in 'src\Infrastructure\App.DeviceConfigRepository.pas',

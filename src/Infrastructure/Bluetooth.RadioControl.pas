@@ -170,12 +170,12 @@ implementation
 uses
   System.SysUtils,
   Winapi.ActiveX,
-  App.WinRTSupport;
+  App.WinRTSupport,
+  WinRT.AsyncHelpers;
 
 const
   TIMER_ID_RADIO_POLL = 1;
   RADIO_POLL_INTERVAL_MS = 500;
-  RO_INIT_MULTITHREADED = 1;
 
   RadioState_Unknown  = 0;
   RadioState_On       = 1;
@@ -188,30 +188,9 @@ const
   RadioAccessStatus_DeniedByUser  = 2;
   RadioAccessStatus_DeniedBySystem = 3;
 
-  AsyncStatus_Started   = 0;
-  AsyncStatus_Completed = 1;
-
   RuntimeClass_Radio: string = 'Windows.Devices.Radios.Radio';
 
 type
-  HSTRING = type THandle;
-
-  IInspectable = interface(IUnknown)
-    ['{AF86E2E0-B12D-4C6A-9C5A-D7AA65101E90}']
-    function GetIids(out iidCount: Cardinal; out iids: PGUID): HRESULT; stdcall;
-    function GetRuntimeClassName(out className: HSTRING): HRESULT; stdcall;
-    function GetTrustLevel(out trustLevel: Integer): HRESULT; stdcall;
-  end;
-
-  IAsyncInfo = interface(IInspectable)
-    ['{00000036-0000-0000-C000-000000000046}']
-    function get_Id(out id: Cardinal): HRESULT; stdcall;
-    function get_Status(out status: Integer): HRESULT; stdcall;
-    function get_ErrorCode(out errorCode: HRESULT): HRESULT; stdcall;
-    function Cancel: HRESULT; stdcall;
-    function Close: HRESULT; stdcall;
-  end;
-
   IAsyncOperationCompletedHandler = interface(IUnknown)
   end;
 
@@ -258,86 +237,9 @@ type
     function RequestAccessAsync(out operation: IAsyncOperationRadioAccessStatus): HRESULT; stdcall;
   end;
 
-// External WinRT functions - use delayed loading for Windows 7 compatibility
-function WindowsCreateString(sourceString: PWideChar; length: Cardinal;
-  out str: HSTRING): HRESULT; stdcall; external 'combase.dll' delayed;
-
-function WindowsDeleteString(str: HSTRING): HRESULT; stdcall;
-  external 'combase.dll' delayed;
-
-function WindowsGetStringRawBuffer(str: HSTRING; out length: Cardinal): PWideChar; stdcall;
-  external 'combase.dll' delayed;
-
-function RoInitialize(initType: Cardinal): HRESULT; stdcall;
-  external 'combase.dll' delayed;
-
-/// <summary>
-/// RoUninitialize is declared but intentionally NOT called in this unit.
-///
-/// IMPORTANT: We do NOT call RoUninitialize for the following reasons:
-///
-/// 1. WinRT COM objects (IRadio, IVectorViewRadio, etc.) may still be held
-///    by the Bluetooth subsystem after our code returns. Calling RoUninitialize
-///    would invalidate these interface pointers, causing access violations
-///    when they are later released or used by the system.
-///
-/// 2. For desktop applications, the Windows Runtime is designed to be
-///    initialized once and remain active for the process lifetime.
-///    The runtime cleans up automatically when the process exits.
-///
-/// 3. Multiple calls to RoInitialize are reference-counted, but calling
-///    RoUninitialize while interfaces are still alive is undefined behavior.
-///
-/// This is the recommended pattern for WinRT usage in desktop applications.
-/// See: https://docs.microsoft.com/en-us/windows/win32/api/roapi/nf-roapi-roinitialize
-/// </summary>
-procedure RoUninitialize; stdcall;
-  external 'combase.dll' delayed;
-
-function RoGetActivationFactory(activatableClassId: HSTRING; const iid: TGUID;
-  out factory: IInspectable): HRESULT; stdcall; external 'combase.dll' delayed;
-
-function CreateHString(const AStr: string): HSTRING;
-begin
-  Result := 0;
-  if AStr <> '' then
-    WindowsCreateString(PWideChar(AStr), Length(AStr), Result);
-end;
-
-procedure FreeHString(AStr: HSTRING);
-begin
-  if AStr <> 0 then
-    WindowsDeleteString(AStr);
-end;
-
-function WaitForAsyncOperation(const AAsyncInfo: IAsyncInfo; ATimeoutMs: Cardinal = 10000): Boolean;
-var
-  Status: Integer;
-  StartTime: Cardinal;
-begin
-  Result := False;
-  if AAsyncInfo = nil then
-    Exit;
-
-  StartTime := GetTickCount;
-  repeat
-    if Failed(AAsyncInfo.get_Status(Status)) then
-      Exit;
-
-    if Status <> AsyncStatus_Started then
-    begin
-      Result := (Status = AsyncStatus_Completed);
-      Exit;
-    end;
-
-    Sleep(10);
-  until (GetTickCount - StartTime) > ATimeoutMs;
-end;
-
 function GetBluetoothRadio(out ARadio: IRadio): Boolean;
 var
   HR: HRESULT;
-  ClassName: HSTRING;
   Factory: IInspectable;
   RadioStatics: IRadioStatics;
   AsyncOp: IAsyncOperationRadioVector;
@@ -351,67 +253,54 @@ begin
   Result := False;
   ARadio := nil;
 
-  // Check if WinRT is available (Windows 8+)
-  if not IsWinRTAvailable then
-    Exit;
-
-  HR := RoInitialize(RO_INIT_MULTITHREADED);
-  if Failed(HR) and (HR <> RPC_E_CHANGED_MODE) then
+  // Check if WinRT is available and initialize it
+  if not EnsureWinRTInitialized then
     Exit;
 
   try
-    ClassName := CreateHString(RuntimeClass_Radio);
-    if ClassName = 0 then
+    // Get Radio activation factory
+    if not GetActivationFactory(RuntimeClass_Radio, IRadioStatics, Factory) then
       Exit;
 
-    try
-      HR := RoGetActivationFactory(ClassName, IRadioStatics, Factory);
-      if Failed(HR) or (Factory = nil) then
-        Exit;
+    HR := Factory.QueryInterface(IRadioStatics, RadioStatics);
+    if Failed(HR) or (RadioStatics = nil) then
+      Exit;
 
-      HR := Factory.QueryInterface(IRadioStatics, RadioStatics);
-      if Failed(HR) or (RadioStatics = nil) then
-        Exit;
+    HR := RadioStatics.GetRadiosAsync(AsyncOp);
+    if Failed(HR) or (AsyncOp = nil) then
+      Exit;
 
-      HR := RadioStatics.GetRadiosAsync(AsyncOp);
-      if Failed(HR) or (AsyncOp = nil) then
-        Exit;
+    if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
+      Exit;
 
-      if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
-        Exit;
+    if not WaitForAsyncOperation(AsyncInfo) then
+      Exit;
 
-      if not WaitForAsyncOperation(AsyncInfo) then
-        Exit;
+    HR := AsyncOp.GetResults(RadioVector);
+    if Failed(HR) or (RadioVector = nil) then
+      Exit;
 
-      HR := AsyncOp.GetResults(RadioVector);
-      if Failed(HR) or (RadioVector = nil) then
-        Exit;
+    HR := RadioVector.QueryInterface(IVectorViewRadio, VectorView);
+    if Failed(HR) or (VectorView = nil) then
+      Exit;
 
-      HR := RadioVector.QueryInterface(IVectorViewRadio, VectorView);
-      if Failed(HR) or (VectorView = nil) then
-        Exit;
+    HR := VectorView.get_Size(Count);
+    if Failed(HR) or (Count = 0) then
+      Exit;
 
-      HR := VectorView.get_Size(Count);
-      if Failed(HR) or (Count = 0) then
-        Exit;
+    for I := 0 to Count - 1 do
+    begin
+      HR := VectorView.GetAt(I, Radio);
+      if Failed(HR) or (Radio = nil) then
+        Continue;
 
-      for I := 0 to Count - 1 do
+      HR := Radio.get_Kind(RadioKind);
+      if Succeeded(HR) and (RadioKind = RadioKind_Bluetooth) then
       begin
-        HR := VectorView.GetAt(I, Radio);
-        if Failed(HR) or (Radio = nil) then
-          Continue;
-
-        HR := Radio.get_Kind(RadioKind);
-        if Succeeded(HR) and (RadioKind = RadioKind_Bluetooth) then
-        begin
-          ARadio := Radio;
-          Result := True;
-          Exit;
-        end;
+        ARadio := Radio;
+        Result := True;
+        Exit;
       end;
-
-    finally
-      FreeHString(ClassName);
     end;
   finally
     // See RoUninitialize declaration for why we don't call it here
