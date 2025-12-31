@@ -3,6 +3,14 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Mock Implementations - Views                    }
 {                                                       }
+{       DESIGN NOTES:                                   }
+{       - Direct field access properties for test      }
+{         setup (Arrange-Act-Assert pattern)           }
+{       - Explicit initialization documents test       }
+{         assumptions (counters, defaults, state)      }
+{       - Call counters and state fields enable        }
+{         behavior verification in presenter tests     }
+{                                                       }
 {*******************************************************}
 
 unit Tests.Mocks.View;

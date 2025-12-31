@@ -3,6 +3,14 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Mock Implementations - Bluetooth                }
 {                                                       }
+{       DESIGN NOTES:                                   }
+{       - Direct field access properties for test      }
+{         setup (Arrange-Act-Assert pattern)           }
+{       - Explicit initialization documents test       }
+{         assumptions (counters, defaults, objects)    }
+{       - Call counters and "Last*" fields enable      }
+{         behavior verification in tests               }
+{                                                       }
 {*******************************************************}
 
 unit Tests.Mocks.Bluetooth;

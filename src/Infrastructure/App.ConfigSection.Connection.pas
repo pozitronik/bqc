@@ -75,6 +75,11 @@ begin
   Result := FConnectionRetryCount;
 end;
 
+function TConnectionConfigSection.GetEnumerationMode: TEnumerationMode;
+begin
+  Result := FEnumerationMode;
+end;
+
 procedure TConnectionConfigSection.SetConnectionTimeout(AValue: Integer);
 begin
   SetFieldInteger(FConnectionTimeout, AValue);
@@ -83,11 +88,6 @@ end;
 procedure TConnectionConfigSection.SetConnectionRetryCount(AValue: Integer);
 begin
   SetFieldInteger(FConnectionRetryCount, AValue);
-end;
-
-function TConnectionConfigSection.GetEnumerationMode: TEnumerationMode;
-begin
-  Result := FEnumerationMode;
 end;
 
 procedure TConnectionConfigSection.SetEnumerationMode(AValue: TEnumerationMode);

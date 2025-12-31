@@ -3,6 +3,14 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Mock Implementations - Infrastructure           }
 {                                                       }
+{       DESIGN NOTES:                                   }
+{       - Direct field access properties for test      }
+{         setup (Arrange-Act-Assert pattern)           }
+{       - Explicit initialization documents test       }
+{         assumptions (counters, defaults, objects)    }
+{       - Call counters and "Last*" fields enable      }
+{         behavior verification in tests               }
+{                                                       }
 {*******************************************************}
 
 unit Tests.Mocks.Infrastructure;
@@ -523,6 +531,11 @@ end;
 constructor TMockAsyncExecutor.Create;
 begin
   inherited Create;
+  // NOTE: Explicit initialization is intentional.
+  // - Meaningful defaults document test assumptions (FSynchronous := False)
+  // - Counter initialization (CallCount := 0) signals "this is tracked" even though Delphi auto-initializes
+  // - Object creation is necessary (TList.Create)
+
   // Default to async (non-synchronous) to maintain existing test behavior.
   // Tests that need synchronous execution should set Synchronous := True.
   FSynchronous := False;

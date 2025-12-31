@@ -3,6 +3,17 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Mock Implementations - Configuration            }
 {                                                       }
+{       DESIGN NOTES:                                   }
+{       - Trivial getters/setters CANNOT be removed    }
+{         (Delphi interface constraint: property       }
+{         accessors in interfaces MUST exist as        }
+{         methods in implementing classes)             }
+{       - Direct field access properties intentional   }
+{         (test setup pattern: direct access for       }
+{         Arrange phase, interface methods for Act)    }
+{       - Explicit initialization preferred over       }
+{         implicit (documents test assumptions)        }
+{                                                       }
 {*******************************************************}
 
 unit Tests.Mocks.Config;
@@ -45,6 +56,9 @@ type
     constructor Create;
 
     // ILayoutConfig - getters
+    // NOTE: These trivial getters are REQUIRED by Delphi.
+    // Interface property accessors MUST be implemented as methods.
+    // Cannot use direct field access (read FItemHeight) when interface declares (read GetItemHeight).
     function GetItemHeight: Integer;
     function GetItemPadding: Integer;
     function GetItemMargin: Integer;
@@ -58,6 +72,7 @@ type
     function GetItemBorderColor: Integer;
 
     // ILayoutConfig - setters
+    // NOTE: Same constraint as getters - interface requires these methods.
     procedure SetItemHeight(AValue: Integer);
     procedure SetItemPadding(AValue: Integer);
     procedure SetItemMargin(AValue: Integer);
@@ -71,6 +86,8 @@ type
     procedure SetItemBorderColor(AValue: Integer);
 
     // Test setup properties
+    // NOTE: Direct field access for test convenience (Arrange-Act-Assert pattern).
+    // Tests use these for setup (MockLayout.ItemHeight := 80), interface methods for behavior verification.
     property ItemHeight: Integer read FItemHeight write FItemHeight;
     property ItemPadding: Integer read FItemPadding write FItemPadding;
     property ItemMargin: Integer read FItemMargin write FItemMargin;
@@ -533,6 +550,9 @@ constructor TMockLayoutConfig.Create;
 begin
   inherited Create;
   // Set reasonable defaults
+  // NOTE: Explicit initialization is intentional (not boilerplate).
+  // Documents test assumptions and ensures predictable initial state.
+  // While Delphi zero-initializes integers, explicit values serve as documentation.
   FItemHeight := 70;
   FItemPadding := 12;
   FItemMargin := 4;
