@@ -22,13 +22,12 @@ type
   /// <summary>
   /// Logging settings implementation.
   /// </summary>
-  TLogConfigSection = class(TInterfacedObject, ILogConfig)
+  TLogConfigSection = class(TConfigSectionBase, ILogConfig)
   private
     FLogEnabled: Boolean;
     FLogFilename: string;
     FLogAppend: Boolean;
     FLogLevel: TLogLevel;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -59,8 +58,7 @@ uses
 
 constructor TLogConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -94,32 +92,17 @@ end;
 
 procedure TLogConfigSection.SetLogEnabled(AValue: Boolean);
 begin
-  if FLogEnabled <> AValue then
-  begin
-    FLogEnabled := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FLogEnabled, AValue);
 end;
 
 procedure TLogConfigSection.SetLogFilename(const AValue: string);
 begin
-  if FLogFilename <> AValue then
-  begin
-    FLogFilename := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldString(FLogFilename, AValue);
 end;
 
 procedure TLogConfigSection.SetLogAppend(AValue: Boolean);
 begin
-  if FLogAppend <> AValue then
-  begin
-    FLogAppend := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FLogAppend, AValue);
 end;
 
 procedure TLogConfigSection.SetLogLevel(AValue: TLogLevel);
@@ -127,8 +110,7 @@ begin
   if FLogLevel <> AValue then
   begin
     FLogLevel := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 

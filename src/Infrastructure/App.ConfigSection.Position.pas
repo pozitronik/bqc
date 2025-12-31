@@ -22,14 +22,13 @@ type
   /// <summary>
   /// Window position settings implementation.
   /// </summary>
-  TPositionConfigSection = class(TInterfacedObject, IPositionConfig)
+  TPositionConfigSection = class(TConfigSectionBase, IPositionConfig)
   private
     FPositionMode: TPositionMode;
     FPositionX: Integer;
     FPositionY: Integer;
     FPositionW: Integer;
     FPositionH: Integer;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -63,8 +62,7 @@ uses
 
 constructor TPositionConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -107,49 +105,28 @@ begin
   if FPositionMode <> AValue then
   begin
     FPositionMode := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
 procedure TPositionConfigSection.SetPositionX(AValue: Integer);
 begin
-  if FPositionX <> AValue then
-  begin
-    FPositionX := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FPositionX, AValue);
 end;
 
 procedure TPositionConfigSection.SetPositionY(AValue: Integer);
 begin
-  if FPositionY <> AValue then
-  begin
-    FPositionY := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FPositionY, AValue);
 end;
 
 procedure TPositionConfigSection.SetPositionW(AValue: Integer);
 begin
-  if FPositionW <> AValue then
-  begin
-    FPositionW := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FPositionW, AValue);
 end;
 
 procedure TPositionConfigSection.SetPositionH(AValue: Integer);
 begin
-  if FPositionH <> AValue then
-  begin
-    FPositionH := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FPositionH, AValue);
 end;
 
 end.

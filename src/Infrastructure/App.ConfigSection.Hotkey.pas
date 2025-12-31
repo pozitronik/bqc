@@ -21,13 +21,12 @@ type
   /// <summary>
   /// Hotkey settings implementation.
   /// </summary>
-  THotkeyConfigSection = class(TInterfacedObject, IHotkeyConfig)
+  THotkeyConfigSection = class(TConfigSectionBase, IHotkeyConfig)
   private
     FHotkey: string;
     FUseLowLevelHook: Boolean;
     FCastPanelHotkey: string;
     FBluetoothPanelHotkey: string;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -58,8 +57,7 @@ uses
 
 constructor THotkeyConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -93,42 +91,22 @@ end;
 
 procedure THotkeyConfigSection.SetHotkey(const AValue: string);
 begin
-  if FHotkey <> AValue then
-  begin
-    FHotkey := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldString(FHotkey, AValue);
 end;
 
 procedure THotkeyConfigSection.SetUseLowLevelHook(AValue: Boolean);
 begin
-  if FUseLowLevelHook <> AValue then
-  begin
-    FUseLowLevelHook := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FUseLowLevelHook, AValue);
 end;
 
 procedure THotkeyConfigSection.SetCastPanelHotkey(const AValue: string);
 begin
-  if FCastPanelHotkey <> AValue then
-  begin
-    FCastPanelHotkey := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldString(FCastPanelHotkey, AValue);
 end;
 
 procedure THotkeyConfigSection.SetBluetoothPanelHotkey(const AValue: string);
 begin
-  if FBluetoothPanelHotkey <> AValue then
-  begin
-    FBluetoothPanelHotkey := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldString(FBluetoothPanelHotkey, AValue);
 end;
 
 end.

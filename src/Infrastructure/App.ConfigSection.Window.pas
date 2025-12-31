@@ -21,12 +21,11 @@ type
   /// <summary>
   /// Window behavior settings implementation.
   /// </summary>
-  TWindowConfigSection = class(TInterfacedObject, IWindowConfig)
+  TWindowConfigSection = class(TConfigSectionBase, IWindowConfig)
   private
     FMinimizeToTray: Boolean;
     FCloseToTray: Boolean;
     FMenuHideOnFocusLoss: Boolean;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -54,8 +53,7 @@ uses
 
 constructor TWindowConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -83,32 +81,17 @@ end;
 
 procedure TWindowConfigSection.SetMinimizeToTray(AValue: Boolean);
 begin
-  if FMinimizeToTray <> AValue then
-  begin
-    FMinimizeToTray := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FMinimizeToTray, AValue);
 end;
 
 procedure TWindowConfigSection.SetCloseToTray(AValue: Boolean);
 begin
-  if FCloseToTray <> AValue then
-  begin
-    FCloseToTray := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FCloseToTray, AValue);
 end;
 
 procedure TWindowConfigSection.SetMenuHideOnFocusLoss(AValue: Boolean);
 begin
-  if FMenuHideOnFocusLoss <> AValue then
-  begin
-    FMenuHideOnFocusLoss := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FMenuHideOnFocusLoss, AValue);
 end;
 
 end.

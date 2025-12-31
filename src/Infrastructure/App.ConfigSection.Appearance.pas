@@ -22,7 +22,7 @@ type
   /// <summary>
   /// Appearance settings implementation.
   /// </summary>
-  TAppearanceConfigSection = class(TInterfacedObject, IAppearanceConfig)
+  TAppearanceConfigSection = class(TConfigSectionBase, IAppearanceConfig)
   private
     FShowAddresses: Boolean;
     FTheme: string;
@@ -32,7 +32,6 @@ type
     FShowDeviceIcons: Boolean;
     FConnectedColor: Integer;
     FShowBatteryLevel: Boolean;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -76,8 +75,7 @@ uses
 
 constructor TAppearanceConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -130,42 +128,22 @@ end;
 
 procedure TAppearanceConfigSection.SetShowAddresses(AValue: Boolean);
 begin
-  if FShowAddresses <> AValue then
-  begin
-    FShowAddresses := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FShowAddresses, AValue);
 end;
 
 procedure TAppearanceConfigSection.SetTheme(const AValue: string);
 begin
-  if FTheme <> AValue then
-  begin
-    FTheme := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldString(FTheme, AValue);
 end;
 
 procedure TAppearanceConfigSection.SetVsfDir(const AValue: string);
 begin
-  if FVsfDir <> AValue then
-  begin
-    FVsfDir := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldString(FVsfDir, AValue);
 end;
 
 procedure TAppearanceConfigSection.SetShowLastSeen(AValue: Boolean);
 begin
-  if FShowLastSeen <> AValue then
-  begin
-    FShowLastSeen := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FShowLastSeen, AValue);
 end;
 
 procedure TAppearanceConfigSection.SetLastSeenFormat(AValue: TLastSeenFormat);
@@ -173,29 +151,18 @@ begin
   if FLastSeenFormat <> AValue then
   begin
     FLastSeenFormat := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
 procedure TAppearanceConfigSection.SetShowDeviceIcons(AValue: Boolean);
 begin
-  if FShowDeviceIcons <> AValue then
-  begin
-    FShowDeviceIcons := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FShowDeviceIcons, AValue);
 end;
 
 procedure TAppearanceConfigSection.SetConnectedColor(AValue: Integer);
 begin
-  if FConnectedColor <> AValue then
-  begin
-    FConnectedColor := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FConnectedColor, AValue);
 end;
 
 function TAppearanceConfigSection.GetShowBatteryLevel: Boolean;
@@ -205,12 +172,7 @@ end;
 
 procedure TAppearanceConfigSection.SetShowBatteryLevel(AValue: Boolean);
 begin
-  if FShowBatteryLevel <> AValue then
-  begin
-    FShowBatteryLevel := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FShowBatteryLevel, AValue);
 end;
 
 end.

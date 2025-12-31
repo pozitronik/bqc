@@ -22,12 +22,11 @@ type
   /// <summary>
   /// General application settings implementation.
   /// </summary>
-  TGeneralConfigSection = class(TInterfacedObject, IGeneralConfig)
+  TGeneralConfigSection = class(TConfigSectionBase, IGeneralConfig)
   private
     FWindowMode: TWindowMode;
     FOnTop: Boolean;
     FAutostart: Boolean;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -55,8 +54,7 @@ uses
 
 constructor TGeneralConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -87,29 +85,18 @@ begin
   if FWindowMode <> AValue then
   begin
     FWindowMode := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
 procedure TGeneralConfigSection.SetOnTop(AValue: Boolean);
 begin
-  if FOnTop <> AValue then
-  begin
-    FOnTop := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FOnTop, AValue);
 end;
 
 procedure TGeneralConfigSection.SetAutostart(AValue: Boolean);
 begin
-  if FAutostart <> AValue then
-  begin
-    FAutostart := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FAutostart, AValue);
 end;
 
 end.

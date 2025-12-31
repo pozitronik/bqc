@@ -21,7 +21,7 @@ type
   /// <summary>
   /// Layout settings implementation.
   /// </summary>
-  TLayoutConfigSection = class(TInterfacedObject, ILayoutConfig)
+  TLayoutConfigSection = class(TConfigSectionBase, ILayoutConfig)
   private
     FItemHeight: Integer;
     FItemPadding: Integer;
@@ -34,7 +34,6 @@ type
     FIconFontSize: Integer;
     FItemBorderWidth: Integer;
     FItemBorderColor: Integer;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -87,8 +86,7 @@ uses
 
 constructor TLayoutConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -164,112 +162,57 @@ end;
 
 procedure TLayoutConfigSection.SetItemHeight(AValue: Integer);
 begin
-  if FItemHeight <> AValue then
-  begin
-    FItemHeight := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FItemHeight, AValue);
 end;
 
 procedure TLayoutConfigSection.SetItemPadding(AValue: Integer);
 begin
-  if FItemPadding <> AValue then
-  begin
-    FItemPadding := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FItemPadding, AValue);
 end;
 
 procedure TLayoutConfigSection.SetItemMargin(AValue: Integer);
 begin
-  if FItemMargin <> AValue then
-  begin
-    FItemMargin := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FItemMargin, AValue);
 end;
 
 procedure TLayoutConfigSection.SetIconSize(AValue: Integer);
 begin
-  if FIconSize <> AValue then
-  begin
-    FIconSize := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FIconSize, AValue);
 end;
 
 procedure TLayoutConfigSection.SetCornerRadius(AValue: Integer);
 begin
-  if FCornerRadius <> AValue then
-  begin
-    FCornerRadius := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FCornerRadius, AValue);
 end;
 
 procedure TLayoutConfigSection.SetDeviceNameFontSize(AValue: Integer);
 begin
-  if FDeviceNameFontSize <> AValue then
-  begin
-    FDeviceNameFontSize := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FDeviceNameFontSize, AValue);
 end;
 
 procedure TLayoutConfigSection.SetStatusFontSize(AValue: Integer);
 begin
-  if FStatusFontSize <> AValue then
-  begin
-    FStatusFontSize := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FStatusFontSize, AValue);
 end;
 
 procedure TLayoutConfigSection.SetAddressFontSize(AValue: Integer);
 begin
-  if FAddressFontSize <> AValue then
-  begin
-    FAddressFontSize := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FAddressFontSize, AValue);
 end;
 
 procedure TLayoutConfigSection.SetIconFontSize(AValue: Integer);
 begin
-  if FIconFontSize <> AValue then
-  begin
-    FIconFontSize := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FIconFontSize, AValue);
 end;
 
 procedure TLayoutConfigSection.SetItemBorderWidth(AValue: Integer);
 begin
-  if FItemBorderWidth <> AValue then
-  begin
-    FItemBorderWidth := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FItemBorderWidth, AValue);
 end;
 
 procedure TLayoutConfigSection.SetItemBorderColor(AValue: Integer);
 begin
-  if FItemBorderColor <> AValue then
-  begin
-    FItemBorderColor := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FItemBorderColor, AValue);
 end;
 
 end.

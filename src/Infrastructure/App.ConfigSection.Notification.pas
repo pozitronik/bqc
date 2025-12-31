@@ -22,13 +22,12 @@ type
   /// <summary>
   /// Notification settings implementation.
   /// </summary>
-  TNotificationConfigSection = class(TInterfacedObject, INotificationConfig)
+  TNotificationConfigSection = class(TConfigSectionBase, INotificationConfig)
   private
     FNotifyOnConnect: TNotificationMode;
     FNotifyOnDisconnect: TNotificationMode;
     FNotifyOnConnectFailed: TNotificationMode;
     FNotifyOnAutoConnect: TNotificationMode;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -59,8 +58,7 @@ uses
 
 constructor TNotificationConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -97,8 +95,7 @@ begin
   if FNotifyOnConnect <> AValue then
   begin
     FNotifyOnConnect := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
@@ -107,8 +104,7 @@ begin
   if FNotifyOnDisconnect <> AValue then
   begin
     FNotifyOnDisconnect := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
@@ -117,8 +113,7 @@ begin
   if FNotifyOnConnectFailed <> AValue then
   begin
     FNotifyOnConnectFailed := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
@@ -127,8 +122,7 @@ begin
   if FNotifyOnAutoConnect <> AValue then
   begin
     FNotifyOnAutoConnect := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 

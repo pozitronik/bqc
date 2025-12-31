@@ -22,12 +22,11 @@ type
   /// <summary>
   /// Connection settings implementation.
   /// </summary>
-  TConnectionConfigSection = class(TInterfacedObject, IConnectionConfig)
+  TConnectionConfigSection = class(TConfigSectionBase, IConnectionConfig)
   private
     FConnectionTimeout: Integer;
     FConnectionRetryCount: Integer;
     FEnumerationMode: TEnumerationMode;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -55,8 +54,7 @@ uses
 
 constructor TConnectionConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -79,22 +77,12 @@ end;
 
 procedure TConnectionConfigSection.SetConnectionTimeout(AValue: Integer);
 begin
-  if FConnectionTimeout <> AValue then
-  begin
-    FConnectionTimeout := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FConnectionTimeout, AValue);
 end;
 
 procedure TConnectionConfigSection.SetConnectionRetryCount(AValue: Integer);
 begin
-  if FConnectionRetryCount <> AValue then
-  begin
-    FConnectionRetryCount := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FConnectionRetryCount, AValue);
 end;
 
 function TConnectionConfigSection.GetEnumerationMode: TEnumerationMode;
@@ -107,8 +95,7 @@ begin
   if FEnumerationMode <> AValue then
   begin
     FEnumerationMode := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 

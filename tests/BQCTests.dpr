@@ -54,6 +54,7 @@ uses
   Tests.ConfigSection.Connection in 'Tests.ConfigSection.Connection.pas',
   Tests.ConfigSection.Notification in 'Tests.ConfigSection.Notification.pas',
   Tests.ConfigSection.Profile in 'Tests.ConfigSection.Profile.pas',
+  Tests.ConfigSectionTypes in 'Tests.ConfigSectionTypes.pas',
   Tests.SystemThemeDetector in 'Tests.SystemThemeDetector.pas',
   Tests.HotkeyManager in 'Tests.HotkeyManager.pas',
   Tests.BatteryQuery in 'Tests.BatteryQuery.pas',

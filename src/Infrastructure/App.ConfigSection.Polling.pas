@@ -23,12 +23,11 @@ type
   /// <summary>
   /// Polling and event settings implementation.
   /// </summary>
-  TPollingConfigSection = class(TInterfacedObject, IPollingConfig)
+  TPollingConfigSection = class(TConfigSectionBase, IPollingConfig)
   private
     FPollingMode: TPollingMode;
     FPollingInterval: Integer;
     FEventDebounceMs: Integer;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -57,8 +56,7 @@ uses
 
 constructor TPollingConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -89,29 +87,18 @@ begin
   if FPollingMode <> AValue then
   begin
     FPollingMode := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
 procedure TPollingConfigSection.SetPollingInterval(AValue: Integer);
 begin
-  if FPollingInterval <> AValue then
-  begin
-    FPollingInterval := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FPollingInterval, AValue);
 end;
 
 procedure TPollingConfigSection.SetEventDebounceMs(AValue: Integer);
 begin
-  if FEventDebounceMs <> AValue then
-  begin
-    FEventDebounceMs := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FEventDebounceMs, AValue);
 end;
 
 end.

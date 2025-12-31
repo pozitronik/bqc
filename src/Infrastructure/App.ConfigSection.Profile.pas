@@ -21,11 +21,10 @@ type
   /// <summary>
   /// Profile display settings implementation.
   /// </summary>
-  TProfileConfigSection = class(TInterfacedObject, IProfileConfig)
+  TProfileConfigSection = class(TConfigSectionBase, IProfileConfig)
   private
     FShowProfiles: Boolean;
     FProfileFontSize: Integer;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -51,8 +50,7 @@ uses
 
 constructor TProfileConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -74,22 +72,12 @@ end;
 
 procedure TProfileConfigSection.SetShowProfiles(AValue: Boolean);
 begin
-  if FShowProfiles <> AValue then
-  begin
-    FShowProfiles := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FShowProfiles, AValue);
 end;
 
 procedure TProfileConfigSection.SetProfileFontSize(AValue: Integer);
 begin
-  if FProfileFontSize <> AValue then
-  begin
-    FProfileFontSize := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FProfileFontSize, AValue);
 end;
 
 end.

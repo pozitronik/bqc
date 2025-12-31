@@ -24,7 +24,7 @@ type
   /// <summary>
   /// Battery tray icon settings implementation.
   /// </summary>
-  TBatteryTrayConfigSection = class(TInterfacedObject, IBatteryTrayConfig)
+  TBatteryTrayConfigSection = class(TConfigSectionBase, IBatteryTrayConfig)
   private
     FShowBatteryTrayIcons: Boolean;
     FDefaultIconColor: TColor;
@@ -35,7 +35,6 @@ type
     FDefaultNotifyFullyCharged: Boolean;
     FDefaultOutlineColorMode: TOutlineColorMode;
     FDefaultCustomOutlineColor: TColor;
-    FOnModified: TModifiedNotifier;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -94,8 +93,7 @@ implementation
 
 constructor TBatteryTrayConfigSection.Create(AOnModified: TModifiedNotifier);
 begin
-  inherited Create;
-  FOnModified := AOnModified;
+  inherited Create(AOnModified);
   SetDefaults;
 end;
 
@@ -159,12 +157,7 @@ end;
 
 procedure TBatteryTrayConfigSection.SetShowBatteryTrayIcons(AValue: Boolean);
 begin
-  if FShowBatteryTrayIcons <> AValue then
-  begin
-    FShowBatteryTrayIcons := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FShowBatteryTrayIcons, AValue);
 end;
 
 procedure TBatteryTrayConfigSection.SetDefaultIconColor(AValue: TColor);
@@ -172,8 +165,7 @@ begin
   if FDefaultIconColor <> AValue then
   begin
     FDefaultIconColor := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
@@ -182,49 +174,28 @@ begin
   if FDefaultBackgroundColor <> AValue then
   begin
     FDefaultBackgroundColor := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
 procedure TBatteryTrayConfigSection.SetDefaultShowNumericValue(AValue: Boolean);
 begin
-  if FDefaultShowNumericValue <> AValue then
-  begin
-    FDefaultShowNumericValue := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FDefaultShowNumericValue, AValue);
 end;
 
 procedure TBatteryTrayConfigSection.SetDefaultLowBatteryThreshold(AValue: Integer);
 begin
-  if FDefaultLowBatteryThreshold <> AValue then
-  begin
-    FDefaultLowBatteryThreshold := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldInteger(FDefaultLowBatteryThreshold, AValue);
 end;
 
 procedure TBatteryTrayConfigSection.SetDefaultNotifyLowBattery(AValue: Boolean);
 begin
-  if FDefaultNotifyLowBattery <> AValue then
-  begin
-    FDefaultNotifyLowBattery := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FDefaultNotifyLowBattery, AValue);
 end;
 
 procedure TBatteryTrayConfigSection.SetDefaultNotifyFullyCharged(AValue: Boolean);
 begin
-  if FDefaultNotifyFullyCharged <> AValue then
-  begin
-    FDefaultNotifyFullyCharged := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
-  end;
+  SetFieldBoolean(FDefaultNotifyFullyCharged, AValue);
 end;
 
 procedure TBatteryTrayConfigSection.SetDefaultOutlineColorMode(AValue: TOutlineColorMode);
@@ -232,8 +203,7 @@ begin
   if FDefaultOutlineColorMode <> AValue then
   begin
     FDefaultOutlineColorMode := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
@@ -242,8 +212,7 @@ begin
   if FDefaultCustomOutlineColor <> AValue then
   begin
     FDefaultCustomOutlineColor := AValue;
-    if Assigned(FOnModified) then
-      FOnModified();
+    NotifyModified;
   end;
 end;
 
