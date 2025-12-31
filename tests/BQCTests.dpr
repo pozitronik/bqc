@@ -65,6 +65,7 @@ uses
   Tests.Mocks.Infrastructure in 'Tests.Mocks.Infrastructure.pas',
   Tests.AsyncExecutor in 'Tests.AsyncExecutor.pas',
   Tests.WinRTDeviceQuery in 'Tests.WinRTDeviceQuery.pas',
+  Tests.WinRTAsyncHelpers in 'Tests.WinRTAsyncHelpers.pas',
   Tests.ProfileQuery in 'Tests.ProfileQuery.pas',
   Tests.DeviceList in 'Tests.DeviceList.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
@@ -129,6 +130,7 @@ uses
   App.ConfigSection.BatteryTray in '..\src\Infrastructure\App.ConfigSection.BatteryTray.pas',
   App.SystemThemeDetector in '..\src\Infrastructure\App.SystemThemeDetector.pas',
   App.WinRTSupport in '..\src\Infrastructure\App.WinRTSupport.pas',
+  WinRT.AsyncHelpers in '..\src\Infrastructure\WinRT.AsyncHelpers.pas',
   App.ProfileConfigIntf in '..\src\Infrastructure\App.ProfileConfigIntf.pas',
   App.ConfigSection.Profile in '..\src\Infrastructure\App.ConfigSection.Profile.pas';
 

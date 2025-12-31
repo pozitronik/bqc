@@ -48,18 +48,10 @@ implementation
 uses
   Winapi.ActiveX,
   App.Logger,
-  App.WinRTSupport;
+  App.WinRTSupport,
+  WinRT.AsyncHelpers;
 
 const
-  // WinRT initialization
-  RO_INIT_MULTITHREADED = 1;
-
-  // Async operation status
-  AsyncStatus_Started   = 0;
-  AsyncStatus_Completed = 1;
-  AsyncStatus_Canceled  = 2;
-  AsyncStatus_Error     = 3;
-
   // BluetoothConnectionStatus
   BluetoothConnectionStatus_Disconnected = 0;
   BluetoothConnectionStatus_Connected    = 1;
@@ -70,29 +62,6 @@ const
   RuntimeClass_DeviceInformation: string = 'Windows.Devices.Enumeration.DeviceInformation';
 
 type
-  HSTRING = type THandle;
-
-  /// <summary>
-  /// Base WinRT interface.
-  /// </summary>
-  IInspectable = interface(IUnknown)
-    ['{AF86E2E0-B12D-4C6A-9C5A-D7AA65101E90}']
-    function GetIids(out iidCount: Cardinal; out iids: PGUID): HRESULT; stdcall;
-    function GetRuntimeClassName(out className: HSTRING): HRESULT; stdcall;
-    function GetTrustLevel(out trustLevel: Integer): HRESULT; stdcall;
-  end;
-
-  /// <summary>
-  /// Async operation info interface.
-  /// </summary>
-  IAsyncInfo = interface(IInspectable)
-    ['{00000036-0000-0000-C000-000000000046}']
-    function get_Id(out id: Cardinal): HRESULT; stdcall;
-    function get_Status(out status: Integer): HRESULT; stdcall;
-    function get_ErrorCode(out errorCode: HRESULT): HRESULT; stdcall;
-    function Cancel: HRESULT; stdcall;
-    function Close: HRESULT; stdcall;
-  end;
 
   /// <summary>
   /// Generic async operation completed handler.
@@ -326,97 +295,6 @@ type
       out operation: IAsyncOperationBluetoothLEDevice): HRESULT; stdcall;
   end;
 
-// External WinRT functions - use delayed loading for Windows 7 compatibility
-function WindowsCreateString(sourceString: PWideChar; length: Cardinal;
-  out str: HSTRING): HRESULT; stdcall; external 'combase.dll' delayed;
-
-function WindowsDeleteString(str: HSTRING): HRESULT; stdcall;
-  external 'combase.dll' delayed;
-
-function WindowsGetStringRawBuffer(str: HSTRING;
-  length: PCardinal): PWideChar; stdcall; external 'combase.dll' delayed;
-
-function RoInitialize(initType: Cardinal): HRESULT; stdcall;
-  external 'combase.dll' delayed;
-
-function RoGetActivationFactory(activatableClassId: HSTRING; const iid: TGUID;
-  out factory: IInspectable): HRESULT; stdcall; external 'combase.dll' delayed;
-
-/// <summary>
-/// Creates an HSTRING from a Delphi string.
-/// </summary>
-function CreateHString(const AStr: string): HSTRING;
-begin
-  Result := 0;
-  if AStr <> '' then
-    WindowsCreateString(PWideChar(AStr), Length(AStr), Result);
-end;
-
-/// <summary>
-/// Frees an HSTRING.
-/// </summary>
-procedure FreeHString(AStr: HSTRING);
-begin
-  if AStr <> 0 then
-    WindowsDeleteString(AStr);
-end;
-
-/// <summary>
-/// Converts HSTRING to Delphi string.
-/// </summary>
-function HStringToString(AStr: HSTRING): string;
-var
-  Ptr: PWideChar;
-  Len: Cardinal;
-begin
-  if AStr = 0 then
-    Exit('');
-
-  Ptr := WindowsGetStringRawBuffer(AStr, @Len);
-  if (Ptr <> nil) and (Len > 0) then
-    SetString(Result, Ptr, Len)
-  else
-    Result := '';
-end;
-
-/// <summary>
-/// Waits for an async operation to complete with polling.
-/// </summary>
-function WaitForAsyncOperation(const AAsyncInfo: IAsyncInfo;
-  ATimeoutMs: Cardinal): Boolean;
-var
-  Status: Integer;
-  StartTime: Cardinal;
-begin
-  Result := False;
-  if AAsyncInfo = nil then
-  begin
-    LogDebug('WaitForAsyncOperation: AAsyncInfo is nil', 'WinRTDeviceQuery');
-    Exit;
-  end;
-
-  StartTime := GetTickCount;
-  repeat
-    if Failed(AAsyncInfo.get_Status(Status)) then
-    begin
-      LogDebug('WaitForAsyncOperation: get_Status failed', 'WinRTDeviceQuery');
-      Exit;
-    end;
-
-    if Status <> AsyncStatus_Started then
-    begin
-      Result := (Status = AsyncStatus_Completed);
-      if not Result then
-        LogDebug('WaitForAsyncOperation: Async status=%d (not completed)', [Status], 'WinRTDeviceQuery');
-      Exit;
-    end;
-
-    Sleep(10);
-  until (GetTickCount - StartTime) > ATimeoutMs;
-
-  LogDebug('WaitForAsyncOperation: Timeout after %dms', [ATimeoutMs], 'WinRTDeviceQuery');
-end;
-
 { TWinRTBluetoothDeviceQuery }
 
 function TWinRTBluetoothDeviceQuery.EnumeratePairedDevices: TBluetoothDeviceInfoArray;
@@ -434,7 +312,12 @@ begin
   LogDebug('EnumeratePairedDevices: Starting WinRT enumeration', LOG_SOURCE);
 
   // Initialize WinRT (if not already)
-  RoInitialize(RO_INIT_MULTITHREADED);
+  if not EnsureWinRTInitialized(LOG_SOURCE) then
+  begin
+    LogDebug('EnumeratePairedDevices: WinRT initialization failed', LOG_SOURCE);
+    SetLength(Result, 0);
+    Exit;
+  end;
 
   // Enumerate both Classic and BLE devices
   ClassicDevices := EnumerateClassicDevices;
@@ -478,99 +361,69 @@ begin
   DeviceList := TList<TBluetoothDeviceInfo>.Create;
   try
     // Get BluetoothDevice.GetDeviceSelectorFromPairingState(true)
-    ClassName := CreateHString(RuntimeClass_BluetoothDevice);
-    if ClassName = 0 then
+    if not GetActivationFactory(RuntimeClass_BluetoothDevice, IBluetoothDeviceStatics, Factory, LOG_SOURCE) then
+      Exit;
+
+    HR := Factory.QueryInterface(IBluetoothDeviceStatics2, Statics2);
+    if Failed(HR) or (Statics2 = nil) then
     begin
-      LogDebug('EnumerateClassicDevices: Failed to create HSTRING for BluetoothDevice', LOG_SOURCE);
+      LogDebug('EnumerateClassicDevices: QueryInterface for Statics2 failed: 0x%.8X', [HR], LOG_SOURCE);
       Exit;
     end;
 
-    try
-      HR := RoGetActivationFactory(ClassName, IBluetoothDeviceStatics, Factory);
-      if Failed(HR) or (Factory = nil) then
-      begin
-        LogDebug('EnumerateClassicDevices: RoGetActivationFactory failed: 0x%.8X', [HR], LOG_SOURCE);
-        Exit;
-      end;
+    HR := Factory.QueryInterface(IBluetoothDeviceStatics, Statics);
+    if Failed(HR) or (Statics = nil) then
+    begin
+      LogDebug('EnumerateClassicDevices: QueryInterface for Statics failed: 0x%.8X', [HR], LOG_SOURCE);
+      Exit;
+    end;
 
-      HR := Factory.QueryInterface(IBluetoothDeviceStatics2, Statics2);
-      if Failed(HR) or (Statics2 = nil) then
-      begin
-        LogDebug('EnumerateClassicDevices: QueryInterface for Statics2 failed: 0x%.8X', [HR], LOG_SOURCE);
-        Exit;
-      end;
-
-      HR := Factory.QueryInterface(IBluetoothDeviceStatics, Statics);
-      if Failed(HR) or (Statics = nil) then
-      begin
-        LogDebug('EnumerateClassicDevices: QueryInterface for Statics failed: 0x%.8X', [HR], LOG_SOURCE);
-        Exit;
-      end;
-
-      // Get selector for paired devices
-      HR := Statics2.GetDeviceSelectorFromPairingState(True, SelectorStr);
-      if Failed(HR) or (SelectorStr = 0) then
-      begin
-        LogDebug('EnumerateClassicDevices: GetDeviceSelectorFromPairingState failed: 0x%.8X', [HR], LOG_SOURCE);
-        Exit;
-      end;
-    finally
-      FreeHString(ClassName);
+    // Get selector for paired devices
+    HR := Statics2.GetDeviceSelectorFromPairingState(True, SelectorStr);
+    if Failed(HR) or (SelectorStr = 0) then
+    begin
+      LogDebug('EnumerateClassicDevices: GetDeviceSelectorFromPairingState failed: 0x%.8X', [HR], LOG_SOURCE);
+      Exit;
     end;
 
     try
       LogDebug('EnumerateClassicDevices: Got selector: %s', [HStringToString(SelectorStr)], LOG_SOURCE);
 
       // Get DeviceInformation.FindAllAsync(selector)
-      ClassName := CreateHString(RuntimeClass_DeviceInformation);
-      if ClassName = 0 then
+      if not GetActivationFactory(RuntimeClass_DeviceInformation, IDeviceInformationStatics, Factory, LOG_SOURCE) then
+        Exit;
+
+      HR := Factory.QueryInterface(IDeviceInformationStatics, DevInfoStatics);
+      if Failed(HR) or (DevInfoStatics = nil) then
       begin
-        LogDebug('EnumerateClassicDevices: Failed to create HSTRING for DeviceInformation', LOG_SOURCE);
+        LogDebug('EnumerateClassicDevices: QueryInterface for DevInfoStatics failed: 0x%.8X', [HR], LOG_SOURCE);
         Exit;
       end;
 
-      try
-        HR := RoGetActivationFactory(ClassName, IDeviceInformationStatics, Factory);
-        if Failed(HR) or (Factory = nil) then
-        begin
-          LogDebug('EnumerateClassicDevices: RoGetActivationFactory for DeviceInformation failed: 0x%.8X', [HR], LOG_SOURCE);
-          Exit;
-        end;
+      HR := DevInfoStatics.FindAllAsyncAqsFilter(SelectorStr, AsyncOp);
+      if Failed(HR) or (AsyncOp = nil) then
+      begin
+        LogDebug('EnumerateClassicDevices: FindAllAsyncAqsFilter failed: 0x%.8X', [HR], LOG_SOURCE);
+        Exit;
+      end;
 
-        HR := Factory.QueryInterface(IDeviceInformationStatics, DevInfoStatics);
-        if Failed(HR) or (DevInfoStatics = nil) then
-        begin
-          LogDebug('EnumerateClassicDevices: QueryInterface for DevInfoStatics failed: 0x%.8X', [HR], LOG_SOURCE);
-          Exit;
-        end;
+      if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
+      begin
+        LogDebug('EnumerateClassicDevices: Failed to get IAsyncInfo', LOG_SOURCE);
+        Exit;
+      end;
 
-        HR := DevInfoStatics.FindAllAsyncAqsFilter(SelectorStr, AsyncOp);
-        if Failed(HR) or (AsyncOp = nil) then
-        begin
-          LogDebug('EnumerateClassicDevices: FindAllAsyncAqsFilter failed: 0x%.8X', [HR], LOG_SOURCE);
-          Exit;
-        end;
+      if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS, LOG_SOURCE) then
+      begin
+        LogDebug('EnumerateClassicDevices: FindAllAsync timeout', LOG_SOURCE);
+        Exit;
+      end;
 
-        if not Supports(AsyncOp, IAsyncInfo, AsyncInfo) then
-        begin
-          LogDebug('EnumerateClassicDevices: Failed to get IAsyncInfo', LOG_SOURCE);
-          Exit;
-        end;
-
-        if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS) then
-        begin
-          LogDebug('EnumerateClassicDevices: FindAllAsync timeout', LOG_SOURCE);
-          Exit;
-        end;
-
-        HR := AsyncOp.GetResults(Collection);
-        if Failed(HR) or (Collection = nil) then
-        begin
-          LogDebug('EnumerateClassicDevices: GetResults failed: 0x%.8X', [HR], LOG_SOURCE);
-          Exit;
-        end;
-      finally
-        FreeHString(ClassName);
+      HR := AsyncOp.GetResults(Collection);
+      if Failed(HR) or (Collection = nil) then
+      begin
+        LogDebug('EnumerateClassicDevices: GetResults failed: 0x%.8X', [HR], LOG_SOURCE);
+        Exit;
       end;
 
       // Iterate through devices
@@ -599,19 +452,20 @@ begin
 
         // Get BluetoothDevice.FromIdAsync
         ClassName := CreateHString(DeviceIdStr);
-        try
-          HR := Statics.FromIdAsync(ClassName, AsyncDevOp);
-          if Failed(HR) or (AsyncDevOp = nil) then
-          begin
-            LogDebug('EnumerateClassicDevices: FromIdAsync failed for %s: 0x%.8X', [DeviceIdStr, HR], LOG_SOURCE);
-            Continue;
-          end;
+        HR := Statics.FromIdAsync(ClassName, AsyncDevOp);
+        FreeHString(ClassName);
 
-          if not Supports(AsyncDevOp, IAsyncInfo, AsyncInfo) then
-            Continue;
+        if Failed(HR) or (AsyncDevOp = nil) then
+        begin
+          LogDebug('EnumerateClassicDevices: FromIdAsync failed for %s: 0x%.8X', [DeviceIdStr, HR], LOG_SOURCE);
+          Continue;
+        end;
 
-          if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS) then
-            Continue;
+        if not Supports(AsyncDevOp, IAsyncInfo, AsyncInfo) then
+          Continue;
+
+        if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS, LOG_SOURCE) then
+          Continue;
 
           HR := AsyncDevOp.GetResults(BTDevice);
           if Failed(HR) or (BTDevice = nil) then
@@ -657,9 +511,6 @@ begin
             [Address, DeviceNameStr, CoD, BoolToStr(ConnStatus = BluetoothConnectionStatus_Connected, True)], LOG_SOURCE);
 
           DeviceList.Add(Device);
-        finally
-          FreeHString(ClassName);
-        end;
       end;
     finally
       FreeHString(SelectorStr);
@@ -777,7 +628,7 @@ begin
           Exit;
         end;
 
-        if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS) then
+        if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS, LOG_SOURCE) then
         begin
           LogDebug('EnumerateBLEDevices: FindAllAsync timeout', LOG_SOURCE);
           Exit;
@@ -830,7 +681,7 @@ begin
           if not Supports(AsyncDevOp, IAsyncInfo, AsyncInfo) then
             Continue;
 
-          if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS) then
+          if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS, LOG_SOURCE) then
             Continue;
 
           HR := AsyncDevOp.GetResults(BLEDevice);
