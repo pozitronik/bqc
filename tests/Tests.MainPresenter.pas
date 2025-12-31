@@ -38,6 +38,7 @@ type
     procedure UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
     function FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
     function GetDeviceCount: Integer;
+    function GetConnectedDeviceCount: Integer;
     /// <summary>
     /// Exposes HandleBatteryQueryCompleted for testing single-item update behavior.
     /// </summary>
@@ -280,6 +281,11 @@ end;
 function TTestableMainPresenter.GetDeviceCount: Integer;
 begin
   Result := inherited GetDeviceCount;
+end;
+
+function TTestableMainPresenter.GetConnectedDeviceCount: Integer;
+begin
+  Result := inherited GetConnectedDeviceCount;
 end;
 
 procedure TTestableMainPresenter.SimulateBatteryQueryCompleted(
@@ -1559,11 +1565,284 @@ begin
     'SetToggleState should not be called after Shutdown');
 end;
 
+{ TConnectedAddressesCacheTests }
+
+/// <summary>
+/// Tests for connected device addresses cache.
+/// Verifies O(1) access to connected devices without iterating device list.
+/// </summary>
+type
+  [TestFixture]
+  TConnectedAddressesCacheTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
+    FPresenter: TTestableMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure InitiallyEmpty;
+
+    [Test]
+    procedure LoadDevices_PopulatesCacheWithConnectedDevices;
+
+    [Test]
+    procedure LoadDevices_ExcludesDisconnectedDevices;
+
+    [Test]
+    procedure DeviceConnects_AddedToCache;
+
+    [Test]
+    procedure DeviceDisconnects_RemovedFromCache;
+
+    [Test]
+    procedure MultipleConnectedDevices_AllTracked;
+
+    [Test]
+    procedure Shutdown_ClearsCache;
+  end;
+
+procedure TConnectedAddressesCacheTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  FBluetoothService := TMockBluetoothService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
+  FPresenter := nil;
+end;
+
+procedure TConnectedAddressesCacheTests.TearDown;
+var
+  I: Integer;
+begin
+  // Process any pending TThread.Queue calls
+  for I := 1 to 5 do
+  begin
+    Sleep(20);
+    CheckSynchronize(0);
+  end;
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  FPresenter.Free;
+end;
+
+procedure TConnectedAddressesCacheTests.CreatePresenter;
+begin
+  FPresenter := TTestableMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FRadioStateManager,
+    FAsyncExecutor,
+    FBluetoothService,
+    FDisplayItemBuilder
+  );
+end;
+
+procedure TConnectedAddressesCacheTests.InitiallyEmpty;
+begin
+  CreatePresenter;
+
+  Assert.AreEqual(0, FPresenter.GetConnectedDeviceCount,
+    'Connected device cache should be empty initially');
+end;
+
+procedure TConnectedAddressesCacheTests.LoadDevices_PopulatesCacheWithConnectedDevices;
+var
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  // Arrange: Set up devices with 2 connected
+  SetLength(Devices, 3);
+  Devices[0] := CreateTestDevice($111, 'Device 1', btAudioOutput, csConnected);
+  Devices[1] := CreateTestDevice($222, 'Device 2', btKeyboard, csDisconnected);
+  Devices[2] := CreateTestDevice($333, 'Device 3', btMouse, csConnected);
+  FBluetoothService.Devices := Devices;
+
+  FRadioStateManager.RadioEnabled := True;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+
+  // Act: Initialize loads devices
+  FPresenter.Initialize;
+
+  // Assert: Only connected devices in cache
+  Assert.AreEqual(2, FPresenter.GetConnectedDeviceCount,
+    'Cache should contain 2 connected devices');
+end;
+
+procedure TConnectedAddressesCacheTests.LoadDevices_ExcludesDisconnectedDevices;
+var
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  // Arrange: All devices disconnected
+  SetLength(Devices, 3);
+  Devices[0] := CreateTestDevice($111, 'Device 1', btAudioOutput, csDisconnected);
+  Devices[1] := CreateTestDevice($222, 'Device 2', btKeyboard, csDisconnected);
+  Devices[2] := CreateTestDevice($333, 'Device 3', btMouse, csDisconnected);
+  FBluetoothService.Devices := Devices;
+
+  FRadioStateManager.RadioEnabled := True;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+
+  // Act
+  FPresenter.Initialize;
+
+  // Assert
+  Assert.AreEqual(0, FPresenter.GetConnectedDeviceCount,
+    'Cache should be empty when no devices are connected');
+end;
+
+procedure TConnectedAddressesCacheTests.DeviceConnects_AddedToCache;
+var
+  Devices: TBluetoothDeviceInfoArray;
+  ConnectedDevice: TBluetoothDeviceInfo;
+begin
+  // Arrange: Start with disconnected device
+  SetLength(Devices, 1);
+  Devices[0] := CreateTestDevice($111, 'Device 1', btAudioOutput, csDisconnected);
+  FBluetoothService.Devices := Devices;
+
+  FRadioStateManager.RadioEnabled := True;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  Assert.AreEqual(0, FPresenter.GetConnectedDeviceCount,
+    'Cache should be empty initially');
+
+  // Act: Simulate device connecting
+  ConnectedDevice := CreateTestDevice($111, 'Device 1', btAudioOutput, csConnected);
+  FBluetoothService.SimulateDeviceStateChanged(ConnectedDevice);
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: Device should be in cache
+  Assert.AreEqual(1, FPresenter.GetConnectedDeviceCount,
+    'Connected device should be added to cache');
+end;
+
+procedure TConnectedAddressesCacheTests.DeviceDisconnects_RemovedFromCache;
+var
+  Devices: TBluetoothDeviceInfoArray;
+  DisconnectedDevice: TBluetoothDeviceInfo;
+begin
+  // Arrange: Start with connected device
+  SetLength(Devices, 1);
+  Devices[0] := CreateTestDevice($111, 'Device 1', btAudioOutput, csConnected);
+  FBluetoothService.Devices := Devices;
+
+  FRadioStateManager.RadioEnabled := True;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  Assert.AreEqual(1, FPresenter.GetConnectedDeviceCount,
+    'Cache should have 1 device initially');
+
+  // Act: Simulate device disconnecting
+  DisconnectedDevice := CreateTestDevice($111, 'Device 1', btAudioOutput, csDisconnected);
+  FBluetoothService.SimulateDeviceStateChanged(DisconnectedDevice);
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: Device should be removed from cache
+  Assert.AreEqual(0, FPresenter.GetConnectedDeviceCount,
+    'Disconnected device should be removed from cache');
+end;
+
+procedure TConnectedAddressesCacheTests.MultipleConnectedDevices_AllTracked;
+var
+  Devices: TBluetoothDeviceInfoArray;
+  NewDevice: TBluetoothDeviceInfo;
+begin
+  // Arrange: Start with 2 connected devices
+  SetLength(Devices, 2);
+  Devices[0] := CreateTestDevice($111, 'Device 1', btAudioOutput, csConnected);
+  Devices[1] := CreateTestDevice($222, 'Device 2', btKeyboard, csConnected);
+  FBluetoothService.Devices := Devices;
+
+  FRadioStateManager.RadioEnabled := True;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  Assert.AreEqual(2, FPresenter.GetConnectedDeviceCount,
+    'Cache should have 2 devices initially');
+
+  // Act: Add third connected device
+  NewDevice := CreateTestDevice($333, 'Device 3', btMouse, csConnected);
+  FBluetoothService.SimulateDeviceStateChanged(NewDevice);
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: All 3 should be tracked
+  Assert.AreEqual(3, FPresenter.GetConnectedDeviceCount,
+    'Cache should have 3 devices after new connection');
+end;
+
+procedure TConnectedAddressesCacheTests.Shutdown_ClearsCache;
+var
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  // Arrange: Start with connected device
+  SetLength(Devices, 2);
+  Devices[0] := CreateTestDevice($111, 'Device 1', btAudioOutput, csConnected);
+  Devices[1] := CreateTestDevice($222, 'Device 2', btKeyboard, csConnected);
+  FBluetoothService.Devices := Devices;
+
+  FRadioStateManager.RadioEnabled := True;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  Assert.AreEqual(2, FPresenter.GetConnectedDeviceCount,
+    'Cache should have 2 devices initially');
+
+  // Act
+  FPresenter.Shutdown;
+
+  // Assert
+  Assert.AreEqual(0, FPresenter.GetConnectedDeviceCount,
+    'Cache should be cleared after Shutdown');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TMainPresenterTests);
   TDUnitX.RegisterTestFixture(TDelayedLoadTests);
   TDUnitX.RegisterTestFixture(TDeviceIndexMapTests);
   TDUnitX.RegisterTestFixture(TBatteryQueryCompletionTests);
   TDUnitX.RegisterTestFixture(TShutdownSafetyTests);
+  TDUnitX.RegisterTestFixture(TConnectedAddressesCacheTests);
 
 end.
