@@ -795,11 +795,15 @@ begin
       LogDebug('HandleDeviceStateChanged (queued): Device list updated, count=%d', [FDeviceList.Count], ClassName);
 
       // Update device in persistent config
-      // Update LastSeen when device connects or disconnects - the moment we last "saw" it active
-      // For other state changes (connecting, disconnecting), pass 0 to preserve existing value
+      // Always update LastSeen on ANY state change - if we're getting events, the device is active/seen
+      // This ensures immediate updates without waiting for terminal states (csConnected/csDisconnected)
+      FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
+      LogDebug('HandleDeviceStateChanged: Updated LastSeen for device $%.12X, state=%d',
+        [LDevice.AddressInt, Ord(LDevice.ConnectionState)], ClassName);
+
+      // Handle state-specific logic
       if LDevice.ConnectionState = csConnected then
       begin
-        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
         // Set battery status to "pending" only if we don't have a cached value.
         // If we already have a battery level from before (e.g., device reconnecting after BT toggle),
         // keep showing the cached value instead of replacing it with pending icon.
@@ -815,13 +819,9 @@ begin
       end
       else if LDevice.ConnectionState = csDisconnected then
       begin
-        // Update LastSeen on disconnect - this is the last time device was active
-        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
         // Invalidate battery cache so next connect won't show stale value
         FBatteryCache.Remove(LDevice.AddressInt);
-      end
-      else
-        FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, 0);
+      end;
       FAppConfig.SaveIfModified;
 
       // Rebuild display items (device may have moved groups due to state change)
