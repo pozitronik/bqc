@@ -76,6 +76,7 @@ const
 /// External WinRT functions.
 /// Use delayed loading for Windows 7 compatibility.
 /// </summary>
+{$WARN SYMBOL_PLATFORM OFF}
 function WindowsCreateString(sourceString: PWideChar; length: Cardinal;
   out str: HSTRING): HRESULT; stdcall; external 'combase.dll' delayed;
 
@@ -90,6 +91,7 @@ function RoInitialize(initType: Cardinal): HRESULT; stdcall;
 
 function RoGetActivationFactory(activatableClassId: HSTRING; const iid: TGUID;
   out factory: IInspectable): HRESULT; stdcall; external 'combase.dll' delayed;
+{$WARN SYMBOL_PLATFORM ON}
 
 /// <summary>
 /// Creates an HSTRING from a Delphi string.
