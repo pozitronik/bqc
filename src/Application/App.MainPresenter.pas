@@ -800,13 +800,16 @@ begin
       if LDevice.ConnectionState = csConnected then
       begin
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
-        // Set battery status to "pending" - shows ellipsis icon while refreshing.
+        // Set battery status to "pending" only if we don't have a cached value.
+        // If we already have a battery level from before (e.g., device reconnecting after BT toggle),
+        // keep showing the cached value instead of replacing it with pending icon.
         // Do NOT request immediate refresh because Windows device properties (used by
         // SetupAPI) take several seconds to update after device reconnects.
         // Schedule delayed refresh to get accurate battery level.
         if FAppearanceConfig.ShowBatteryLevel then
         begin
-          FBatteryCache.SetBatteryStatus(LDevice.AddressInt, TBatteryStatus.Pending);
+          if not FBatteryCache.HasCachedStatus(LDevice.AddressInt) then
+            FBatteryCache.SetBatteryStatus(LDevice.AddressInt, TBatteryStatus.Pending);
           ScheduleDelayedBatteryRefresh(LDevice.AddressInt, BATTERY_REFRESH_DELAY_MS);
         end;
       end

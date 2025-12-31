@@ -1591,6 +1591,12 @@ begin
   if not Assigned(FExecutor) or FExecutor.IsShutdown then
     Exit;
 
+  // Note: We don't skip queries for devices with cached NotSupported status here because:
+  // 1. First query might fail due to timing (device not ready, Windows properties not updated)
+  // 2. We can't distinguish between "doesn't support battery" vs "query failed this time"
+  // 3. Battery queries are already debounced/rate-limited by the caller
+  // Future optimization: Track failure count and skip after N consecutive failures
+
   FExecutor.Execute(ADeviceAddress, HandleQueryResult);
 end;
 

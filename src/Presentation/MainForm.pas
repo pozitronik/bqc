@@ -1106,6 +1106,9 @@ begin
   // Update battery tray icon for this device (same logic as ShowDisplayItems)
   if Assigned(FBatteryTrayManager) then
   begin
+    LogDebug('UpdateDisplayItem: Address=$%.12X, IsConnected=%s, IsPending=%s, Level=%d',
+      [AItem.Device.AddressInt, BoolToStr(AItem.Device.IsConnected, True),
+       BoolToStr(AItem.BatteryStatus.IsPending, True), AItem.BatteryStatus.Level], ClassName);
     if AItem.Device.IsConnected then
     begin
       if AItem.BatteryStatus.IsPending then

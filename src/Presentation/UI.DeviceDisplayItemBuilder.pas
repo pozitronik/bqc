@@ -210,6 +210,9 @@ begin
 
   // Get battery status from cache (null object returns NotSupported when disabled)
   BatteryStatus := FBatteryCache.GetBatteryStatus(ADevice.AddressInt);
+  LogDebug('BuildDisplayItem: Address=$%.12X, BatteryStatus.IsSupported=%s, Level=%d, IsPending=%s',
+    [ADevice.AddressInt, BoolToStr(BatteryStatus.IsSupported, True), BatteryStatus.Level,
+     BoolToStr(BatteryStatus.IsPending, True)], ClassName);
   if BatteryStatus.IsSupported then
     BatteryText := TDeviceFormatter.FormatBatteryLevel(BatteryStatus)
   else

@@ -511,8 +511,14 @@ var
   OldIconHandle: HICON;
   NewCacheEntry, CachedEntry: TIconCacheEntry;
 begin
+  LogDebug('UpdateDevice: Called for %s (Address=$%.12X), Level=%d, IsConnected=%s',
+    [AName, AAddress, ALevel, BoolToStr(AIsConnected, True)], ClassName);
+
   if not FEnabled then
+  begin
+    LogDebug('UpdateDevice: FEnabled=False, exiting', ClassName);
     Exit;
+  end;
 
   // Re-entrancy guard: Shell_NotifyIcon can pump Windows messages, potentially
   // triggering another RefreshDisplayItems while we're in the middle of an update.
@@ -527,6 +533,8 @@ begin
   // Remove icon if device is not connected or battery level is invalid
   if not AIsConnected or (ALevel < 0) then
   begin
+    LogDebug('UpdateDevice: Invalid params (IsConnected=%s, Level=%d), removing icon',
+      [BoolToStr(AIsConnected, True), ALevel], ClassName);
     RemoveDevice(AAddress);
     Exit;
   end;
@@ -534,6 +542,7 @@ begin
   // Check if we should show tray icon for this device
   if not ShouldShowTrayIcon(AAddress) then
   begin
+    LogDebug('UpdateDevice: ShouldShowTrayIcon=False for $%.12X, removing icon', [AAddress], ClassName);
     RemoveDevice(AAddress);
     Exit;
   end;
