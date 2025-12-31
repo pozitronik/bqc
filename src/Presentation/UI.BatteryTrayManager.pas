@@ -589,8 +589,8 @@ begin
           // Success - destroy old icon handle and update dictionary
           if OldIconHandle <> 0 then
             DestroyIcon(OldIconHandle);
-          FDeviceIcons[AAddress] := ExistingIcon;
-          FIconCache[AAddress] := NewCacheEntry;
+          FDeviceIcons.AddOrSetValue(AAddress, ExistingIcon);
+          FIconCache.AddOrSetValue(AAddress, NewCacheEntry);
         end
         else
         begin
@@ -698,8 +698,8 @@ begin
         begin
           if OldIconHandle <> 0 then
             DestroyIcon(OldIconHandle);
-          FDeviceIcons[AAddress] := ExistingIcon;
-          FIconCache[AAddress] := NewCacheEntry;
+          FDeviceIcons.AddOrSetValue(AAddress, ExistingIcon);
+          FIconCache.AddOrSetValue(AAddress, NewCacheEntry);
         end
         else
         begin
@@ -735,8 +735,8 @@ begin
       begin
         IconData.uTimeout := NOTIFYICON_VERSION_4;
         Shell_NotifyIcon(NIM_SETVERSION, @IconData);
-        FDeviceIcons.Add(AAddress, IconData);
-        FIconCache[AAddress] := NewCacheEntry;
+        FDeviceIcons.AddOrSetValue(AAddress, IconData);
+        FIconCache.AddOrSetValue(AAddress, NewCacheEntry);
         LogDebug('Pending battery tray icon added for %s', [AName], ClassName);
       end
       else
