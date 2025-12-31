@@ -63,7 +63,6 @@ type
     FDevicesArrayValid: Boolean;
     FDisplayItems: TDeviceDisplayItemArray;
     FDisplayItemBuilder: IDeviceDisplayItemBuilder;
-    FConnectedAddresses: TList<UInt64>;  // Cached addresses of connected devices
     FDelayedLoadGeneration: Integer;  // Generation counter for delayed load cancellation
     FUpdatingToggle: Boolean;
     FIsShutdown: Boolean;  // Lifetime safety flag for async callbacks
@@ -306,7 +305,6 @@ begin
   FBatteryCache := nil;
   FDeviceList := TList<TBluetoothDeviceInfo>.Create;
   FDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
-  FConnectedAddresses := TList<UInt64>.Create;
   FDevicesArrayCache := nil;
   FDevicesArrayValid := False;
   FDisplayItems := nil;
@@ -320,7 +318,6 @@ destructor TMainPresenter.Destroy;
 begin
   Shutdown;
   FBatteryCache := nil;
-  FConnectedAddresses.Free;
   FDeviceIndexMap.Free;
   FDeviceList.Free;
   // FDisplayItemBuilder is interface - reference counted, no Free needed
@@ -406,7 +403,6 @@ begin
 
   // Release service
   FBluetoothService := nil;
-  FConnectedAddresses.Clear;
   FDeviceIndexMap.Clear;
   FDeviceList.Clear;
   InvalidateDevicesArrayCache;
@@ -428,14 +424,10 @@ begin
     // Replace list contents with new devices and rebuild index map
     FDeviceIndexMap.Clear;
     FDeviceList.Clear;
-    FConnectedAddresses.Clear;
     for I := 0 to High(Devices) do
     begin
       FDeviceList.Add(Devices[I]);
       FDeviceIndexMap.Add(Devices[I].AddressInt, I);
-      // Build connected addresses cache
-      if Devices[I].IsConnected then
-        FConnectedAddresses.Add(Devices[I].AddressInt);
     end;
     InvalidateDevicesArrayCache;
 
@@ -730,8 +722,13 @@ begin
 end;
 
 function TMainPresenter.GetConnectedDeviceCount: Integer;
+var
+  I: Integer;
 begin
-  Result := FConnectedAddresses.Count;
+  Result := 0;
+  for I := 0 to FDeviceList.Count - 1 do
+    if FDeviceList[I].IsConnected then
+      Inc(Result);
 end;
 
 procedure TMainPresenter.SetToggleStateSafe(AState: Boolean);
@@ -787,15 +784,11 @@ begin
       UpdateOrAddDevice(LDevice);
       LogDebug('HandleDeviceStateChanged (queued): Device list updated, count=%d', [FDeviceList.Count], ClassName);
 
-      // Update device in persistent config and connected addresses cache
+      // Update device in persistent config
       // Update LastSeen when device connects or disconnects - the moment we last "saw" it active
       // For other state changes (connecting, disconnecting), pass 0 to preserve existing value
       if LDevice.ConnectionState = csConnected then
       begin
-        // Update connected addresses cache
-        if not FConnectedAddresses.Contains(LDevice.AddressInt) then
-          FConnectedAddresses.Add(LDevice.AddressInt);
-
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
         // Set battery status to "pending" - shows ellipsis icon while refreshing.
         // Do NOT request immediate refresh because Windows device properties (used by
@@ -809,9 +802,6 @@ begin
       end
       else if LDevice.ConnectionState = csDisconnected then
       begin
-        // Update connected addresses cache
-        FConnectedAddresses.Remove(LDevice.AddressInt);
-
         // Update LastSeen on disconnect - this is the last time device was active
         FDeviceConfigProvider.RegisterDevice(LDevice.AddressInt, LDevice.Name, Now);
         // Invalidate battery cache so next connect won't show stale value
@@ -905,17 +895,31 @@ begin
 end;
 
 procedure TMainPresenter.RefreshBatteryForConnectedDevices;
+var
+  I, Count: Integer;
+  ConnectedAddresses: TArray<UInt64>;
 begin
   // Skip if battery display is disabled (null object will no-op anyway,
   // but this avoids collecting addresses unnecessarily)
   if not FAppearanceConfig.ShowBatteryLevel then
     Exit;
 
-  // Use cached connected addresses instead of iterating through all devices
-  if FConnectedAddresses.Count > 0 then
+  // Compute connected addresses on-demand - O(n) but n is small (~10 devices)
+  // and this is called infrequently (view shown, devices loaded)
+  SetLength(ConnectedAddresses, FDeviceList.Count);
+  Count := 0;
+  for I := 0 to FDeviceList.Count - 1 do
+    if FDeviceList[I].IsConnected then
+    begin
+      ConnectedAddresses[Count] := FDeviceList[I].AddressInt;
+      Inc(Count);
+    end;
+  SetLength(ConnectedAddresses, Count);
+
+  if Count > 0 then
   begin
-    LogDebug('RefreshBatteryForConnectedDevices: Refreshing %d devices', [FConnectedAddresses.Count], ClassName);
-    FBatteryCache.RequestRefreshAll(FConnectedAddresses.ToArray);
+    LogDebug('RefreshBatteryForConnectedDevices: Refreshing %d devices', [Count], ClassName);
+    FBatteryCache.RequestRefreshAll(ConnectedAddresses);
   end;
 end;
 
