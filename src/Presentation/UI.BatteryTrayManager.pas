@@ -615,8 +615,10 @@ begin
         IconData.uTimeout := NOTIFYICON_VERSION_4;
         Shell_NotifyIcon(NIM_SETVERSION, @IconData);
 
-        FDeviceIcons.Add(AAddress, IconData);
-        FIconCache[AAddress] := NewCacheEntry;
+        // Use AddOrSetValue instead of Add to handle potential re-entrancy edge cases
+        // where the key might already exist due to message pumping
+        FDeviceIcons.AddOrSetValue(AAddress, IconData);
+        FIconCache.AddOrSetValue(AAddress, NewCacheEntry);
         LogDebug('Battery tray icon added for %s', [AName], ClassName);
       end
       else
@@ -753,6 +755,13 @@ procedure TBatteryTrayManager.RemoveDevice(AAddress: UInt64);
 var
   IconData: TNotifyIconData;
 begin
+  // Re-entrancy guard: prevent removal while an update is in progress
+  if FInUpdate then
+  begin
+    LogWarning('RemoveDevice: Re-entrancy detected for Address=$%.12X, skipping', [AAddress], ClassName);
+    Exit;
+  end;
+
   if FDeviceIcons.TryGetValue(AAddress, IconData) then
   begin
     Shell_NotifyIcon(NIM_DELETE, @IconData);
@@ -772,6 +781,13 @@ var
   Pair: TPair<UInt64, TNotifyIconData>;
   IconData: TNotifyIconData;
 begin
+  // Re-entrancy guard: prevent clearing while an update is in progress
+  if FInUpdate then
+  begin
+    LogWarning('ClearAll: Re-entrancy detected, skipping', ClassName);
+    Exit;
+  end;
+
   for Pair in FDeviceIcons do
   begin
     IconData := Pair.Value;
