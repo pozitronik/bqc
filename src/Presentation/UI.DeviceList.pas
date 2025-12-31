@@ -793,10 +793,8 @@ var
 begin
   Style := TStyleManager.ActiveStyle;
 
-  // Determine background color
-  if AContext.IsSelected then
-    BgColor := Style.GetSystemColor(clHighlight)
-  else if AContext.IsHover then
+  // Determine background color (no selection background, only hover)
+  if AContext.IsHover then
     BgColor := Style.GetSystemColor(clBtnFace)
   else
     BgColor := Style.GetSystemColor(clWindow);
@@ -861,10 +859,8 @@ begin
   // Restore font for name
   ACanvas.Font.Name := FONT_UI;
   ACanvas.Font.Size := AContext.DeviceNameFontSize;
-  if AContext.IsSelected then
-    ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
-  else
-    ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
+  ACanvas.Font.Style := [];
+  ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
 
   // Draw device name
   ACanvas.TextOut(AContext.TextRect.Left, AContext.NameLineTop, AItem.DisplayName);
