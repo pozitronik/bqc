@@ -13,6 +13,7 @@ uses
   System.SysUtils,
   System.Classes,
   System.TypInfo,
+  System.Generics.Collections,
   Vcl.ExtCtrls,
   Bluetooth.Types,
   Bluetooth.Interfaces,
@@ -51,7 +52,12 @@ type
     FStrategyFactory: IConnectionStrategyFactory;
     FRadioStateManager: IRadioStateManager;
     FBatteryCache: IBatteryCache;
-    FDevices: TBluetoothDeviceInfoArray;
+    /// <summary>
+    /// Device cache using TDictionary for O(1) lookup and update operations.
+    /// Key: Device address (UInt64), Value: Device info record.
+    /// Replaces array-based storage to eliminate O(n) copy operations.
+    /// </summary>
+    FDevices: TDictionary<UInt64, TBluetoothDeviceInfo>;
     FDisplayItems: TDeviceDisplayItemArray;
     FDisplayItemBuilder: TDeviceDisplayItemBuilder;
     FDelayedLoadTimer: TTimer;
@@ -81,16 +87,23 @@ type
     procedure RefreshDisplayItems;
 
     /// <summary>
-    /// Updates existing device or adds new one using copy-on-write pattern.
-    /// Creates a new array to avoid in-place modification issues.
+    /// Updates existing device or adds new one in O(1) time.
+    /// Uses dictionary's AddOrSetValue for efficient upsert.
     /// </summary>
     procedure UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
 
     /// <summary>
-    /// Finds a device in the internal FDevices array by address.
+    /// Finds a device in the internal FDevices dictionary by address.
     /// Returns empty record (AddressInt=0) if not found.
+    /// O(1) lookup using dictionary.
     /// </summary>
     function FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
+
+    /// <summary>
+    /// Converts the internal device dictionary to an array.
+    /// Used when array format is required (e.g., for display item builder).
+    /// </summary>
+    function GetDevicesArray: TBluetoothDeviceInfoArray;
 
     /// <summary>
     /// Sets toggle state while preventing recursive event handling.
@@ -250,7 +263,8 @@ begin
 
   FBluetoothService := nil;
   FBatteryCache := nil;
-  FDevices := nil;
+  // Create dictionary for O(1) device lookups (performance optimization)
+  FDevices := TDictionary<UInt64, TBluetoothDeviceInfo>.Create;
   FDisplayItems := nil;
   FDisplayItemBuilder := TDeviceDisplayItemBuilder.Create(
     FDeviceConfigProvider,
@@ -265,6 +279,7 @@ destructor TMainPresenter.Destroy;
 begin
   Shutdown;
   FBatteryCache := nil;
+  FDevices.Free;
   FDisplayItemBuilder.Free;
   LogDebug('Destroyed', ClassName);
   inherited;
@@ -357,7 +372,7 @@ begin
 
   // Release service
   FBluetoothService := nil;
-  FDevices := nil;
+  FDevices.Clear;
 
   LogDebug('Shutdown: Complete', ClassName);
 end;
@@ -365,22 +380,28 @@ end;
 procedure TMainPresenter.LoadDevices;
 var
   I: Integer;
+  DeviceArray: TBluetoothDeviceInfoArray;
+  Device: TBluetoothDeviceInfo;
 begin
   LogDebug('LoadDevices: Starting', ClassName);
   FStatusView.SetBusy(True);
   try
-    FDevices := FBluetoothService.GetPairedDevices;
-    LogDebug('LoadDevices: Got %d devices', [Length(FDevices)], ClassName);
+    // Get paired devices as array from service
+    DeviceArray := FBluetoothService.GetPairedDevices;
+    LogDebug('LoadDevices: Got %d devices', [Length(DeviceArray)], ClassName);
 
-    // Register all discovered devices to persistent config
-    for I := 0 to High(FDevices) do
+    // Clear and repopulate dictionary (O(n) for full refresh, but O(1) per device)
+    FDevices.Clear;
+    for I := 0 to High(DeviceArray) do
     begin
+      Device := DeviceArray[I];
+      FDevices.Add(Device.AddressInt, Device);
       LogDebug('LoadDevices: Device[%d] Address=$%.12X, Name="%s", Connected=%s', [
-        I, FDevices[I].AddressInt, FDevices[I].Name, BoolToStr(FDevices[I].IsConnected, True)
+        I, Device.AddressInt, Device.Name, BoolToStr(Device.IsConnected, True)
       ], ClassName);
       // Register device but don't update LastSeen (pass 0)
       // LastSeen is only updated when device actually connects
-      FDeviceConfigProvider.RegisterDevice(FDevices[I].AddressInt, FDevices[I].Name, 0);
+      FDeviceConfigProvider.RegisterDevice(Device.AddressInt, Device.Name, 0);
     end;
 
     // Save config if any new devices were registered
@@ -389,10 +410,10 @@ begin
     // Build display items and send to view
     RefreshDisplayItems;
 
-    if Length(FDevices) = 0 then
+    if FDevices.Count = 0 then
       FStatusView.ShowStatus('No paired devices')
     else
-      FStatusView.ShowStatus(Format('%d device(s)', [Length(FDevices)]));
+      FStatusView.ShowStatus(Format('%d device(s)', [FDevices.Count]));
 
     // Trigger battery level refresh for connected devices
     RefreshBatteryForConnectedDevices;
@@ -410,15 +431,13 @@ end;
 
 procedure TMainPresenter.AutoConnectDevices;
 var
-  I: Integer;
   DeviceConfig: TDeviceConfig;
   Device: TBluetoothDeviceInfo;
 begin
   LogDebug('AutoConnectDevices: Starting', ClassName);
 
-  for I := 0 to High(FDevices) do
+  for Device in FDevices.Values do
   begin
-    Device := FDevices[I];
     DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(Device.AddressInt);
 
     if not DeviceConfig.AutoConnect then
@@ -568,55 +587,37 @@ end;
 
 procedure TMainPresenter.RefreshDisplayItems;
 begin
-  FDisplayItems := FDisplayItemBuilder.BuildDisplayItems(FDevices);
+  // Convert dictionary to array for display item builder
+  FDisplayItems := FDisplayItemBuilder.BuildDisplayItems(GetDevicesArray);
   FDeviceListView.ShowDisplayItems(FDisplayItems);
 end;
 
 procedure TMainPresenter.UpdateOrAddDevice(const ADevice: TBluetoothDeviceInfo);
 var
-  I, J: Integer;
-  NewDevices: TBluetoothDeviceInfoArray;
+  WasExisting: Boolean;
 begin
-  // Copy-on-write pattern: create new array to avoid in-place modification
-  // This ensures FDevices is always in a consistent state
-  //
-  // IMPORTANT: Do NOT use Move() for copying records with managed types (strings).
-  // Move() does raw byte copy without incrementing reference counts, causing
-  // use-after-free when the source array is deallocated.
+  // O(1) dictionary upsert operation - no array copying required
+  // TDictionary.AddOrSetValue handles both add and update cases efficiently
+  WasExisting := FDevices.ContainsKey(ADevice.AddressInt);
+  FDevices.AddOrSetValue(ADevice.AddressInt, ADevice);
 
-  // First, check if device exists and update
-  for I := 0 to High(FDevices) do
-  begin
-    if FDevices[I].AddressInt = ADevice.AddressInt then
-    begin
-      // Create copy with updated element using proper assignment
-      SetLength(NewDevices, Length(FDevices));
-      for J := 0 to High(FDevices) do
-        NewDevices[J] := FDevices[J];
-      NewDevices[I] := ADevice;
-      FDevices := NewDevices;
-      LogDebug('UpdateOrAddDevice: Updated device at index %d', [I], ClassName);
-      Exit;
-    end;
-  end;
-
-  // Device not found, append to new array using proper assignment
-  SetLength(NewDevices, Length(FDevices) + 1);
-  for J := 0 to High(FDevices) do
-    NewDevices[J] := FDevices[J];
-  NewDevices[High(NewDevices)] := ADevice;
-  FDevices := NewDevices;
-  LogDebug('UpdateOrAddDevice: Added new device, total=%d', [Length(FDevices)], ClassName);
+  if WasExisting then
+    LogDebug('UpdateOrAddDevice: Updated device $%.12X', [ADevice.AddressInt], ClassName)
+  else
+    LogDebug('UpdateOrAddDevice: Added new device, total=%d', [FDevices.Count], ClassName);
 end;
 
 function TMainPresenter.FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
-var
-  I: Integer;
 begin
-  Result := Default(TBluetoothDeviceInfo);  // Empty record with AddressInt=0
-  for I := 0 to High(FDevices) do
-    if FDevices[I].AddressInt = AAddress then
-      Exit(FDevices[I]);
+  // O(1) dictionary lookup
+  if not FDevices.TryGetValue(AAddress, Result) then
+    Result := Default(TBluetoothDeviceInfo);  // Empty record with AddressInt=0
+end;
+
+function TMainPresenter.GetDevicesArray: TBluetoothDeviceInfoArray;
+begin
+  // Convert dictionary values to array when array format is needed
+  Result := FDevices.Values.ToArray;
 end;
 
 procedure TMainPresenter.SetToggleStateSafe(AState: Boolean);
@@ -657,9 +658,9 @@ begin
         GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(LDevice.ConnectionState))
       ], ClassName);
 
-      // Update local cache using copy-on-write pattern
+      // Update local cache using O(1) dictionary upsert
       UpdateOrAddDevice(LDevice);
-      LogDebug('HandleDeviceStateChanged (queued): FDevices updated, count=%d', [Length(FDevices)], ClassName);
+      LogDebug('HandleDeviceStateChanged (queued): FDevices updated, count=%d', [FDevices.Count], ClassName);
 
       // Update device in persistent config
       // Update LastSeen when device connects or disconnects - the moment we last "saw" it active
@@ -747,7 +748,7 @@ end;
 procedure TMainPresenter.RefreshBatteryForConnectedDevices;
 var
   Addresses: TArray<UInt64>;
-  I, Count: Integer;
+  Count: Integer;
   Device: TBluetoothDeviceInfo;
 begin
   if FBatteryCache = nil then
@@ -756,12 +757,11 @@ begin
   if not FAppearanceConfig.ShowBatteryLevel then
     Exit;
 
-  // Collect addresses of connected devices
+  // Collect addresses of connected devices using dictionary iteration
   Count := 0;
-  SetLength(Addresses, Length(FDevices));
-  for I := 0 to High(FDevices) do
+  SetLength(Addresses, FDevices.Count);
+  for Device in FDevices.Values do
   begin
-    Device := FDevices[I];
     if Device.IsConnected then
     begin
       Addresses[Count] := Device.AddressInt;
@@ -781,7 +781,7 @@ end;
 
 procedure TMainPresenter.OnDeviceClicked(const ADevice: TBluetoothDeviceInfo);
 var
-  CurrentDevice: TBluetoothDeviceInfo;
+  CurrentDevice, Device: TBluetoothDeviceInfo;
   I: Integer;
 begin
   LogInfo('=== OnDeviceClicked START ===', ClassName);
@@ -789,12 +789,16 @@ begin
     [ADevice.Name, ADevice.AddressInt, Ord(ADevice.ConnectionState),
      GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(ADevice.ConnectionState))], ClassName);
 
-  // Dump all devices in FDevices for debugging
-  LogDebug('OnDeviceClicked: FDevices count=%d', [Length(FDevices)], ClassName);
-  for I := 0 to High(FDevices) do
+  // Dump all devices in FDevices for debugging (using dictionary iteration)
+  LogDebug('OnDeviceClicked: FDevices count=%d', [FDevices.Count], ClassName);
+  I := 0;
+  for Device in FDevices.Values do
+  begin
     LogDebug('  FDevices[%d]: Address=$%.12X, Name="%s", State=%d (%s)',
-      [I, FDevices[I].AddressInt, FDevices[I].Name, Ord(FDevices[I].ConnectionState),
-       GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(FDevices[I].ConnectionState))], ClassName);
+      [I, Device.AddressInt, Device.Name, Ord(Device.ConnectionState),
+       GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(Device.ConnectionState))], ClassName);
+    Inc(I);
+  end;
 
   // Look up current state from internal cache, not stale UI copy
   CurrentDevice := FindDeviceByAddress(ADevice.AddressInt);
