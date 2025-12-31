@@ -264,6 +264,7 @@ type
     FConnectionTimeout: Integer;
     FConnectionRetryCount: Integer;
     FEnumerationMode: TEnumerationMode;
+    FBluetoothPlatform: TBluetoothPlatform;
   public
     constructor Create;
 
@@ -271,16 +272,19 @@ type
     function GetConnectionTimeout: Integer;
     function GetConnectionRetryCount: Integer;
     function GetEnumerationMode: TEnumerationMode;
+    function GetBluetoothPlatform: TBluetoothPlatform;
 
     // IConnectionConfig - setters
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
     procedure SetEnumerationMode(AValue: TEnumerationMode);
+    procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
 
     // Test setup properties
     property ConnectionTimeout: Integer read FConnectionTimeout write FConnectionTimeout;
     property ConnectionRetryCount: Integer read FConnectionRetryCount write FConnectionRetryCount;
     property EnumerationMode: TEnumerationMode read FEnumerationMode write FEnumerationMode;
+    property BluetoothPlatform: TBluetoothPlatform read FBluetoothPlatform write FBluetoothPlatform;
   end;
 
   /// <summary>
@@ -926,6 +930,7 @@ begin
   FConnectionTimeout := 10000;
   FConnectionRetryCount := 2;
   FEnumerationMode := emComposite;
+  FBluetoothPlatform := bpAuto;
 end;
 
 function TMockConnectionConfig.GetConnectionTimeout: Integer;
@@ -956,6 +961,16 @@ end;
 procedure TMockConnectionConfig.SetEnumerationMode(AValue: TEnumerationMode);
 begin
   FEnumerationMode := AValue;
+end;
+
+function TMockConnectionConfig.GetBluetoothPlatform: TBluetoothPlatform;
+begin
+  Result := FBluetoothPlatform;
+end;
+
+procedure TMockConnectionConfig.SetBluetoothPlatform(AValue: TBluetoothPlatform);
+begin
+  FBluetoothPlatform := AValue;
 end;
 
 { TMockGeneralConfig }

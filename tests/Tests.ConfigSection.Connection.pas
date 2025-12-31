@@ -77,6 +77,16 @@ type
     [Test]
     procedure SetEnumerationMode_DifferentValue_NotifiesModified;
 
+    { BluetoothPlatform Tests }
+    [Test]
+    procedure Default_BluetoothPlatform_IsAuto;
+    [Test]
+    procedure SetBluetoothPlatform_UpdatesValue;
+    [Test]
+    procedure SetBluetoothPlatform_SameValue_NoModification;
+    [Test]
+    procedure SetBluetoothPlatform_DifferentValue_NotifiesModified;
+
     { Interface Tests }
     [Test]
     procedure ImplementsIConnectionConfig;
@@ -110,6 +120,7 @@ begin
   Assert.AreEqual(DEF_CONNECTION_TIMEOUT, FSection.ConnectionTimeout);
   Assert.AreEqual(DEF_CONNECTION_RETRY_COUNT, FSection.ConnectionRetryCount);
   Assert.AreEqual(Integer(emComposite), Integer(FSection.EnumerationMode));
+  Assert.AreEqual(Integer(bpAuto), Integer(FSection.BluetoothPlatform));
 end;
 
 procedure TConnectionConfigSectionTests.Create_WithNilNotifier_CreatesInstance;
@@ -145,6 +156,7 @@ begin
   FSection.ConnectionTimeout := 5000;
   FSection.ConnectionRetryCount := 5;
   FSection.EnumerationMode := emWinRT;
+  FSection.BluetoothPlatform := bpClassic;
 
   // Reset to defaults
   FSection.SetDefaults;
@@ -153,6 +165,7 @@ begin
   Assert.AreEqual(DEF_CONNECTION_TIMEOUT, FSection.ConnectionTimeout);
   Assert.AreEqual(DEF_CONNECTION_RETRY_COUNT, FSection.ConnectionRetryCount);
   Assert.AreEqual(Integer(emComposite), Integer(FSection.EnumerationMode));
+  Assert.AreEqual(Integer(bpAuto), Integer(FSection.BluetoothPlatform));
 end;
 
 procedure TConnectionConfigSectionTests.SetConnectionTimeout_UpdatesValue;
@@ -206,6 +219,29 @@ end;
 procedure TConnectionConfigSectionTests.SetEnumerationMode_DifferentValue_NotifiesModified;
 begin
   FSection.EnumerationMode := emWinRT;
+  Assert.IsTrue(FModifiedCalled, 'Should notify when value changed');
+end;
+
+procedure TConnectionConfigSectionTests.Default_BluetoothPlatform_IsAuto;
+begin
+  Assert.AreEqual(Integer(bpAuto), Integer(FSection.BluetoothPlatform));
+end;
+
+procedure TConnectionConfigSectionTests.SetBluetoothPlatform_UpdatesValue;
+begin
+  FSection.BluetoothPlatform := bpClassic;
+  Assert.AreEqual(Integer(bpClassic), Integer(FSection.BluetoothPlatform));
+end;
+
+procedure TConnectionConfigSectionTests.SetBluetoothPlatform_SameValue_NoModification;
+begin
+  FSection.BluetoothPlatform := bpAuto;
+  Assert.IsFalse(FModifiedCalled, 'Should not notify when value unchanged');
+end;
+
+procedure TConnectionConfigSectionTests.SetBluetoothPlatform_DifferentValue_NotifiesModified;
+begin
+  FSection.BluetoothPlatform := bpWinRT;
   Assert.IsTrue(FModifiedCalled, 'Should notify when value changed');
 end;
 

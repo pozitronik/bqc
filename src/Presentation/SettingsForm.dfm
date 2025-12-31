@@ -975,6 +975,26 @@ object FormSettings: TFormSettings
           Font.Style = []
           ParentFont = False
         end
+        object LabelBluetoothPlatform: TLabel
+          Left = 12
+          Top = 127
+          Width = 105
+          Height = 15
+          Caption = 'Bluetooth platform:'
+        end
+        object LabelBluetoothPlatformHint: TLabel
+          Left = 269
+          Top = 127
+          Width = 130
+          Height = 15
+          Caption = 'Requires program restart'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBtnShadow
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentFont = False
+        end
         object ComboPollingMode: TComboBox
           Left = 129
           Top = 24
@@ -1022,6 +1042,21 @@ object FormSettings: TFormSettings
             'Win32 API only'
             'WinRT API only'
             'Combined')
+        end
+        object ComboBluetoothPlatform: TComboBox
+          Left = 129
+          Top = 124
+          Width = 125
+          Height = 23
+          Hint = 'Requires app restart'
+          Style = csDropDownList
+          ParentShowHint = False
+          ShowHint = True
+          TabOrder = 4
+          Items.Strings = (
+            'Auto-detect'
+            'Classic (Win32)'
+            'WinRT')
         end
       end
       object GroupNotifications: TGroupBox

@@ -21,8 +21,10 @@ Windows 11 removed the convenient quick-connect popup that existed in Windows 10
 
 ## Requirements
 
-- Windows 10 or later
+- Windows 7 or later (Windows 10+ recommended)
 - Bluetooth adapter
+
+**Note**: Windows 7 uses Classic Bluetooth only (no BLE support, read-only radio control)
 
 ## Installation
 
@@ -56,7 +58,7 @@ Settings are stored in `bqc.ini` next to the executable. Most options are availa
 | Hotkey     | Global hotkey, low-level hook mode        |
 | Appearance | Theme, device icons, time format          |
 | Layout     | Font sizes, item dimensions, colors       |
-| Connection | Timeout, retry behavior                   |
+| Connection | Timeout, retry behavior, Bluetooth platform (Auto/Classic/WinRT) |
 | Logging    | Enable logging, log level                 |
 | Devices    | Per-device auto-connect and notifications |
 

@@ -271,6 +271,9 @@ type
     LabelEnumerationMode: TLabel;
     LabelEnumerationModeHint: TLabel;
     ComboEnumerationMode: TComboBox;
+    LabelBluetoothPlatform: TLabel;
+    LabelBluetoothPlatformHint: TLabel;
+    ComboBluetoothPlatform: TComboBox;
     LabelOutlineColorMode: TLabel;
     ComboOutlineColorMode: TComboBox;
     LabelCustomOutlineColor: TLabel;
@@ -630,6 +633,7 @@ begin
   Result.Timeout := UpDownTimeout.Position;
   Result.RetryCount := UpDownRetryCount.Position;
   Result.EnumerationMode := TEnumerationMode(ComboEnumerationMode.ItemIndex);
+  Result.BluetoothPlatform := TBluetoothPlatform(ComboBluetoothPlatform.ItemIndex);
   Result.PollingMode := TPollingMode(ComboPollingMode.ItemIndex);
   Result.PollingInterval := UpDownPollingInterval.Position;
   Result.NotifyOnConnect := CheckNotifyOnConnect.Checked;
@@ -643,6 +647,7 @@ begin
   UpDownTimeout.Position := ASettings.Timeout;
   UpDownRetryCount.Position := ASettings.RetryCount;
   ComboEnumerationMode.ItemIndex := Ord(ASettings.EnumerationMode);
+  ComboBluetoothPlatform.ItemIndex := Ord(ASettings.BluetoothPlatform);
   ComboPollingMode.ItemIndex := Ord(ASettings.PollingMode);
   UpDownPollingInterval.Position := ASettings.PollingInterval;
   CheckNotifyOnConnect.Checked := ASettings.NotifyOnConnect;
@@ -1038,6 +1043,7 @@ begin
   EditTimeout.OnChange := HandleSettingChanged;
   EditRetryCount.OnChange := HandleSettingChanged;
   ComboEnumerationMode.OnChange := HandleSettingChanged;
+  ComboBluetoothPlatform.OnChange := HandleSettingChanged;
   ComboPollingMode.OnChange := HandleSettingChanged;
   EditPollingInterval.OnChange := HandleSettingChanged;
 
