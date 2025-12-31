@@ -1344,10 +1344,226 @@ begin
     'Should update the correct device by address');
 end;
 
+{ TShutdownSafetyTests }
+
+/// <summary>
+/// Tests for shutdown flag lifetime safety.
+/// Verifies async callbacks are skipped after Shutdown is called.
+/// </summary>
+type
+  [TestFixture]
+  TShutdownSafetyTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
+    FPresenter: TTestableMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure AfterShutdown_BatteryQueryCompleted_DoesNotUpdateDisplay;
+
+    [Test]
+    procedure AfterShutdown_RadioStateChanged_DoesNotUpdateToggle;
+
+    [Test]
+    procedure AfterShutdown_DelayedLoad_DoesNotExecute;
+
+    [Test]
+    procedure AfterShutdown_MultipleAsyncCallbacks_AllSkipped;
+  end;
+
+procedure TShutdownSafetyTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  FAsyncExecutor.Synchronous := False;  // Control when callbacks execute
+  FBluetoothService := TMockBluetoothService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
+  FPresenter := nil;
+end;
+
+procedure TShutdownSafetyTests.TearDown;
+var
+  I: Integer;
+begin
+  // Process any pending TThread.Queue calls
+  for I := 1 to 5 do
+  begin
+    Sleep(20);
+    CheckSynchronize(0);
+  end;
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  FPresenter.Free;
+end;
+
+procedure TShutdownSafetyTests.CreatePresenter;
+begin
+  FPresenter := TTestableMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FRadioStateManager,
+    FAsyncExecutor,
+    FBluetoothService,
+    FDisplayItemBuilder
+  );
+end;
+
+procedure TShutdownSafetyTests.AfterShutdown_BatteryQueryCompleted_DoesNotUpdateDisplay;
+var
+  Device: TBluetoothDeviceInfo;
+  BatteryStatus: TBatteryStatus;
+begin
+  // Arrange: Create presenter and add a device
+  CreatePresenter;
+  Device := CreateTestDevice($001122334455, 'Test Headphones', btAudioOutput, csConnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  FView.UpdateDisplayItemCount := 0;
+
+  // Shutdown presenter
+  FPresenter.Shutdown;
+
+  // Act: Simulate battery query completion after shutdown
+  BatteryStatus := TBatteryStatus.Create(75);
+  FPresenter.SimulateBatteryQueryCompleted($001122334455, BatteryStatus);
+
+  // Assert: UpdateDisplayItem should NOT be called
+  Assert.AreEqual(0, FView.UpdateDisplayItemCount,
+    'UpdateDisplayItem should not be called after Shutdown');
+end;
+
+procedure TShutdownSafetyTests.AfterShutdown_RadioStateChanged_DoesNotUpdateToggle;
+begin
+  // Arrange: Initialize with radio disabled
+  FRadioStateManager.RadioEnabled := False;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  // Shutdown presenter
+  FPresenter.Shutdown;
+
+  // Record current toggle state
+  FView.ToggleState := False;
+  FView.SetToggleStateCallCount := 0;
+
+  // Act: Simulate radio state change after shutdown
+  FRadioStateManager.SimulateStateChanged(True);
+
+  // Assert: Toggle state should NOT change
+  Assert.AreEqual(0, FView.SetToggleStateCallCount,
+    'SetToggleState should not be called after Shutdown');
+  Assert.IsFalse(FView.ToggleState,
+    'Toggle state should remain unchanged after Shutdown');
+end;
+
+procedure TShutdownSafetyTests.AfterShutdown_DelayedLoad_DoesNotExecute;
+begin
+  // Arrange: Initialize with radio disabled
+  FRadioStateManager.RadioEnabled := False;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+  FAsyncExecutor.ClearPending;
+  FView.ShowDisplayItemsCalled := False;
+
+  // Schedule a delayed load
+  FRadioStateManager.SimulateStateChanged(True);
+
+  // Shutdown before executing
+  FPresenter.Shutdown;
+
+  // Act: Execute pending callbacks
+  FAsyncExecutor.ExecutePending;
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: LoadDevices should NOT have been called
+  Assert.IsFalse(FView.ShowDisplayItemsCalled,
+    'Delayed load should not execute after Shutdown');
+end;
+
+procedure TShutdownSafetyTests.AfterShutdown_MultipleAsyncCallbacks_AllSkipped;
+var
+  Device: TBluetoothDeviceInfo;
+  BatteryStatus: TBatteryStatus;
+  InitialUpdateCount, InitialShowCount: Integer;
+begin
+  // Arrange: Initialize fully
+  FRadioStateManager.RadioEnabled := True;
+  FRadioStateManager.RadioAvailable := True;
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  // Add a device
+  Device := CreateTestDevice($001122334455, 'Test Device', btAudioOutput, csConnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  // Schedule delayed load
+  FAsyncExecutor.ClearPending;
+  FRadioStateManager.SimulateStateChanged(False);
+  FRadioStateManager.SimulateStateChanged(True);
+
+  // Shutdown
+  FPresenter.Shutdown;
+
+  // Record current counts
+  InitialUpdateCount := FView.UpdateDisplayItemCount;
+  InitialShowCount := FView.ShowDisplayItemsCount;
+  FView.SetToggleStateCallCount := 0;
+
+  // Act: Try all async callbacks
+  BatteryStatus := TBatteryStatus.Create(50);
+  FPresenter.SimulateBatteryQueryCompleted($001122334455, BatteryStatus);
+  FRadioStateManager.SimulateStateChanged(True);
+  FAsyncExecutor.ExecutePending;
+  CheckSynchronize(0);
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  // Assert: Nothing should have been called
+  Assert.AreEqual(InitialUpdateCount, FView.UpdateDisplayItemCount,
+    'UpdateDisplayItem should not change after Shutdown');
+  Assert.AreEqual(InitialShowCount, FView.ShowDisplayItemsCount,
+    'ShowDisplayItems should not change after Shutdown');
+  Assert.AreEqual(0, FView.SetToggleStateCallCount,
+    'SetToggleState should not be called after Shutdown');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TMainPresenterTests);
   TDUnitX.RegisterTestFixture(TDelayedLoadTests);
   TDUnitX.RegisterTestFixture(TDeviceIndexMapTests);
   TDUnitX.RegisterTestFixture(TBatteryQueryCompletionTests);
+  TDUnitX.RegisterTestFixture(TShutdownSafetyTests);
 
 end.

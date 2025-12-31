@@ -205,6 +205,7 @@ type
     FLastUpdatedDisplayItem: TDeviceDisplayItem;
     FShowStatusCount: Integer;
     FShowNotificationCount: Integer;
+    FSetToggleStateCallCount: Integer;
     FShowViewCalled: Boolean;
     FHideViewCalled: Boolean;
     FClearDevicesCalled: Boolean;
@@ -243,7 +244,7 @@ type
     property Visible: Boolean read FVisible write FVisible;
     property Minimized: Boolean read FMinimized write FMinimized;
     property Busy: Boolean read FBusy;
-    property ToggleState: Boolean read FToggleState;
+    property ToggleState: Boolean read FToggleState write FToggleState;
     property ToggleEnabled: Boolean read FToggleEnabled;
     property LastNotificationTitle: string read FLastNotificationTitle;
     property LastNotificationMessage: string read FLastNotificationMessage;
@@ -255,6 +256,7 @@ type
     property LastUpdatedDisplayItem: TDeviceDisplayItem read FLastUpdatedDisplayItem;
     property ShowStatusCount: Integer read FShowStatusCount;
     property ShowNotificationCount: Integer read FShowNotificationCount;
+    property SetToggleStateCallCount: Integer read FSetToggleStateCallCount write FSetToggleStateCallCount;
     property ShowViewCalled: Boolean read FShowViewCalled;
     property HideViewCalled: Boolean read FHideViewCalled;
     property ClearDevicesCalled: Boolean read FClearDevicesCalled;
@@ -454,6 +456,7 @@ begin
   FUpdateDisplayItemCount := 0;
   FShowStatusCount := 0;
   FShowNotificationCount := 0;
+  FSetToggleStateCallCount := 0;
 end;
 
 function TMockMainView.GetShowDisplayItemsCalled: Boolean;
@@ -498,6 +501,7 @@ end;
 procedure TMockMainView.SetToggleState(AEnabled: Boolean);
 begin
   FToggleState := AEnabled;
+  Inc(FSetToggleStateCallCount);
 end;
 
 procedure TMockMainView.SetToggleEnabled(AEnabled: Boolean);

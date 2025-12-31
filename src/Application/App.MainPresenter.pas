@@ -65,6 +65,7 @@ type
     FDisplayItemBuilder: IDeviceDisplayItemBuilder;
     FDelayedLoadGeneration: Integer;  // Generation counter for delayed load cancellation
     FUpdatingToggle: Boolean;
+    FIsShutdown: Boolean;  // Lifetime safety flag for async callbacks
 
     { Service event handlers }
     procedure HandleDeviceStateChanged(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
@@ -296,6 +297,7 @@ begin
   FDisplayItems := nil;
   FDelayedLoadGeneration := 0;
   FUpdatingToggle := False;
+  FIsShutdown := False;
   LogDebug('Created', ClassName);
 end;
 
@@ -375,6 +377,9 @@ end;
 procedure TMainPresenter.Shutdown;
 begin
   LogDebug('Shutdown: Starting', ClassName);
+
+  // Set shutdown flag first to prevent async callbacks from accessing freed state
+  FIsShutdown := True;
 
   // Cancel any pending delayed load
   CancelDelayedLoad;
@@ -458,6 +463,9 @@ begin
       TThread.Queue(nil,
         procedure
         begin
+          // Skip if presenter is shutting down
+          if FIsShutdown then
+            Exit;
           // Only execute if generation hasn't changed (not cancelled/superseded)
           if FDelayedLoadGeneration = CapturedGeneration then
           begin
@@ -566,6 +574,9 @@ begin
       TThread.Queue(nil,
         procedure
         begin
+          // Skip if presenter is shutting down
+          if FIsShutdown then
+            Exit;
           case LResult of
             rcSuccess:
               begin
@@ -736,6 +747,10 @@ begin
   TThread.Queue(nil,
     procedure
     begin
+      // Skip if presenter is shutting down
+      if FIsShutdown then
+        Exit;
+
       LogInfo('HandleDeviceStateChanged (queued): Updating device list for %s, State=%d (%s)', [
         LDevice.Name, Ord(LDevice.ConnectionState),
         GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(LDevice.ConnectionState))
@@ -786,6 +801,8 @@ begin
   TThread.Queue(nil,
     procedure
     begin
+      if FIsShutdown then
+        Exit;
       LoadDevices;
     end
   );
@@ -797,6 +814,8 @@ begin
   TThread.Queue(nil,
     procedure
     begin
+      if FIsShutdown then
+        Exit;
       if AErrorCode <> 0 then
         FStatusView.ShowStatus(Format('Error: %s (%d)', [AMessage, AErrorCode]))
       else
@@ -807,6 +826,10 @@ end;
 
 procedure TMainPresenter.HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
 begin
+  // Skip if presenter is shutting down
+  if FIsShutdown then
+    Exit;
+
   LogInfo('HandleRadioStateChanged: Enabled=%s', [BoolToStr(AEnabled, True)], ClassName);
 
   SetToggleStateSafe(AEnabled);
@@ -830,6 +853,10 @@ var
   Device: TBluetoothDeviceInfo;
   DisplayItem: TDeviceDisplayItem;
 begin
+  // Skip if presenter is shutting down
+  if FIsShutdown then
+    Exit;
+
   LogDebug('HandleBatteryQueryCompleted: Address=$%.12X, Level=%d', [ADeviceAddress, AStatus.Level], ClassName);
 
   // Find the device in our cache - O(1) lookup
@@ -893,6 +920,8 @@ begin
       TThread.Queue(nil,
         procedure
         begin
+          if FIsShutdown then
+            Exit;
           // LBatteryCache is always valid (real or null object)
           LBatteryCache.RequestRefresh(LAddress);
         end
