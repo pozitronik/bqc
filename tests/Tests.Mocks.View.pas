@@ -201,6 +201,7 @@ type
     FVisible: Boolean;
     FMinimized: Boolean;
     FBusy: Boolean;
+    FScanning: Boolean;
     FToggleState: Boolean;
     FToggleEnabled: Boolean;
     FLastNotificationTitle: string;
@@ -237,6 +238,7 @@ type
     procedure ShowStatus(const AMessage: string);
     procedure ShowNotification(const ATitle, AMessage: string; AFlags: TNotificationFlags);
     procedure SetBusy(ABusy: Boolean);
+    procedure SetScanning(AScanning: Boolean);
 
     // IVisibilityView
     function IsVisible: Boolean;
@@ -252,6 +254,7 @@ type
     property Visible: Boolean read FVisible write FVisible;
     property Minimized: Boolean read FMinimized write FMinimized;
     property Busy: Boolean read FBusy;
+    property Scanning: Boolean read FScanning;
     property ToggleState: Boolean read FToggleState write FToggleState;
     property ToggleEnabled: Boolean read FToggleEnabled;
     property LastNotificationTitle: string read FLastNotificationTitle;
@@ -454,6 +457,7 @@ begin
   FToggleState := False;
   FToggleEnabled := True;
   FBusy := False;
+  FScanning := False;
   FVisible := True;
   FMinimized := False;
   FForceCloseCalled := False;
@@ -534,6 +538,11 @@ end;
 procedure TMockMainView.SetBusy(ABusy: Boolean);
 begin
   FBusy := ABusy;
+end;
+
+procedure TMockMainView.SetScanning(AScanning: Boolean);
+begin
+  FScanning := AScanning;
 end;
 
 function TMockMainView.IsVisible: Boolean;

@@ -51,6 +51,13 @@ type
     /// Checks if a device should be visible (not hidden and has a name).
     /// </summary>
     function IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
+
+    /// <summary>
+    /// Builds a display item for a discovered (unpaired) device.
+    /// Uses minimal configuration (no alias, pinning, or type override).
+    /// Always returns Source=dsDiscovered with sort group 3.
+    /// </summary>
+    function BuildDiscoveredDeviceDisplayItem(const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
   end;
 
   /// <summary>
@@ -124,6 +131,15 @@ type
     /// <param name="ADevice">Device to check.</param>
     /// <returns>True if device should be displayed, False otherwise.</returns>
     function IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
+
+    /// <summary>
+    /// Builds a display item for a discovered (unpaired) device.
+    /// Uses minimal configuration (no alias, pinning, or type override).
+    /// Always returns Source=dsDiscovered with sort group 3.
+    /// </summary>
+    /// <param name="ADevice">Raw Bluetooth device data.</param>
+    /// <returns>Display item configured for discovered device.</returns>
+    function BuildDiscoveredDeviceDisplayItem(const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
   end;
 
 implementation
@@ -241,6 +257,7 @@ begin
 
   Result := TDeviceDisplayItem.Create(
     ADevice,
+    dsPaired,  // Currently only building paired devices
     TDeviceFormatter.GetDisplayName(ADevice, AConfig),
     AConfig.Pinned,
     TDeviceFormatter.GetEffectiveDeviceType(ADevice, AConfig),
@@ -261,6 +278,40 @@ begin
   // Public method loads config and delegates to internal method
   DeviceConfig := FConfigProvider.GetDeviceConfig(ADevice.AddressInt);
   Result := BuildDisplayItemWithConfig(ADevice, DeviceConfig);
+end;
+
+function TDeviceDisplayItemBuilder.BuildDiscoveredDeviceDisplayItem(
+  const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
+var
+  LastSeenFormat: TLastSeenFormat;
+begin
+  LogDebug('BuildDiscoveredDeviceDisplayItem: Address=$%.12X, Name="%s"',
+    [ADevice.AddressInt, ADevice.Name], ClassName);
+
+  LastSeenFormat := FAppearanceConfig.LastSeenFormat;
+
+  // Discovered devices have minimal configuration:
+  // - No alias (use device name)
+  // - No pinning (can't pin unpaired devices)
+  // - No type override (use auto-detected type from ADevice)
+  // - No battery status (can't query from unpaired devices)
+  // - No profiles (can't query from unpaired devices)
+  // - Sort group 3 (discovered devices appear last)
+  Result := TDeviceDisplayItem.Create(
+    ADevice,
+    dsDiscovered,
+    ADevice.Name,        // Display name = device name (no alias)
+    False,               // IsPinned = false (discovered devices can't be pinned)
+    ADevice.DeviceType,  // Use auto-detected type (no override for discovered devices)
+    TDeviceFormatter.FormatLastSeen(ADevice.LastSeen, LastSeenFormat),
+    ADevice.LastSeen,
+    3,                   // SortGroup = 3 (discovered devices go last)
+    TBatteryStatus.NotSupported,
+    '',                  // BatteryText = empty
+    nil                  // Profiles = empty
+  );
+
+  LogDebug('BuildDiscoveredDeviceDisplayItem: Created display item for %s', [ADevice.Name], ClassName);
 end;
 
 function TDeviceDisplayItemBuilder.BuildDisplayItems(

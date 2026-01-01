@@ -126,6 +126,7 @@ const
   KEY_ICON_FONT_SIZE = 'IconFontSize';
   KEY_ITEM_BORDER_WIDTH = 'ItemBorderWidth';
   KEY_ITEM_BORDER_COLOR = 'ItemBorderColor';
+  KEY_SHOW_UNPAIRED_DEVICES = 'ShowUnpairedDevices';
 
   // INI key names - [Device] (global defaults)
   KEY_CONNECTION_TIMEOUT = 'ConnectionTimeout';
@@ -353,6 +354,7 @@ begin
   LayoutCfg.IconFontSize := AIni.ReadInteger(SEC_LAYOUT, KEY_ICON_FONT_SIZE, DEF_ICON_FONT_SIZE);
   LayoutCfg.ItemBorderWidth := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, DEF_ITEM_BORDER_WIDTH);
   LayoutCfg.ItemBorderColor := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, DEF_ITEM_BORDER_COLOR);
+  LayoutCfg.ShowUnpairedDevices := AIni.ReadBool(SEC_LAYOUT, KEY_SHOW_UNPAIRED_DEVICES, False);
 
   // [Device] - global defaults
   ConnectionCfg.ConnectionTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
@@ -510,6 +512,7 @@ begin
   AIni.WriteInteger(SEC_LAYOUT, KEY_ICON_FONT_SIZE, LayoutCfg.IconFontSize);
   AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, LayoutCfg.ItemBorderWidth);
   AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, LayoutCfg.ItemBorderColor);
+  AIni.WriteBool(SEC_LAYOUT, KEY_SHOW_UNPAIRED_DEVICES, LayoutCfg.ShowUnpairedDevices);
 
   // [Device] - global defaults
   AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, ConnectionCfg.ConnectionTimeout);

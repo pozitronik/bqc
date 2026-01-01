@@ -424,12 +424,18 @@ procedure TConvertBthDeviceInfoTests.Convert_LastSeenAndLastUsed_AreZero;
 var
   BthInfo: BTH_DEVICE_INFO;
   DeviceInfo: TBluetoothDeviceInfo;
+  TimeDiff: Double;
 begin
   // BTH_DEVICE_INFO doesn't have timestamp fields
+  // LastSeen is set to Now (device is in range right now)
+  // LastUsed remains 0 (not available)
   BthInfo := CreateTestBthDeviceInfo(BDIF_ADDRESS, $123456789ABC, 0, 'Test');
   DeviceInfo := ConvertBthDeviceInfo(BthInfo);
 
-  Assert.AreEqual(TDateTime(0), DeviceInfo.LastSeen, 'LastSeen should be 0');
+  // LastSeen should be set to Now (within 1 second tolerance)
+  TimeDiff := Abs(Now - DeviceInfo.LastSeen);
+  Assert.IsTrue(TimeDiff < (1.0 / SecsPerDay), 'LastSeen should be set to Now (current time)');
+
   Assert.AreEqual(TDateTime(0), DeviceInfo.LastUsed, 'LastUsed should be 0');
 end;
 

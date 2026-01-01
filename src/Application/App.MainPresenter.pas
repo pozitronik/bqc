@@ -19,7 +19,9 @@ uses
   Bluetooth.RadioControl,
   App.MainViewInterfaces,
   App.ConfigInterfaces,
+  App.ConnectionConfigIntf,
   App.AppearanceConfigIntf,
+  App.LayoutConfigIntf,
   App.AsyncExecutor,
   App.DeviceDisplayTypes,
   UI.DeviceDisplayItemBuilder;
@@ -54,11 +56,15 @@ type
     FGeneralConfig: IGeneralConfig;
     FWindowConfig: IWindowConfig;
     FAppearanceConfig: IAppearanceConfig;
+    FLayoutConfig: ILayoutConfig;
+    FConnectionConfig: IConnectionConfig;
     FRadioStateManager: IRadioStateManager;
     FAsyncExecutor: IAsyncExecutor;
     FBatteryCache: IBatteryCache;
     FDeviceList: TList<TBluetoothDeviceInfo>;
     FDeviceIndexMap: TDictionary<UInt64, Integer>;  // Address -> Index for O(1) lookup
+    FUnpairedDevicesInRange: TList<TBluetoothDeviceInfo>;  // Unpaired devices currently in range
+    FUnpairedDeviceIndexMap: TDictionary<UInt64, Integer>;  // Quick lookup for unpaired devices
     FDevicesArrayCache: TBluetoothDeviceInfoArray;
     FDevicesArrayValid: Boolean;
     FDisplayItems: TDeviceDisplayItemArray;
@@ -66,10 +72,13 @@ type
     FDelayedLoadGeneration: Integer;  // Generation counter for delayed load cancellation
     FUpdatingToggle: Boolean;
     FIsShutdown: Boolean;  // Lifetime safety flag for async callbacks
+    FIsScanning: Boolean;  // True when scan is in progress
 
     { Service event handlers }
     procedure HandleDeviceStateChanged(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
     procedure HandleDeviceListChanged(Sender: TObject);
+    procedure HandleDeviceDiscovered(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
+    procedure HandleDeviceOutOfRange(Sender: TObject; const ADeviceAddress: UInt64);
     procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
 
@@ -147,6 +156,7 @@ type
     /// </summary>
     function GetConnectedDeviceCount: Integer;
 
+
   public
     /// <summary>
     /// Creates the presenter with injected dependencies.
@@ -160,6 +170,8 @@ type
     /// <param name="AGeneralConfig">General settings (window mode).</param>
     /// <param name="AWindowConfig">Window settings (close to tray).</param>
     /// <param name="AAppearanceConfig">Appearance settings for display items.</param>
+    /// <param name="ALayoutConfig">Layout settings for UI dimensions and unpaired device display.</param>
+    /// <param name="AConnectionConfig">Connection and discovery settings.</param>
     /// <param name="ARadioStateManager">Bluetooth radio state manager.</param>
     /// <param name="AAsyncExecutor">Async executor for background operations.</param>
     /// <param name="ABluetoothService">Bluetooth service for device operations.</param>
@@ -174,6 +186,8 @@ type
       AGeneralConfig: IGeneralConfig;
       AWindowConfig: IWindowConfig;
       AAppearanceConfig: IAppearanceConfig;
+      ALayoutConfig: ILayoutConfig;
+      AConnectionConfig: IConnectionConfig;
       ARadioStateManager: IRadioStateManager;
       AAsyncExecutor: IAsyncExecutor;
       ABluetoothService: IBluetoothService;
@@ -216,6 +230,12 @@ type
     procedure OnRefreshRequested;
 
     /// <summary>
+    /// Called when user requests a scan for nearby devices.
+    /// Initiates async Bluetooth discovery scan.
+    /// </summary>
+    procedure OnScanRequested;
+
+    /// <summary>
     /// Called when visibility toggle is requested (hotkey, tray click).
     /// Shows or hides the view.
     /// </summary>
@@ -245,6 +265,15 @@ type
     function CanClose: Boolean;
 
     /// <summary>
+    /// Initiates pairing with a discovered Bluetooth device.
+    /// Displays Windows pairing dialog and handles the result.
+    /// On success, device automatically moves from discovered to paired list.
+    /// </summary>
+    /// <param name="AAddress">Bluetooth address of the device to pair.</param>
+    procedure PairDevice(AAddress: UInt64);
+
+
+    /// <summary>
     /// Returns True if Bluetooth toggle is being updated programmatically.
     /// </summary>
     property IsUpdatingToggle: Boolean read FUpdatingToggle;
@@ -253,12 +282,15 @@ type
 implementation
 
 uses
+  Winapi.Windows,
   App.Logger,
   App.ConfigEnums,
   App.DeviceConfigTypes,
+  Bluetooth.WinAPI,
   Bluetooth.BatteryQuery,
   Bluetooth.ProfileQuery,
-  UI.DeviceFormatter;
+  UI.DeviceFormatter,
+  UI.DeviceSorter;
 
 const
   // Debounces rapid device list updates after connection state changes
@@ -278,6 +310,8 @@ constructor TMainPresenter.Create(
   AGeneralConfig: IGeneralConfig;
   AWindowConfig: IWindowConfig;
   AAppearanceConfig: IAppearanceConfig;
+  ALayoutConfig: ILayoutConfig;
+  AConnectionConfig: IConnectionConfig;
   ARadioStateManager: IRadioStateManager;
   AAsyncExecutor: IAsyncExecutor;
   ABluetoothService: IBluetoothService;
@@ -298,6 +332,8 @@ begin
   FGeneralConfig := AGeneralConfig;
   FWindowConfig := AWindowConfig;
   FAppearanceConfig := AAppearanceConfig;
+  FLayoutConfig := ALayoutConfig;
+  FConnectionConfig := AConnectionConfig;
   FRadioStateManager := ARadioStateManager;
   FAsyncExecutor := AAsyncExecutor;
   FBluetoothService := ABluetoothService;
@@ -305,12 +341,15 @@ begin
   FBatteryCache := nil;
   FDeviceList := TList<TBluetoothDeviceInfo>.Create;
   FDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
+  FUnpairedDevicesInRange := TList<TBluetoothDeviceInfo>.Create;
+  FUnpairedDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
   FDevicesArrayCache := nil;
   FDevicesArrayValid := False;
   FDisplayItems := nil;
   FDelayedLoadGeneration := 0;
   FUpdatingToggle := False;
   FIsShutdown := False;
+  FIsScanning := False;
   LogDebug('Created', ClassName);
 end;
 
@@ -318,6 +357,8 @@ destructor TMainPresenter.Destroy;
 begin
   Shutdown;
   FBatteryCache := nil;
+  FUnpairedDeviceIndexMap.Free;
+  FUnpairedDevicesInRange.Free;
   FDeviceIndexMap.Free;
   FDeviceList.Free;
   // FDisplayItemBuilder is interface - reference counted, no Free needed
@@ -349,6 +390,8 @@ begin
   // Wire up Bluetooth service event handlers
   FBluetoothService.OnDeviceStateChanged := HandleDeviceStateChanged;
   FBluetoothService.OnDeviceListChanged := HandleDeviceListChanged;
+  FBluetoothService.OnDeviceDiscovered := HandleDeviceDiscovered;
+  FBluetoothService.OnDeviceOutOfRange := HandleDeviceOutOfRange;
   FBluetoothService.OnError := HandleError;
   LogDebug('Initialize: Bluetooth service event handlers wired', ClassName);
 
@@ -401,6 +444,10 @@ begin
   if FRadioStateManager <> nil then
     FRadioStateManager.StopWatching;
 
+  // Save config before shutdown to persist LastSeen timestamps
+  FAppConfig.SaveIfModified;
+  LogDebug('Shutdown: Config saved', ClassName);
+
   // Release service
   FBluetoothService := nil;
   FDeviceIndexMap.Clear;
@@ -437,9 +484,12 @@ begin
       LogDebug('LoadDevices: Device[%d] Address=$%.12X, Name="%s", Connected=%s', [
         I, FDeviceList[I].AddressInt, FDeviceList[I].Name, BoolToStr(FDeviceList[I].IsConnected, True)
       ], ClassName);
-      // Register device but don't update LastSeen (pass 0)
-      // LastSeen is only updated when device actually connects
-      FDeviceConfigProvider.RegisterDevice(FDeviceList[I].AddressInt, FDeviceList[I].Name, 0);
+      // Register device and set LastSeen to Now if currently connected
+      // This ensures connected devices have a valid timestamp for when they disconnect
+      if FDeviceList[I].IsConnected then
+        FDeviceConfigProvider.RegisterDevice(FDeviceList[I].AddressInt, FDeviceList[I].Name, Now)
+      else
+        FDeviceConfigProvider.RegisterDevice(FDeviceList[I].AddressInt, FDeviceList[I].Name, 0);
     end;
 
     // Save config if any new devices were registered
@@ -658,8 +708,52 @@ begin
 end;
 
 procedure TMainPresenter.RefreshDisplayItems;
+var
+  PairedItems: TDeviceDisplayItemArray;
+  UnpairedItems: TList<TDeviceDisplayItem>;
+  I: Integer;
+  Device: TBluetoothDeviceInfo;
 begin
-  FDisplayItems := FDisplayItemBuilder.BuildDisplayItems(GetDevicesArray);
+  LogDebug('RefreshDisplayItems: Starting', ClassName);
+
+  // Build display items for paired devices
+  PairedItems := FDisplayItemBuilder.BuildDisplayItems(GetDevicesArray);
+  LogDebug('RefreshDisplayItems: Paired=%d', [Length(PairedItems)], ClassName);
+
+  // Build display items for unpaired devices if ShowUnpairedDevices is enabled
+  if FLayoutConfig.ShowUnpairedDevices and (FUnpairedDevicesInRange.Count > 0) then
+  begin
+    LogDebug('RefreshDisplayItems: Building unpaired devices, count=%d', [FUnpairedDevicesInRange.Count], ClassName);
+    UnpairedItems := TList<TDeviceDisplayItem>.Create;
+    try
+      for I := 0 to FUnpairedDevicesInRange.Count - 1 do
+      begin
+        Device := FUnpairedDevicesInRange[I];
+        LogDebug('RefreshDisplayItems: Adding unpaired device $%.12X, Name="%s"',
+          [Device.AddressInt, Device.Name], ClassName);
+        UnpairedItems.Add(FDisplayItemBuilder.BuildDiscoveredDeviceDisplayItem(Device));
+      end;
+
+      // Merge paired and unpaired items
+      SetLength(FDisplayItems, Length(PairedItems) + UnpairedItems.Count);
+      for I := 0 to High(PairedItems) do
+        FDisplayItems[I] := PairedItems[I];
+      for I := 0 to UnpairedItems.Count - 1 do
+        FDisplayItems[Length(PairedItems) + I] := UnpairedItems[I];
+
+      LogDebug('RefreshDisplayItems: Total=%d (Paired=%d, Unpaired=%d)',
+        [Length(FDisplayItems), Length(PairedItems), UnpairedItems.Count], ClassName);
+    finally
+      UnpairedItems.Free;
+    end;
+  end
+  else
+  begin
+    // No unpaired devices to show - just use paired items
+    FDisplayItems := PairedItems;
+    LogDebug('RefreshDisplayItems: Total=%d (Paired only)', [Length(FDisplayItems)], ClassName);
+  end;
+
   FDeviceListView.ShowDisplayItems(FDisplayItems);
 end;
 
@@ -839,6 +933,76 @@ begin
     procedure
     begin
       LoadDevices;
+    end
+  );
+end;
+
+procedure TMainPresenter.HandleDeviceDiscovered(Sender: TObject;
+  const ADevice: TBluetoothDeviceInfo);
+var
+  Index: Integer;
+begin
+  QueueIfNotShutdown(
+    procedure
+    begin
+      // Only track unpaired devices
+      if ADevice.IsPaired then
+        Exit;
+
+      LogDebug('HandleDeviceDiscovered: Unpaired device $%.12X, Name="%s"', [
+        ADevice.AddressInt, ADevice.Name
+      ], ClassName);
+
+      // Add or update in unpaired devices cache
+      if FUnpairedDeviceIndexMap.TryGetValue(ADevice.AddressInt, Index) then
+      begin
+        // Device already in cache - update info
+        FUnpairedDevicesInRange[Index] := ADevice;
+        LogDebug('HandleDeviceDiscovered: Updated unpaired device at index %d', [Index], ClassName);
+      end
+      else
+      begin
+        // New unpaired device - append and add to index
+        Index := FUnpairedDevicesInRange.Count;
+        FUnpairedDevicesInRange.Add(ADevice);
+        FUnpairedDeviceIndexMap.Add(ADevice.AddressInt, Index);
+        LogDebug('HandleDeviceDiscovered: Added new unpaired device at index %d', [Index], ClassName);
+      end;
+
+      // Refresh display to show updated unpaired devices list
+      RefreshDisplayItems;
+    end
+  );
+end;
+
+procedure TMainPresenter.HandleDeviceOutOfRange(Sender: TObject;
+  const ADeviceAddress: UInt64);
+var
+  Index: Integer;
+begin
+  QueueIfNotShutdown(
+    procedure
+    var
+      I: Integer;
+    begin
+      LogDebug('HandleDeviceOutOfRange: Device $%.12X left range', [ADeviceAddress], ClassName);
+
+      // Remove from unpaired devices cache if present
+      if FUnpairedDeviceIndexMap.TryGetValue(ADeviceAddress, Index) then
+      begin
+        FUnpairedDevicesInRange.Delete(Index);
+        FUnpairedDeviceIndexMap.Remove(ADeviceAddress);
+
+        // Rebuild index map since indices shifted after deletion
+        FUnpairedDeviceIndexMap.Clear;
+        for I := 0 to FUnpairedDevicesInRange.Count - 1 do
+          FUnpairedDeviceIndexMap.Add(FUnpairedDevicesInRange[I].AddressInt, I);
+
+        LogDebug('HandleDeviceOutOfRange: Removed unpaired device from cache', ClassName);
+
+        // Refresh display to remove device from UI
+        RefreshDisplayItems;
+      end;
     end
   );
 end;
@@ -1034,9 +1198,51 @@ end;
 
 procedure TMainPresenter.OnRefreshRequested;
 begin
-  LogInfo('OnRefreshRequested', ClassName);
+  LogInfo('OnRefreshRequested: Clearing unpaired devices cache', ClassName);
+
+  // Clear unpaired devices cache on refresh (volatile discovery data)
+  FUnpairedDevicesInRange.Clear;
+  FUnpairedDeviceIndexMap.Clear;
+
   FStatusView.ShowStatus('Refreshing...');
   LoadDevices;
+end;
+
+procedure TMainPresenter.OnScanRequested;
+begin
+  // Prevent concurrent scans
+  if FIsScanning then
+  begin
+    LogDebug('OnScanRequested: Scan already in progress, ignoring', ClassName);
+    Exit;
+  end;
+
+  LogInfo('OnScanRequested: Starting async device scan', ClassName);
+  FIsScanning := True;
+  FStatusView.SetScanning(True);
+  FStatusView.ShowStatus('Scanning for devices...');
+
+  // Run scan in background thread
+  FAsyncExecutor.RunAsync(
+    procedure
+    begin
+      try
+        // Background work: perform Bluetooth inquiry
+        FBluetoothService.ScanForNearbyDevices;
+      finally
+        // Queue completion on main thread
+        QueueIfNotShutdown(
+          procedure
+          begin
+            FIsScanning := False;
+            FStatusView.SetScanning(False);
+            FStatusView.ShowStatus('Scan complete');
+            LogInfo('OnScanRequested: Scan complete', ClassName);
+          end
+        );
+      end;
+    end
+  );
 end;
 
 procedure TMainPresenter.OnVisibilityToggleRequested;
@@ -1051,6 +1257,35 @@ procedure TMainPresenter.OnExitRequested;
 begin
   LogInfo('OnExitRequested', ClassName);
   FVisibilityView.ForceClose;
+end;
+
+procedure TMainPresenter.PairDevice(AAddress: UInt64);
+var
+  DeviceInfo: BLUETOOTH_DEVICE_INFO;
+  Result: DWORD;
+begin
+  LogInfo('PairDevice: Initiating pairing for device $%.12X', [AAddress], ClassName);
+
+  // Initialize device info structure
+  InitDeviceInfo(DeviceInfo);
+  DeviceInfo.Address.ullLong := AAddress;
+
+  // Call Windows pairing API
+  // hwndParent=0: use default parent window
+  // hRadio=0: use default radio
+  // pszPasskey=nil, ulPasskeyLength=0: use SSP (Secure Simple Pairing)
+  Result := BluetoothAuthenticateDevice(0, 0, @DeviceInfo, nil, 0);
+
+  if Result = ERROR_SUCCESS then
+  begin
+    LogInfo('PairDevice: Successfully paired device $%.12X', [AAddress], ClassName);
+    // Device will be automatically added to paired list via OnDeviceListChanged
+  end
+  else
+  begin
+    LogError('PairDevice: Failed to pair device $%.12X. Error code: %d',
+      [AAddress, Result], ClassName);
+  end;
 end;
 
 procedure TMainPresenter.OnSettingsChanged;

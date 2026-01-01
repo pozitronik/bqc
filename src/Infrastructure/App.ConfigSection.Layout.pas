@@ -34,6 +34,7 @@ type
     FIconFontSize: Integer;
     FItemBorderWidth: Integer;
     FItemBorderColor: Integer;
+    FShowUnpairedDevices: Boolean;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -48,6 +49,7 @@ type
     function GetIconFontSize: Integer;
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
+    function GetShowUnpairedDevices: Boolean;
 
     procedure SetItemHeight(AValue: Integer);
     procedure SetItemPadding(AValue: Integer);
@@ -60,6 +62,7 @@ type
     procedure SetIconFontSize(AValue: Integer);
     procedure SetItemBorderWidth(AValue: Integer);
     procedure SetItemBorderColor(AValue: Integer);
+    procedure SetShowUnpairedDevices(AValue: Boolean);
 
     procedure SetDefaults;
 
@@ -74,6 +77,7 @@ type
     property IconFontSize: Integer read FIconFontSize write SetIconFontSize;
     property ItemBorderWidth: Integer read FItemBorderWidth write SetItemBorderWidth;
     property ItemBorderColor: Integer read FItemBorderColor write SetItemBorderColor;
+    property ShowUnpairedDevices: Boolean read FShowUnpairedDevices write SetShowUnpairedDevices;
   end;
 
 implementation
@@ -103,6 +107,7 @@ begin
   FIconFontSize := DEF_ICON_FONT_SIZE;
   FItemBorderWidth := DEF_ITEM_BORDER_WIDTH;
   FItemBorderColor := DEF_ITEM_BORDER_COLOR;
+  FShowUnpairedDevices := False;
 end;
 
 function TLayoutConfigSection.GetItemHeight: Integer;
@@ -213,6 +218,16 @@ end;
 procedure TLayoutConfigSection.SetItemBorderColor(AValue: Integer);
 begin
   SetFieldInteger(FItemBorderColor, AValue);
+end;
+
+function TLayoutConfigSection.GetShowUnpairedDevices: Boolean;
+begin
+  Result := FShowUnpairedDevices;
+end;
+
+procedure TLayoutConfigSection.SetShowUnpairedDevices(AValue: Boolean);
+begin
+  SetFieldBoolean(FShowUnpairedDevices, AValue);
 end;
 
 end.

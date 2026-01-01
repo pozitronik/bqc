@@ -61,6 +61,7 @@ type
     // State
     IsSelected: Boolean;
     IsHover: Boolean;
+    IsDiscovered: Boolean;  // True for unpaired discovered devices
   end;
 
   /// <summary>
@@ -138,7 +139,7 @@ type
     procedure DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
       const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
     function CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
-      AIsHover, AIsSelected: Boolean): TItemDrawContext;
+      AIsHover, AIsSelected, AIsDiscovered: Boolean): TItemDrawContext;
     procedure DrawItemBackground(ACanvas: TCanvas; const AContext: TItemDrawContext);
     procedure DrawItemTopLine(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
       const AContext: TItemDrawContext);
@@ -146,8 +147,9 @@ type
       const AContext: TItemDrawContext);
     procedure DrawProfileSection(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
       const AContext: TItemDrawContext);
+    procedure DrawSeparator(ACanvas: TCanvas; const ARect: TRect);
     procedure DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
-      ADeviceType: TBluetoothDeviceType);
+      ADeviceType: TBluetoothDeviceType; AIsDiscovered: Boolean);
     function GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Char;
     function GetBatteryIconChar(ALevel: Integer): Char;
     procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
@@ -708,6 +710,17 @@ begin
     if R.Top > ClientHeight then
       Break;
 
+    // Draw separator before first unpaired device
+    if (I > 0) and
+       (FDisplayItems[I].Source = dsDiscovered) and
+       (FDisplayItems[I - 1].Source = dsPaired) then
+    begin
+      DrawSeparator(Canvas, R);
+      // Adjust item rect to start below separator to prevent background overlap
+      // Separator is drawn at ARect.Top + (ItemMargin div 2), so offset by ItemMargin
+      R.Top := R.Top + FCachedLayout.ItemMargin;
+    end;
+
     IsHover := (I = FHoverIndex);
     IsSelected := (I = FSelectedIndex);
 
@@ -728,7 +741,7 @@ begin
 end;
 
 function TDeviceListBox.CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
-  AIsHover, AIsSelected: Boolean): TItemDrawContext;
+  AIsHover, AIsSelected, AIsDiscovered: Boolean): TItemDrawContext;
 var
   StatusLineHeight: Integer;
   IconRect: TRect;
@@ -756,6 +769,7 @@ begin
   // State
   Result.IsSelected := AIsSelected;
   Result.IsHover := AIsHover;
+  Result.IsDiscovered := AIsDiscovered;
 
   // Calculate status line height for bottom anchoring
   ACanvas.Font.Name := FONT_UI;
@@ -829,17 +843,23 @@ var
   AddrLeft, NameHeight, AddrOffset: Integer;
   RightEdge: Integer;
   PinIconWidth: Integer;
+  NameColor: TColor;
 begin
   Style := TStyleManager.ActiveStyle;
+
+  // Determine text color based on state
+  if AContext.IsDiscovered then
+    NameColor := Style.GetSystemColor(clGrayText)
+  else if AContext.IsSelected then
+    NameColor := Style.GetSystemColor(clHighlightText)
+  else
+    NameColor := Style.GetSystemColor(clWindowText);
 
   // Set up font for device name
   ACanvas.Font.Name := FONT_UI;
   ACanvas.Font.Size := AContext.DeviceNameFontSize;
   ACanvas.Font.Style := [];
-  if AContext.IsSelected then
-    ACanvas.Font.Color := Style.GetSystemColor(clHighlightText)
-  else
-    ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
+  ACanvas.Font.Color := NameColor;
   ACanvas.Brush.Style := bsClear;
 
   // Start from right edge of text area (already has padding applied)
@@ -860,7 +880,7 @@ begin
   ACanvas.Font.Name := FONT_UI;
   ACanvas.Font.Size := AContext.DeviceNameFontSize;
   ACanvas.Font.Style := [];
-  ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
+  ACanvas.Font.Color := NameColor;
 
   // Draw device name
   ACanvas.TextOut(AContext.TextRect.Left, AContext.NameLineTop, AItem.DisplayName);
@@ -895,18 +915,31 @@ begin
 
   StatusLineHeight := ACanvas.TextHeight('Ay');
 
-  // Connection status (left-aligned)
-  // For disconnected devices, append LastSeen if enabled
-  StatusText := TDeviceFormatter.FormatConnectionState(AItem.Device.ConnectionState);
-  if AContext.ShowLastSeen and (not AItem.Device.IsConnected) and (AItem.LastSeenText <> '') then
-    StatusText := StatusText + '. ' + AItem.LastSeenText;
-
-  if AItem.Device.IsConnected then
-    ACanvas.Font.Color := AContext.ConnectedColor
+  // Status line (left-aligned)
+  if AContext.IsDiscovered then
+  begin
+    // Discovered devices: show last seen time if available
+    if AContext.ShowLastSeen and (AItem.LastSeenText <> '') then
+    begin
+      StatusText := AItem.LastSeenText;
+      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+      ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
+    end;
+  end
   else
-    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+  begin
+    // Paired devices: show connection status + last seen for disconnected
+    StatusText := TDeviceFormatter.FormatConnectionState(AItem.Device.ConnectionState);
+    if AContext.ShowLastSeen and (not AItem.Device.IsConnected) and (AItem.LastSeenText <> '') then
+      StatusText := StatusText + '. ' + AItem.LastSeenText;
 
-  ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
+    if AItem.Device.IsConnected then
+      ACanvas.Font.Color := AContext.ConnectedColor
+    else
+      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+
+    ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
+  end;
 
   // Battery indicator (right-aligned on bottom line)
   if AItem.BatteryStatus.HasLevel then
@@ -999,6 +1032,30 @@ begin
   end;
 end;
 
+procedure TDeviceListBox.DrawSeparator(ACanvas: TCanvas; const ARect: TRect);
+var
+  Style: TCustomStyleServices;
+  SeparatorY: Integer;
+  SeparatorColor: TColor;
+  LeftMargin, RightMargin: Integer;
+begin
+  Style := TStyleManager.ActiveStyle;
+
+  // Windows 11 style separator: subtle horizontal line with margins
+  SeparatorY := ARect.Top + (FCachedLayout.ItemMargin div 2);
+  SeparatorColor := Style.GetSystemColor(clBtnShadow);
+
+  // Add horizontal margins (indent separator slightly)
+  LeftMargin := FCachedLayout.ItemPadding;
+  RightMargin := FCachedLayout.ItemPadding;
+
+  ACanvas.Pen.Color := SeparatorColor;
+  ACanvas.Pen.Width := 1;
+  ACanvas.Pen.Style := psSolid;
+  ACanvas.MoveTo(ARect.Left + LeftMargin, SeparatorY);
+  ACanvas.LineTo(ARect.Right - RightMargin, SeparatorY);
+end;
+
 procedure TDeviceListBox.DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
   const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
 var
@@ -1007,7 +1064,7 @@ var
   BaseHeight: Integer;
 begin
   // Create context with all layout parameters
-  Context := CreateDrawContext(ACanvas, ARect, AIsHover, AIsSelected);
+  Context := CreateDrawContext(ACanvas, ARect, AIsHover, AIsSelected, AItem.Source = dsDiscovered);
 
   // Draw background and border
   DrawItemBackground(ACanvas, Context);
@@ -1022,7 +1079,7 @@ begin
     IconRect.Top := Context.ItemRect.Top + (BaseHeight - Context.IconSize) div 2;
     IconRect.Right := IconRect.Left + Context.IconSize;
     IconRect.Bottom := IconRect.Top + Context.IconSize;
-    DrawDeviceIcon(ACanvas, IconRect, AItem.EffectiveDeviceType);
+    DrawDeviceIcon(ACanvas, IconRect, AItem.EffectiveDeviceType, Context.IsDiscovered);
   end;
 
   // Draw text content
@@ -1037,19 +1094,27 @@ begin
 end;
 
 procedure TDeviceListBox.DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
-  ADeviceType: TBluetoothDeviceType);
+  ADeviceType: TBluetoothDeviceType; AIsDiscovered: Boolean);
 var
   IconChar: Char;
   TextSize: TSize;
   X, Y: Integer;
+  Style: TCustomStyleServices;
 begin
+  Style := TStyleManager.ActiveStyle;
   IconChar := GetDeviceIconChar(ADeviceType);
 
   // Use icon font for device icons
   ACanvas.Font.Name := FONT_ICONS;
   ACanvas.Font.Size := LayoutConfig.IconFontSize;
   ACanvas.Font.Style := [];
-  ACanvas.Font.Color := TStyleManager.ActiveStyle.GetSystemColor(clWindowText);
+
+  // Discovered devices use gray color, paired devices use normal color
+  if AIsDiscovered then
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText)
+  else
+    ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
+
   ACanvas.Brush.Style := bsClear;
 
   TextSize := ACanvas.TextExtent(IconChar);

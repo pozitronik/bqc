@@ -505,14 +505,31 @@ object FormSettings: TFormSettings
           OnClick = ButtonResetLayoutClick
         end
       end
-      object GroupProfiles: TGroupBox
+      object GroupDiscovery: TGroupBox
         Left = 0
         Top = 215
         Width = 536
         Height = 55
         Align = alTop
-        Caption = 'Profiles'
+        Caption = 'New devices && discovery'
         TabOrder = 2
+        object CheckShowUnpairedDevices: TCheckBox
+          Left = 12
+          Top = 24
+          Width = 500
+          Height = 17
+          Caption = 'Show unpaired devices in range (requires scan)'
+          TabOrder = 0
+        end
+      end
+      object GroupProfiles: TGroupBox
+        Left = 0
+        Top = 270
+        Width = 536
+        Height = 55
+        Align = alTop
+        Caption = 'Profiles'
+        TabOrder = 3
         object LabelProfileFontSize: TLabel
           Left = 274
           Top = 24
@@ -557,12 +574,12 @@ object FormSettings: TFormSettings
       end
       object GroupFontSizes: TGroupBox
         Left = 0
-        Top = 270
+        Top = 325
         Width = 536
         Height = 95
         Align = alTop
         Caption = 'Font Sizes (pt)'
-        TabOrder = 3
+        TabOrder = 4
         object LabelDeviceNameSize: TLabel
           Left = 12
           Top = 24
@@ -1065,12 +1082,12 @@ object FormSettings: TFormSettings
       end
       object GroupNotifications: TGroupBox
         Left = 0
-        Top = 255
+        Top = 390
         Width = 536
         Height = 123
         Align = alTop
         Caption = 'Notifications'
-        TabOrder = 2
+        TabOrder = 3
         ExplicitTop = 224
         object CheckNotifyOnConnect: TCheckBox
           Left = 12

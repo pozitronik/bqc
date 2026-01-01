@@ -34,6 +34,8 @@ type
   TPollingMonitor = class(TInterfacedObject, IDeviceMonitor)
   private
     FOnDeviceStateChanged: TMonitorDeviceStateEvent;
+    FOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    FOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
     FOnError: TMonitorErrorEvent;
     FPollingInterval: Integer;
     FRunning: Boolean;
@@ -58,6 +60,10 @@ type
     procedure SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
     function GetOnError: TMonitorErrorEvent;
     procedure SetOnError(AValue: TMonitorErrorEvent);
+    function GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    procedure SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+    function GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+    procedure SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
 
   public
     constructor Create(APollingInterval: Integer);
@@ -74,6 +80,8 @@ type
   TDeviceWatcherMonitor = class(TInterfacedObject, IDeviceMonitor)
   private
     FOnDeviceStateChanged: TMonitorDeviceStateEvent;
+    FOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    FOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
     FOnError: TMonitorErrorEvent;
     FWatcher: TBluetoothDeviceWatcher;
     FRunning: Boolean;
@@ -83,10 +91,16 @@ type
       const ADeviceAddress: UInt64; AConnected: Boolean);
     procedure HandleWatcherDeviceDisconnected(Sender: TObject;
       const ADeviceAddress: UInt64; AConnected: Boolean);
+    procedure HandleWatcherDeviceDiscovered(Sender: TObject;
+      const ADevice: TBluetoothDeviceInfo);
+    procedure HandleWatcherDeviceOutOfRange(Sender: TObject;
+      const ADeviceAddress: UInt64);
     procedure HandleWatcherError(Sender: TObject;
       const AMessage: string; AErrorCode: DWORD);
 
     procedure DoDeviceStateChanged(AAddress: UInt64; ANewState: TBluetoothConnectionState);
+    procedure DoDeviceDiscovered(const ADevice: TBluetoothDeviceInfo);
+    procedure DoDeviceOutOfRange(const ADeviceAddress: UInt64);
     procedure DoError(const AMessage: string; AErrorCode: Cardinal);
 
   protected
@@ -98,6 +112,10 @@ type
     procedure SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
     function GetOnError: TMonitorErrorEvent;
     procedure SetOnError(AValue: TMonitorErrorEvent);
+    function GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    procedure SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+    function GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+    procedure SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
 
   public
     constructor Create;
@@ -112,6 +130,8 @@ type
   TFallbackMonitor = class(TInterfacedObject, IDeviceMonitor)
   private
     FOnDeviceStateChanged: TMonitorDeviceStateEvent;
+    FOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    FOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
     FOnError: TMonitorErrorEvent;
     FPrimaryMonitor: IDeviceMonitor;
     FSecondaryMonitor: IDeviceMonitor;
@@ -121,6 +141,10 @@ type
       const AMessage: string; AErrorCode: Cardinal);
     procedure HandleDeviceStateChanged(Sender: TObject;
       const ADeviceAddress: UInt64; ANewState: TBluetoothConnectionState);
+    procedure HandleDeviceDiscovered(Sender: TObject;
+      const ADevice: TBluetoothDeviceInfo);
+    procedure HandleDeviceOutOfRange(Sender: TObject;
+      const ADeviceAddress: UInt64);
     procedure HandleSecondaryError(Sender: TObject;
       const AMessage: string; AErrorCode: Cardinal);
 
@@ -136,6 +160,10 @@ type
     procedure SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
     function GetOnError: TMonitorErrorEvent;
     procedure SetOnError(AValue: TMonitorErrorEvent);
+    function GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    procedure SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+    function GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+    procedure SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
 
   public
     /// <summary>
@@ -364,9 +392,29 @@ begin
     FOnError(Self, AMessage, AErrorCode);
 end;
 
+function TPollingMonitor.GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+begin
+  Result := FOnDeviceDiscovered;
+end;
+
 function TPollingMonitor.GetOnDeviceStateChanged: TMonitorDeviceStateEvent;
 begin
   Result := FOnDeviceStateChanged;
+end;
+
+procedure TPollingMonitor.SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+begin
+  FOnDeviceDiscovered := AValue;
+end;
+
+function TPollingMonitor.GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+begin
+  Result := FOnDeviceOutOfRange;
+end;
+
+procedure TPollingMonitor.SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
+begin
+  FOnDeviceOutOfRange := AValue;
 end;
 
 procedure TPollingMonitor.SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
@@ -409,6 +457,8 @@ begin
   FWatcher := TBluetoothDeviceWatcher.Create;
   FWatcher.OnDeviceConnected := HandleWatcherDeviceConnected;
   FWatcher.OnDeviceDisconnected := HandleWatcherDeviceDisconnected;
+  FWatcher.OnDeviceDiscovered := HandleWatcherDeviceDiscovered;
+  FWatcher.OnDeviceOutOfRange := HandleWatcherDeviceOutOfRange;
   FWatcher.OnError := HandleWatcherError;
 
   if FWatcher.Start then
@@ -458,6 +508,18 @@ begin
   DoDeviceStateChanged(ADeviceAddress, csDisconnected);
 end;
 
+procedure TDeviceWatcherMonitor.HandleWatcherDeviceDiscovered(Sender: TObject;
+  const ADevice: TBluetoothDeviceInfo);
+begin
+  DoDeviceDiscovered(ADevice);
+end;
+
+procedure TDeviceWatcherMonitor.HandleWatcherDeviceOutOfRange(Sender: TObject;
+  const ADeviceAddress: UInt64);
+begin
+  DoDeviceOutOfRange(ADeviceAddress);
+end;
+
 procedure TDeviceWatcherMonitor.HandleWatcherError(Sender: TObject;
   const AMessage: string; AErrorCode: DWORD);
 begin
@@ -469,6 +531,18 @@ procedure TDeviceWatcherMonitor.DoDeviceStateChanged(AAddress: UInt64;
 begin
   if Assigned(FOnDeviceStateChanged) then
     FOnDeviceStateChanged(Self, AAddress, ANewState);
+end;
+
+procedure TDeviceWatcherMonitor.DoDeviceDiscovered(const ADevice: TBluetoothDeviceInfo);
+begin
+  if Assigned(FOnDeviceDiscovered) then
+    FOnDeviceDiscovered(Self, ADevice);
+end;
+
+procedure TDeviceWatcherMonitor.DoDeviceOutOfRange(const ADeviceAddress: UInt64);
+begin
+  if Assigned(FOnDeviceOutOfRange) then
+    FOnDeviceOutOfRange(Self, ADeviceAddress);
 end;
 
 procedure TDeviceWatcherMonitor.DoError(const AMessage: string; AErrorCode: Cardinal);
@@ -486,6 +560,26 @@ end;
 procedure TDeviceWatcherMonitor.SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
 begin
   FOnDeviceStateChanged := AValue;
+end;
+
+function TDeviceWatcherMonitor.GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+begin
+  Result := FOnDeviceDiscovered;
+end;
+
+procedure TDeviceWatcherMonitor.SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+begin
+  FOnDeviceDiscovered := AValue;
+end;
+
+function TDeviceWatcherMonitor.GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+begin
+  Result := FOnDeviceOutOfRange;
+end;
+
+procedure TDeviceWatcherMonitor.SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
+begin
+  FOnDeviceOutOfRange := AValue;
 end;
 
 function TDeviceWatcherMonitor.GetOnError: TMonitorErrorEvent;
@@ -520,6 +614,8 @@ begin
   if FPrimaryMonitor <> nil then
   begin
     FPrimaryMonitor.SetOnDeviceStateChanged(HandleDeviceStateChanged);
+    FPrimaryMonitor.SetOnDeviceDiscovered(HandleDeviceDiscovered);
+    FPrimaryMonitor.SetOnDeviceOutOfRange(HandleDeviceOutOfRange);
     FPrimaryMonitor.SetOnError(HandlePrimaryError);
   end;
 
@@ -527,6 +623,8 @@ begin
   if FSecondaryMonitor <> nil then
   begin
     FSecondaryMonitor.SetOnDeviceStateChanged(HandleDeviceStateChanged);
+    FSecondaryMonitor.SetOnDeviceDiscovered(HandleDeviceDiscovered);
+    FSecondaryMonitor.SetOnDeviceOutOfRange(HandleDeviceOutOfRange);
     FSecondaryMonitor.SetOnError(HandleSecondaryError);
   end;
 end;
@@ -596,6 +694,20 @@ begin
     FOnDeviceStateChanged(Self, ADeviceAddress, ANewState);
 end;
 
+procedure TFallbackMonitor.HandleDeviceDiscovered(Sender: TObject;
+  const ADevice: TBluetoothDeviceInfo);
+begin
+  if Assigned(FOnDeviceDiscovered) then
+    FOnDeviceDiscovered(Self, ADevice);
+end;
+
+procedure TFallbackMonitor.HandleDeviceOutOfRange(Sender: TObject;
+  const ADeviceAddress: UInt64);
+begin
+  if Assigned(FOnDeviceOutOfRange) then
+    FOnDeviceOutOfRange(Self, ADeviceAddress);
+end;
+
 procedure TFallbackMonitor.HandleSecondaryError(Sender: TObject;
   const AMessage: string; AErrorCode: Cardinal);
 begin
@@ -639,6 +751,26 @@ end;
 procedure TFallbackMonitor.SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
 begin
   FOnDeviceStateChanged := AValue;
+end;
+
+function TFallbackMonitor.GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+begin
+  Result := FOnDeviceDiscovered;
+end;
+
+procedure TFallbackMonitor.SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+begin
+  FOnDeviceDiscovered := AValue;
+end;
+
+function TFallbackMonitor.GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+begin
+  Result := FOnDeviceOutOfRange;
+end;
+
+procedure TFallbackMonitor.SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
+begin
+  FOnDeviceOutOfRange := AValue;
 end;
 
 function TFallbackMonitor.GetOnError: TMonitorErrorEvent;

@@ -28,6 +28,7 @@ type
     FConnectionRetryCount: Integer;
     FEnumerationMode: TEnumerationMode;
     FBluetoothPlatform: TBluetoothPlatform;
+    FAutoScanOnStartup: Boolean;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -35,11 +36,13 @@ type
     function GetConnectionRetryCount: Integer;
     function GetEnumerationMode: TEnumerationMode;
     function GetBluetoothPlatform: TBluetoothPlatform;
+    function GetAutoScanOnStartup: Boolean;
 
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
     procedure SetEnumerationMode(AValue: TEnumerationMode);
     procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
+    procedure SetAutoScanOnStartup(AValue: Boolean);
 
     procedure SetDefaults;
 
@@ -47,6 +50,7 @@ type
     property ConnectionRetryCount: Integer read FConnectionRetryCount write SetConnectionRetryCount;
     property EnumerationMode: TEnumerationMode read FEnumerationMode write SetEnumerationMode;
     property BluetoothPlatform: TBluetoothPlatform read FBluetoothPlatform write SetBluetoothPlatform;
+    property AutoScanOnStartup: Boolean read FAutoScanOnStartup write SetAutoScanOnStartup;
   end;
 
 implementation
@@ -68,6 +72,7 @@ begin
   FConnectionRetryCount := DEF_CONNECTION_RETRY_COUNT;
   FEnumerationMode := emComposite;
   FBluetoothPlatform := bpAuto;  // Auto-detect by default
+  FAutoScanOnStartup := False;    // Don't scan on startup by default
 end;
 
 function TConnectionConfigSection.GetConnectionTimeout: Integer;
@@ -114,6 +119,20 @@ begin
   if FBluetoothPlatform <> AValue then
   begin
     FBluetoothPlatform := AValue;
+    NotifyModified;
+  end;
+end;
+
+function TConnectionConfigSection.GetAutoScanOnStartup: Boolean;
+begin
+  Result := FAutoScanOnStartup;
+end;
+
+procedure TConnectionConfigSection.SetAutoScanOnStartup(AValue: Boolean);
+begin
+  if FAutoScanOnStartup <> AValue then
+  begin
+    FAutoScanOnStartup := AValue;
     NotifyModified;
   end;
 end;

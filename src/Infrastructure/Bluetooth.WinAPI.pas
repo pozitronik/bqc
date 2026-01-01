@@ -689,6 +689,24 @@ function BluetoothEnumerateInstalledServices(
   pGuidServices: PGUID
 ): DWORD; stdcall; external BLUETOOTH_API_LIB;
 
+/// <summary>
+/// Initiates pairing with a Bluetooth device.
+/// Displays the Windows pairing dialog if needed.
+/// </summary>
+/// <param name="hwndParent">Parent window handle for the pairing dialog (can be 0).</param>
+/// <param name="hRadio">Handle to the radio (can be 0 to use default).</param>
+/// <param name="pbtdi">Device information for the device to pair with.</param>
+/// <param name="pszPasskey">Passkey/PIN (optional, can be nil for SSP).</param>
+/// <param name="ulPasskeyLength">Length of the passkey (0 if not provided).</param>
+/// <returns>ERROR_SUCCESS on success, error code otherwise.</returns>
+function BluetoothAuthenticateDevice(
+  hwndParent: HWND;
+  hRadio: THandle;
+  pbtdi: PBLUETOOTH_DEVICE_INFO;
+  pszPasskey: PWideChar;
+  ulPasskeyLength: ULONG
+): DWORD; stdcall; external BLUETOOTH_API_LIB;
+
 // =============================================================================
 // Device Notification Functions (user32.dll)
 // =============================================================================

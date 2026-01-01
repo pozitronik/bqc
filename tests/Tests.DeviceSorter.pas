@@ -106,6 +106,7 @@ begin
 
   Result := TDeviceDisplayItem.Create(
     Device,
+    dsPaired,  // Test helper for paired devices
     AName,
     APinned,
     btAudioOutput,

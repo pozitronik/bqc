@@ -17,6 +17,7 @@ uses
   Vcl.WinXCtrls,
   Vcl.Menus,
   Vcl.Buttons,
+  Vcl.ComCtrls,
   System.ImageList,
   Vcl.ImgList,
   Bluetooth.Types,
@@ -83,6 +84,9 @@ type
     StatusLabel: TLabel;
     WindowsSettingsLink: TLabel;
     DevicesPanel: TPanel;
+    ScanPanel: TPanel;
+    ScanButton: TButton;
+    ScanProgressBar: TProgressBar;
     BluetoothTogglePanel: TPanel;
     BluetoothToggle: TToggleSwitch;
     procedure FormCreate(Sender: TObject);
@@ -93,6 +97,7 @@ type
     procedure HandleSettingsClick(Sender: TObject);
     procedure HandleWindowsSettingsClick(Sender: TObject);
     procedure HandleRefreshClick(Sender: TObject);
+    procedure HandleScanClick(Sender: TObject);
     procedure TitleLabelClick(Sender: TObject);
   private
     FPresenter: TMainPresenter;
@@ -159,6 +164,7 @@ type
     procedure ShowStatus(const AMessage: string);
     procedure ShowNotification(const ATitle, AMessage: string; AFlags: TNotificationFlags);
     procedure SetBusy(ABusy: Boolean);
+    procedure SetScanning(AScanning: Boolean);
     function IsVisible: Boolean;
     function IsMinimized: Boolean;
     function GetWindowHandle: HWND;
@@ -726,6 +732,8 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
     FRadioStateManager,
     CreateAsyncExecutor,
     BluetoothService,
@@ -947,6 +955,11 @@ end;
 procedure TFormMain.HandleRefreshClick(Sender: TObject);
 begin
   FPresenter.OnRefreshRequested;
+end;
+
+procedure TFormMain.HandleScanClick(Sender: TObject);
+begin
+  FPresenter.OnScanRequested;
 end;
 
 procedure TFormMain.TitleLabelClick(Sender: TObject);
@@ -1181,6 +1194,23 @@ begin
     Screen.Cursor := crHourGlass
   else
     Screen.Cursor := crDefault;
+end;
+
+procedure TFormMain.SetScanning(AScanning: Boolean);
+begin
+  if AScanning then
+  begin
+    // Hide button, show progress bar with marquee style
+    ScanButton.Visible := False;
+    ScanProgressBar.Style := pbstMarquee;
+    ScanProgressBar.Visible := True;
+  end
+  else
+  begin
+    // Show button, hide progress bar
+    ScanProgressBar.Visible := False;
+    ScanButton.Visible := True;
+  end;
 end;
 
 function TFormMain.IsVisible: Boolean;

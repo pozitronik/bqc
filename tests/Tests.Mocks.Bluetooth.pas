@@ -84,6 +84,8 @@ type
     FStartCallCount: Integer;
     FStopCallCount: Integer;
     FOnDeviceStateChanged: TMonitorDeviceStateEvent;
+    FOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    FOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
     FOnError: TMonitorErrorEvent;
   public
     constructor Create;
@@ -94,11 +96,17 @@ type
     function IsRunning: Boolean;
     function GetOnDeviceStateChanged: TMonitorDeviceStateEvent;
     procedure SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
+    function GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    procedure SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+    function GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+    procedure SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
     function GetOnError: TMonitorErrorEvent;
     procedure SetOnError(AValue: TMonitorErrorEvent);
 
     // Test helpers
     procedure SimulateDeviceStateChanged(AAddress: UInt64; AState: TBluetoothConnectionState);
+    procedure SimulateDeviceDiscovered(const ADevice: TBluetoothDeviceInfo);
+    procedure SimulateDeviceOutOfRange(AAddress: UInt64);
     procedure SimulateError(const AMessage: string; AErrorCode: Cardinal);
 
     property StartResult: Boolean read FStartResult write FStartResult;
@@ -106,6 +114,8 @@ type
     property StopCallCount: Integer read FStopCallCount;
     property Running: Boolean read FRunning write FRunning;
     property OnDeviceStateChanged: TMonitorDeviceStateEvent read FOnDeviceStateChanged write FOnDeviceStateChanged;
+    property OnDeviceDiscovered: TMonitorDeviceDiscoveredEvent read FOnDeviceDiscovered write FOnDeviceDiscovered;
+    property OnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent read FOnDeviceOutOfRange write FOnDeviceOutOfRange;
     property OnError: TMonitorErrorEvent read FOnError write FOnError;
   end;
 
@@ -415,6 +425,8 @@ type
     FAdapterName: string;
     FOnDeviceStateChanged: TDeviceStateChangedEvent;
     FOnDeviceListChanged: TDeviceListChangedEvent;
+    FOnDeviceDiscovered: TDeviceDiscoveredEvent;
+    FOnDeviceOutOfRange: TDeviceOutOfRangeEvent;
     FOnError: TBluetoothErrorEvent;
 
     FConnectCallCount: Integer;
@@ -440,12 +452,20 @@ type
     procedure SetOnDeviceStateChanged(AValue: TDeviceStateChangedEvent);
     function GetOnDeviceListChanged: TDeviceListChangedEvent;
     procedure SetOnDeviceListChanged(AValue: TDeviceListChangedEvent);
+    function GetOnDeviceDiscovered: TDeviceDiscoveredEvent;
+    procedure SetOnDeviceDiscovered(AValue: TDeviceDiscoveredEvent);
+    function GetOnDeviceOutOfRange: TDeviceOutOfRangeEvent;
+    procedure SetOnDeviceOutOfRange(AValue: TDeviceOutOfRangeEvent);
     function GetOnError: TBluetoothErrorEvent;
     procedure SetOnError(AValue: TBluetoothErrorEvent);
+    procedure TriggerDiscoveryScan;
+    procedure ScanForNearbyDevices;
 
     // Test helpers
     procedure SimulateDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
     procedure SimulateDeviceListChanged;
+    procedure SimulateDeviceDiscovered(const ADevice: TBluetoothDeviceInfo);
+    procedure SimulateDeviceOutOfRange(AAddress: UInt64);
     procedure SimulateError(const AMessage: string; AErrorCode: Cardinal);
 
     // Test configuration
@@ -678,6 +698,26 @@ begin
   FOnDeviceStateChanged := AValue;
 end;
 
+function TMockDeviceMonitor.GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+begin
+  Result := FOnDeviceDiscovered;
+end;
+
+procedure TMockDeviceMonitor.SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+begin
+  FOnDeviceDiscovered := AValue;
+end;
+
+function TMockDeviceMonitor.GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+begin
+  Result := FOnDeviceOutOfRange;
+end;
+
+procedure TMockDeviceMonitor.SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
+begin
+  FOnDeviceOutOfRange := AValue;
+end;
+
 function TMockDeviceMonitor.GetOnError: TMonitorErrorEvent;
 begin
   Result := FOnError;
@@ -693,6 +733,18 @@ procedure TMockDeviceMonitor.SimulateDeviceStateChanged(AAddress: UInt64;
 begin
   if Assigned(FOnDeviceStateChanged) then
     FOnDeviceStateChanged(Self, AAddress, AState);
+end;
+
+procedure TMockDeviceMonitor.SimulateDeviceDiscovered(const ADevice: TBluetoothDeviceInfo);
+begin
+  if Assigned(FOnDeviceDiscovered) then
+    FOnDeviceDiscovered(Self, ADevice);
+end;
+
+procedure TMockDeviceMonitor.SimulateDeviceOutOfRange(AAddress: UInt64);
+begin
+  if Assigned(FOnDeviceOutOfRange) then
+    FOnDeviceOutOfRange(Self, AAddress);
 end;
 
 procedure TMockDeviceMonitor.SimulateError(const AMessage: string; AErrorCode: Cardinal);
@@ -1247,6 +1299,26 @@ begin
   FOnDeviceListChanged := AValue;
 end;
 
+function TMockBluetoothService.GetOnDeviceDiscovered: TDeviceDiscoveredEvent;
+begin
+  Result := FOnDeviceDiscovered;
+end;
+
+procedure TMockBluetoothService.SetOnDeviceDiscovered(AValue: TDeviceDiscoveredEvent);
+begin
+  FOnDeviceDiscovered := AValue;
+end;
+
+function TMockBluetoothService.GetOnDeviceOutOfRange: TDeviceOutOfRangeEvent;
+begin
+  Result := FOnDeviceOutOfRange;
+end;
+
+procedure TMockBluetoothService.SetOnDeviceOutOfRange(AValue: TDeviceOutOfRangeEvent);
+begin
+  FOnDeviceOutOfRange := AValue;
+end;
+
 function TMockBluetoothService.GetOnError: TBluetoothErrorEvent;
 begin
   Result := FOnError;
@@ -1255,6 +1327,16 @@ end;
 procedure TMockBluetoothService.SetOnError(AValue: TBluetoothErrorEvent);
 begin
   FOnError := AValue;
+end;
+
+procedure TMockBluetoothService.TriggerDiscoveryScan;
+begin
+  // Mock implementation - does nothing
+end;
+
+procedure TMockBluetoothService.ScanForNearbyDevices;
+begin
+  // Mock implementation - does nothing
 end;
 
 procedure TMockBluetoothService.SimulateDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
@@ -1267,6 +1349,18 @@ procedure TMockBluetoothService.SimulateDeviceListChanged;
 begin
   if Assigned(FOnDeviceListChanged) then
     FOnDeviceListChanged(Self);
+end;
+
+procedure TMockBluetoothService.SimulateDeviceDiscovered(const ADevice: TBluetoothDeviceInfo);
+begin
+  if Assigned(FOnDeviceDiscovered) then
+    FOnDeviceDiscovered(Self, ADevice);
+end;
+
+procedure TMockBluetoothService.SimulateDeviceOutOfRange(AAddress: UInt64);
+begin
+  if Assigned(FOnDeviceOutOfRange) then
+    FOnDeviceOutOfRange(Self, AAddress);
 end;
 
 procedure TMockBluetoothService.SimulateError(const AMessage: string; AErrorCode: Cardinal);

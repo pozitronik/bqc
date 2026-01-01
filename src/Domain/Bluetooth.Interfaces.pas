@@ -28,6 +28,24 @@ type
   TDeviceListChangedEvent = procedure(Sender: TObject) of object;
 
   /// <summary>
+  /// Event handler for discovered unpaired devices.
+  /// Fired when an unpaired device comes into Bluetooth range.
+  /// </summary>
+  TDeviceDiscoveredEvent = procedure(
+    Sender: TObject;
+    const ADevice: TBluetoothDeviceInfo
+  ) of object;
+
+  /// <summary>
+  /// Event handler for device out of range.
+  /// Fired when a device leaves Bluetooth range.
+  /// </summary>
+  TDeviceOutOfRangeEvent = procedure(
+    Sender: TObject;
+    const ADeviceAddress: UInt64
+  ) of object;
+
+  /// <summary>
   /// Event handler for errors.
   /// </summary>
   TBluetoothErrorEvent = procedure(
@@ -161,12 +179,41 @@ type
       read GetOnDeviceListChanged write SetOnDeviceListChanged;
 
     /// <summary>
+    /// Gets/sets the handler for discovered unpaired devices.
+    /// </summary>
+    function GetOnDeviceDiscovered: TDeviceDiscoveredEvent;
+    procedure SetOnDeviceDiscovered(AValue: TDeviceDiscoveredEvent);
+    property OnDeviceDiscovered: TDeviceDiscoveredEvent
+      read GetOnDeviceDiscovered write SetOnDeviceDiscovered;
+
+    /// <summary>
+    /// Gets/sets the handler for device out of range.
+    /// </summary>
+    function GetOnDeviceOutOfRange: TDeviceOutOfRangeEvent;
+    procedure SetOnDeviceOutOfRange(AValue: TDeviceOutOfRangeEvent);
+    property OnDeviceOutOfRange: TDeviceOutOfRangeEvent
+      read GetOnDeviceOutOfRange write SetOnDeviceOutOfRange;
+
+    /// <summary>
     /// Gets/sets the handler for errors.
     /// </summary>
     function GetOnError: TBluetoothErrorEvent;
     procedure SetOnError(AValue: TBluetoothErrorEvent);
     property OnError: TBluetoothErrorEvent
       read GetOnError write SetOnError;
+
+    /// <summary>
+    /// Triggers an active device discovery scan.
+    /// Restarts the device watcher to refresh discovered devices.
+    /// </summary>
+    procedure TriggerDiscoveryScan;
+
+    /// <summary>
+    /// Performs an active Bluetooth inquiry to scan for nearby unpaired devices.
+    /// Fires OnDeviceDiscovered for each device found.
+    /// This is a blocking operation that can take several seconds.
+    /// </summary>
+    procedure ScanForNearbyDevices;
   end;
 
   /// <summary>
@@ -216,6 +263,24 @@ type
   ) of object;
 
   /// <summary>
+  /// Event handler for monitor discovering unpaired devices.
+  /// Fired when the monitor detects an unpaired device in Bluetooth range.
+  /// </summary>
+  TMonitorDeviceDiscoveredEvent = procedure(
+    Sender: TObject;
+    const ADevice: TBluetoothDeviceInfo
+  ) of object;
+
+  /// <summary>
+  /// Event handler for device out of range.
+  /// Fired when the monitor detects that a device has left Bluetooth range.
+  /// </summary>
+  TMonitorDeviceOutOfRangeEvent = procedure(
+    Sender: TObject;
+    const ADeviceAddress: UInt64
+  ) of object;
+
+  /// <summary>
   /// Interface for monitoring device connection state changes.
   /// Abstracts different monitoring mechanisms (watcher, polling).
   /// </summary>
@@ -239,12 +304,26 @@ type
     function IsRunning: Boolean;
 
     /// <summary>
+    /// Gets/sets the handler for discovered devices.
+    /// </summary>
+    function GetOnDeviceDiscovered: TMonitorDeviceDiscoveredEvent;
+    procedure SetOnDeviceDiscovered(AValue: TMonitorDeviceDiscoveredEvent);
+
+    /// <summary>
     /// Gets/sets the handler for device state changes.
     /// </summary>
     function GetOnDeviceStateChanged: TMonitorDeviceStateEvent;
     procedure SetOnDeviceStateChanged(AValue: TMonitorDeviceStateEvent);
     property OnDeviceStateChanged: TMonitorDeviceStateEvent
       read GetOnDeviceStateChanged write SetOnDeviceStateChanged;
+
+    /// <summary>
+    /// Gets/sets the handler for device out of range.
+    /// </summary>
+    function GetOnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent;
+    procedure SetOnDeviceOutOfRange(AValue: TMonitorDeviceOutOfRangeEvent);
+    property OnDeviceOutOfRange: TMonitorDeviceOutOfRangeEvent
+      read GetOnDeviceOutOfRange write SetOnDeviceOutOfRange;
 
     /// <summary>
     /// Gets/sets the handler for errors.

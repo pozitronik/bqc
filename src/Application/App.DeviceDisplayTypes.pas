@@ -17,6 +17,15 @@ uses
 
 type
   /// <summary>
+  /// Source of a device in the display list.
+  /// Used to distinguish between paired devices and discovered (unpaired) devices.
+  /// </summary>
+  TDeviceSource = (
+    dsPaired,      // Device is paired and from the main device list
+    dsDiscovered   // Device is discovered (unpaired) and from the discovery cache
+  );
+
+  /// <summary>
   /// Pre-processed display item for device list rendering.
   /// Contains all data needed for display without further config lookups.
   /// Created by presenter, consumed by view (Information Expert pattern).
@@ -24,6 +33,9 @@ type
   TDeviceDisplayItem = record
     /// <summary>Original device data from Bluetooth service.</summary>
     Device: TBluetoothDeviceInfo;
+
+    /// <summary>Source of device (paired or discovered).</summary>
+    Source: TDeviceSource;
 
     /// <summary>Display name (alias if set, otherwise device name).</summary>
     DisplayName: string;
@@ -40,7 +52,7 @@ type
     /// <summary>Raw last seen value for sorting.</summary>
     LastSeen: TDateTime;
 
-    /// <summary>Sort group: 0=Pinned, 1=Connected (not pinned), 2=Disconnected.</summary>
+    /// <summary>Sort group: 0=Pinned, 1=Connected (not pinned), 2=Disconnected, 3=Discovered.</summary>
     SortGroup: Integer;
 
     /// <summary>Battery status for devices supporting Battery Service.</summary>
@@ -54,6 +66,7 @@ type
 
     /// <summary>Creates a display item from device and config data.</summary>
     class function Create(const ADevice: TBluetoothDeviceInfo;
+      ASource: TDeviceSource;
       const ADisplayName: string; AIsPinned: Boolean;
       AEffectiveDeviceType: TBluetoothDeviceType;
       const ALastSeenText: string; ALastSeen: TDateTime;
@@ -69,6 +82,7 @@ implementation
 { TDeviceDisplayItem }
 
 class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
+  ASource: TDeviceSource;
   const ADisplayName: string; AIsPinned: Boolean;
   AEffectiveDeviceType: TBluetoothDeviceType;
   const ALastSeenText: string; ALastSeen: TDateTime;
@@ -77,6 +91,7 @@ class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
   const AProfiles: TBluetoothProfileArray): TDeviceDisplayItem;
 begin
   Result.Device := ADevice;
+  Result.Source := ASource;
   Result.DisplayName := ADisplayName;
   Result.IsPinned := AIsPinned;
   Result.EffectiveDeviceType := AEffectiveDeviceType;

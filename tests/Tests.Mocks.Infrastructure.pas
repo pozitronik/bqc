@@ -237,6 +237,7 @@ type
     FBatteryCache: IBatteryCache;
     FBuildDisplayItemsCallCount: Integer;
     FBuildDisplayItemCallCount: Integer;
+    FBuildDiscoveredDeviceDisplayItemCallCount: Integer;
     FIsVisibleCallCount: Integer;
     FSetBatteryCacheCallCount: Integer;
     FLastDevices: TBluetoothDeviceInfoArray;
@@ -250,6 +251,7 @@ type
     procedure SetBatteryCache(ABatteryCache: IBatteryCache);
     function BuildDisplayItems(const ADevices: TBluetoothDeviceInfoArray): TDeviceDisplayItemArray;
     function BuildDisplayItem(const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
+    function BuildDiscoveredDeviceDisplayItem(const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
     function IsVisible(const ADevice: TBluetoothDeviceInfo): Boolean;
 
     // Test configuration - set these before calling methods
@@ -259,6 +261,7 @@ type
     // Verification properties
     property BuildDisplayItemsCallCount: Integer read FBuildDisplayItemsCallCount;
     property BuildDisplayItemCallCount: Integer read FBuildDisplayItemCallCount;
+    property BuildDiscoveredDeviceDisplayItemCallCount: Integer read FBuildDiscoveredDeviceDisplayItemCallCount;
     property IsVisibleCallCount: Integer read FIsVisibleCallCount;
     property SetBatteryCacheCallCount: Integer read FSetBatteryCacheCallCount;
     property LastDevices: TBluetoothDeviceInfoArray read FLastDevices;
@@ -641,6 +644,7 @@ begin
   FBatteryCache := nil;
   FBuildDisplayItemsCallCount := 0;
   FBuildDisplayItemCallCount := 0;
+  FBuildDiscoveredDeviceDisplayItemCallCount := 0;
   FIsVisibleCallCount := 0;
   FSetBatteryCacheCallCount := 0;
   FMockDisplayItems := nil;
@@ -671,6 +675,7 @@ begin
   begin
     Result[I] := Default(TDeviceDisplayItem);
     Result[I].Device := ADevices[I];
+    Result[I].Source := dsPaired;
     Result[I].DisplayName := ADevices[I].Name;
     Result[I].IsPinned := False;
     Result[I].EffectiveDeviceType := ADevices[I].DeviceType;
@@ -687,10 +692,27 @@ begin
 
   Result := Default(TDeviceDisplayItem);
   Result.Device := ADevice;
+  Result.Source := dsPaired;
   Result.DisplayName := ADevice.Name;
   Result.IsPinned := False;
   Result.EffectiveDeviceType := ADevice.DeviceType;
   Result.SortGroup := 1;
+  Result.BatteryStatus := TBatteryStatus.NotSupported;
+end;
+
+function TMockDeviceDisplayItemBuilder.BuildDiscoveredDeviceDisplayItem(
+  const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
+begin
+  Inc(FBuildDiscoveredDeviceDisplayItemCallCount);
+  FLastDevice := ADevice;
+
+  Result := Default(TDeviceDisplayItem);
+  Result.Device := ADevice;
+  Result.Source := dsDiscovered;
+  Result.DisplayName := ADevice.Name;
+  Result.IsPinned := False;
+  Result.EffectiveDeviceType := ADevice.DeviceType;
+  Result.SortGroup := 3;  // Discovered devices go last
   Result.BatteryStatus := TBatteryStatus.NotSupported;
 end;
 

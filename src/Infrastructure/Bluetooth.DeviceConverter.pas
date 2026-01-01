@@ -121,8 +121,8 @@ begin
     (ABthInfo.flags and BDIF_PAIRED) <> 0,     // fRemembered ~ BDIF_PAIRED
     (ABthInfo.flags and BDIF_PAIRED) <> 0,     // fAuthenticated ~ BDIF_PAIRED
     ABthInfo.classOfDevice,
-    0,  // LastSeen not available in BTH_DEVICE_INFO
-    0   // LastUsed not available in BTH_DEVICE_INFO
+    Now,  // Set LastSeen to Now - device is in range right now
+    0     // LastUsed not available in BTH_DEVICE_INFO
   );
 end;
 

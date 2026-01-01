@@ -34,6 +34,8 @@ type
     IBluetoothDeviceEnumerator, IBluetoothConnectionManager)
   private
     FOnDeviceStateChanged: TDeviceStateChangedEvent;
+    FOnDeviceDiscovered: TDeviceDiscoveredEvent;
+    FOnDeviceOutOfRange: TDeviceOutOfRangeEvent;
     FOnError: TBluetoothErrorEvent;
 
     { Injected dependencies }
@@ -47,6 +49,8 @@ type
     FEventDebouncer: IEventDebouncer;
 
     procedure DoDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
+    procedure DoDeviceDiscovered(const ADevice: TBluetoothDeviceInfo);
+    procedure DoDeviceOutOfRange(const ADeviceAddress: UInt64);
     procedure DoError(const AMessage: string; AErrorCode: Cardinal);
 
     function ConnectWithStrategy(
@@ -57,6 +61,10 @@ type
     { Device monitor event handlers }
     procedure HandleMonitorDeviceStateChanged(Sender: TObject;
       const ADeviceAddress: UInt64; ANewState: TBluetoothConnectionState);
+    procedure HandleMonitorDeviceDiscovered(Sender: TObject;
+      const ADevice: TBluetoothDeviceInfo);
+    procedure HandleMonitorDeviceOutOfRange(Sender: TObject;
+      const ADeviceAddress: UInt64);
     procedure HandleMonitorError(Sender: TObject;
       const AMessage: string; AErrorCode: Cardinal);
 
@@ -74,8 +82,14 @@ type
     procedure SetOnDeviceStateChanged(AValue: TDeviceStateChangedEvent);
     function GetOnDeviceListChanged: TDeviceListChangedEvent;
     procedure SetOnDeviceListChanged(AValue: TDeviceListChangedEvent);
+    function GetOnDeviceDiscovered: TDeviceDiscoveredEvent;
+    procedure SetOnDeviceDiscovered(AValue: TDeviceDiscoveredEvent);
+    function GetOnDeviceOutOfRange: TDeviceOutOfRangeEvent;
+    procedure SetOnDeviceOutOfRange(AValue: TDeviceOutOfRangeEvent);
     function GetOnError: TBluetoothErrorEvent;
     procedure SetOnError(AValue: TBluetoothErrorEvent);
+    procedure TriggerDiscoveryScan;
+    procedure ScanForNearbyDevices;
 
   public
     constructor Create(
@@ -122,6 +136,9 @@ function CreateBluetoothService(
 implementation
 
 uses
+  Winapi.Windows,
+  Bluetooth.WinAPI,
+  Bluetooth.DeviceConverter,
   Bluetooth.DeviceMonitors,
   Bluetooth.DeviceRepository,
   Bluetooth.ConnectionExecutor,
@@ -216,6 +233,8 @@ begin
 
   // Configure and start device monitor
   FDeviceMonitor.OnDeviceStateChanged := HandleMonitorDeviceStateChanged;
+  FDeviceMonitor.SetOnDeviceDiscovered(HandleMonitorDeviceDiscovered);
+  FDeviceMonitor.SetOnDeviceOutOfRange(HandleMonitorDeviceOutOfRange);
   FDeviceMonitor.OnError := HandleMonitorError;
 
   if FDeviceMonitor.Start then
@@ -367,6 +386,28 @@ begin
     FOnDeviceStateChanged(Self, ADevice);
 end;
 
+procedure TBluetoothService.DoDeviceDiscovered(
+  const ADevice: TBluetoothDeviceInfo);
+begin
+  LogDebug('DoDeviceDiscovered: Address=$%.12X, Name="%s", Handler assigned=%s', [
+    ADevice.AddressInt,
+    ADevice.Name,
+    BoolToStr(Assigned(FOnDeviceDiscovered), True)
+  ], ClassName);
+  if Assigned(FOnDeviceDiscovered) then
+    FOnDeviceDiscovered(Self, ADevice);
+end;
+
+procedure TBluetoothService.DoDeviceOutOfRange(const ADeviceAddress: UInt64);
+begin
+  LogDebug('DoDeviceOutOfRange: Address=$%.12X, Handler assigned=%s', [
+    ADeviceAddress,
+    BoolToStr(Assigned(FOnDeviceOutOfRange), True)
+  ], ClassName);
+  if Assigned(FOnDeviceOutOfRange) then
+    FOnDeviceOutOfRange(Self, ADeviceAddress);
+end;
+
 procedure TBluetoothService.DoError(const AMessage: string; AErrorCode: Cardinal);
 begin
   if Assigned(FOnError) then
@@ -393,6 +434,26 @@ procedure TBluetoothService.SetOnDeviceListChanged(
   AValue: TDeviceListChangedEvent);
 begin
   FDeviceRepository.OnListChanged := AValue;
+end;
+
+function TBluetoothService.GetOnDeviceDiscovered: TDeviceDiscoveredEvent;
+begin
+  Result := FOnDeviceDiscovered;
+end;
+
+procedure TBluetoothService.SetOnDeviceDiscovered(AValue: TDeviceDiscoveredEvent);
+begin
+  FOnDeviceDiscovered := AValue;
+end;
+
+function TBluetoothService.GetOnDeviceOutOfRange: TDeviceOutOfRangeEvent;
+begin
+  Result := FOnDeviceOutOfRange;
+end;
+
+procedure TBluetoothService.SetOnDeviceOutOfRange(AValue: TDeviceOutOfRangeEvent);
+begin
+  FOnDeviceOutOfRange := AValue;
 end;
 
 function TBluetoothService.GetOnError: TBluetoothErrorEvent;
@@ -457,11 +518,103 @@ begin
   end;
 end;
 
+procedure TBluetoothService.HandleMonitorDeviceDiscovered(Sender: TObject;
+  const ADevice: TBluetoothDeviceInfo);
+begin
+  LogDebug('HandleMonitorDeviceDiscovered: Address=$%.12X, Name="%s"', [
+    ADevice.AddressInt,
+    ADevice.Name
+  ], ClassName);
+  // Delegate to event handler
+  DoDeviceDiscovered(ADevice);
+end;
+
+procedure TBluetoothService.HandleMonitorDeviceOutOfRange(Sender: TObject;
+  const ADeviceAddress: UInt64);
+begin
+  LogDebug('HandleMonitorDeviceOutOfRange: Address=$%.12X', [ADeviceAddress], ClassName);
+  // Delegate to event handler
+  DoDeviceOutOfRange(ADeviceAddress);
+end;
+
 procedure TBluetoothService.HandleMonitorError(Sender: TObject;
   const AMessage: string; AErrorCode: Cardinal);
 begin
   LogWarning('HandleMonitorError: %s (code %d)', [AMessage, AErrorCode], ClassName);
   DoError(AMessage, AErrorCode);
+end;
+
+procedure TBluetoothService.TriggerDiscoveryScan;
+begin
+  LogInfo('TriggerDiscoveryScan: Restarting device watcher to refresh discovery', ClassName);
+
+  // Restart the device monitor to trigger fresh discovery events
+  if FDeviceMonitor.IsRunning then
+  begin
+    LogDebug('TriggerDiscoveryScan: Stopping monitor', ClassName);
+    FDeviceMonitor.Stop;
+  end;
+
+  LogDebug('TriggerDiscoveryScan: Starting monitor', ClassName);
+  if FDeviceMonitor.Start then
+    LogDebug('TriggerDiscoveryScan: Monitor restarted successfully', ClassName)
+  else
+    LogWarning('TriggerDiscoveryScan: Failed to restart monitor', ClassName);
+
+  // Also perform active inquiry to find nearby devices
+  ScanForNearbyDevices;
+end;
+
+procedure TBluetoothService.ScanForNearbyDevices;
+var
+  SearchParams: BLUETOOTH_DEVICE_SEARCH_PARAMS;
+  DeviceInfo: BLUETOOTH_DEVICE_INFO;
+  FindHandle: HBLUETOOTH_DEVICE_FIND;
+  Device: TBluetoothDeviceInfo;
+begin
+  LogInfo('ScanForNearbyDevices: Starting active Bluetooth inquiry (Classic BT only)', ClassName);
+
+  // NOTE: This implementation only scans for Classic Bluetooth devices.
+  // Future enhancement: Add BLE device scanning using WinRT BluetoothLEAdvertisementWatcher
+  // when bpWinRT platform is selected. BLE devices should also fire OnDeviceDiscovered
+  // events to populate the unpaired devices cache.
+
+  // Initialize search parameters for unpaired devices (Classic BT)
+  FillChar(SearchParams, SizeOf(SearchParams), 0);
+  SearchParams.dwSize := SizeOf(BLUETOOTH_DEVICE_SEARCH_PARAMS);
+  SearchParams.fReturnAuthenticated := False;  // Don't return paired devices
+  SearchParams.fReturnRemembered := False;     // Don't return remembered devices
+  SearchParams.fReturnConnected := False;      // Don't return connected devices
+  SearchParams.fReturnUnknown := True;         // DO return unknown/unpaired devices
+  SearchParams.fIssueInquiry := True;          // Perform active Bluetooth inquiry
+  SearchParams.cTimeoutMultiplier := 2;        // Inquiry timeout (2 * 1.28s = 2.56s)
+  SearchParams.hRadio := 0;                    // Use default radio
+
+  DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
+
+  FindHandle := BluetoothFindFirstDevice(@SearchParams, DeviceInfo);
+  if FindHandle <> 0 then
+  begin
+    try
+      repeat
+        // Convert and fire discovered event
+        Device := ConvertBluetoothDeviceInfo(DeviceInfo);
+        LogDebug('ScanForNearbyDevices: Found device Address=$%.12X, Name="%s", Paired=%s',
+          [Device.AddressInt, Device.Name, BoolToStr(Device.IsPaired, True)], ClassName);
+
+        // Only fire event for unpaired devices
+        if not Device.IsPaired then
+          DoDeviceDiscovered(Device);
+
+        DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
+      until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
+    finally
+      BluetoothFindDeviceClose(FindHandle);
+    end;
+    LogInfo('ScanForNearbyDevices: Inquiry complete', ClassName);
+  end
+  else
+    LogDebug('ScanForNearbyDevices: No unpaired devices found (error=%d)', [GetLastError], ClassName);
 end;
 
 end.

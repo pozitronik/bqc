@@ -26,16 +26,19 @@ type
     function GetConnectionRetryCount: Integer;
     function GetEnumerationMode: TEnumerationMode;
     function GetBluetoothPlatform: TBluetoothPlatform;
+    function GetAutoScanOnStartup: Boolean;
 
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
     procedure SetEnumerationMode(AValue: TEnumerationMode);
     procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
+    procedure SetAutoScanOnStartup(AValue: Boolean);
 
     property ConnectionTimeout: Integer read GetConnectionTimeout write SetConnectionTimeout;
     property ConnectionRetryCount: Integer read GetConnectionRetryCount write SetConnectionRetryCount;
     property EnumerationMode: TEnumerationMode read GetEnumerationMode write SetEnumerationMode;
     property BluetoothPlatform: TBluetoothPlatform read GetBluetoothPlatform write SetBluetoothPlatform;
+    property AutoScanOnStartup: Boolean read GetAutoScanOnStartup write SetAutoScanOnStartup;
   end;
 
   /// <summary>

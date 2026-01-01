@@ -93,6 +93,13 @@ type
     /// Shows or hides the busy cursor.
     /// </summary>
     procedure SetBusy(ABusy: Boolean);
+
+    /// <summary>
+    /// Shows or hides the scanning progress indicator.
+    /// When scanning: hides button, shows progress bar.
+    /// When not scanning: shows button, hides progress bar.
+    /// </summary>
+    procedure SetScanning(AScanning: Boolean);
   end;
 
   /// <summary>

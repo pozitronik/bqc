@@ -54,6 +54,8 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
@@ -184,6 +186,8 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
@@ -229,6 +233,8 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
@@ -304,6 +310,8 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
@@ -344,6 +352,8 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
@@ -828,6 +838,8 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   // Use non-synchronous mode to control when delayed procs execute
@@ -865,6 +877,8 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
@@ -1035,6 +1049,8 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
@@ -1059,6 +1075,8 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
@@ -1205,6 +1223,8 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
@@ -1239,6 +1259,8 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
@@ -1263,6 +1285,8 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
@@ -1366,6 +1390,8 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
@@ -1400,6 +1426,8 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FAsyncExecutor.Synchronous := False;  // Control when callbacks execute
@@ -1436,6 +1464,8 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
@@ -1581,6 +1611,8 @@ type
     FGeneralConfig: TMockGeneralConfig;
     FWindowConfig: TMockWindowConfig;
     FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
@@ -1624,6 +1656,8 @@ begin
   FGeneralConfig := TMockGeneralConfig.Create;
   FWindowConfig := TMockWindowConfig.Create;
   FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
@@ -1659,6 +1693,8 @@ begin
     FGeneralConfig,
     FWindowConfig,
     FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,

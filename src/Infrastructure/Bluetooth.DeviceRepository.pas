@@ -432,7 +432,14 @@ begin
             [Device.AddressInt, Device.Name, DeviceInfo.ulClassOfDevice,
              BoolToStr(DeviceInfo.fConnected, True),
              BoolToStr(DeviceInfo.fRemembered, True), BoolToStr(DeviceInfo.fAuthenticated, True)], ClassName);
-          DeviceList.Add(Device);
+
+          // Only add truly paired devices (filter out connected-but-unpaired devices)
+          if Device.IsPaired then
+            DeviceList.Add(Device)
+          else
+            LogDebug('EnumeratePairedDevices: Skipping unpaired device Address=$%.12X, Name="%s"',
+              [Device.AddressInt, Device.Name], ClassName);
+
           DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
         until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
       finally

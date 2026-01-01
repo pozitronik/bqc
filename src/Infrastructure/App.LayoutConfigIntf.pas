@@ -30,6 +30,7 @@ type
     function GetIconFontSize: Integer;
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
+    function GetShowUnpairedDevices: Boolean;
 
     procedure SetItemHeight(AValue: Integer);
     procedure SetItemPadding(AValue: Integer);
@@ -42,6 +43,7 @@ type
     procedure SetIconFontSize(AValue: Integer);
     procedure SetItemBorderWidth(AValue: Integer);
     procedure SetItemBorderColor(AValue: Integer);
+    procedure SetShowUnpairedDevices(AValue: Boolean);
 
     property ItemHeight: Integer read GetItemHeight write SetItemHeight;
     property ItemPadding: Integer read GetItemPadding write SetItemPadding;
@@ -54,6 +56,7 @@ type
     property IconFontSize: Integer read GetIconFontSize write SetIconFontSize;
     property ItemBorderWidth: Integer read GetItemBorderWidth write SetItemBorderWidth;
     property ItemBorderColor: Integer read GetItemBorderColor write SetItemBorderColor;
+    property ShowUnpairedDevices: Boolean read GetShowUnpairedDevices write SetShowUnpairedDevices;
   end;
 
 implementation

@@ -52,6 +52,7 @@ type
     FIconFontSize: Integer;
     FItemBorderWidth: Integer;
     FItemBorderColor: Integer;
+    FShowUnpairedDevices: Boolean;
   public
     constructor Create;
 
@@ -70,6 +71,7 @@ type
     function GetIconFontSize: Integer;
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
+    function GetShowUnpairedDevices: Boolean;
 
     // ILayoutConfig - setters
     // NOTE: Same constraint as getters - interface requires these methods.
@@ -84,6 +86,7 @@ type
     procedure SetIconFontSize(AValue: Integer);
     procedure SetItemBorderWidth(AValue: Integer);
     procedure SetItemBorderColor(AValue: Integer);
+    procedure SetShowUnpairedDevices(AValue: Boolean);
 
     // Test setup properties
     // NOTE: Direct field access for test convenience (Arrange-Act-Assert pattern).
@@ -99,6 +102,7 @@ type
     property IconFontSize: Integer read FIconFontSize write FIconFontSize;
     property ItemBorderWidth: Integer read FItemBorderWidth write FItemBorderWidth;
     property ItemBorderColor: Integer read FItemBorderColor write FItemBorderColor;
+    property ShowUnpairedDevices: Boolean read FShowUnpairedDevices write FShowUnpairedDevices;
   end;
 
   /// <summary>
@@ -265,6 +269,7 @@ type
     FConnectionRetryCount: Integer;
     FEnumerationMode: TEnumerationMode;
     FBluetoothPlatform: TBluetoothPlatform;
+    FAutoScanOnStartup: Boolean;
   public
     constructor Create;
 
@@ -273,18 +278,21 @@ type
     function GetConnectionRetryCount: Integer;
     function GetEnumerationMode: TEnumerationMode;
     function GetBluetoothPlatform: TBluetoothPlatform;
+    function GetAutoScanOnStartup: Boolean;
 
     // IConnectionConfig - setters
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
     procedure SetEnumerationMode(AValue: TEnumerationMode);
     procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
+    procedure SetAutoScanOnStartup(AValue: Boolean);
 
     // Test setup properties
     property ConnectionTimeout: Integer read FConnectionTimeout write FConnectionTimeout;
     property ConnectionRetryCount: Integer read FConnectionRetryCount write FConnectionRetryCount;
     property EnumerationMode: TEnumerationMode read FEnumerationMode write FEnumerationMode;
     property BluetoothPlatform: TBluetoothPlatform read FBluetoothPlatform write FBluetoothPlatform;
+    property AutoScanOnStartup: Boolean read FAutoScanOnStartup write FAutoScanOnStartup;
   end;
 
   /// <summary>
@@ -568,6 +576,7 @@ begin
   FIconFontSize := 16;
   FItemBorderWidth := 0;
   FItemBorderColor := $00000000;
+  FShowUnpairedDevices := False;
 end;
 
 function TMockLayoutConfig.GetItemHeight: Integer;
@@ -678,6 +687,16 @@ end;
 procedure TMockLayoutConfig.SetItemBorderColor(AValue: Integer);
 begin
   FItemBorderColor := AValue;
+end;
+
+function TMockLayoutConfig.GetShowUnpairedDevices: Boolean;
+begin
+  Result := FShowUnpairedDevices;
+end;
+
+procedure TMockLayoutConfig.SetShowUnpairedDevices(AValue: Boolean);
+begin
+  FShowUnpairedDevices := AValue;
 end;
 
 { TMockAppearanceConfig }
@@ -931,6 +950,7 @@ begin
   FConnectionRetryCount := 2;
   FEnumerationMode := emComposite;
   FBluetoothPlatform := bpAuto;
+  FAutoScanOnStartup := False;
 end;
 
 function TMockConnectionConfig.GetConnectionTimeout: Integer;
@@ -971,6 +991,16 @@ end;
 procedure TMockConnectionConfig.SetBluetoothPlatform(AValue: TBluetoothPlatform);
 begin
   FBluetoothPlatform := AValue;
+end;
+
+function TMockConnectionConfig.GetAutoScanOnStartup: Boolean;
+begin
+  Result := FAutoScanOnStartup;
+end;
+
+procedure TMockConnectionConfig.SetAutoScanOnStartup(AValue: Boolean);
+begin
+  FAutoScanOnStartup := AValue;
 end;
 
 { TMockGeneralConfig }
