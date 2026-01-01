@@ -729,6 +729,12 @@ begin
       for I := 0 to FUnpairedDevicesInRange.Count - 1 do
       begin
         Device := FUnpairedDevicesInRange[I];
+        // Skip devices that have become paired (they're now in FDeviceIndexMap)
+        if FDeviceIndexMap.ContainsKey(Device.AddressInt) then
+        begin
+          LogDebug('RefreshDisplayItems: Skipping $%.12X (now in paired list)', [Device.AddressInt], ClassName);
+          Continue;
+        end;
         LogDebug('RefreshDisplayItems: Adding unpaired device $%.12X, Name="%s"',
           [Device.AddressInt, Device.Name], ClassName);
         UnpairedItems.Add(FDisplayItemBuilder.BuildDiscoveredDeviceDisplayItem(Device));
