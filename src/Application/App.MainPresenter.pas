@@ -273,15 +273,6 @@ type
     function CanClose: Boolean;
 
     /// <summary>
-    /// Initiates pairing with a discovered Bluetooth device.
-    /// Displays Windows pairing dialog and handles the result.
-    /// On success, device automatically moves from discovered to paired list.
-    /// </summary>
-    /// <param name="AAddress">Bluetooth address of the device to pair.</param>
-    procedure PairDevice(AAddress: UInt64);
-
-
-    /// <summary>
     /// Returns True if Bluetooth toggle is being updated programmatically.
     /// </summary>
     property IsUpdatingToggle: Boolean read FUpdatingToggle;
@@ -824,10 +815,10 @@ end;
 procedure TMainPresenter.SyncPairedDeviceList;
 var
   PairedAddresses: TArray<UInt64>;
+  PairedAddressSet: TDictionary<UInt64, Boolean>;
   DeviceAddress: UInt64;
   PairedAddr: UInt64;
   I: Integer;
-  Found: Boolean;
   RemovedCount: Integer;
   DeviceToRemove: TBluetoothDeviceInfo;
 begin
@@ -839,54 +830,53 @@ begin
   // Get current paired device addresses from Windows
   PairedAddresses := FPairingService.GetPairedDeviceAddresses;
 
-  RemovedCount := 0;
-
-  // Check each device in our list against Windows paired devices
-  I := FDeviceList.Count - 1;
-  while I >= 0 do
-  begin
-    DeviceAddress := FDeviceList[I].AddressInt;
-
-    // Check if device is still paired in Windows
-    Found := False;
+  // Convert array to dictionary for O(1) lookups instead of O(n) linear search
+  PairedAddressSet := TDictionary<UInt64, Boolean>.Create(Length(PairedAddresses));
+  try
     for PairedAddr in PairedAddresses do
+      PairedAddressSet.Add(PairedAddr, True);
+
+    RemovedCount := 0;
+
+    // Check each device in our list against Windows paired devices
+    I := FDeviceList.Count - 1;
+    while I >= 0 do
     begin
-      if PairedAddr = DeviceAddress then
+      DeviceAddress := FDeviceList[I].AddressInt;
+
+      // Check if device is still paired in Windows (O(1) lookup)
+      if not PairedAddressSet.ContainsKey(DeviceAddress) then
       begin
-        Found := True;
-        Break;
+        // Device was unpaired from Windows - remove it
+        DeviceToRemove := FDeviceList[I];
+        LogInfo('SyncPairedDeviceList: Device $%.12X ("%s") was unpaired externally, removing from list',
+          [DeviceAddress, DeviceToRemove.Name], ClassName);
+
+        // Disconnect if connected
+        if DeviceToRemove.IsConnected then
+        begin
+          LogInfo('SyncPairedDeviceList: Disconnecting device before removal', ClassName);
+          FBluetoothService.Disconnect(DeviceToRemove);
+        end;
+
+        RemoveDeviceFromList(DeviceAddress);
+        Inc(RemovedCount);
       end;
+
+      Dec(I);
     end;
 
-    if not Found then
+    if RemovedCount > 0 then
     begin
-      // Device was unpaired from Windows - remove it
-      DeviceToRemove := FDeviceList[I];
-      LogInfo('SyncPairedDeviceList: Device $%.12X ("%s") was unpaired externally, removing from list',
-        [DeviceAddress, DeviceToRemove.Name], ClassName);
-
-      // Disconnect if connected
-      if DeviceToRemove.IsConnected then
-      begin
-        LogInfo('SyncPairedDeviceList: Disconnecting device before removal', ClassName);
-        FBluetoothService.Disconnect(DeviceToRemove);
-      end;
-
-      RemoveDeviceFromList(DeviceAddress);
-      Inc(RemovedCount);
-    end;
-
-    Dec(I);
+      LogInfo('SyncPairedDeviceList: Removed %d unpaired device(s)', [RemovedCount], ClassName);
+      RefreshDisplayItems;
+      FStatusView.ShowStatus(Format('%d device(s) removed (unpaired from Windows)', [RemovedCount]));
+    end
+    else
+      LogDebug('SyncPairedDeviceList: No changes detected', ClassName);
+  finally
+    PairedAddressSet.Free;
   end;
-
-  if RemovedCount > 0 then
-  begin
-    LogInfo('SyncPairedDeviceList: Removed %d unpaired device(s)', [RemovedCount], ClassName);
-    RefreshDisplayItems;
-    FStatusView.ShowStatus(Format('%d device(s) removed (unpaired from Windows)', [RemovedCount]));
-  end
-  else
-    LogDebug('SyncPairedDeviceList: No changes detected', ClassName);
 end;
 
 procedure TMainPresenter.ScheduleNextPairingSync;
