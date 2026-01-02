@@ -94,9 +94,26 @@ type
     procedure ConnectDeviceAsync(const ADevice: TBluetoothDeviceInfo);
     procedure ToggleConnectionAsync(const ADevice: TBluetoothDeviceInfo);
     procedure SetRadioStateAsync(AEnable: Boolean);
+
+    /// <summary>
+    /// Initiates asynchronous pairing with a Bluetooth device.
+    /// Uses strategy pattern via FPairingService to support different pairing methods.
+    /// Displays Windows pairing dialog and provides progress feedback via status view.
+    /// On completion, calls HandlePairingResult on main thread.
+    /// </summary>
+    /// <param name="ADevice">Device to pair with.</param>
     procedure PairDeviceAsync(const ADevice: TBluetoothDeviceInfo);
+
     procedure HandlePairingResult(const ADevice: TBluetoothDeviceInfo; const AResult: TPairingResult);
+
+    /// <summary>
+    /// Synchronizes paired device list with Windows Bluetooth state.
+    /// Removes devices from FDeviceList that were unpaired externally via Windows Settings.
+    /// Runs periodically based on PairingStateSyncInterval config.
+    /// Optimized with O(1) dictionary lookup instead of linear search.
+    /// </summary>
     procedure SyncPairedDeviceList;
+
     procedure ScheduleNextPairingSync;
     procedure RemoveDeviceFromList(ADeviceAddress: UInt64);
 
