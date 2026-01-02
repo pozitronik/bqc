@@ -48,6 +48,12 @@ type
     procedure RegisterDevice_ExistingDevice_UpdatesLastSeen;
     [Test]
     procedure RegisterDevice_ExistingDevice_UpdatesName;
+    [Test]
+    procedure RegisterDevice_GenericName_KeepsCachedName;
+    [Test]
+    procedure RegisterDevice_GenericName_UpdatesIfNoCache;
+    [Test]
+    procedure RegisterDevice_GoodName_OverwritesGenericCache;
 
     // GetAllAddresses tests
     [Test]
@@ -188,6 +194,48 @@ begin
 
   Config := FRepository.GetConfig($AABBCCDDEEFF);
   Assert.AreEqual('New Name', Config.Name);
+end;
+
+procedure TDeviceConfigRepositoryTests.RegisterDevice_GenericName_KeepsCachedName;
+var
+  Config: TDeviceConfig;
+begin
+  // Register device with good name first
+  FRepository.RegisterDevice($88C9E8A166B4, 'WH-1000XM4', Now);
+
+  // Try to update with generic Windows name (what Windows returns for offline devices)
+  FRepository.RegisterDevice($88C9E8A166B4, 'Bluetooth 88:c9:e8:a1:66:b4', Now);
+
+  // Should keep the good cached name, not overwrite with generic
+  Config := FRepository.GetConfig($88C9E8A166B4);
+  Assert.AreEqual('WH-1000XM4', Config.Name, 'Should preserve good cached name when Windows provides generic name');
+end;
+
+procedure TDeviceConfigRepositoryTests.RegisterDevice_GenericName_UpdatesIfNoCache;
+var
+  Config: TDeviceConfig;
+begin
+  // Register new device with generic name (no previous cache)
+  FRepository.RegisterDevice($AABBCCDDEEFF, 'Bluetooth aa:bb:cc:dd:ee:ff', Now);
+
+  // Should accept generic name when there's no better alternative
+  Config := FRepository.GetConfig($AABBCCDDEEFF);
+  Assert.AreEqual('Bluetooth aa:bb:cc:dd:ee:ff', Config.Name, 'Should accept generic name for new device with no cache');
+end;
+
+procedure TDeviceConfigRepositoryTests.RegisterDevice_GoodName_OverwritesGenericCache;
+var
+  Config: TDeviceConfig;
+begin
+  // Register device with generic name first
+  FRepository.RegisterDevice($AABBCCDDEEFF, 'Bluetooth aa:bb:cc:dd:ee:ff', Now);
+
+  // Update with good name from Windows when device comes online
+  FRepository.RegisterDevice($AABBCCDDEEFF, 'Sony WH-1000XM4', Now);
+
+  // Should replace generic name with good name
+  Config := FRepository.GetConfig($AABBCCDDEEFF);
+  Assert.AreEqual('Sony WH-1000XM4', Config.Name, 'Should replace generic cached name when Windows provides good name');
 end;
 
 procedure TDeviceConfigRepositoryTests.GetAllAddresses_Empty_ReturnsEmpty;

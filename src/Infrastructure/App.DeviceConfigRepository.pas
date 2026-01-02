@@ -37,6 +37,11 @@ type
   private
     FDevices: TDictionary<UInt64, TDeviceConfig>;
     FModified: Boolean;
+    /// <summary>
+    /// Checks if a name is a generic Windows format ("Bluetooth XX:XX:XX:XX:XX:XX").
+    /// Windows returns this when friendly name cache is missing for offline devices.
+    /// </summary>
+    function IsGenericWindowsName(const AName: string): Boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -133,6 +138,41 @@ begin
   end;
 end;
 
+function TDeviceConfigRepository.IsGenericWindowsName(const AName: string): Boolean;
+const
+  BLUETOOTH_PREFIX = 'Bluetooth ';
+  MAC_LENGTH = 17; // XX:XX:XX:XX:XX:XX
+var
+  I: Integer;
+  MacPart: string;
+begin
+  // Check if name starts with "Bluetooth " prefix
+  if not AName.StartsWith(BLUETOOTH_PREFIX, True) then
+    Exit(False);
+
+  // Extract the MAC address part after "Bluetooth "
+  MacPart := Copy(AName, Length(BLUETOOTH_PREFIX) + 1, MaxInt);
+
+  // Verify MAC address format: exactly 17 characters (XX:XX:XX:XX:XX:XX)
+  if Length(MacPart) <> MAC_LENGTH then
+    Exit(False);
+
+  // Verify pattern: hex:hex:hex:hex:hex:hex
+  for I := 1 to MAC_LENGTH do
+  begin
+    case I mod 3 of
+      1, 2: // Hex digit positions (1,2,4,5,7,8,10,11,13,14,16,17)
+        if not CharInSet(MacPart[I], ['0'..'9', 'A'..'F', 'a'..'f']) then
+          Exit(False);
+      0: // Colon positions (3,6,9,12,15)
+        if MacPart[I] <> ':' then
+          Exit(False);
+    end;
+  end;
+
+  Result := True;
+end;
+
 procedure TDeviceConfigRepository.RegisterDevice(AAddress: UInt64;
   const AName: string; ALastSeen: TDateTime);
 var
@@ -159,12 +199,24 @@ begin
   begin
     // Update existing device
     // Only update Name if non-empty and different
+    // Skip update if new name is generic Windows format but we have a better cached name
     // Only update LastSeen if new value is greater (more recent) AND valid (> 0)
     if (AName <> '') and (DeviceConfig.Name <> AName) then
     begin
-      DeviceConfig.Name := AName;
-      FDevices[AAddress] := DeviceConfig;
-      FModified := True;
+      // Don't overwrite good cached name with generic Windows name
+      if IsGenericWindowsName(AName) and (DeviceConfig.Name <> '') and not IsGenericWindowsName(DeviceConfig.Name) then
+      begin
+        LogDebug('RegisterDevice: Skipping generic name "%s" for device $%.12X, keeping cached name "%s"',
+          [AName, AAddress, DeviceConfig.Name], ClassName);
+      end
+      else
+      begin
+        DeviceConfig.Name := AName;
+        FDevices[AAddress] := DeviceConfig;
+        FModified := True;
+        LogDebug('RegisterDevice: Updated name for device $%.12X: "%s" -> "%s"',
+          [AAddress, DeviceConfig.Name, AName], ClassName);
+      end;
     end;
 
     if (ALastSeen > 0) and (ALastSeen > DeviceConfig.LastSeen) then
