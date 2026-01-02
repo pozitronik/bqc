@@ -34,6 +34,17 @@ const
   BLUETOOTH_SERVICE_DISABLE = $0000;
 
   // -------------------------------------------------------------------------
+  // Windows Error Codes (Bluetooth-related)
+  // -------------------------------------------------------------------------
+
+  /// <summary>
+  /// Device not found or not in pairing mode.
+  /// Returned by BluetoothAuthenticateDevice when device is not responding
+  /// to pairing requests (may be discoverable but not actively pairable).
+  /// </summary>
+  ERROR_DEVICE_NOT_FOUND = 170;
+
+  // -------------------------------------------------------------------------
   // WM_DEVICECHANGE Constants
   // -------------------------------------------------------------------------
 

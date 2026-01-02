@@ -216,6 +216,8 @@ begin
       Result := 'Pairing not supported';
     ERROR_ACCESS_DENIED:
       Result := 'Access denied - check Bluetooth permissions';
+    ERROR_DEVICE_NOT_FOUND:
+      Result := 'Device not found or not in pairing mode. Ensure device is in pairing mode and in range';
   else
     Result := Format('Pairing failed (error code %d)', [AErrorCode]);
   end;
@@ -241,10 +243,14 @@ begin
 
   if ErrorCode <> ERROR_SUCCESS then
   begin
-    LogError('Pair: BluetoothGetDeviceInfo failed with error %d', [ErrorCode], ClassName);
+    LogError('Pair: BluetoothGetDeviceInfo failed with error %d - device may not be discoverable or in range',
+      [ErrorCode], ClassName);
     Result := TPairingResult.Failed(ErrorCode, GetErrorMessage(ErrorCode));
     Exit;
   end;
+
+  LogDebug('Pair: Device state - Connected=%d, Remembered=%d, Authenticated=%d',
+    [Ord(DeviceInfo.fConnected), Ord(DeviceInfo.fRemembered), Ord(DeviceInfo.fAuthenticated)], ClassName);
 
   // Check if already paired
   if DeviceInfo.fRemembered then
@@ -284,9 +290,16 @@ begin
         Result := TPairingResult.Timeout;
       end;
 
+    ERROR_DEVICE_NOT_FOUND:
+      begin
+        LogError('Pair: Device not found or not in pairing mode (error %d). ' +
+          'Device must be in pairing mode, not just discoverable.', [ERROR_DEVICE_NOT_FOUND], ClassName);
+        Result := TPairingResult.Failed(ErrorCode, GetErrorMessage(ErrorCode));
+      end;
+
   else
     begin
-      LogError('Pair: Pairing failed with error %d', [ErrorCode], ClassName);
+      LogError('Pair: Pairing failed with error %d (%s)', [ErrorCode, GetErrorMessage(ErrorCode)], ClassName);
       Result := TPairingResult.Failed(ErrorCode, GetErrorMessage(ErrorCode));
     end;
   end;
