@@ -1401,19 +1401,9 @@ end;
 procedure TMainPresenter.OnDeviceClicked(const ADevice: TBluetoothDeviceInfo);
 var
   CurrentDevice: TBluetoothDeviceInfo;
-  I: Integer;
 begin
-  LogInfo('=== OnDeviceClicked START ===', ClassName);
-  LogInfo('OnDeviceClicked: UI passed device: Name="%s", Address=$%.12X, UIState=%d (%s)',
-    [ADevice.Name, ADevice.AddressInt, Ord(ADevice.ConnectionState),
-     GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(ADevice.ConnectionState))], ClassName);
-
-  // Dump all devices in FDeviceList for debugging
-  LogDebug('OnDeviceClicked: FDeviceList count=%d', [FDeviceList.Count], ClassName);
-  for I := 0 to FDeviceList.Count - 1 do
-    LogDebug('  FDeviceList[%d]: Address=$%.12X, Name="%s", State=%d (%s)',
-      [I, FDeviceList[I].AddressInt, FDeviceList[I].Name, Ord(FDeviceList[I].ConnectionState),
-       GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(FDeviceList[I].ConnectionState))], ClassName);
+  LogInfo('OnDeviceClicked: Device clicked - Name="%s", Address=$%.12X',
+    [ADevice.Name, ADevice.AddressInt], ClassName);
 
   // Look up current state from internal cache, not stale UI copy
   CurrentDevice := FindDeviceByAddress(ADevice.AddressInt);
@@ -1422,7 +1412,6 @@ begin
   begin
     // Device not in paired list - it's an unpaired discovered device
     LogInfo('OnDeviceClicked: Unpaired discovered device (Address=$%.12X), initiating pairing', [ADevice.AddressInt], ClassName);
-    LogInfo('OnDeviceClicked: Calling PairDeviceAsync. === END ===', ClassName);
     PairDeviceAsync(ADevice);
     Exit;
   end;
@@ -1434,7 +1423,7 @@ begin
 
   if CurrentDevice.ConnectionState in [csConnecting, csDisconnecting] then
   begin
-    LogInfo('OnDeviceClicked: Operation in progress, ignoring. === END ===', ClassName);
+    LogInfo('OnDeviceClicked: Operation in progress, ignoring', ClassName);
     FStatusView.ShowStatus('Operation in progress...');
     Exit;
   end;
@@ -1453,7 +1442,6 @@ begin
   // Menu stays open - user can see connection progress and click more devices
   // Menu will close on focus loss or explicit hotkey/close
 
-  LogInfo('OnDeviceClicked: Calling ToggleConnectionAsync. === END ===', ClassName);
   ToggleConnectionAsync(CurrentDevice);
 end;
 
@@ -1533,35 +1521,6 @@ procedure TMainPresenter.OnExitRequested;
 begin
   LogInfo('OnExitRequested', ClassName);
   FVisibilityView.ForceClose;
-end;
-
-procedure TMainPresenter.PairDevice(AAddress: UInt64);
-var
-  DeviceInfo: BLUETOOTH_DEVICE_INFO;
-  Result: DWORD;
-begin
-  LogInfo('PairDevice: Initiating pairing for device $%.12X', [AAddress], ClassName);
-
-  // Initialize device info structure
-  InitDeviceInfo(DeviceInfo);
-  DeviceInfo.Address.ullLong := AAddress;
-
-  // Call Windows pairing API
-  // hwndParent=0: use default parent window
-  // hRadio=0: use default radio
-  // pszPasskey=nil, ulPasskeyLength=0: use SSP (Secure Simple Pairing)
-  Result := BluetoothAuthenticateDevice(0, 0, @DeviceInfo, nil, 0);
-
-  if Result = ERROR_SUCCESS then
-  begin
-    LogInfo('PairDevice: Successfully paired device $%.12X', [AAddress], ClassName);
-    // Device will be automatically added to paired list via OnDeviceListChanged
-  end
-  else
-  begin
-    LogError('PairDevice: Failed to pair device $%.12X. Error code: %d',
-      [AAddress, Result], ClassName);
-  end;
 end;
 
 procedure TMainPresenter.OnSettingsChanged;
