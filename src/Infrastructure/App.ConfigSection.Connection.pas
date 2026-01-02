@@ -29,6 +29,7 @@ type
     FEnumerationMode: TEnumerationMode;
     FBluetoothPlatform: TBluetoothPlatform;
     FAutoScanOnStartup: Boolean;
+    FPairingStateSyncInterval: Integer;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -37,12 +38,14 @@ type
     function GetEnumerationMode: TEnumerationMode;
     function GetBluetoothPlatform: TBluetoothPlatform;
     function GetAutoScanOnStartup: Boolean;
+    function GetPairingStateSyncInterval: Integer;
 
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
     procedure SetEnumerationMode(AValue: TEnumerationMode);
     procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
     procedure SetAutoScanOnStartup(AValue: Boolean);
+    procedure SetPairingStateSyncInterval(AValue: Integer);
 
     procedure SetDefaults;
 
@@ -51,6 +54,7 @@ type
     property EnumerationMode: TEnumerationMode read FEnumerationMode write SetEnumerationMode;
     property BluetoothPlatform: TBluetoothPlatform read FBluetoothPlatform write SetBluetoothPlatform;
     property AutoScanOnStartup: Boolean read FAutoScanOnStartup write SetAutoScanOnStartup;
+    property PairingStateSyncInterval: Integer read FPairingStateSyncInterval write SetPairingStateSyncInterval;
   end;
 
 implementation
@@ -73,6 +77,7 @@ begin
   FEnumerationMode := emComposite;
   FBluetoothPlatform := bpAuto;  // Auto-detect by default
   FAutoScanOnStartup := False;    // Don't scan on startup by default
+  FPairingStateSyncInterval := 30000;  // 30 seconds default, 0 = disabled
 end;
 
 function TConnectionConfigSection.GetConnectionTimeout: Integer;
@@ -133,6 +138,25 @@ begin
   if FAutoScanOnStartup <> AValue then
   begin
     FAutoScanOnStartup := AValue;
+    NotifyModified;
+  end;
+end;
+
+function TConnectionConfigSection.GetPairingStateSyncInterval: Integer;
+begin
+  Result := FPairingStateSyncInterval;
+end;
+
+procedure TConnectionConfigSection.SetPairingStateSyncInterval(AValue: Integer);
+begin
+  // Validate range: 0 (disabled) to 300000ms (5 minutes)
+  if (AValue < 0) or (AValue > 300000) then
+    raise EArgumentOutOfRangeException.CreateFmt(
+      'PairingStateSyncInterval must be between 0 and 300000ms, got %d', [AValue]);
+
+  if FPairingStateSyncInterval <> AValue then
+  begin
+    FPairingStateSyncInterval := AValue;
     NotifyModified;
   end;
 end;

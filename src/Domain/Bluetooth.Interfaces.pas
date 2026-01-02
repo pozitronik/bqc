@@ -55,6 +55,12 @@ type
   ) of object;
 
   /// <summary>
+  /// Callback for pairing progress updates.
+  /// Invoked during pairing to provide user feedback.
+  /// </summary>
+  TPairingProgressCallback = reference to procedure(const AMessage: string);
+
+  /// <summary>
   /// Interface for querying Bluetooth adapter availability.
   /// Single Responsibility: Only checks adapter presence.
   /// </summary>
@@ -122,6 +128,44 @@ type
     /// <param name="ADevice">The device to toggle.</param>
     /// <returns>True if operation was successful.</returns>
     function ToggleConnection(const ADevice: TBluetoothDeviceInfo): Boolean;
+  end;
+
+  /// <summary>
+  /// Service for managing Bluetooth device pairing operations.
+  /// Provides pairing, unpairing, and pairing state queries using strategy pattern.
+  /// </summary>
+  IBluetoothPairingService = interface
+    ['{A1B2C3D4-1111-1111-1111-000000000010}']
+
+    /// <summary>
+    /// Pairs a Bluetooth device using the appropriate strategy.
+    /// </summary>
+    /// <param name="ADevice">The device to pair with.</param>
+    /// <param name="AProgressCallback">Optional callback for progress updates.</param>
+    /// <returns>Result indicating success or failure with details.</returns>
+    function PairDevice(const ADevice: TBluetoothDeviceInfo;
+                        AProgressCallback: TPairingProgressCallback): TPairingResult;
+
+    /// <summary>
+    /// Unpairs (removes) a Bluetooth device.
+    /// </summary>
+    /// <param name="ADeviceAddress">The device address to unpair.</param>
+    /// <returns>Result indicating success or failure with details.</returns>
+    function UnpairDevice(ADeviceAddress: UInt64): TPairingResult;
+
+    /// <summary>
+    /// Checks if a device is currently paired (queries Windows directly).
+    /// </summary>
+    /// <param name="ADeviceAddress">The device address to check.</param>
+    /// <returns>True if device is paired, False otherwise.</returns>
+    function IsDevicePaired(ADeviceAddress: UInt64): Boolean;
+
+    /// <summary>
+    /// Gets addresses of all currently paired devices from Windows.
+    /// Used for periodic synchronization to detect externally unpaired devices.
+    /// </summary>
+    /// <returns>Array of paired device addresses.</returns>
+    function GetPairedDeviceAddresses: TArray<UInt64>;
   end;
 
   /// <summary>

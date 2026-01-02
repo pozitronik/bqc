@@ -138,6 +138,8 @@
         <DCCReference Include="src\Domain\Bluetooth.Types.pas"/>
         <DCCReference Include="src\Domain\Bluetooth.Interfaces.pas"/>
         <DCCReference Include="src\Application\Bluetooth.ConnectionStrategies.pas"/>
+        <DCCReference Include="src\Application\Bluetooth.PairingStrategies.pas"/>
+        <DCCReference Include="src\Application\Bluetooth.PairingService.pas"/>
         <DCCReference Include="src\Application\Bluetooth.EventDebouncer.pas"/>
         <DCCReference Include="src\Application\Bluetooth.Service.pas"/>
         <DCCReference Include="src\Application\App.MainViewInterfaces.pas"/>

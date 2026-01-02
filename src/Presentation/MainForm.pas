@@ -737,6 +737,7 @@ begin
     FRadioStateManager,
     CreateAsyncExecutor,
     BluetoothService,
+    Bootstrap.PairingService,
     DisplayItemBuilder
   );
   FPresenter.Initialize;

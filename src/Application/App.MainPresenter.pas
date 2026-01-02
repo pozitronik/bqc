@@ -49,6 +49,7 @@ type
     FVisibilityView: IVisibilityView;
 
     FBluetoothService: IBluetoothService;
+    FPairingService: IBluetoothPairingService;
 
     { Injected configuration dependencies }
     FAppConfig: IAppConfig;
@@ -93,6 +94,11 @@ type
     procedure ConnectDeviceAsync(const ADevice: TBluetoothDeviceInfo);
     procedure ToggleConnectionAsync(const ADevice: TBluetoothDeviceInfo);
     procedure SetRadioStateAsync(AEnable: Boolean);
+    procedure PairDeviceAsync(const ADevice: TBluetoothDeviceInfo);
+    procedure HandlePairingResult(const ADevice: TBluetoothDeviceInfo; const AResult: TPairingResult);
+    procedure SyncPairedDeviceList;
+    procedure ScheduleNextPairingSync;
+    procedure RemoveDeviceFromList(ADeviceAddress: UInt64);
 
     function GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
     procedure ShowDeviceNotification(const ADevice: TBluetoothDeviceInfo);
@@ -175,6 +181,7 @@ type
     /// <param name="ARadioStateManager">Bluetooth radio state manager.</param>
     /// <param name="AAsyncExecutor">Async executor for background operations.</param>
     /// <param name="ABluetoothService">Bluetooth service for device operations.</param>
+    /// <param name="APairingService">Bluetooth pairing service for pairing operations.</param>
     /// <param name="ADisplayItemBuilder">Builder for creating display items from devices.</param>
     constructor Create(
       ADeviceListView: IDeviceListView;
@@ -191,6 +198,7 @@ type
       ARadioStateManager: IRadioStateManager;
       AAsyncExecutor: IAsyncExecutor;
       ABluetoothService: IBluetoothService;
+      APairingService: IBluetoothPairingService;
       ADisplayItemBuilder: IDeviceDisplayItemBuilder
     );
 
@@ -315,6 +323,7 @@ constructor TMainPresenter.Create(
   ARadioStateManager: IRadioStateManager;
   AAsyncExecutor: IAsyncExecutor;
   ABluetoothService: IBluetoothService;
+  APairingService: IBluetoothPairingService;
   ADisplayItemBuilder: IDeviceDisplayItemBuilder
 );
 begin
@@ -337,6 +346,7 @@ begin
   FRadioStateManager := ARadioStateManager;
   FAsyncExecutor := AAsyncExecutor;
   FBluetoothService := ABluetoothService;
+  FPairingService := APairingService;
   FDisplayItemBuilder := ADisplayItemBuilder;
   FBatteryCache := nil;
   FDeviceList := TList<TBluetoothDeviceInfo>.Create;
@@ -426,6 +436,18 @@ begin
     FToggleView.SetToggleEnabled(False);
     FStatusView.ShowStatus('No Bluetooth adapter found');
   end;
+
+  // Setup periodic sync for pairing state (detects devices unpaired from Windows)
+  if FConnectionConfig.PairingStateSyncInterval > 0 then
+  begin
+    LogInfo('Initialize: Setting up periodic pairing state sync (interval=%d ms)',
+      [FConnectionConfig.PairingStateSyncInterval], ClassName);
+
+    // Schedule periodic sync using delayed execution
+    ScheduleNextPairingSync;
+  end
+  else
+    LogDebug('Initialize: Periodic pairing sync disabled (interval=0)', ClassName);
 
   LogDebug('Initialize: Complete', ClassName);
 end;
@@ -669,6 +691,251 @@ begin
       );
     end
   );
+end;
+
+procedure TMainPresenter.PairDeviceAsync(const ADevice: TBluetoothDeviceInfo);
+var
+  LDevice: TBluetoothDeviceInfo;
+  LPairingService: IBluetoothPairingService;
+  LStatusView: IStatusView;
+  DeviceName: string;
+begin
+  DeviceName := GetDeviceDisplayName(ADevice);
+  LDevice := ADevice;
+  LPairingService := FPairingService;
+  LStatusView := FStatusView;
+
+  LogInfo('PairDeviceAsync: Initiating pairing for device %s ($%.12X)', [DeviceName, ADevice.AddressInt], ClassName);
+  FStatusView.ShowStatus(Format('Pairing with %s...', [DeviceName]));
+
+  FAsyncExecutor.RunAsync(
+    procedure
+    var
+      PairingResult: TPairingResult;
+      ProgressCallback: TPairingProgressCallback;
+    begin
+      // Progress callback to update UI during pairing
+      ProgressCallback := procedure(const AMessage: string)
+      begin
+        QueueIfNotShutdown(
+          procedure
+          begin
+            LStatusView.ShowStatus(AMessage);
+          end
+        );
+      end;
+
+      LogDebug('PairDeviceAsync: Calling PairDevice', ClassName);
+      PairingResult := LPairingService.PairDevice(LDevice, ProgressCallback);
+      LogInfo('PairDeviceAsync: Pairing complete, Status=%d (%s)',
+        [Ord(PairingResult.Status), PairingResult.ErrorMessage], ClassName);
+
+      // Handle result on main thread
+      QueueIfNotShutdown(
+        procedure
+        begin
+          HandlePairingResult(LDevice, PairingResult);
+        end
+      );
+    end
+  );
+end;
+
+procedure TMainPresenter.HandlePairingResult(const ADevice: TBluetoothDeviceInfo;
+  const AResult: TPairingResult);
+var
+  DeviceName: string;
+begin
+  DeviceName := GetDeviceDisplayName(ADevice);
+
+  case AResult.Status of
+    prsSuccess:
+      begin
+        LogInfo('HandlePairingResult: Success - refreshing device list and auto-connecting', ClassName);
+        FStatusView.ShowStatus(Format('Paired with %s successfully', [DeviceName]));
+
+        // Refresh device repository to get newly paired device
+        FBluetoothService.RefreshAllDevices;
+
+        // Auto-connect after successful pairing
+        FAsyncExecutor.RunAsync(
+          procedure
+          var
+            RefreshedDevice: TBluetoothDeviceInfo;
+          begin
+            // Small delay to ensure repository is updated
+            Sleep(500);
+
+            QueueIfNotShutdown(
+              procedure
+              begin
+                // Find the newly paired device in the updated list
+                RefreshedDevice := FindDeviceByAddress(ADevice.AddressInt);
+                if RefreshedDevice.AddressInt <> 0 then
+                begin
+                  LogInfo('HandlePairingResult: Auto-connecting to newly paired device', ClassName);
+                  FStatusView.ShowStatus(Format('Connecting %s...', [DeviceName]));
+                  ToggleConnectionAsync(RefreshedDevice);
+                end
+                else
+                  LogWarning('HandlePairingResult: Device not found after pairing', ClassName);
+              end
+            );
+          end
+        );
+      end;
+
+    prsCancelled:
+      begin
+        LogInfo('HandlePairingResult: User cancelled pairing', ClassName);
+        FStatusView.ShowStatus(Format('Pairing cancelled', []));
+      end;
+
+    prsAlreadyPaired:
+      begin
+        LogInfo('HandlePairingResult: Device already paired - refreshing list', ClassName);
+        FStatusView.ShowStatus(Format('%s is already paired', [DeviceName]));
+        FBluetoothService.RefreshAllDevices;
+      end;
+
+    prsTimeout:
+      begin
+        LogWarning('HandlePairingResult: Pairing timed out', ClassName);
+        FStatusView.ShowStatus(Format('Pairing timed out', []));
+      end;
+
+    prsNotSupported:
+      begin
+        LogError('HandlePairingResult: Pairing not supported - %s', [AResult.ErrorMessage], ClassName);
+        FStatusView.ShowStatus(AResult.ErrorMessage);
+      end;
+
+    prsFailed:
+      begin
+        LogError('HandlePairingResult: Pairing failed - %s (code %d)',
+          [AResult.ErrorMessage, AResult.ErrorCode], ClassName);
+        FStatusView.ShowStatus(Format('Pairing failed: %s', [AResult.ErrorMessage]));
+      end;
+  end;
+end;
+
+procedure TMainPresenter.SyncPairedDeviceList;
+var
+  PairedAddresses: TArray<UInt64>;
+  DeviceAddress: UInt64;
+  PairedAddr: UInt64;
+  I: Integer;
+  Found: Boolean;
+  RemovedCount: Integer;
+  DeviceToRemove: TBluetoothDeviceInfo;
+begin
+  if FIsShutdown then
+    Exit;
+
+  LogDebug('SyncPairedDeviceList: Starting periodic sync', ClassName);
+
+  // Get current paired device addresses from Windows
+  PairedAddresses := FPairingService.GetPairedDeviceAddresses;
+
+  RemovedCount := 0;
+
+  // Check each device in our list against Windows paired devices
+  I := FDeviceList.Count - 1;
+  while I >= 0 do
+  begin
+    DeviceAddress := FDeviceList[I].AddressInt;
+
+    // Check if device is still paired in Windows
+    Found := False;
+    for PairedAddr in PairedAddresses do
+    begin
+      if PairedAddr = DeviceAddress then
+      begin
+        Found := True;
+        Break;
+      end;
+    end;
+
+    if not Found then
+    begin
+      // Device was unpaired from Windows - remove it
+      DeviceToRemove := FDeviceList[I];
+      LogInfo('SyncPairedDeviceList: Device $%.12X ("%s") was unpaired externally, removing from list',
+        [DeviceAddress, DeviceToRemove.Name], ClassName);
+
+      // Disconnect if connected
+      if DeviceToRemove.IsConnected then
+      begin
+        LogInfo('SyncPairedDeviceList: Disconnecting device before removal', ClassName);
+        FBluetoothService.Disconnect(DeviceToRemove);
+      end;
+
+      RemoveDeviceFromList(DeviceAddress);
+      Inc(RemovedCount);
+    end;
+
+    Dec(I);
+  end;
+
+  if RemovedCount > 0 then
+  begin
+    LogInfo('SyncPairedDeviceList: Removed %d unpaired device(s)', [RemovedCount], ClassName);
+    RefreshDisplayItems;
+    FStatusView.ShowStatus(Format('%d device(s) removed (unpaired from Windows)', [RemovedCount]));
+  end
+  else
+    LogDebug('SyncPairedDeviceList: No changes detected', ClassName);
+end;
+
+procedure TMainPresenter.ScheduleNextPairingSync;
+var
+  SyncInterval: Integer;
+begin
+  SyncInterval := FConnectionConfig.PairingStateSyncInterval;
+
+  if (SyncInterval > 0) and not FIsShutdown then
+  begin
+    FAsyncExecutor.RunDelayed(
+      procedure
+      begin
+        QueueIfNotShutdown(
+          procedure
+          begin
+            SyncPairedDeviceList;
+            ScheduleNextPairingSync;  // Reschedule for next interval
+          end
+        );
+      end,
+      SyncInterval
+    );
+  end;
+end;
+
+procedure TMainPresenter.RemoveDeviceFromList(ADeviceAddress: UInt64);
+var
+  Index: Integer;
+  I: Integer;
+begin
+  if FDeviceIndexMap.TryGetValue(ADeviceAddress, Index) then
+  begin
+    LogDebug('RemoveDeviceFromList: Removing device at index %d (Address=$%.12X)',
+      [Index, ADeviceAddress], ClassName);
+
+    // Remove from list
+    FDeviceList.Delete(Index);
+
+    // Rebuild index map since all indices after removed item have shifted
+    FDeviceIndexMap.Clear;
+    for I := 0 to FDeviceList.Count - 1 do
+      FDeviceIndexMap.Add(FDeviceList[I].AddressInt, I);
+
+    // Invalidate cache
+    InvalidateDevicesArrayCache;
+
+    LogDebug('RemoveDeviceFromList: Device removed, list count now %d', [FDeviceList.Count], ClassName);
+  end
+  else
+    LogWarning('RemoveDeviceFromList: Device $%.12X not found in index map', [ADeviceAddress], ClassName);
 end;
 
 function TMainPresenter.GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
@@ -1150,17 +1417,20 @@ begin
 
   // Look up current state from internal cache, not stale UI copy
   CurrentDevice := FindDeviceByAddress(ADevice.AddressInt);
+
   if CurrentDevice.AddressInt = 0 then
   begin
-    // Device not in internal list - use passed device (rare case)
-    LogWarning('OnDeviceClicked: Device NOT FOUND in cache (Address=$%.12X), using UI state', [ADevice.AddressInt], ClassName);
-    CurrentDevice := ADevice;
-  end
-  else
-    LogInfo('OnDeviceClicked: Found in cache: CurrentState=%d (%s), IsConnected=%s',
-      [Ord(CurrentDevice.ConnectionState),
-       GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(CurrentDevice.ConnectionState)),
-       BoolToStr(CurrentDevice.IsConnected, True)], ClassName);
+    // Device not in paired list - it's an unpaired discovered device
+    LogInfo('OnDeviceClicked: Unpaired discovered device (Address=$%.12X), initiating pairing', [ADevice.AddressInt], ClassName);
+    LogInfo('OnDeviceClicked: Calling PairDeviceAsync. === END ===', ClassName);
+    PairDeviceAsync(ADevice);
+    Exit;
+  end;
+
+  LogInfo('OnDeviceClicked: Found in cache: CurrentState=%d (%s), IsConnected=%s',
+    [Ord(CurrentDevice.ConnectionState),
+     GetEnumName(TypeInfo(TBluetoothConnectionState), Ord(CurrentDevice.ConnectionState)),
+     BoolToStr(CurrentDevice.IsConnected, True)], ClassName);
 
   if CurrentDevice.ConnectionState in [csConnecting, csDisconnecting] then
   begin

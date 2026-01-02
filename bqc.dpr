@@ -10,6 +10,8 @@ uses
   Bluetooth.Types in 'src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in 'src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in 'src\Application\Bluetooth.ConnectionStrategies.pas',
+  Bluetooth.PairingStrategies in 'src\Application\Bluetooth.PairingStrategies.pas',
+  Bluetooth.PairingService in 'src\Application\Bluetooth.PairingService.pas',
   Bluetooth.EventDebouncer in 'src\Application\Bluetooth.EventDebouncer.pas',
   Bluetooth.Service in 'src\Application\Bluetooth.Service.pas',
   App.MainViewInterfaces in 'src\Application\App.MainViewInterfaces.pas',

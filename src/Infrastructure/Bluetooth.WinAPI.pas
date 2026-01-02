@@ -707,6 +707,16 @@ function BluetoothAuthenticateDevice(
   ulPasskeyLength: ULONG
 ): DWORD; stdcall; external BLUETOOTH_API_LIB;
 
+/// <summary>
+/// Removes pairing from a Bluetooth device.
+/// Deletes the device from the system's paired device list.
+/// </summary>
+/// <param name="pAddress">Pointer to the device's Bluetooth address.</param>
+/// <returns>ERROR_SUCCESS on success, error code otherwise.</returns>
+function BluetoothRemoveDevice(
+  const pAddress: PBLUETOOTH_ADDRESS
+): DWORD; stdcall; external BLUETOOTH_API_LIB name 'BluetoothRemoveDevice';
+
 // =============================================================================
 // Device Notification Functions (user32.dll)
 // =============================================================================

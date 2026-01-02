@@ -78,6 +78,24 @@ type
   );
 
   /// <summary>
+  /// Status of a pairing operation result.
+  /// </summary>
+  TPairingResultStatus = (
+    /// <summary>Pairing completed successfully.</summary>
+    prsSuccess,
+    /// <summary>User cancelled the pairing operation.</summary>
+    prsCancelled,
+    /// <summary>Pairing failed due to error.</summary>
+    prsFailed,
+    /// <summary>Device is already paired.</summary>
+    prsAlreadyPaired,
+    /// <summary>Pairing operation timed out.</summary>
+    prsTimeout,
+    /// <summary>Pairing not supported for this device/platform.</summary>
+    prsNotSupported
+  );
+
+  /// <summary>
   /// Event types that can be debounced.
   /// Used by IEventDebouncer to filter duplicate events.
   /// </summary>
@@ -446,6 +464,67 @@ type
   end;
 
   /// <summary>
+  /// Result of a Bluetooth pairing operation.
+  /// Encapsulates success/failure status, error codes, and messages.
+  /// </summary>
+  TPairingResult = record
+  private
+    FStatus: TPairingResultStatus;
+    FErrorCode: Cardinal;
+    FErrorMessage: string;
+  public
+    /// <summary>
+    /// Creates a successful pairing result.
+    /// </summary>
+    class function Success: TPairingResult; static;
+
+    /// <summary>
+    /// Creates a failed pairing result with error code and message.
+    /// </summary>
+    class function Failed(AErrorCode: Cardinal; const AMessage: string): TPairingResult; static;
+
+    /// <summary>
+    /// Creates a cancelled pairing result.
+    /// </summary>
+    class function Cancelled: TPairingResult; static;
+
+    /// <summary>
+    /// Creates an already-paired result.
+    /// </summary>
+    class function AlreadyPaired: TPairingResult; static;
+
+    /// <summary>
+    /// Creates a timeout result.
+    /// </summary>
+    class function Timeout: TPairingResult; static;
+
+    /// <summary>
+    /// Creates a not-supported result.
+    /// </summary>
+    class function NotSupported(const AReason: string = ''): TPairingResult; static;
+
+    /// <summary>
+    /// Returns True if pairing was successful.
+    /// </summary>
+    function IsSuccess: Boolean;
+
+    /// <summary>
+    /// The status of the pairing operation.
+    /// </summary>
+    property Status: TPairingResultStatus read FStatus;
+
+    /// <summary>
+    /// Windows error code if pairing failed, 0 otherwise.
+    /// </summary>
+    property ErrorCode: Cardinal read FErrorCode;
+
+    /// <summary>
+    /// Human-readable error message or status description.
+    /// </summary>
+    property ErrorMessage: string read FErrorMessage;
+  end;
+
+  /// <summary>
   /// Exception raised for Bluetooth-related errors.
   /// </summary>
   EBluetoothException = class(Exception)
@@ -751,6 +830,58 @@ end;
 function TBatteryStatus.IsPending: Boolean;
 begin
   Result := FIsSupported and (FLevel = -2);
+end;
+
+{ TPairingResult }
+
+class function TPairingResult.Success: TPairingResult;
+begin
+  Result.FStatus := prsSuccess;
+  Result.FErrorCode := 0;
+  Result.FErrorMessage := 'Pairing completed successfully';
+end;
+
+class function TPairingResult.Failed(AErrorCode: Cardinal; const AMessage: string): TPairingResult;
+begin
+  Result.FStatus := prsFailed;
+  Result.FErrorCode := AErrorCode;
+  Result.FErrorMessage := AMessage;
+end;
+
+class function TPairingResult.Cancelled: TPairingResult;
+begin
+  Result.FStatus := prsCancelled;
+  Result.FErrorCode := 0;
+  Result.FErrorMessage := 'Pairing cancelled by user';
+end;
+
+class function TPairingResult.AlreadyPaired: TPairingResult;
+begin
+  Result.FStatus := prsAlreadyPaired;
+  Result.FErrorCode := 0;
+  Result.FErrorMessage := 'Device is already paired';
+end;
+
+class function TPairingResult.Timeout: TPairingResult;
+begin
+  Result.FStatus := prsTimeout;
+  Result.FErrorCode := 0;
+  Result.FErrorMessage := 'Pairing operation timed out';
+end;
+
+class function TPairingResult.NotSupported(const AReason: string): TPairingResult;
+begin
+  Result.FStatus := prsNotSupported;
+  Result.FErrorCode := 0;
+  if AReason <> '' then
+    Result.FErrorMessage := 'Pairing not supported: ' + AReason
+  else
+    Result.FErrorMessage := 'Pairing not supported';
+end;
+
+function TPairingResult.IsSuccess: Boolean;
+begin
+  Result := FStatus = prsSuccess;
 end;
 
 { EBluetoothException }

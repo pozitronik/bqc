@@ -42,6 +42,7 @@ type
     FConfig: IAppConfig;
     FDeviceRepository: IDeviceConfigRepository;
     FStrategyFactory: IConnectionStrategyFactory;
+    FPairingService: IBluetoothPairingService;
     FRadioStateManager: IRadioStateManager;
     FAutostartManager: IAutostartManager;
     function GetConfig: IAppConfig;
@@ -86,6 +87,7 @@ type
 
     // Service factories
     function ConnectionStrategyFactory: IConnectionStrategyFactory;
+    function PairingService: IBluetoothPairingService;
 
     // Radio state management
     function RadioStateManager: IRadioStateManager;
@@ -115,7 +117,9 @@ uses
   App.SettingsRepository,
   App.DeviceConfigRepository,
   App.Logger,
-  Bluetooth.ConnectionStrategies;
+  Bluetooth.ConnectionStrategies,
+  Bluetooth.PairingStrategies,
+  Bluetooth.PairingService;
 
 function Bootstrap: TAppBootstrap;
 begin
@@ -299,6 +303,19 @@ begin
   if FStrategyFactory = nil then
     FStrategyFactory := CreateConnectionStrategyFactory;
   Result := FStrategyFactory;
+end;
+
+function TAppBootstrap.PairingService: IBluetoothPairingService;
+begin
+  if FPairingService = nil then
+  begin
+    FPairingService := TBluetoothPairingService.Create(
+      CreatePairingStrategyFactory,
+      nil,  // Repository not used by pairing service
+      ConnectionConfig
+    );
+  end;
+  Result := FPairingService;
 end;
 
 function TAppBootstrap.RadioStateManager: IRadioStateManager;
