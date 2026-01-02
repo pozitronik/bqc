@@ -881,7 +881,7 @@ end;
 
 function TPairingResult.IsSuccess: Boolean;
 begin
-  Result := FStatus = prsSuccess;
+  Result := (FStatus = prsSuccess) or (FStatus = prsAlreadyPaired);
 end;
 
 { EBluetoothException }

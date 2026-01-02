@@ -59,6 +59,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
     FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TMainPresenter;
 
@@ -191,6 +192,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
     FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TMainPresenter;
 
@@ -238,6 +240,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
     FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TTestableMainPresenter;
 
@@ -315,6 +318,7 @@ begin
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
+  FPairingService := TMockBluetoothPairingService.Create;
   FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
   FPresenter := nil;
 end;
@@ -357,6 +361,7 @@ begin
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
+    FPairingService,
     FDisplayItemBuilder
   );
 end;
@@ -429,8 +434,11 @@ procedure TMainPresenterTests.OnDeviceClicked_ConnectedDevice_ShowsDisconnecting
 var
   Device: TBluetoothDeviceInfo;
 begin
-  CreatePresenter;
   Device := CreateTestDevice($001122334455, 'Test Headphones', btAudioOutput, csConnected);
+  FBluetoothService.Devices := [Device];
+
+  CreatePresenter;
+  FPresenter.Initialize;
 
   FPresenter.OnDeviceClicked(Device);
 
@@ -441,8 +449,11 @@ procedure TMainPresenterTests.OnDeviceClicked_DisconnectedDevice_ShowsConnecting
 var
   Device: TBluetoothDeviceInfo;
 begin
-  CreatePresenter;
   Device := CreateTestDevice($001122334455, 'Test Headphones', btAudioOutput, csDisconnected);
+  FBluetoothService.Devices := [Device];
+
+  CreatePresenter;
+  FPresenter.Initialize;
 
   FPresenter.OnDeviceClicked(Device);
 
@@ -481,8 +492,11 @@ procedure TMainPresenterTests.OnDeviceClicked_ConnectingDevice_IgnoresClick;
 var
   Device: TBluetoothDeviceInfo;
 begin
-  CreatePresenter;
   Device := CreateTestDevice($001122334455, 'Test Headphones', btAudioOutput, csConnecting);
+  FBluetoothService.Devices := [Device];
+
+  CreatePresenter;
+  FPresenter.Initialize;
 
   FPresenter.OnDeviceClicked(Device);
 
@@ -494,8 +508,11 @@ procedure TMainPresenterTests.OnDeviceClicked_DisconnectingDevice_IgnoresClick;
 var
   Device: TBluetoothDeviceInfo;
 begin
-  CreatePresenter;
   Device := CreateTestDevice($001122334455, 'Test Headphones', btAudioOutput, csDisconnecting);
+  FBluetoothService.Devices := [Device];
+
+  CreatePresenter;
+  FPresenter.Initialize;
 
   FPresenter.OnDeviceClicked(Device);
 
@@ -882,6 +899,7 @@ begin
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
+    FPairingService,
     FDisplayItemBuilder
   );
 end;
@@ -1054,6 +1072,7 @@ begin
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
+  FPairingService := TMockBluetoothPairingService.Create;
   FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
   FPresenter := nil;
 end;
@@ -1080,6 +1099,7 @@ begin
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
+    FPairingService,
     FDisplayItemBuilder
   );
 end;
@@ -1228,6 +1248,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
     FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TTestableMainPresenter;
 
@@ -1264,6 +1285,7 @@ begin
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
+  FPairingService := TMockBluetoothPairingService.Create;
   FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
   FPresenter := nil;
 end;
@@ -1290,6 +1312,7 @@ begin
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
+    FPairingService,
     FDisplayItemBuilder
   );
 end;
@@ -1395,6 +1418,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
     FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TTestableMainPresenter;
 
@@ -1469,6 +1493,7 @@ begin
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
+    FPairingService,
     FDisplayItemBuilder
   );
 end;
@@ -1616,6 +1641,7 @@ type
     FRadioStateManager: TMockRadioStateManager;
     FAsyncExecutor: TMockAsyncExecutor;
     FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
     FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
     FPresenter: TTestableMainPresenter;
 
@@ -1661,6 +1687,7 @@ begin
   FRadioStateManager := TMockRadioStateManager.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
   FBluetoothService := TMockBluetoothService.Create;
+  FPairingService := TMockBluetoothPairingService.Create;
   FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
   FPresenter := nil;
 end;
@@ -1698,6 +1725,7 @@ begin
     FRadioStateManager,
     FAsyncExecutor,
     FBluetoothService,
+    FPairingService,
     FDisplayItemBuilder
   );
 end;

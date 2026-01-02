@@ -270,6 +270,7 @@ type
     FEnumerationMode: TEnumerationMode;
     FBluetoothPlatform: TBluetoothPlatform;
     FAutoScanOnStartup: Boolean;
+    FPairingStateSyncInterval: Integer;
   public
     constructor Create;
 
@@ -279,6 +280,7 @@ type
     function GetEnumerationMode: TEnumerationMode;
     function GetBluetoothPlatform: TBluetoothPlatform;
     function GetAutoScanOnStartup: Boolean;
+    function GetPairingStateSyncInterval: Integer;
 
     // IConnectionConfig - setters
     procedure SetConnectionTimeout(AValue: Integer);
@@ -286,6 +288,7 @@ type
     procedure SetEnumerationMode(AValue: TEnumerationMode);
     procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
     procedure SetAutoScanOnStartup(AValue: Boolean);
+    procedure SetPairingStateSyncInterval(AValue: Integer);
 
     // Test setup properties
     property ConnectionTimeout: Integer read FConnectionTimeout write FConnectionTimeout;
@@ -293,6 +296,7 @@ type
     property EnumerationMode: TEnumerationMode read FEnumerationMode write FEnumerationMode;
     property BluetoothPlatform: TBluetoothPlatform read FBluetoothPlatform write FBluetoothPlatform;
     property AutoScanOnStartup: Boolean read FAutoScanOnStartup write FAutoScanOnStartup;
+    property PairingStateSyncInterval: Integer read FPairingStateSyncInterval write FPairingStateSyncInterval;
   end;
 
   /// <summary>
@@ -951,6 +955,7 @@ begin
   FEnumerationMode := emComposite;
   FBluetoothPlatform := bpAuto;
   FAutoScanOnStartup := False;
+  FPairingStateSyncInterval := 30000;
 end;
 
 function TMockConnectionConfig.GetConnectionTimeout: Integer;
@@ -1001,6 +1006,16 @@ end;
 procedure TMockConnectionConfig.SetAutoScanOnStartup(AValue: Boolean);
 begin
   FAutoScanOnStartup := AValue;
+end;
+
+function TMockConnectionConfig.GetPairingStateSyncInterval: Integer;
+begin
+  Result := FPairingStateSyncInterval;
+end;
+
+procedure TMockConnectionConfig.SetPairingStateSyncInterval(AValue: Integer);
+begin
+  FPairingStateSyncInterval := AValue;
 end;
 
 { TMockGeneralConfig }

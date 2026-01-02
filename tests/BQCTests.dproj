@@ -101,6 +101,7 @@
         <DCCReference Include="Tests.Bluetooth.Types.pas"/>
         <DCCReference Include="Tests.App.Config.pas"/>
         <DCCReference Include="Tests.ConnectionStrategies.pas"/>
+        <DCCReference Include="Tests.PairingStrategies.pas"/>
         <DCCReference Include="Tests.DeviceMonitors.pas"/>
         <DCCReference Include="Tests.DeviceRepository.pas"/>
         <DCCReference Include="Tests.ConnectionExecutor.pas"/>

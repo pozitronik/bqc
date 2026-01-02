@@ -515,6 +515,55 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IBluetoothPairingService for testing.
+  /// Returns configurable pairing results without Windows API calls.
+  /// </summary>
+  TMockBluetoothPairingService = class(TInterfacedObject, IBluetoothPairingService)
+  private
+    FPairResult: TPairingResult;
+    FUnpairResult: TPairingResult;
+    FIsDevicePaired: Boolean;
+    FPairedDeviceAddresses: TArray<UInt64>;
+
+    FPairCallCount: Integer;
+    FUnpairCallCount: Integer;
+    FIsDevicePairedCallCount: Integer;
+    FGetPairedDeviceAddressesCallCount: Integer;
+
+    FLastPairDevice: TBluetoothDeviceInfo;
+    FLastUnpairAddress: UInt64;
+    FLastIsDevicePairedAddress: UInt64;
+    FLastProgressCallback: TPairingProgressCallback;
+  public
+    constructor Create;
+
+    // IBluetoothPairingService
+    function PairDevice(const ADevice: TBluetoothDeviceInfo;
+                        AProgressCallback: TPairingProgressCallback): TPairingResult;
+    function UnpairDevice(ADeviceAddress: UInt64): TPairingResult;
+    function IsDevicePaired(ADeviceAddress: UInt64): Boolean;
+    function GetPairedDeviceAddresses: TArray<UInt64>;
+
+    // Test configuration
+    property PairResult: TPairingResult read FPairResult write FPairResult;
+    property UnpairResult: TPairingResult read FUnpairResult write FUnpairResult;
+    property IsDevicePairedResult: Boolean read FIsDevicePaired write FIsDevicePaired;
+    property PairedDeviceAddresses: TArray<UInt64> read FPairedDeviceAddresses write FPairedDeviceAddresses;
+
+    // Call counts
+    property PairCallCount: Integer read FPairCallCount;
+    property UnpairCallCount: Integer read FUnpairCallCount;
+    property IsDevicePairedCallCount: Integer read FIsDevicePairedCallCount;
+    property GetPairedDeviceAddressesCallCount: Integer read FGetPairedDeviceAddressesCallCount;
+
+    // Last call values
+    property LastPairDevice: TBluetoothDeviceInfo read FLastPairDevice;
+    property LastUnpairAddress: UInt64 read FLastUnpairAddress;
+    property LastIsDevicePairedAddress: UInt64 read FLastIsDevicePairedAddress;
+    property LastProgressCallback: TPairingProgressCallback read FLastProgressCallback;
+  end;
+
+  /// <summary>
   /// Helper function to create test device info records.
   /// </summary>
 function CreateTestDevice(
@@ -1405,6 +1454,55 @@ procedure TMockProfileQuery.SetProfileInfo(ADeviceAddress: UInt64;
   const AInfo: TDeviceProfileInfo);
 begin
   FProfiles.AddOrSetValue(ADeviceAddress, AInfo);
+end;
+
+{ TMockBluetoothPairingService }
+
+constructor TMockBluetoothPairingService.Create;
+begin
+  inherited Create;
+  FPairResult := TPairingResult.Success;
+  FUnpairResult := TPairingResult.Success;
+  FIsDevicePaired := False;
+  FPairCallCount := 0;
+  FUnpairCallCount := 0;
+  FIsDevicePairedCallCount := 0;
+  FGetPairedDeviceAddressesCallCount := 0;
+  SetLength(FPairedDeviceAddresses, 0);
+end;
+
+function TMockBluetoothPairingService.PairDevice(
+  const ADevice: TBluetoothDeviceInfo;
+  AProgressCallback: TPairingProgressCallback): TPairingResult;
+begin
+  Inc(FPairCallCount);
+  FLastPairDevice := ADevice;
+  FLastProgressCallback := AProgressCallback;
+
+  if Assigned(AProgressCallback) then
+    AProgressCallback('Pairing...');
+
+  Result := FPairResult;
+end;
+
+function TMockBluetoothPairingService.UnpairDevice(ADeviceAddress: UInt64): TPairingResult;
+begin
+  Inc(FUnpairCallCount);
+  FLastUnpairAddress := ADeviceAddress;
+  Result := FUnpairResult;
+end;
+
+function TMockBluetoothPairingService.IsDevicePaired(ADeviceAddress: UInt64): Boolean;
+begin
+  Inc(FIsDevicePairedCallCount);
+  FLastIsDevicePairedAddress := ADeviceAddress;
+  Result := FIsDevicePaired;
+end;
+
+function TMockBluetoothPairingService.GetPairedDeviceAddresses: TArray<UInt64>;
+begin
+  Inc(FGetPairedDeviceAddressesCallCount);
+  Result := FPairedDeviceAddresses;
 end;
 
 end.
