@@ -5,8 +5,8 @@ object FormMain: TFormMain
   ClientHeight = 361
   ClientWidth = 284
   Color = clBtnFace
-  Constraints.MaxHeight = 600
-  Constraints.MaxWidth = 500
+  Constraints.MaxHeight = 1200
+  Constraints.MaxWidth = 800
   Constraints.MinHeight = 400
   Constraints.MinWidth = 300
   Font.Charset = DEFAULT_CHARSET
