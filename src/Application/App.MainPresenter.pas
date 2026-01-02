@@ -305,6 +305,8 @@ const
   DELAYED_LOAD_INTERVAL_MS = 500;
   // Windows battery drivers need time to update after device reconnects
   BATTERY_REFRESH_DELAY_MS = 10000;
+  // Delay to ensure device repository is updated after pairing before auto-connect
+  PAIRING_REFRESH_DELAY_MS = 500;
 
 { TMainPresenter }
 
@@ -764,7 +766,7 @@ begin
             RefreshedDevice: TBluetoothDeviceInfo;
           begin
             // Small delay to ensure repository is updated
-            Sleep(500);
+            Sleep(PAIRING_REFRESH_DELAY_MS);
 
             QueueIfNotShutdown(
               procedure
