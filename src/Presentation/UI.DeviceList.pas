@@ -451,7 +451,25 @@ end;
 procedure TDeviceListBox.SetDisplayItems(const AItems: TDeviceDisplayItemArray);
 var
   I: Integer;
+  OldScrollPos: Integer;
+  OldHoverAddress: UInt64;
+  OldSelectedAddress: UInt64;
+  NewIndex: Integer;
 begin
+  // Save current scroll position to preserve it across refreshes
+  OldScrollPos := FScrollPos;
+
+  // Save addresses of currently hovered/selected items to restore them after rebuild
+  if (FHoverIndex >= 0) and (FHoverIndex < Length(FDisplayItems)) then
+    OldHoverAddress := FDisplayItems[FHoverIndex].Device.AddressInt
+  else
+    OldHoverAddress := 0;
+
+  if (FSelectedIndex >= 0) and (FSelectedIndex < Length(FDisplayItems)) then
+    OldSelectedAddress := FDisplayItems[FSelectedIndex].Device.AddressInt
+  else
+    OldSelectedAddress := 0;
+
   FDisplayItems := AItems;
 
   // Rebuild index map for O(1) lookup by device address
@@ -460,10 +478,31 @@ begin
     FDisplayItemIndexMap.Add(FDisplayItems[I].Device.AddressInt, I);
 
   RecalculateItemHeights;
-  FHoverIndex := -1;
-  if FSelectedIndex >= Length(FDisplayItems) then
+
+  // Restore hover state by looking up the device in the new list
+  if OldHoverAddress <> 0 then
+  begin
+    if FDisplayItemIndexMap.TryGetValue(OldHoverAddress, NewIndex) then
+      FHoverIndex := NewIndex
+    else
+      FHoverIndex := -1;
+  end
+  else
+    FHoverIndex := -1;
+
+  // Restore selection state by looking up the device in the new list
+  if OldSelectedAddress <> 0 then
+  begin
+    if FDisplayItemIndexMap.TryGetValue(OldSelectedAddress, NewIndex) then
+      FSelectedIndex := NewIndex
+    else
+      FSelectedIndex := -1;
+  end
+  else if FSelectedIndex >= Length(FDisplayItems) then
     FSelectedIndex := -1;
-  FScrollPos := 0;
+
+  // Restore scroll position (will be clamped by UpdateScrollRange if needed)
+  FScrollPos := OldScrollPos;
   UpdateScrollRange;
   Invalidate;
 end;
