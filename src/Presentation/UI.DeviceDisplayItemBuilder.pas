@@ -284,14 +284,21 @@ function TDeviceDisplayItemBuilder.BuildDiscoveredDeviceDisplayItem(
   const ADevice: TBluetoothDeviceInfo): TDeviceDisplayItem;
 var
   LastSeenFormat: TLastSeenFormat;
+  DisplayName: string;
 begin
   LogDebug('BuildDiscoveredDeviceDisplayItem: Address=$%.12X, Name="%s"',
     [ADevice.AddressInt, ADevice.Name], ClassName);
 
   LastSeenFormat := FAppearanceConfig.LastSeenFormat;
 
+  // Use device name if available, otherwise fall back to "Device " + MAC address
+  if ADevice.Name <> '' then
+    DisplayName := ADevice.Name
+  else
+    DisplayName := 'Device ' + ADevice.AddressString;
+
   // Discovered devices have minimal configuration:
-  // - No alias (use device name)
+  // - No alias (use device name with fallback)
   // - No pinning (can't pin unpaired devices)
   // - No type override (use auto-detected type from ADevice)
   // - No battery status (can't query from unpaired devices)
@@ -300,7 +307,7 @@ begin
   Result := TDeviceDisplayItem.Create(
     ADevice,
     dsDiscovered,
-    ADevice.Name,        // Display name = device name (no alias)
+    DisplayName,         // Display name with fallback to address
     False,               // IsPinned = false (discovered devices can't be pinned)
     ADevice.DeviceType,  // Use auto-detected type (no override for discovered devices)
     TDeviceFormatter.FormatLastSeen(ADevice.LastSeen, LastSeenFormat),
@@ -311,7 +318,7 @@ begin
     nil                  // Profiles = empty
   );
 
-  LogDebug('BuildDiscoveredDeviceDisplayItem: Created display item for %s', [ADevice.Name], ClassName);
+  LogDebug('BuildDiscoveredDeviceDisplayItem: Created display item for %s', [DisplayName], ClassName);
 end;
 
 function TDeviceDisplayItemBuilder.BuildDisplayItems(
