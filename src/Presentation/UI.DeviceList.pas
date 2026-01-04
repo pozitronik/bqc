@@ -23,6 +23,7 @@ uses
   Vcl.Graphics,
   Vcl.Forms,
   Vcl.StdCtrls,
+  Vcl.ExtCtrls,
   Vcl.Themes,
   Bluetooth.Types,
   App.ConfigInterfaces,
@@ -115,6 +116,12 @@ type
 
     // Cached layout parameters (refreshed once per paint cycle)
     FCachedLayout: TCachedLayoutParams;
+
+    // Animation for action button progress
+    FAnimationTimer: TTimer;
+    FAnimationFrame: Integer;
+
+    procedure HandleAnimationTimer(Sender: TObject);
 
     procedure RefreshLayoutCache;
     function GetLayoutConfig: ILayoutConfig;
@@ -267,12 +274,19 @@ begin
   FScrollPos := 0;
   FMaxScroll := 0;
   FShowAddresses := False;
+  FAnimationFrame := 0;
 
   ControlStyle := ControlStyle + [csOpaque];
   TabStop := True;
   DoubleBuffered := True;
   Width := DEFAULT_CONTROL_WIDTH;
   Height := DEFAULT_CONTROL_HEIGHT;
+
+  // Create animation timer for action button progress indicator
+  FAnimationTimer := TTimer.Create(Self);
+  FAnimationTimer.Interval := 50;  // 20 FPS for smooth animation
+  FAnimationTimer.OnTimer := HandleAnimationTimer;
+  FAnimationTimer.Enabled := True;
 end;
 
 function TDeviceListBox.GetLayoutConfig: ILayoutConfig;
@@ -520,6 +534,16 @@ begin
   FScrollPos := OldScrollPos;
   UpdateScrollRange;
   Invalidate;
+
+  // If action item is in progress, force immediate update (no delay)
+  for I := 0 to High(FDisplayItems) do
+  begin
+    if (FDisplayItems[I].Source = dsAction) and FDisplayItems[I].IsActionInProgress then
+    begin
+      UpdateWindow(Handle);
+      Break;
+    end;
+  end;
 end;
 
 procedure TDeviceListBox.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
@@ -1159,48 +1183,84 @@ procedure TDeviceListBox.DrawActionButton(ACanvas: TCanvas; const ARect: TRect;
 const
   BUTTON_HEIGHT = 28;  // Thin Windows 11 style button
   TEXT_LEFT_PADDING = 12;  // Left padding for text
+  PROGRESS_HEIGHT = 2;  // Thin progress bar
+  PROGRESS_SEGMENT_WIDTH = 100;  // Width of moving segment
 var
   Style: TCustomStyleServices;
-  TextColor: TColor;
-  TextRect: TRect;
+  TextColor, ProgressColor, ProgressBgColor: TColor;
+  TextRect, ProgressRect, SegmentRect: TRect;
   ButtonText: string;
   ButtonTop: Integer;
+  BarWidth, SegmentPos: Integer;
 begin
   Style := TStyleManager.ActiveStyle;
 
   // Create thin button rect, centered vertically in ARect
   ButtonTop := ARect.Top + (ARect.Bottom - ARect.Top - BUTTON_HEIGHT) div 2;
 
-  // Button text
   if AItem.IsActionInProgress then
   begin
-    ButtonText := 'Scanning...';
-    TextColor := Style.GetSystemColor(clGrayText);
+    // Draw animated progress bar instead of text
+    BarWidth := ARect.Right - ARect.Left - (FCachedLayout.ItemPadding * 2);
+
+    // Progress bar background
+    ProgressRect := Rect(
+      ARect.Left + FCachedLayout.ItemPadding,
+      ButtonTop + (BUTTON_HEIGHT - PROGRESS_HEIGHT) div 2,
+      ARect.Right - FCachedLayout.ItemPadding,
+      ButtonTop + (BUTTON_HEIGHT - PROGRESS_HEIGHT) div 2 + PROGRESS_HEIGHT
+    );
+
+    ProgressBgColor := Style.GetSystemColor(clBtnFace);
+    ACanvas.Brush.Color := ProgressBgColor;
+    ACanvas.FillRect(ProgressRect);
+
+    // Animated progress segment (sliding left to right, faster movement)
+    SegmentPos := (FAnimationFrame * 8) mod (BarWidth + PROGRESS_SEGMENT_WIDTH);
+    SegmentPos := SegmentPos - PROGRESS_SEGMENT_WIDTH;  // Start off-screen left
+
+    SegmentRect := Rect(
+      ProgressRect.Left + SegmentPos,
+      ProgressRect.Top,
+      ProgressRect.Left + SegmentPos + PROGRESS_SEGMENT_WIDTH,
+      ProgressRect.Bottom
+    );
+
+    // Clip segment to progress bar bounds
+    if SegmentRect.Left < ProgressRect.Left then
+      SegmentRect.Left := ProgressRect.Left;
+    if SegmentRect.Right > ProgressRect.Right then
+      SegmentRect.Right := ProgressRect.Right;
+
+    ProgressColor := Style.GetSystemColor(clHighlight);
+    ACanvas.Brush.Color := ProgressColor;
+    ACanvas.FillRect(SegmentRect);
   end
   else
   begin
+    // Draw button text
     ButtonText := AItem.DisplayName;
     TextColor := Style.GetSystemColor(clWindowText);
+
+    // Set up font - clean, left-aligned text
+    ACanvas.Font.Name := FONT_UI;
+    ACanvas.Font.Size := FCachedLayout.StatusFontSize;
+    ACanvas.Font.Color := TextColor;
+    ACanvas.Font.Style := [];
+    ACanvas.Brush.Style := bsClear;
+
+    // Draw left-aligned text with padding
+    TextRect := Rect(
+      ARect.Left + FCachedLayout.ItemPadding + TEXT_LEFT_PADDING,
+      ButtonTop,
+      ARect.Right - FCachedLayout.ItemPadding,
+      ButtonTop + BUTTON_HEIGHT
+    );
+    DrawText(ACanvas.Handle, PChar(ButtonText), Length(ButtonText),
+      TextRect, DT_LEFT or DT_VCENTER or DT_SINGLELINE);
+
+    ACanvas.Brush.Style := bsSolid;
   end;
-
-  // Set up font - clean, left-aligned text
-  ACanvas.Font.Name := FONT_UI;
-  ACanvas.Font.Size := FCachedLayout.StatusFontSize;
-  ACanvas.Font.Color := TextColor;
-  ACanvas.Font.Style := [];
-  ACanvas.Brush.Style := bsClear;
-
-  // Draw left-aligned text with padding
-  TextRect := Rect(
-    ARect.Left + FCachedLayout.ItemPadding + TEXT_LEFT_PADDING,
-    ButtonTop,
-    ARect.Right - FCachedLayout.ItemPadding,
-    ButtonTop + BUTTON_HEIGHT
-  );
-  DrawText(ACanvas.Handle, PChar(ButtonText), Length(ButtonText),
-    TextRect, DT_LEFT or DT_VCENTER or DT_SINGLELINE);
-
-  ACanvas.Brush.Style := bsSolid;
 end;
 
 procedure TDeviceListBox.DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
@@ -1426,6 +1486,44 @@ procedure TDeviceListBox.DoExit;
 begin
   inherited;
   Invalidate;
+end;
+
+procedure TDeviceListBox.HandleAnimationTimer(Sender: TObject);
+var
+  I: Integer;
+  HasActionInProgress: Boolean;
+  R: TRect;
+  WasZero: Boolean;
+begin
+  // Check if any action item is in progress
+  HasActionInProgress := False;
+  for I := 0 to High(FDisplayItems) do
+  begin
+    if (FDisplayItems[I].Source = dsAction) and FDisplayItems[I].IsActionInProgress then
+    begin
+      HasActionInProgress := True;
+
+      // If just starting (frame was 0), force immediate update
+      WasZero := (FAnimationFrame = 0);
+
+      // Increment animation frame for smooth progress bar movement
+      Inc(FAnimationFrame);
+
+      // Invalidate only the action item rect to animate progress
+      R := GetItemRect(I);
+      InvalidateRect(Handle, @R, False);
+
+      // Force immediate update when starting (no delay)
+      if WasZero then
+        UpdateWindow(Handle);
+
+      Break;
+    end;
+  end;
+
+  // Reset animation when no action in progress (so next scan starts from 0)
+  if not HasActionInProgress then
+    FAnimationFrame := 0;
 end;
 
 end.
