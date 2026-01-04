@@ -484,13 +484,13 @@ end;
 procedure TFormSettings.FormShow(Sender: TObject);
 begin
   LogDebug('FormShow', ClassName);
+  ButtonApply.Enabled := False;  // Disable early to prevent spurious enables
   InitUpDownLimits;
   InitDeviceTypeCombo;
   ConfigureWinRTDependentControls;
   FPresenter.LoadSettings;
   UpdateWindowModeControls;
   ConnectChangeHandlers;
-  ButtonApply.Enabled := False;
 end;
 
 procedure TFormSettings.ButtonOKClick(Sender: TObject);
@@ -1127,6 +1127,8 @@ begin
   EditStatusSize.OnChange := HandleSettingChanged;
   EditAddressSize.OnChange := HandleSettingChanged;
   EditIconFontSize.OnChange := HandleSettingChanged;
+  CheckShowUnpairedDevices.OnClick := HandleSettingChanged;
+  CheckShowUnidentifiedDevices.OnClick := HandleSettingChanged;
 
   // Profile settings
   CheckShowProfiles.OnClick := HandleSettingChanged;
