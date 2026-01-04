@@ -29,6 +29,8 @@ type
   private
     function CreateDisplayItem(AAddress: UInt64; const AName: string;
       APinned, AConnected: Boolean; ALastSeen: TDateTime): TDeviceDisplayItem;
+    function CreateDiscoveredItem(AAddress: UInt64; const ADisplayName: string;
+      ALastSeen: TDateTime): TDeviceDisplayItem;
   public
     { Compare Tests }
     [Test]
@@ -80,6 +82,16 @@ type
 
     [Test]
     procedure Sort_TwoIdenticalDevices_Stable;
+
+    { Discovered Devices Sorting Tests }
+    [Test]
+    procedure Sort_DiscoveredDevices_NamedBeforeUnnamed;
+
+    [Test]
+    procedure Sort_DiscoveredDevices_BothNamed_SortByLastSeen;
+
+    [Test]
+    procedure Sort_DiscoveredDevices_BothUnnamed_SortByLastSeen;
   end;
 
 implementation
@@ -113,6 +125,30 @@ begin
     '',
     ALastSeen,
     SortGroup,
+    TBatteryStatus.NotSupported,
+    '',
+    []  // Empty profiles array
+  );
+end;
+
+function TDeviceSorterTests.CreateDiscoveredItem(AAddress: UInt64;
+  const ADisplayName: string; ALastSeen: TDateTime): TDeviceDisplayItem;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  // Create unpaired, disconnected device (discovered state)
+  Device := CreateTestDevice(AAddress, '', btUnknown, csDisconnected);
+
+  // DisplayName will be used for sorting - can be real name or "Device XX:XX:XX..." pattern
+  Result := TDeviceDisplayItem.Create(
+    Device,
+    dsDiscovered,  // Discovered/unpaired device
+    ADisplayName,   // DisplayName - determines if "named" or "unnamed"
+    False,          // Not pinned
+    btUnknown,      // Unknown device type
+    '',             // No status text
+    ALastSeen,      // Last seen timestamp
+    3,              // SortGroup 3 = Discovered
     TBatteryStatus.NotSupported,
     '',
     []  // Empty profiles array
@@ -396,6 +432,73 @@ begin
   // Should be stable - sorted by address when all else is equal
   Assert.AreEqual<UInt64>($001, Items[0].Device.AddressInt);
   Assert.AreEqual<UInt64>($002, Items[1].Device.AddressInt);
+end;
+
+{ TDeviceSorterTests - Discovered Devices Sorting }
+
+procedure TDeviceSorterTests.Sort_DiscoveredDevices_NamedBeforeUnnamed;
+var
+  Items: TDeviceDisplayItemArray;
+  SameTime: TDateTime;
+begin
+  SameTime := Now;
+  SetLength(Items, 4);
+
+  // Mix of named and unnamed discovered devices
+  Items[0] := CreateDiscoveredItem($001, 'Device AA:BB:CC:DD:EE:01', SameTime);  // Unnamed (generic pattern)
+  Items[1] := CreateDiscoveredItem($002, 'Sony Headphones', SameTime);            // Named
+  Items[2] := CreateDiscoveredItem($003, 'Device AA:BB:CC:DD:EE:03', SameTime);  // Unnamed (generic pattern)
+  Items[3] := CreateDiscoveredItem($004, 'Apple AirPods', SameTime);             // Named
+
+  TDeviceSorter.Sort(Items);
+
+  // Named devices should come before unnamed devices
+  Assert.IsTrue(not Items[0].DisplayName.StartsWith('Device '), 'First item should be named');
+  Assert.IsTrue(not Items[1].DisplayName.StartsWith('Device '), 'Second item should be named');
+  Assert.IsTrue(Items[2].DisplayName.StartsWith('Device '), 'Third item should be unnamed');
+  Assert.IsTrue(Items[3].DisplayName.StartsWith('Device '), 'Fourth item should be unnamed');
+
+  // Named devices sorted alphabetically
+  Assert.AreEqual('Apple AirPods', Items[0].DisplayName);
+  Assert.AreEqual('Sony Headphones', Items[1].DisplayName);
+end;
+
+procedure TDeviceSorterTests.Sort_DiscoveredDevices_BothNamed_SortByLastSeen;
+var
+  Items: TDeviceDisplayItemArray;
+  RecentTime, OlderTime: TDateTime;
+begin
+  RecentTime := IncHour(Now, -1);
+  OlderTime := IncHour(Now, -5);
+
+  SetLength(Items, 2);
+  Items[0] := CreateDiscoveredItem($001, 'Older Device', OlderTime);   // Named, older
+  Items[1] := CreateDiscoveredItem($002, 'Recent Device', RecentTime);  // Named, more recent
+
+  TDeviceSorter.Sort(Items);
+
+  // Within named discovered devices, more recent should come first
+  Assert.AreEqual('Recent Device', Items[0].DisplayName);
+  Assert.AreEqual('Older Device', Items[1].DisplayName);
+end;
+
+procedure TDeviceSorterTests.Sort_DiscoveredDevices_BothUnnamed_SortByLastSeen;
+var
+  Items: TDeviceDisplayItemArray;
+  RecentTime, OlderTime: TDateTime;
+begin
+  RecentTime := IncHour(Now, -1);
+  OlderTime := IncHour(Now, -5);
+
+  SetLength(Items, 2);
+  Items[0] := CreateDiscoveredItem($001, 'Device AA:BB:CC:DD:EE:01', OlderTime);   // Unnamed, older
+  Items[1] := CreateDiscoveredItem($002, 'Device AA:BB:CC:DD:EE:02', RecentTime);  // Unnamed, more recent
+
+  TDeviceSorter.Sort(Items);
+
+  // Within unnamed discovered devices, more recent should come first
+  Assert.AreEqual('Device AA:BB:CC:DD:EE:02', Items[0].DisplayName);
+  Assert.AreEqual('Device AA:BB:CC:DD:EE:01', Items[1].DisplayName);
 end;
 
 initialization

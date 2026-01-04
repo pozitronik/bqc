@@ -18,18 +18,28 @@ uses
 type
   /// <summary>
   /// Static class providing sorting functionality for device display items.
-  /// Sort order: Pinned -> Connected -> Disconnected.
+  /// Sort order: Pinned -> Connected -> Disconnected -> Discovered.
   /// Within groups: LastSeen (most recent first) -> DisplayName -> Address.
+  /// Special: Discovered devices (group 3) sort named before unnamed.
   /// </summary>
   TDeviceSorter = class
+  private
+    /// <summary>
+    /// Checks if a device has a real name (not empty and not generic fallback pattern).
+    /// Generic patterns include "Device XX:XX:XX:XX:XX:XX" format.
+    /// </summary>
+    /// <param name="AName">The device name to check.</param>
+    /// <returns>True if name is real, False if empty or generic fallback.</returns>
+    class function HasRealDeviceName(const AName: string): Boolean; static;
   public
     /// <summary>
     /// Sorts an array of device display items in place.
     /// Sort order:
-    ///   1. By SortGroup (0=Pinned, 1=Connected, 2=Disconnected)
-    ///   2. By LastSeen (most recent first)
-    ///   3. By DisplayName (case-insensitive alphabetical)
-    ///   4. By Address (ascending)
+    ///   1. By SortGroup (0=Pinned, 1=Connected, 2=Disconnected, 3=Discovered)
+    ///   2. For Discovered (group 3): Named devices before unnamed devices
+    ///   3. By LastSeen (most recent first)
+    ///   4. By DisplayName (case-insensitive alphabetical)
+    ///   5. By Address (ascending)
     /// </summary>
     /// <param name="AItems">Array of display items to sort in place.</param>
     class procedure Sort(var AItems: TDeviceDisplayItemArray); static;
@@ -56,14 +66,41 @@ uses
 
 { TDeviceSorter }
 
-class function TDeviceSorter.Compare(const ALeft, ARight: TDeviceDisplayItem): Integer;
+class function TDeviceSorter.HasRealDeviceName(const AName: string): Boolean;
 begin
-  // Compare by sort group first (Pinned=0 < Connected=1 < Disconnected=2)
+  // Device has real name if not empty AND not generic "Device XX:XX:XX..." fallback pattern.
+  // This pattern is used by TDeviceFormatter.GetDisplayName as a last resort
+  // when no other name is available (not alias, not API name, not cached name).
+  Result := (AName <> '') and not AName.StartsWith('Device ');
+end;
+
+class function TDeviceSorter.Compare(const ALeft, ARight: TDeviceDisplayItem): Integer;
+var
+  LeftHasName, RightHasName: Boolean;
+begin
+  // Compare by sort group first (Pinned=0 < Connected=1 < Disconnected=2 < Discovered=3)
   Result := ALeft.SortGroup - ARight.SortGroup;
   if Result <> 0 then
     Exit;
 
-  // Within same group, sort by LastSeen (most recent first)
+  // Special handling for discovered devices (group 3):
+  // Sort named devices before unnamed devices to reduce visual noise.
+  if (ALeft.SortGroup = 3) and (ARight.SortGroup = 3) then
+  begin
+    LeftHasName := HasRealDeviceName(ALeft.DisplayName);
+    RightHasName := HasRealDeviceName(ARight.DisplayName);
+
+    // Named devices come before unnamed devices
+    if LeftHasName and not RightHasName then
+      Exit(-1)  // Left (named) comes first
+    else if RightHasName and not LeftHasName then
+      Exit(1);  // Right (named) comes first
+
+    // Both named or both unnamed: fall through to standard sorting
+  end;
+
+  // Within same group (and same named/unnamed sub-group for discovered),
+  // sort by LastSeen (most recent first)
   if ALeft.LastSeen > ARight.LastSeen then
     Result := -1
   else if ALeft.LastSeen < ARight.LastSeen then
