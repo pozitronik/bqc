@@ -317,47 +317,5 @@ object FormMain: TFormMain
     TabOrder = 2
     ExplicitWidth = 274
     ExplicitHeight = 266
-    object ScanPanel: TPanel
-      Left = 0
-      Top = 258
-      Width = 284
-      Height = 40
-      Align = alBottom
-      BevelOuter = bvNone
-      TabOrder = 0
-      ExplicitTop = 226
-      ExplicitWidth = 274
-      object ScanButton: TButton
-        AlignWithMargins = True
-        Left = 8
-        Top = 8
-        Width = 268
-        Height = 24
-        Margins.Left = 8
-        Margins.Top = 8
-        Margins.Right = 8
-        Margins.Bottom = 8
-        Align = alClient
-        Caption = 'Scan for devices'
-        TabOrder = 0
-        OnClick = HandleScanClick
-        ExplicitWidth = 258
-      end
-      object ScanProgressBar: TProgressBar
-        AlignWithMargins = True
-        Left = 8
-        Top = 8
-        Width = 268
-        Height = 24
-        Margins.Left = 8
-        Margins.Top = 8
-        Margins.Right = 8
-        Margins.Bottom = 8
-        Align = alClient
-        TabOrder = 1
-        Visible = False
-        ExplicitWidth = 258
-      end
-    end
   end
 end

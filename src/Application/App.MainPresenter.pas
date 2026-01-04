@@ -146,6 +146,12 @@ type
     /// </summary>
     procedure QueueIfNotShutdown(AProc: TProc);
 
+    /// <summary>
+    /// Creates a scan action display item (embedded scan button).
+    /// Returns an action item with appropriate text based on scanning state.
+    /// </summary>
+    function CreateScanActionItem: TDeviceDisplayItem;
+
   protected
     /// <summary>
     /// Handles battery query completion event.
@@ -983,6 +989,51 @@ begin
   end;
 end;
 
+function TMainPresenter.CreateScanActionItem: TDeviceDisplayItem;
+var
+  DummyDevice: TBluetoothDeviceInfo;
+  ButtonText: string;
+  ZeroAddress: TBluetoothAddress;
+begin
+  // Create a sentinel device record (not a real device)
+  // Use AddressInt = 0 as sentinel value to indicate this is not a real device
+  ZeroAddress := Default(TBluetoothAddress);  // All zeros
+  DummyDevice := TBluetoothDeviceInfo.Create(
+    ZeroAddress,            // Sentinel MAC address (00:00:00:00:00:00)
+    0,                      // Sentinel AddressInt
+    '',                     // Empty name
+    btUnknown,              // Unknown type
+    csDisconnected,         // Not connected
+    False,                  // Not paired
+    False,                  // Not authenticated
+    0,                      // No class of device
+    0,                      // No last seen
+    0                       // No last used
+  );
+
+  // Button text depends on scanning state
+  if FIsScanning then
+    ButtonText := 'Scanning...'
+  else
+    ButtonText := 'Scan for devices';
+
+  // Create action display item with special properties
+  Result := TDeviceDisplayItem.Create(
+    DummyDevice,
+    dsAction,                    // Action item source type
+    ButtonText,                  // Display text
+    False,                       // Not pinned
+    btUnknown,                   // No device type
+    '',                          // No last seen text
+    0,                           // No timestamp
+    -1,                          // Special sort group (positions before discovered devices)
+    TBatteryStatus.NotSupported, // No battery
+    '',                          // No battery text
+    [],                          // No profiles
+    FIsScanning                  // Action in progress flag
+  );
+end;
+
 procedure TMainPresenter.RefreshDisplayItems;
 var
   PairedItems: TDeviceDisplayItemArray;
@@ -997,11 +1048,13 @@ begin
   LogDebug('RefreshDisplayItems: Paired=%d', [Length(PairedItems)], ClassName);
 
   // Build display items for unpaired devices if ShowUnpairedDevices is enabled
-  if FLayoutConfig.ShowUnpairedDevices and (FUnpairedDevicesInRange.Count > 0) then
+  if FLayoutConfig.ShowUnpairedDevices then
   begin
-    LogDebug('RefreshDisplayItems: Building unpaired devices, count=%d', [FUnpairedDevicesInRange.Count], ClassName);
+    // Scan button appears when ShowUnpairedDevices is enabled, regardless of whether there are unpaired devices
+    LogDebug('RefreshDisplayItems: Building unpaired section, count=%d', [FUnpairedDevicesInRange.Count], ClassName);
     UnpairedItems := TList<TDeviceDisplayItem>.Create;
     try
+      // Build unpaired device items (if any)
       for I := 0 to FUnpairedDevicesInRange.Count - 1 do
       begin
         Device := FUnpairedDevicesInRange[I];
@@ -1030,14 +1083,21 @@ begin
         UnpairedItems.Add(FDisplayItemBuilder.BuildDiscoveredDeviceDisplayItem(Device));
       end;
 
-      // Merge paired and unpaired items
-      SetLength(FDisplayItems, Length(PairedItems) + UnpairedItems.Count);
+      // Merge paired, scan button, and unpaired items
+      SetLength(FDisplayItems, Length(PairedItems) + 1 + UnpairedItems.Count);
+
+      // Copy paired items
       for I := 0 to High(PairedItems) do
         FDisplayItems[I] := PairedItems[I];
-      for I := 0 to UnpairedItems.Count - 1 do
-        FDisplayItems[Length(PairedItems) + I] := UnpairedItems[I];
 
-      LogDebug('RefreshDisplayItems: Total=%d (Paired=%d, Unpaired=%d)',
+      // Insert scan action button after paired items (always shown when ShowUnpairedDevices is enabled)
+      FDisplayItems[Length(PairedItems)] := CreateScanActionItem;
+
+      // Copy unpaired items after scan button (may be empty if no devices discovered yet)
+      for I := 0 to UnpairedItems.Count - 1 do
+        FDisplayItems[Length(PairedItems) + 1 + I] := UnpairedItems[I];
+
+      LogDebug('RefreshDisplayItems: Total=%d (Paired=%d, Scan=1, Unpaired=%d)',
         [Length(FDisplayItems), Length(PairedItems), UnpairedItems.Count], ClassName);
     finally
       UnpairedItems.Free;
@@ -1045,7 +1105,7 @@ begin
   end
   else
   begin
-    // No unpaired devices to show - just use paired items
+    // ShowUnpairedDevices is disabled - no scan button, just paired items
     FDisplayItems := PairedItems;
     LogDebug('RefreshDisplayItems: Total=%d (Paired only)', [Length(FDisplayItems)], ClassName);
   end;

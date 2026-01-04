@@ -105,6 +105,7 @@ type
     FShowAddresses: Boolean;
     FOnDeviceClick: TDeviceClickEvent;
     FOnDisplayItemClick: TDeviceDisplayItemClickEvent;
+    FOnActionClick: TDeviceDisplayItemClickEvent;
     FOnSelectionChanged: TNotifyEvent;
 
     // Injected configuration interfaces (for layout/appearance only)
@@ -137,6 +138,8 @@ type
     function GetProfileLineHeight: Integer;
 
     procedure DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
+      const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
+    procedure DrawActionButton(ACanvas: TCanvas; const ARect: TRect;
       const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
     function CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
       AIsHover, AIsSelected, AIsDiscovered: Boolean): TItemDrawContext;
@@ -188,6 +191,7 @@ type
     property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
     property OnDeviceClick: TDeviceClickEvent read FOnDeviceClick write FOnDeviceClick;
     property OnDisplayItemClick: TDeviceDisplayItemClickEvent read FOnDisplayItemClick write FOnDisplayItemClick;
+    property OnActionClick: TDeviceDisplayItemClickEvent read FOnActionClick write FOnActionClick;
     property OnSelectionChanged: TNotifyEvent read FOnSelectionChanged write FOnSelectionChanged;
 
     // Dependency injection properties (must be set before use)
@@ -749,9 +753,9 @@ begin
     if R.Top > ClientHeight then
       Break;
 
-    // Draw separator before first unpaired device
+    // Draw separator before first non-paired item (action button or discovered device)
     if (I > 0) and
-       (FDisplayItems[I].Source = dsDiscovered) and
+       (FDisplayItems[I].Source in [dsAction, dsDiscovered]) and
        (FDisplayItems[I - 1].Source = dsPaired) then
     begin
       DrawSeparator(Canvas, R);
@@ -1102,6 +1106,13 @@ var
   IconRect: TRect;
   BaseHeight: Integer;
 begin
+  // Action items (scan button, etc.) use special rendering
+  if AItem.Source = dsAction then
+  begin
+    DrawActionButton(ACanvas, ARect, AItem, AIsHover, AIsSelected);
+    Exit;
+  end;
+
   // Create context with all layout parameters
   Context := CreateDrawContext(ACanvas, ARect, AIsHover, AIsSelected, AItem.Source = dsDiscovered);
 
@@ -1128,6 +1139,58 @@ begin
   // Draw profile section if profiles are present
   if Length(AItem.Profiles) > 1 then
     DrawProfileSection(ACanvas, AItem, Context);
+
+  ACanvas.Brush.Style := bsSolid;
+end;
+
+procedure TDeviceListBox.DrawActionButton(ACanvas: TCanvas; const ARect: TRect;
+  const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
+var
+  Style: TCustomStyleServices;
+  BgColor, TextColor: TColor;
+  ButtonRect, TextRect: TRect;
+  ButtonText: string;
+begin
+  Style := TStyleManager.ActiveStyle;
+
+  // Button rect with minimal padding (thin button)
+  ButtonRect := ARect;
+  InflateRect(ButtonRect, -FCachedLayout.ItemPadding, -4);
+
+  // Colors: Windows 11 style - subtle hover effect, borderless
+  if AIsHover then
+    BgColor := Style.GetSystemColor(clBtnFace)
+  else
+    BgColor := Style.GetSystemColor(clWindow);
+
+  // Draw background (no border, just subtle fill on hover)
+  ACanvas.Brush.Color := BgColor;
+  ACanvas.Pen.Color := BgColor;
+  ACanvas.FillRect(ButtonRect);
+
+  // Button text
+  if AItem.IsActionInProgress then
+  begin
+    ButtonText := 'Scanning...';
+    TextColor := Style.GetSystemColor(clGrayText);
+  end
+  else
+  begin
+    ButtonText := AItem.DisplayName;
+    TextColor := Style.GetSystemColor(clWindowText);
+  end;
+
+  // Set up font - clean, centered text
+  ACanvas.Font.Name := FONT_UI;
+  ACanvas.Font.Size := FCachedLayout.StatusFontSize;
+  ACanvas.Font.Color := TextColor;
+  ACanvas.Font.Style := [];
+  ACanvas.Brush.Style := bsClear;
+
+  // Draw centered text
+  TextRect := ButtonRect;
+  DrawText(ACanvas.Handle, PChar(ButtonText), Length(ButtonText),
+    TextRect, DT_CENTER or DT_VCENTER or DT_SINGLELINE);
 
   ACanvas.Brush.Style := bsSolid;
 end;
@@ -1248,6 +1311,19 @@ begin
     Index := ItemAtPos(X, Y);
     if (Index >= 0) and (Index = FSelectedIndex) then
     begin
+      // Check if action item (scan button, etc.)
+      if FDisplayItems[Index].Source = dsAction then
+      begin
+        // Don't trigger if action is in progress (e.g., scanning)
+        if not FDisplayItems[Index].IsActionInProgress then
+        begin
+          if Assigned(FOnActionClick) then
+            FOnActionClick(Self, FDisplayItems[Index]);
+        end;
+        Exit;  // Don't process as device click
+      end;
+
+      // Regular device click
       if Assigned(FOnDisplayItemClick) then
         FOnDisplayItemClick(Self, FDisplayItems[Index])
       else if Assigned(FOnDeviceClick) then

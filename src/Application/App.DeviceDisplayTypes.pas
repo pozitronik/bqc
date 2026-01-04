@@ -18,11 +18,12 @@ uses
 type
   /// <summary>
   /// Source of a device in the display list.
-  /// Used to distinguish between paired devices and discovered (unpaired) devices.
+  /// Used to distinguish between paired devices, discovered devices, and action items.
   /// </summary>
   TDeviceSource = (
     dsPaired,      // Device is paired and from the main device list
-    dsDiscovered   // Device is discovered (unpaired) and from the discovery cache
+    dsDiscovered,  // Device is discovered (unpaired) and from the discovery cache
+    dsAction       // Action item (e.g., scan button) embedded in the list
   );
 
   /// <summary>
@@ -64,6 +65,9 @@ type
     /// <summary>Array of Bluetooth profiles available for this device.</summary>
     Profiles: TBluetoothProfileArray;
 
+    /// <summary>For action items: whether the action is currently in progress.</summary>
+    IsActionInProgress: Boolean;
+
     /// <summary>Creates a display item from device and config data.</summary>
     class function Create(const ADevice: TBluetoothDeviceInfo;
       ASource: TDeviceSource;
@@ -72,7 +76,8 @@ type
       const ALastSeenText: string; ALastSeen: TDateTime;
       ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
       const ABatteryText: string;
-      const AProfiles: TBluetoothProfileArray): TDeviceDisplayItem; static;
+      const AProfiles: TBluetoothProfileArray;
+      AIsActionInProgress: Boolean = False): TDeviceDisplayItem; static;
   end;
 
   TDeviceDisplayItemArray = TArray<TDeviceDisplayItem>;
@@ -88,7 +93,8 @@ class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
   const ALastSeenText: string; ALastSeen: TDateTime;
   ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
   const ABatteryText: string;
-  const AProfiles: TBluetoothProfileArray): TDeviceDisplayItem;
+  const AProfiles: TBluetoothProfileArray;
+  AIsActionInProgress: Boolean = False): TDeviceDisplayItem;
 begin
   Result.Device := ADevice;
   Result.Source := ASource;
@@ -101,6 +107,7 @@ begin
   Result.BatteryStatus := ABatteryStatus;
   Result.BatteryText := ABatteryText;
   Result.Profiles := AProfiles;
+  Result.IsActionInProgress := AIsActionInProgress;
 end;
 
 end.

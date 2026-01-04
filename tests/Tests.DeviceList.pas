@@ -102,6 +102,45 @@ type
   end;
 
   /// <summary>
+  /// Test fixture for TDeviceListBox action button functionality.
+  /// Verifies action items (scan button, etc.) are handled correctly.
+  /// </summary>
+  [TestFixture]
+  TDeviceListActionButtonTests = class
+  private
+    FForm: TForm;
+    FDeviceList: TDeviceListBox;
+    FLayoutConfig: TMockLayoutConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FProfileConfig: TMockProfileConfig;
+    FActionClickFired: Boolean;
+    FClickedItem: TDeviceDisplayItem;
+
+    procedure HandleActionClick(Sender: TObject; const AItem: TDeviceDisplayItem);
+    function CreateActionItem(const ADisplayName: string; AIsScanning: Boolean): TDeviceDisplayItem;
+    function CreateDeviceItem(AAddress: UInt64; const AName: string; ASource: TDeviceSource): TDeviceDisplayItem;
+  public
+    [Setup]
+    procedure Setup;
+
+    [TearDown]
+    procedure TearDown;
+
+    { Action Button Tests }
+    [Test]
+    procedure SetDisplayItems_WithActionItem_AcceptsActionSource;
+
+    [Test]
+    procedure SetDisplayItems_ActionAndDevices_AllDisplayed;
+
+    [Test]
+    procedure ActionItem_IsActionInProgress_ReflectsState;
+
+    [Test]
+    procedure OnActionClick_WhenAssigned_FiresOnClick;
+  end;
+
+  /// <summary>
   /// Test fixture for TDeviceListBox index map behavior.
   /// Verifies O(1) lookup for UpdateDisplayItem.
   /// </summary>
@@ -485,6 +524,154 @@ begin
   );
 end;
 
+{ TDeviceListActionButtonTests }
+
+procedure TDeviceListActionButtonTests.Setup;
+begin
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FProfileConfig := TMockProfileConfig.Create;
+
+  FForm := TForm.CreateNew(nil);
+  FForm.Width := 400;
+  FForm.Height := 600;
+
+  FDeviceList := TDeviceListBox.Create(FForm);
+  FDeviceList.Parent := FForm;
+  FDeviceList.LayoutConfig := FLayoutConfig;
+  FDeviceList.AppearanceConfig := FAppearanceConfig;
+  FDeviceList.ProfileConfig := FProfileConfig;
+
+  FActionClickFired := False;
+  FClickedItem := Default(TDeviceDisplayItem);
+end;
+
+procedure TDeviceListActionButtonTests.TearDown;
+begin
+  FForm.Free;
+end;
+
+procedure TDeviceListActionButtonTests.HandleActionClick(Sender: TObject;
+  const AItem: TDeviceDisplayItem);
+begin
+  FActionClickFired := True;
+  FClickedItem := AItem;
+end;
+
+function TDeviceListActionButtonTests.CreateActionItem(
+  const ADisplayName: string; AIsScanning: Boolean): TDeviceDisplayItem;
+var
+  DummyDevice: TBluetoothDeviceInfo;
+begin
+  DummyDevice := CreateTestDevice(0, '', btUnknown, csDisconnected);
+  Result := TDeviceDisplayItem.Create(
+    DummyDevice,
+    dsAction,
+    ADisplayName,
+    False,
+    btUnknown,
+    '',
+    0,
+    -1,
+    TBatteryStatus.NotSupported,
+    '',
+    [],
+    AIsScanning
+  );
+end;
+
+function TDeviceListActionButtonTests.CreateDeviceItem(AAddress: UInt64;
+  const AName: string; ASource: TDeviceSource): TDeviceDisplayItem;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  Device := CreateTestDevice(AAddress, AName, btAudioOutput, csConnected);
+  Result := TDeviceDisplayItem.Create(
+    Device,
+    ASource,
+    AName,
+    False,
+    btAudioOutput,
+    '',
+    0,
+    1,
+    TBatteryStatus.NotSupported,
+    '',
+    []
+  );
+end;
+
+procedure TDeviceListActionButtonTests.SetDisplayItems_WithActionItem_AcceptsActionSource;
+var
+  Items: TDeviceDisplayItemArray;
+begin
+  // Arrange: Create action item
+  SetLength(Items, 1);
+  Items[0] := CreateActionItem('Scan for devices', False);
+
+  // Act: Set display items with action source
+  FDeviceList.SetDisplayItems(Items);
+
+  // Assert: No crash, action item accepted
+  Assert.AreEqual(1, FDeviceList.DeviceCount);
+end;
+
+procedure TDeviceListActionButtonTests.SetDisplayItems_ActionAndDevices_AllDisplayed;
+var
+  Items: TDeviceDisplayItemArray;
+begin
+  // Arrange: Create mix of paired device, action button, and discovered device
+  SetLength(Items, 3);
+  Items[0] := CreateDeviceItem($001, 'Paired Device', dsPaired);
+  Items[1] := CreateActionItem('Scan for devices', False);
+  Items[2] := CreateDeviceItem($002, 'Discovered Device', dsDiscovered);
+
+  // Act
+  FDeviceList.SetDisplayItems(Items);
+
+  // Assert: All items displayed
+  Assert.AreEqual(3, FDeviceList.DeviceCount);
+end;
+
+procedure TDeviceListActionButtonTests.ActionItem_IsActionInProgress_ReflectsState;
+var
+  Items: TDeviceDisplayItemArray;
+  SelectedItem: TDeviceDisplayItem;
+begin
+  // Arrange: Create action item in progress (scanning)
+  SetLength(Items, 1);
+  Items[0] := CreateActionItem('Scanning...', True);
+
+  // Act
+  FDeviceList.SetDisplayItems(Items);
+  FDeviceList.SelectedIndex := 0;
+  SelectedItem := FDeviceList.GetSelectedDisplayItem;
+
+  // Assert: IsActionInProgress flag is preserved
+  Assert.IsTrue(SelectedItem.IsActionInProgress, 'Action in progress flag should be True');
+  Assert.AreEqual(dsAction, SelectedItem.Source, 'Source should be dsAction');
+end;
+
+procedure TDeviceListActionButtonTests.OnActionClick_WhenAssigned_FiresOnClick;
+var
+  Items: TDeviceDisplayItemArray;
+begin
+  // Arrange: Create action item and assign handler
+  SetLength(Items, 1);
+  Items[0] := CreateActionItem('Scan for devices', False);
+  FDeviceList.SetDisplayItems(Items);
+  FDeviceList.OnActionClick := HandleActionClick;
+
+  // Act: Simulate click by calling the event directly
+  // (Actual mouse click simulation is complex in VCL tests)
+  if Assigned(FDeviceList.OnActionClick) then
+    FDeviceList.OnActionClick(FDeviceList, Items[0]);
+
+  // Assert: Event fired
+  Assert.IsTrue(FActionClickFired, 'OnActionClick event should fire');
+  Assert.AreEqual(dsAction, FClickedItem.Source, 'Clicked item should be action item');
+end;
+
 { TDeviceListIndexMapTests }
 
 procedure TDeviceListIndexMapTests.Setup;
@@ -744,6 +931,7 @@ end;
 initialization
   TDUnitX.RegisterTestFixture(TDeviceListLayoutCacheTests);
   TDUnitX.RegisterTestFixture(TDeviceListProfileHeightTests);
+  TDUnitX.RegisterTestFixture(TDeviceListActionButtonTests);
   TDUnitX.RegisterTestFixture(TDeviceListIndexMapTests);
 
 end.

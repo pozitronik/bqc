@@ -84,9 +84,6 @@ type
     StatusLabel: TLabel;
     WindowsSettingsLink: TLabel;
     DevicesPanel: TPanel;
-    ScanPanel: TPanel;
-    ScanButton: TButton;
-    ScanProgressBar: TProgressBar;
     BluetoothTogglePanel: TPanel;
     BluetoothToggle: TToggleSwitch;
     procedure FormCreate(Sender: TObject);
@@ -97,7 +94,6 @@ type
     procedure HandleSettingsClick(Sender: TObject);
     procedure HandleWindowsSettingsClick(Sender: TObject);
     procedure HandleRefreshClick(Sender: TObject);
-    procedure HandleScanClick(Sender: TObject);
     procedure TitleLabelClick(Sender: TObject);
   private
     FPresenter: TMainPresenter;
@@ -144,6 +140,7 @@ type
 
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
+    procedure HandleActionClick(Sender: TObject; const AItem: TDeviceDisplayItem);
     procedure HandleHotkeyTriggered(Sender: TObject);
     procedure HandleCastPanelHotkeyTriggered(Sender: TObject);
     procedure HandleBluetoothPanelHotkeyTriggered(Sender: TObject);
@@ -540,6 +537,7 @@ begin
   FDeviceList.Parent := DevicesPanel;
   FDeviceList.Align := alClient;
   FDeviceList.OnDeviceClick := HandleDeviceClick;
+  FDeviceList.OnActionClick := HandleActionClick;
   FDeviceList.TabOrder := 0;
   // Inject configuration dependencies (eliminates Bootstrap fallback)
   FDeviceList.LayoutConfig := FLayoutConfig;
@@ -906,6 +904,12 @@ begin
   FPresenter.OnDeviceClicked(ADevice);
 end;
 
+procedure TFormMain.HandleActionClick(Sender: TObject; const AItem: TDeviceDisplayItem);
+begin
+  // Action button clicked (e.g., Scan for devices)
+  FPresenter.OnScanRequested;
+end;
+
 procedure TFormMain.HandleBluetoothToggle(Sender: TObject);
 begin
   if not FPresenter.IsUpdatingToggle then
@@ -963,11 +967,6 @@ end;
 procedure TFormMain.HandleRefreshClick(Sender: TObject);
 begin
   FPresenter.OnRefreshRequested;
-end;
-
-procedure TFormMain.HandleScanClick(Sender: TObject);
-begin
-  FPresenter.OnScanRequested;
 end;
 
 procedure TFormMain.TitleLabelClick(Sender: TObject);
@@ -1206,19 +1205,9 @@ end;
 
 procedure TFormMain.SetScanning(AScanning: Boolean);
 begin
-  if AScanning then
-  begin
-    // Hide button, show progress bar with marquee style
-    ScanButton.Visible := False;
-    ScanProgressBar.Style := pbstMarquee;
-    ScanProgressBar.Visible := True;
-  end
-  else
-  begin
-    // Show button, hide progress bar
-    ScanProgressBar.Visible := False;
-    ScanButton.Visible := True;
-  end;
+  // Scanning state is now displayed via the action button in the device list.
+  // The action button automatically shows "Scanning..." when IsActionInProgress is True.
+  // RefreshDisplayItems (called by presenter after this method) updates the display.
 end;
 
 function TFormMain.IsVisible: Boolean;
