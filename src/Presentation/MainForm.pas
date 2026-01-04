@@ -758,10 +758,17 @@ begin
   // Hide from taskbar in Menu mode
   ApplyMenuModeTaskbarHide;
 
-  // In Menu mode, start hidden
+  // In Menu mode, always start hidden
   if FGeneralConfig.WindowMode = wmMenu then
   begin
-    LogDebug('FinalizeMenuMode: Starting hidden', ClassName);
+    LogDebug('FinalizeMenuMode: Menu mode - starting hidden', ClassName);
+    Application.ShowMainForm := False;
+    Visible := False;
+  end
+  // In Window mode, start minimized if configured
+  else if (FGeneralConfig.WindowMode = wmWindow) and FWindowConfig.StartMinimized then
+  begin
+    LogDebug('FinalizeMenuMode: Window mode - starting minimized', ClassName);
     Application.ShowMainForm := False;
     Visible := False;
   end;

@@ -65,14 +65,17 @@ type
     function GetMinimizeToTray: Boolean;
     function GetCloseToTray: Boolean;
     function GetMenuHideOnFocusLoss: Boolean;
+    function GetStartMinimized: Boolean;
 
     procedure SetMinimizeToTray(AValue: Boolean);
     procedure SetCloseToTray(AValue: Boolean);
     procedure SetMenuHideOnFocusLoss(AValue: Boolean);
+    procedure SetStartMinimized(AValue: Boolean);
 
     property MinimizeToTray: Boolean read GetMinimizeToTray write SetMinimizeToTray;
     property CloseToTray: Boolean read GetCloseToTray write SetCloseToTray;
     property MenuHideOnFocusLoss: Boolean read GetMenuHideOnFocusLoss write SetMenuHideOnFocusLoss;
+    property StartMinimized: Boolean read GetStartMinimized write SetStartMinimized;
   end;
 
   /// <summary>

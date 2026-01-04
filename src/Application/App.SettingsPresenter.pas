@@ -37,6 +37,7 @@ type
     OnTop: Boolean;
     MinimizeToTray: Boolean;
     CloseToTray: Boolean;
+    StartMinimized: Boolean;
     HideOnFocusLoss: Boolean;
     Autostart: Boolean;
     PositionMode: TPositionMode;
@@ -672,6 +673,7 @@ begin
   General.OnTop := FGeneralConfig.OnTop;
   General.MinimizeToTray := FWindowConfig.MinimizeToTray;
   General.CloseToTray := FWindowConfig.CloseToTray;
+  General.StartMinimized := FWindowConfig.StartMinimized;
   General.HideOnFocusLoss := FWindowConfig.MenuHideOnFocusLoss;
   General.Autostart := FGeneralConfig.Autostart;
   General.PositionMode := FPositionConfig.PositionMode;
@@ -794,6 +796,7 @@ begin
     FGeneralConfig.OnTop := General.OnTop;
     FWindowConfig.MinimizeToTray := General.MinimizeToTray;
     FWindowConfig.CloseToTray := General.CloseToTray;
+    FWindowConfig.StartMinimized := General.StartMinimized;
     FWindowConfig.MenuHideOnFocusLoss := General.HideOnFocusLoss;
     FGeneralConfig.Autostart := General.Autostart;
     FPositionConfig.PositionMode := General.PositionMode;

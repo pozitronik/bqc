@@ -77,6 +77,7 @@ const
   // INI key names - [Window]
   KEY_MINIMIZE_TO_TRAY = 'MinimizeToTray';
   KEY_CLOSE_TO_TRAY = 'CloseToTray';
+  KEY_START_MINIMIZED = 'StartMinimized';
 
   // INI key names - [Menu]
   KEY_HIDE_ON_FOCUS_LOSS = 'HideOnFocusLoss';
@@ -158,6 +159,7 @@ const
   DEF_AUTOSTART = False;
   DEF_MINIMIZE_TO_TRAY = True;
   DEF_CLOSE_TO_TRAY = True;
+  DEF_START_MINIMIZED = True;
   DEF_MENU_HIDE_ON_FOCUS_LOSS = True;
   DEF_HOTKEY = 'Win+K';
   DEF_USE_LOW_LEVEL_HOOK = True;
@@ -303,6 +305,7 @@ begin
   // [Window]
   WindowCfg.MinimizeToTray := AIni.ReadBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, DEF_MINIMIZE_TO_TRAY);
   WindowCfg.CloseToTray := AIni.ReadBool(SEC_WINDOW, KEY_CLOSE_TO_TRAY, DEF_CLOSE_TO_TRAY);
+  WindowCfg.StartMinimized := AIni.ReadBool(SEC_WINDOW, KEY_START_MINIMIZED, DEF_START_MINIMIZED);
 
   // [Menu]
   WindowCfg.MenuHideOnFocusLoss := AIni.ReadBool(SEC_MENU, KEY_HIDE_ON_FOCUS_LOSS, DEF_MENU_HIDE_ON_FOCUS_LOSS);
@@ -460,6 +463,7 @@ begin
   // [Window]
   AIni.WriteBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, WindowCfg.MinimizeToTray);
   AIni.WriteBool(SEC_WINDOW, KEY_CLOSE_TO_TRAY, WindowCfg.CloseToTray);
+  AIni.WriteBool(SEC_WINDOW, KEY_START_MINIMIZED, WindowCfg.StartMinimized);
 
   // [Menu]
   AIni.WriteBool(SEC_MENU, KEY_HIDE_ON_FOCUS_LOSS, WindowCfg.MenuHideOnFocusLoss);

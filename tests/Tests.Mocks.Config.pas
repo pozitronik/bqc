@@ -318,6 +318,7 @@ type
   private
     FMinimizeToTray: Boolean;
     FCloseToTray: Boolean;
+    FStartMinimized: Boolean;
     FMenuHideOnFocusLoss: Boolean;
   public
     constructor Create;
@@ -325,13 +326,16 @@ type
     // IWindowConfig
     function GetMinimizeToTray: Boolean;
     function GetCloseToTray: Boolean;
+    function GetStartMinimized: Boolean;
     function GetMenuHideOnFocusLoss: Boolean;
     procedure SetMinimizeToTray(AValue: Boolean);
     procedure SetCloseToTray(AValue: Boolean);
+    procedure SetStartMinimized(AValue: Boolean);
     procedure SetMenuHideOnFocusLoss(AValue: Boolean);
 
     property MinimizeToTray: Boolean read FMinimizeToTray write FMinimizeToTray;
     property CloseToTray: Boolean read FCloseToTray write FCloseToTray;
+    property StartMinimized: Boolean read FStartMinimized write FStartMinimized;
     property MenuHideOnFocusLoss: Boolean read FMenuHideOnFocusLoss write FMenuHideOnFocusLoss;
   end;
 
@@ -1020,6 +1024,7 @@ begin
   inherited Create;
   FMinimizeToTray := True;
   FCloseToTray := True;
+  FStartMinimized := True;
   FMenuHideOnFocusLoss := True;
 end;
 
@@ -1031,6 +1036,11 @@ end;
 function TMockWindowConfig.GetCloseToTray: Boolean;
 begin
   Result := FCloseToTray;
+end;
+
+function TMockWindowConfig.GetStartMinimized: Boolean;
+begin
+  Result := FStartMinimized;
 end;
 
 function TMockWindowConfig.GetMenuHideOnFocusLoss: Boolean;
@@ -1046,6 +1056,11 @@ end;
 procedure TMockWindowConfig.SetCloseToTray(AValue: Boolean);
 begin
   FCloseToTray := AValue;
+end;
+
+procedure TMockWindowConfig.SetStartMinimized(AValue: Boolean);
+begin
+  FStartMinimized := AValue;
 end;
 
 procedure TMockWindowConfig.SetMenuHideOnFocusLoss(AValue: Boolean);
