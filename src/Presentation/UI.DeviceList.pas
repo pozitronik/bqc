@@ -316,10 +316,21 @@ begin
 end;
 
 function TDeviceListBox.CalculateItemHeight(AIndex: Integer): Integer;
+const
+  ACTION_BUTTON_HEIGHT = 28;  // Thin button height
+  ACTION_BUTTON_PADDING = 8;  // Top and bottom padding
 var
   BaseHeight: Integer;
   ProfileCount: Integer;
 begin
+  // Action items (scan button, etc.) have smaller height
+  if (AIndex >= 0) and (AIndex < Length(FDisplayItems)) and
+     (FDisplayItems[AIndex].Source = dsAction) then
+  begin
+    Result := ACTION_BUTTON_HEIGHT + (ACTION_BUTTON_PADDING * 2);
+    Exit;
+  end;
+
   BaseHeight := FCachedLayout.ItemHeight;
 
   // Add profile section height if profiles are shown
@@ -1145,28 +1156,20 @@ end;
 
 procedure TDeviceListBox.DrawActionButton(ACanvas: TCanvas; const ARect: TRect;
   const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
+const
+  BUTTON_HEIGHT = 28;  // Thin Windows 11 style button
+  TEXT_LEFT_PADDING = 12;  // Left padding for text
 var
   Style: TCustomStyleServices;
-  BgColor, TextColor: TColor;
-  ButtonRect, TextRect: TRect;
+  TextColor: TColor;
+  TextRect: TRect;
   ButtonText: string;
+  ButtonTop: Integer;
 begin
   Style := TStyleManager.ActiveStyle;
 
-  // Button rect with minimal padding (thin button)
-  ButtonRect := ARect;
-  InflateRect(ButtonRect, -FCachedLayout.ItemPadding, -4);
-
-  // Colors: Windows 11 style - subtle hover effect, borderless
-  if AIsHover then
-    BgColor := Style.GetSystemColor(clBtnFace)
-  else
-    BgColor := Style.GetSystemColor(clWindow);
-
-  // Draw background (no border, just subtle fill on hover)
-  ACanvas.Brush.Color := BgColor;
-  ACanvas.Pen.Color := BgColor;
-  ACanvas.FillRect(ButtonRect);
+  // Create thin button rect, centered vertically in ARect
+  ButtonTop := ARect.Top + (ARect.Bottom - ARect.Top - BUTTON_HEIGHT) div 2;
 
   // Button text
   if AItem.IsActionInProgress then
@@ -1180,17 +1183,22 @@ begin
     TextColor := Style.GetSystemColor(clWindowText);
   end;
 
-  // Set up font - clean, centered text
+  // Set up font - clean, left-aligned text
   ACanvas.Font.Name := FONT_UI;
   ACanvas.Font.Size := FCachedLayout.StatusFontSize;
   ACanvas.Font.Color := TextColor;
   ACanvas.Font.Style := [];
   ACanvas.Brush.Style := bsClear;
 
-  // Draw centered text
-  TextRect := ButtonRect;
+  // Draw left-aligned text with padding
+  TextRect := Rect(
+    ARect.Left + FCachedLayout.ItemPadding + TEXT_LEFT_PADDING,
+    ButtonTop,
+    ARect.Right - FCachedLayout.ItemPadding,
+    ButtonTop + BUTTON_HEIGHT
+  );
   DrawText(ACanvas.Handle, PChar(ButtonText), Length(ButtonText),
-    TextRect, DT_CENTER or DT_VCENTER or DT_SINGLELINE);
+    TextRect, DT_LEFT or DT_VCENTER or DT_SINGLELINE);
 
   ACanvas.Brush.Style := bsSolid;
 end;
@@ -1377,10 +1385,24 @@ begin
       begin
         if FSelectedIndex >= 0 then
         begin
-          if Assigned(FOnDisplayItemClick) then
-            FOnDisplayItemClick(Self, FDisplayItems[FSelectedIndex])
-          else if Assigned(FOnDeviceClick) then
-            FOnDeviceClick(Self, FDisplayItems[FSelectedIndex].Device);
+          // Check if action item (scan button, etc.)
+          if FDisplayItems[FSelectedIndex].Source = dsAction then
+          begin
+            // Don't trigger if action is in progress (e.g., scanning)
+            if not FDisplayItems[FSelectedIndex].IsActionInProgress then
+            begin
+              if Assigned(FOnActionClick) then
+                FOnActionClick(Self, FDisplayItems[FSelectedIndex]);
+            end;
+          end
+          else
+          begin
+            // Regular device activation
+            if Assigned(FOnDisplayItemClick) then
+              FOnDisplayItemClick(Self, FDisplayItems[FSelectedIndex])
+            else if Assigned(FOnDeviceClick) then
+              FOnDeviceClick(Self, FDisplayItems[FSelectedIndex].Device);
+          end;
         end;
         Key := 0;
       end;
