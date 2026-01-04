@@ -100,12 +100,25 @@ type
     /// <param name="AStatus">The battery status to format.</param>
     /// <returns>Formatted battery text (e.g., "85%") or empty string if not available.</returns>
     class function FormatBatteryLevel(const AStatus: TBatteryStatus): string; static;
+
+    /// <summary>
+    /// Checks if a device name is in a generic Windows format.
+    /// Generic formats include:
+    /// - Empty string
+    /// - "Bluetooth XX:XX:XX:XX:XX:XX" (27 chars, WinRT fallback format)
+    /// - Uppercase MAC without colons "88C9E8A166B4" (12 hex chars)
+    /// These indicate the real device name is not available from the Windows API.
+    /// </summary>
+    /// <param name="AName">The device name to check.</param>
+    /// <returns>True if the name is generic/placeholder, False if it's a real device name.</returns>
+    class function IsGenericName(const AName: string): Boolean; static;
   end;
 
 implementation
 
 uses
-  System.DateUtils;
+  System.DateUtils,
+  System.RegularExpressions;
 
 { TDeviceFormatter }
 
@@ -166,15 +179,18 @@ class function TDeviceFormatter.GetDisplayName(const ADevice: TBluetoothDeviceIn
 begin
   // Priority order:
   // 1. User-defined alias (highest priority - explicit user intent)
-  // 2. Current device name from Windows API (fresh data)
-  // 3. Cached name from INI config (fallback for devices with empty API name)
-  // 4. "Device " + MAC address as last resort (for truly unknown devices)
+  // 2. Current device name from Windows API (if non-generic)
+  // 3. Cached name from INI config (fallback for generic API names)
+  // 4. Current device name even if generic (better than nothing)
+  // 5. "Device " + MAC address as last resort
   if AConfig.Alias <> '' then
     Result := AConfig.Alias
-  else if ADevice.Name <> '' then
-    Result := ADevice.Name
+  else if (ADevice.Name <> '') and not IsGenericName(ADevice.Name) then
+    Result := ADevice.Name  // Fresh non-generic name from API
   else if AConfig.Name <> '' then
-    Result := AConfig.Name
+    Result := AConfig.Name  // Cached name (may be better than generic)
+  else if ADevice.Name <> '' then
+    Result := ADevice.Name  // Use generic name if nothing better
   else
     Result := 'Device ' + ADevice.AddressString;
 end;
@@ -235,6 +251,18 @@ begin
     Result := Format('%d%%', [AStatus.Level])
   else
     Result := '';
+end;
+
+class function TDeviceFormatter.IsGenericName(const AName: string): Boolean;
+begin
+  // Check for Windows generic formats:
+  // 1. Empty string - no name available
+  // 2. "Bluetooth XX:XX:XX:XX:XX:XX" - WinRT fallback (27 chars, starts with "Bluetooth ")
+  // 3. Uppercase MAC without colons "88C9E8A166B4" - Another fallback format (12 hex chars)
+
+  Result := (AName = '') or
+            (AName.StartsWith('Bluetooth ', True) and (AName.Length = 27)) or
+            ((AName.Length = 12) and TRegEx.IsMatch(AName, '^[0-9A-F]{12}$'));
 end;
 
 end.

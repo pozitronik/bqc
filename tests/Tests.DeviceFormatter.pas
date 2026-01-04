@@ -98,6 +98,31 @@ type
     [Test]
     procedure GetDisplayName_AliasOverridesConfigName;
 
+    [Test]
+    procedure GetDisplayName_GenericWindowsName_UsesCachedName;
+
+    [Test]
+    procedure GetDisplayName_UppercaseMACFormat_UsesCachedName;
+
+    { IsGenericName Tests }
+    [Test]
+    procedure IsGenericName_EmptyString_ReturnsTrue;
+
+    [Test]
+    procedure IsGenericName_BluetoothWithColons_ReturnsTrue;
+
+    [Test]
+    procedure IsGenericName_UppercaseMACNoColons_ReturnsTrue;
+
+    [Test]
+    procedure IsGenericName_RealDeviceName_ReturnsFalse;
+
+    [Test]
+    procedure IsGenericName_LowercaseMACNoColons_ReturnsFalse;
+
+    [Test]
+    procedure IsGenericName_BluetoothWrongLength_ReturnsFalse;
+
     { GetEffectiveDeviceType Tests }
     [Test]
     procedure GetEffectiveDeviceType_NoOverride_ReturnsDeviceType;
@@ -415,6 +440,97 @@ begin
   Config.Name := 'Cached Name';
 
   Assert.AreEqual('User Alias', TDeviceFormatter.GetDisplayName(Device, Config));
+end;
+
+procedure TDeviceFormatterTests.GetDisplayName_GenericWindowsName_UsesCachedName;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+  DisplayName: string;
+begin
+  // Bug scenario: Device has generic Windows name "Bluetooth XX:XX:XX:XX:XX:XX"
+  // but config has cached real name from previous session.
+  // Should use cached name, not generic Windows name.
+  Device := CreateTestDevice($88C9E8A166B4, 'Bluetooth 88:c9:e8:a1:66:b4', btAudioOutput, csDisconnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := '';
+  Config.Name := 'WH-1000XM4';  // Cached from previous session
+
+  DisplayName := TDeviceFormatter.GetDisplayName(Device, Config);
+
+  // Assert: Should use cached name, not generic Windows name
+  Assert.AreEqual('WH-1000XM4', DisplayName,
+    'GetDisplayName should prefer cached config name over generic Windows format name');
+end;
+
+procedure TDeviceFormatterTests.GetDisplayName_UppercaseMACFormat_UsesCachedName;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+  DisplayName: string;
+begin
+  // Bug scenario: Device has uppercase MAC address without colons (another generic format)
+  // Should recognize this as generic and use cached name instead.
+  Device := CreateTestDevice($88C9E8A166B4, '88C9E8A166B4', btAudioOutput, csDisconnected);
+  Config := Default(TDeviceConfig);
+  Config.Alias := '';
+  Config.Name := 'WH-1000XM4';  // Cached from previous session
+
+  DisplayName := TDeviceFormatter.GetDisplayName(Device, Config);
+
+  // Assert: Should use cached name, not uppercase MAC format
+  Assert.AreEqual('WH-1000XM4', DisplayName,
+    'GetDisplayName should prefer cached config name over uppercase MAC format');
+end;
+
+{ TDeviceFormatterTests - IsGenericName }
+
+procedure TDeviceFormatterTests.IsGenericName_EmptyString_ReturnsTrue;
+begin
+  // Empty string is considered generic (no name available)
+  Assert.IsTrue(TDeviceFormatter.IsGenericName(''),
+    'Empty string should be identified as generic');
+end;
+
+procedure TDeviceFormatterTests.IsGenericName_BluetoothWithColons_ReturnsTrue;
+begin
+  // "Bluetooth XX:XX:XX:XX:XX:XX" format (27 chars) is WinRT fallback
+  Assert.IsTrue(TDeviceFormatter.IsGenericName('Bluetooth 88:c9:e8:a1:66:b4'),
+    'Bluetooth with MAC address should be identified as generic');
+end;
+
+procedure TDeviceFormatterTests.IsGenericName_UppercaseMACNoColons_ReturnsTrue;
+begin
+  // Uppercase 12-char hex string without colons is another generic format
+  Assert.IsTrue(TDeviceFormatter.IsGenericName('88C9E8A166B4'),
+    'Uppercase MAC without colons should be identified as generic');
+end;
+
+procedure TDeviceFormatterTests.IsGenericName_RealDeviceName_ReturnsFalse;
+begin
+  // Real device names should not be identified as generic
+  Assert.IsFalse(TDeviceFormatter.IsGenericName('WH-1000XM4'),
+    'Real device name should not be identified as generic');
+  Assert.IsFalse(TDeviceFormatter.IsGenericName('Surface Headphones'),
+    'Real device name should not be identified as generic');
+  Assert.IsFalse(TDeviceFormatter.IsGenericName('My Bluetooth Speaker'),
+    'Real device name should not be identified as generic');
+end;
+
+procedure TDeviceFormatterTests.IsGenericName_LowercaseMACNoColons_ReturnsFalse;
+begin
+  // Lowercase MAC should NOT be considered generic (different from Windows format)
+  Assert.IsFalse(TDeviceFormatter.IsGenericName('88c9e8a166b4'),
+    'Lowercase MAC should not be identified as generic');
+end;
+
+procedure TDeviceFormatterTests.IsGenericName_BluetoothWrongLength_ReturnsFalse;
+begin
+  // "Bluetooth " prefix with wrong length should not match
+  Assert.IsFalse(TDeviceFormatter.IsGenericName('Bluetooth Speaker'),
+    'Bluetooth prefix with wrong length should not be identified as generic');
+  Assert.IsFalse(TDeviceFormatter.IsGenericName('Bluetooth'),
+    'Bluetooth prefix alone should not be identified as generic');
 end;
 
 { TDeviceFormatterTests - GetEffectiveDeviceType }
