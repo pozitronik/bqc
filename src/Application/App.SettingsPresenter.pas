@@ -83,6 +83,7 @@ type
     AddressFontSize: Integer;
     IconFontSize: Integer;
     ShowUnpairedDevices: Boolean;
+    ShowUnidentifiedDevices: Boolean;
   end;
 
   /// <summary>
@@ -714,6 +715,7 @@ begin
   Layout.AddressFontSize := FLayoutConfig.AddressFontSize;
   Layout.IconFontSize := FLayoutConfig.IconFontSize;
   Layout.ShowUnpairedDevices := FLayoutConfig.ShowUnpairedDevices;
+  Layout.ShowUnidentifiedDevices := FLayoutConfig.ShowUnidentifiedDevices;
   FLayoutSettingsView.SetLayoutSettings(Layout);
 
   // Connection settings
@@ -837,6 +839,7 @@ begin
     FLayoutConfig.AddressFontSize := Layout.AddressFontSize;
     FLayoutConfig.IconFontSize := Layout.IconFontSize;
     FLayoutConfig.ShowUnpairedDevices := Layout.ShowUnpairedDevices;
+    FLayoutConfig.ShowUnidentifiedDevices := Layout.ShowUnidentifiedDevices;
 
     // Connection settings
     Connection := FConnectionSettingsView.GetConnectionSettings;
@@ -1002,6 +1005,7 @@ begin
   Layout.AddressFontSize := DEF_ADDRESS_FONT_SIZE;
   Layout.IconFontSize := DEF_ICON_FONT_SIZE;
   Layout.ShowUnpairedDevices := False;  // Default: don't show unpaired devices
+  Layout.ShowUnidentifiedDevices := True;  // Default: show all devices (non-breaking)
   FLayoutSettingsView.SetLayoutSettings(Layout);
 
   // Reset connected color (in appearance settings)

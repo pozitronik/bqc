@@ -122,6 +122,7 @@ type
     UpDownIconFontSize: TUpDown;
     GroupDiscovery: TGroupBox;
     CheckShowUnpairedDevices: TCheckBox;
+    CheckShowUnidentifiedDevices: TCheckBox;
     GroupProfiles: TGroupBox;
     LabelProfileFontSize: TLabel;
     LabelProfileFontSizePt: TLabel;
@@ -617,6 +618,7 @@ begin
   Result.AddressFontSize := UpDownAddressSize.Position;
   Result.IconFontSize := UpDownIconFontSize.Position;
   Result.ShowUnpairedDevices := CheckShowUnpairedDevices.Checked;
+  Result.ShowUnidentifiedDevices := CheckShowUnidentifiedDevices.Checked;
 end;
 
 procedure TFormSettings.SetLayoutSettings(const ASettings: TLayoutViewSettings);
@@ -633,6 +635,7 @@ begin
   UpDownAddressSize.Position := ASettings.AddressFontSize;
   UpDownIconFontSize.Position := ASettings.IconFontSize;
   CheckShowUnpairedDevices.Checked := ASettings.ShowUnpairedDevices;
+  CheckShowUnidentifiedDevices.Checked := ASettings.ShowUnidentifiedDevices;
 end;
 
 function TFormSettings.GetConnectionSettings: TConnectionViewSettings;

@@ -517,7 +517,7 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 215
         Width = 536
-        Height = 55
+        Height = 80
         Align = alTop
         Caption = 'New devices && discovery'
         TabOrder = 2
@@ -528,6 +528,14 @@ object FormSettings: TFormSettings
           Height = 17
           Caption = 'Show unpaired devices in range (requires scan)'
           TabOrder = 0
+        end
+        object CheckShowUnidentifiedDevices: TCheckBox
+          Left = 12
+          Top = 47
+          Width = 500
+          Height = 17
+          Caption = 'Show unidentified devices in scan results'
+          TabOrder = 1
         end
       end
       object GroupProfiles: TGroupBox
