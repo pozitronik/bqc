@@ -114,11 +114,19 @@ object FormSettings: TFormSettings
             TabOrder = 0
           end
           object CheckCloseToTray: TCheckBox
-            Left = 144
+            Left = 276
             Top = 25
             Width = 120
             Height = 17
             Caption = 'Close to tray'
+            TabOrder = 2
+          end
+          object CheckStartMinimized: TCheckBox
+            Left = 148
+            Top = 25
+            Width = 120
+            Height = 17
+            Caption = 'Start minimized'
             TabOrder = 1
           end
         end

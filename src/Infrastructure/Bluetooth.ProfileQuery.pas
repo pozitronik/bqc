@@ -140,7 +140,7 @@ var
   ServiceCount: DWORD;
   Services: array[0..MAX_SERVICES - 1] of TGUID;
   ErrorCode: DWORD;
-  I: Integer;
+  I: Cardinal;
 begin
   SetLength(Result, 0);
 
@@ -179,8 +179,12 @@ begin
 
   // Copy to result
   SetLength(Result, ServiceCount);
-  for I := 0 to ServiceCount - 1 do
+  I := 0;
+  while I < ServiceCount do
+  begin
     Result[I] := Services[I];
+    Inc(I);
+  end;
 
   LogDebug('EnumerateEnabledServices: Found %d services for %.12X', [ServiceCount, ADeviceAddress], LOG_SOURCE);
 end;

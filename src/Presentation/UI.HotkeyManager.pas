@@ -34,6 +34,7 @@ type
     FUsingLowLevelHook: Boolean;
     FWindowHandle: HWND;
     FOnHotkeyTriggered: TNotifyEvent;
+    FInstanceId: Integer;  // Unique ID to identify this manager's entry in global list
 
     procedure DoHotkeyTriggered;
   public
@@ -90,7 +91,9 @@ type
     /// Handles WM_HOTKEY_DETECTED message from low-level hook.
     /// Call this from the form's WM_HOTKEY_DETECTED handler.
     /// </summary>
-    procedure HandleHotkeyDetected;
+    /// <param name="AWParam">WParam from the message (InstanceId of the triggered hotkey).</param>
+    /// <returns>True if this was our hotkey and event was fired.</returns>
+    function HandleHotkeyDetected(AWParam: WPARAM): Boolean;
 
     /// <summary>
     /// Fired when the registered hotkey is triggered.
@@ -130,15 +133,23 @@ type
     dwExtraInfo: ULONG_PTR;
   end;
 
+  /// <summary>
+  /// Represents a single registered hotkey in the global hook list.
+  /// </summary>
+  THotkeyEntry = record
+    InstanceId: Integer;      // Unique ID to identify which manager owns this
+    Modifiers: Integer;       // Modifier flags (MOD_CONTROL, MOD_ALT, etc.)
+    VirtualKey: Integer;      // Virtual key code
+    WindowHandle: NativeInt;  // Window to send WM_HOTKEY_DETECTED message
+  end;
+
 var
   // Global state for low-level keyboard hook
-  // Only one hotkey manager can use the low-level hook at a time
-  // Using Integer types for TInterlocked compatibility
+  // Supports multiple concurrent hotkeys - each THotkeyManager adds an entry
   GKeyboardHook: HHOOK = 0;
-  GHotkeyModifiers: Integer = 0;
-  GHotkeyVirtualKey: Integer = 0;
-  GHotkeyFormHandle: NativeInt = 0;  // NativeInt for HWND on both 32/64-bit
-  GCurrentModifiers: Integer = 0;
+  GHotkeyList: array of THotkeyEntry;  // Dynamic array of registered hotkeys
+  GHotkeyListLock: TCriticalSection;   // Thread-safe access to list
+  GCurrentModifiers: Integer = 0;      // Current modifier key state (atomic)
 
 /// <summary>
 /// Atomically sets bits in Target using compare-exchange loop.
@@ -171,8 +182,9 @@ var
   KbdStruct: PKBDLLHOOKSTRUCT;
   VK: Cardinal;
   IsKeyDown: Boolean;
-  LocalVirtualKey, LocalModifiers, LocalCurrentMods: Integer;
-  LocalFormHandle: NativeInt;
+  LocalCurrentMods: Integer;
+  I: Integer;
+  Entry: THotkeyEntry;
 begin
   if nCode < 0 then
   begin
@@ -208,22 +220,29 @@ begin
         AtomicAnd(GCurrentModifiers, not MOD_SHIFT);
   end;
 
-  // Atomic reads of configuration - ensures we see consistent values
-  LocalVirtualKey := TInterlocked.CompareExchange(GHotkeyVirtualKey, 0, 0);
-  LocalModifiers := TInterlocked.CompareExchange(GHotkeyModifiers, 0, 0);
-  LocalCurrentMods := TInterlocked.CompareExchange(GCurrentModifiers, 0, 0);
-  LocalFormHandle := TInterlocked.Read(GHotkeyFormHandle);
-
-  // Check if our hotkey is triggered (on key down, not modifiers themselves)
-  if IsKeyDown and (LocalVirtualKey <> 0) then
+  // Check if any registered hotkey is triggered (on key down, not modifiers themselves)
+  if IsKeyDown then
   begin
-    // Check if this is the main key (not a modifier) and modifiers match
-    if (Integer(VK) = LocalVirtualKey) and (LocalCurrentMods = LocalModifiers) then
-    begin
-      // Post message to form and consume the key
-      PostMessage(HWND(LocalFormHandle), WM_HOTKEY_DETECTED, 0, 0);
-      Result := 1;  // Consume the key, don't pass to system
-      Exit;
+    LocalCurrentMods := TInterlocked.CompareExchange(GCurrentModifiers, 0, 0);
+
+    // Check all registered hotkeys
+    GHotkeyListLock.Enter;
+    try
+      for I := 0 to High(GHotkeyList) do
+      begin
+        Entry := GHotkeyList[I];
+        // Check if this is the main key (not a modifier) and modifiers match
+        if (Integer(VK) = Entry.VirtualKey) and (LocalCurrentMods = Entry.Modifiers) then
+        begin
+          // Post message to the corresponding window and consume the key
+          // wParam contains InstanceId so the correct manager can identify its hotkey
+          PostMessage(HWND(Entry.WindowHandle), WM_HOTKEY_DETECTED, Entry.InstanceId, 0);
+          Result := 1;  // Consume the key, don't pass to system
+          Exit;
+        end;
+      end;
+    finally
+      GHotkeyListLock.Leave;
     end;
   end;
 
@@ -238,8 +257,11 @@ var
   AtomName: string;
 begin
   inherited Create;
-  // Generate unique atom name for this instance
+  // Generate unique instance ID for this manager
   InstanceNum := TInterlocked.Increment(GHotkeyInstanceCounter);
+  FInstanceId := InstanceNum;
+
+  // Generate unique atom name for RegisterHotKey
   AtomName := HOTKEY_ATOM_PREFIX + IntToStr(InstanceNum);
   FHotkeyId := GlobalAddAtom(PChar(AtomName));
   FHotkeyRegistered := False;
@@ -467,22 +489,35 @@ begin
   if AUseLowLevelHook then
   begin
     // Use low-level keyboard hook (can override system hotkeys)
-    // Use atomic writes to ensure hook thread sees consistent values
-    TInterlocked.Exchange(GHotkeyModifiers, Integer(Modifiers));
-    TInterlocked.Exchange(GHotkeyVirtualKey, Integer(VirtualKey));
-    TInterlocked.Exchange(GHotkeyFormHandle, NativeInt(AWindowHandle));
-    TInterlocked.Exchange(GCurrentModifiers, 0);
+    // Add this hotkey to the global list
+    GHotkeyListLock.Enter;
+    try
+      // Add entry to list
+      SetLength(GHotkeyList, Length(GHotkeyList) + 1);
+      GHotkeyList[High(GHotkeyList)].InstanceId := FInstanceId;
+      GHotkeyList[High(GHotkeyList)].Modifiers := Integer(Modifiers);
+      GHotkeyList[High(GHotkeyList)].VirtualKey := Integer(VirtualKey);
+      GHotkeyList[High(GHotkeyList)].WindowHandle := NativeInt(AWindowHandle);
 
-    GKeyboardHook := SetWindowsHookEx(WH_KEYBOARD_LL, @LowLevelKeyboardProc, HInstance, 0);
-    if GKeyboardHook <> 0 then
-    begin
+      // Install hook if this is the first entry
+      if Length(GHotkeyList) = 1 then
+      begin
+        TInterlocked.Exchange(GCurrentModifiers, 0);
+        GKeyboardHook := SetWindowsHookEx(WH_KEYBOARD_LL, @LowLevelKeyboardProc, HInstance, 0);
+        if GKeyboardHook = 0 then
+        begin
+          // Hook failed, remove the entry we just added
+          SetLength(GHotkeyList, 0);
+          LogInfo('Register: Failed to install low-level hook (Error=%d)', [GetLastError], ClassName);
+          Exit;
+        end;
+      end;
+
       FHotkeyRegistered := True;
       FUsingLowLevelHook := True;
       LogInfo('Register: Installed low-level hook for "%s"', [AHotkey], ClassName);
-    end
-    else
-    begin
-      LogInfo('Register: Failed to install low-level hook (Error=%d)', [GetLastError], ClassName);
+    finally
+      GHotkeyListLock.Leave;
     end;
   end
   else
@@ -503,21 +538,46 @@ begin
 end;
 
 procedure THotkeyManager.Unregister;
+var
+  I: Integer;
+  Found: Boolean;
 begin
   if FHotkeyRegistered then
   begin
     if FUsingLowLevelHook then
     begin
-      // Uninstall low-level hook
-      if GKeyboardHook <> 0 then
-      begin
-        UnhookWindowsHookEx(GKeyboardHook);
-        GKeyboardHook := 0;
-        // Use atomic writes to ensure hook thread (if still running briefly) sees zeros
-        TInterlocked.Exchange(GHotkeyModifiers, 0);
-        TInterlocked.Exchange(GHotkeyVirtualKey, 0);
-        TInterlocked.Exchange(GHotkeyFormHandle, 0);
-        LogInfo('Unregister: Uninstalled low-level hook', ClassName);
+      // Remove this hotkey from the global list
+      GHotkeyListLock.Enter;
+      try
+        Found := False;
+        // Find and remove our entry
+        for I := 0 to High(GHotkeyList) do
+        begin
+          if GHotkeyList[I].InstanceId = FInstanceId then
+          begin
+            // Shift remaining entries down
+            if I < High(GHotkeyList) then
+              Move(GHotkeyList[I + 1], GHotkeyList[I], (Length(GHotkeyList) - I - 1) * SizeOf(THotkeyEntry));
+            SetLength(GHotkeyList, Length(GHotkeyList) - 1);
+            Found := True;
+            Break;
+          end;
+        end;
+
+        // Uninstall hook if list is now empty
+        if Found and (Length(GHotkeyList) = 0) then
+        begin
+          if GKeyboardHook <> 0 then
+          begin
+            UnhookWindowsHookEx(GKeyboardHook);
+            GKeyboardHook := 0;
+            LogInfo('Unregister: Uninstalled low-level hook', ClassName);
+          end;
+        end
+        else if Found then
+          LogInfo('Unregister: Removed hotkey from list (%d remaining)', [Length(GHotkeyList)], ClassName);
+      finally
+        GHotkeyListLock.Leave;
       end;
     end
     else
@@ -552,13 +612,32 @@ begin
   end;
 end;
 
-procedure THotkeyManager.HandleHotkeyDetected;
+function THotkeyManager.HandleHotkeyDetected(AWParam: WPARAM): Boolean;
 begin
+  Result := False;
   if FHotkeyRegistered and FUsingLowLevelHook then
   begin
-    LogDebug('HandleHotkeyDetected: Hotkey triggered via low-level hook', ClassName);
-    DoHotkeyTriggered;
+    // Check if this message is for our instance
+    if Integer(AWParam) = FInstanceId then
+    begin
+      LogDebug('HandleHotkeyDetected: Hotkey triggered via low-level hook', ClassName);
+      DoHotkeyTriggered;
+      Result := True;
+    end;
   end;
 end;
+
+initialization
+  GHotkeyListLock := TCriticalSection.Create;
+
+finalization
+  // Cleanup: unhook if still active and free critical section
+  if GKeyboardHook <> 0 then
+  begin
+    UnhookWindowsHookEx(GKeyboardHook);
+    GKeyboardHook := 0;
+  end;
+  SetLength(GHotkeyList, 0);
+  FreeAndNil(GHotkeyListLock);
 
 end.

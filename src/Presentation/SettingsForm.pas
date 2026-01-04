@@ -57,6 +57,7 @@ type
     GroupWindowOptions: TGroupBox;
     CheckMinimizeToTray: TCheckBox;
     CheckCloseToTray: TCheckBox;
+    CheckStartMinimized: TCheckBox;
     GroupMenuOptions: TGroupBox;
     CheckHideOnFocusLoss: TCheckBox;
     GroupPosition: TGroupBox;
@@ -541,6 +542,7 @@ begin
   Result.OnTop := CheckOnTop.Checked;
   Result.MinimizeToTray := CheckMinimizeToTray.Checked;
   Result.CloseToTray := CheckCloseToTray.Checked;
+  Result.StartMinimized := CheckStartMinimized.Checked;
   Result.HideOnFocusLoss := CheckHideOnFocusLoss.Checked;
   Result.Autostart := CheckAutostart.Checked;
   Result.PositionMode := TPositionMode(ComboPositionMode.ItemIndex);
@@ -552,6 +554,7 @@ begin
   CheckOnTop.Checked := ASettings.OnTop;
   CheckMinimizeToTray.Checked := ASettings.MinimizeToTray;
   CheckCloseToTray.Checked := ASettings.CloseToTray;
+  CheckStartMinimized.Checked := ASettings.StartMinimized;
   CheckHideOnFocusLoss.Checked := ASettings.HideOnFocusLoss;
   CheckAutostart.Checked := ASettings.Autostart;
   ComboPositionMode.ItemIndex := Ord(ASettings.PositionMode);
@@ -1030,6 +1033,7 @@ begin
   CheckOnTop.OnClick := HandleSettingChanged;
   CheckMinimizeToTray.OnClick := HandleSettingChanged;
   CheckCloseToTray.OnClick := HandleSettingChanged;
+  CheckStartMinimized.OnClick := HandleSettingChanged;
   CheckHideOnFocusLoss.OnClick := HandleSettingChanged;
   CheckAutostart.OnClick := HandleSettingChanged;
   ComboPositionMode.OnChange := HandleSettingChanged;

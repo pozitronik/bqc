@@ -322,10 +322,11 @@ begin
       Exit;
 
     HR := VectorView.get_Size(Count);
-    if Failed(HR) or (Count = 0) then
+    if Failed(HR) then
       Exit;
 
-    for I := 0 to Count - 1 do
+    I := 0;
+    while I < Count do
     begin
       HR := VectorView.GetAt(I, Radio);
       if Failed(HR) or (Radio = nil) then
@@ -338,6 +339,8 @@ begin
         Result := True;
         Exit;
       end;
+
+      Inc(I);
     end;
   finally
     // See RoUninitialize declaration for why we don't call it here

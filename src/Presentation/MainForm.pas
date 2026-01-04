@@ -750,16 +750,16 @@ begin
   FHotkeyManager.OnHotkeyTriggered := HandleHotkeyTriggered;
   FHotkeyManager.Register(Handle, FHotkeyConfig.Hotkey, FHotkeyConfig.UseLowLevelHook);
 
-  // Create and register system panel hotkeys (use standard RegisterHotKey, not low-level hook)
+  // Create and register system panel hotkeys (use same hook setting as global hotkey)
   FCastPanelHotkeyManager := THotkeyManager.Create;
   FCastPanelHotkeyManager.OnHotkeyTriggered := HandleCastPanelHotkeyTriggered;
   if FHotkeyConfig.CastPanelHotkey <> '' then
-    FCastPanelHotkeyManager.Register(Handle, FHotkeyConfig.CastPanelHotkey, False);
+    FCastPanelHotkeyManager.Register(Handle, FHotkeyConfig.CastPanelHotkey, FHotkeyConfig.UseLowLevelHook);
 
   FBluetoothPanelHotkeyManager := THotkeyManager.Create;
   FBluetoothPanelHotkeyManager.OnHotkeyTriggered := HandleBluetoothPanelHotkeyTriggered;
   if FHotkeyConfig.BluetoothPanelHotkey <> '' then
-    FBluetoothPanelHotkeyManager.Register(Handle, FHotkeyConfig.BluetoothPanelHotkey, False);
+    FBluetoothPanelHotkeyManager.Register(Handle, FHotkeyConfig.BluetoothPanelHotkey, FHotkeyConfig.UseLowLevelHook);
 end;
 
 procedure TFormMain.FinalizeMenuMode;
@@ -767,10 +767,17 @@ begin
   // Hide from taskbar in Menu mode
   ApplyMenuModeTaskbarHide;
 
-  // In Menu mode, start hidden
+  // In Menu mode, always start hidden
   if FGeneralConfig.WindowMode = wmMenu then
   begin
-    LogDebug('FinalizeMenuMode: Starting hidden', ClassName);
+    LogDebug('FinalizeMenuMode: Menu mode - starting hidden', ClassName);
+    Application.ShowMainForm := False;
+    Visible := False;
+  end
+  // In Window mode, start minimized if configured
+  else if (FGeneralConfig.WindowMode = wmWindow) and FWindowConfig.StartMinimized then
+  begin
+    LogDebug('FinalizeMenuMode: Window mode - starting minimized', ClassName);
     Application.ShowMainForm := False;
     Visible := False;
   end;
@@ -789,14 +796,14 @@ begin
   FCastPanelHotkeyManager.Unregister;
   if FHotkeyConfig.CastPanelHotkey <> '' then
   begin
-    FCastPanelHotkeyManager.Register(Handle, FHotkeyConfig.CastPanelHotkey, False);
+    FCastPanelHotkeyManager.Register(Handle, FHotkeyConfig.CastPanelHotkey, FHotkeyConfig.UseLowLevelHook);
     LogDebug('ApplyHotkeySettings: Cast panel hotkey registered: %s', [FHotkeyConfig.CastPanelHotkey], ClassName);
   end;
 
   FBluetoothPanelHotkeyManager.Unregister;
   if FHotkeyConfig.BluetoothPanelHotkey <> '' then
   begin
-    FBluetoothPanelHotkeyManager.Register(Handle, FHotkeyConfig.BluetoothPanelHotkey, False);
+    FBluetoothPanelHotkeyManager.Register(Handle, FHotkeyConfig.BluetoothPanelHotkey, FHotkeyConfig.UseLowLevelHook);
     LogDebug('ApplyHotkeySettings: Bluetooth panel hotkey registered: %s', [FHotkeyConfig.BluetoothPanelHotkey], ClassName);
   end;
 end;
@@ -1432,7 +1439,13 @@ end;
 
 procedure TFormMain.WMHotkeyDetected(var Msg: TMessage);
 begin
-  FHotkeyManager.HandleHotkeyDetected;
+  // Check all hotkey managers - wParam contains InstanceId of the triggered hotkey
+  if FHotkeyManager.HandleHotkeyDetected(Msg.WParam) then
+    Exit;
+  if Assigned(FCastPanelHotkeyManager) and FCastPanelHotkeyManager.HandleHotkeyDetected(Msg.WParam) then
+    Exit;
+  if Assigned(FBluetoothPanelHotkeyManager) then
+    FBluetoothPanelHotkeyManager.HandleHotkeyDetected(Msg.WParam);
 end;
 
 procedure TFormMain.WMDpiChanged(var Msg: TMessage);
