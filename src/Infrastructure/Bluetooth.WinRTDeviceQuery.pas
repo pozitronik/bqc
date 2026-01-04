@@ -300,7 +300,11 @@ type
 function TWinRTBluetoothDeviceQuery.EnumeratePairedDevices: TBluetoothDeviceInfoArray;
 var
   ClassicDevices, BLEDevices: TBluetoothDeviceInfoArray;
+  ThreadID: Cardinal;
 begin
+  ThreadID := GetCurrentThreadId;
+  LogDebug('EnumeratePairedDevices: Entry [ThreadID=%d]', [ThreadID], LOG_SOURCE);
+
   // Check if WinRT is available (Windows 8+)
   if not IsWinRTAvailable then
   begin
@@ -309,7 +313,7 @@ begin
     Exit;
   end;
 
-  LogDebug('EnumeratePairedDevices: Starting WinRT enumeration', LOG_SOURCE);
+  LogDebug('EnumeratePairedDevices: Starting WinRT enumeration [ThreadID=%d]', [ThreadID], LOG_SOURCE);
 
   // Initialize WinRT (if not already)
   if not EnsureWinRTInitialized(LOG_SOURCE) then
@@ -320,11 +324,29 @@ begin
   end;
 
   // Enumerate both Classic and BLE devices
-  ClassicDevices := EnumerateClassicDevices;
-  LogDebug('EnumeratePairedDevices: Found %d Classic devices', [Length(ClassicDevices)], LOG_SOURCE);
+  LogDebug('EnumeratePairedDevices: About to call EnumerateClassicDevices', LOG_SOURCE);
+  try
+    ClassicDevices := EnumerateClassicDevices;
+    LogDebug('EnumeratePairedDevices: EnumerateClassicDevices returned, found %d Classic devices', [Length(ClassicDevices)], LOG_SOURCE);
+  except
+    on E: Exception do
+    begin
+      LogDebug('EnumeratePairedDevices: EnumerateClassicDevices raised exception: %s - %s', [E.ClassName, E.Message], LOG_SOURCE);
+      SetLength(ClassicDevices, 0);
+    end;
+  end;
 
-  BLEDevices := EnumerateBLEDevices;
-  LogDebug('EnumeratePairedDevices: Found %d BLE devices', [Length(BLEDevices)], LOG_SOURCE);
+  LogDebug('EnumeratePairedDevices: About to call EnumerateBLEDevices', LOG_SOURCE);
+  try
+    BLEDevices := EnumerateBLEDevices;
+    LogDebug('EnumeratePairedDevices: EnumerateBLEDevices returned, found %d BLE devices', [Length(BLEDevices)], LOG_SOURCE);
+  except
+    on E: Exception do
+    begin
+      LogDebug('EnumeratePairedDevices: EnumerateBLEDevices raised exception: %s - %s', [E.ClassName, E.Message], LOG_SOURCE);
+      SetLength(BLEDevices, 0);
+    end;
+  end;
 
   // Merge results, removing duplicates
   Result := MergeDeviceArrays(ClassicDevices, BLEDevices);
@@ -356,9 +378,15 @@ var
   ClassOfDeviceIntf: IInspectable;
   ClassOfDevice: IBluetoothClassOfDevice;
   CoD: Cardinal;
+  ThreadID: Cardinal;
 begin
+  ThreadID := GetCurrentThreadId;
+  LogDebug('EnumerateClassicDevices: Entry [ThreadID=%d]', [ThreadID], LOG_SOURCE);
+
   SetLength(Result, 0);
+  LogDebug('EnumerateClassicDevices: About to create DeviceList [ThreadID=%d]', [ThreadID], LOG_SOURCE);
   DeviceList := TList<TBluetoothDeviceInfo>.Create;
+  LogDebug('EnumerateClassicDevices: DeviceList created successfully [ThreadID=%d]', [ThreadID], LOG_SOURCE);
   try
     // Get BluetoothDevice.GetDeviceSelectorFromPairingState(true)
     if not GetActivationFactory(RuntimeClass_BluetoothDevice, IBluetoothDeviceStatics, Factory, LOG_SOURCE) then
@@ -435,8 +463,10 @@ begin
       end;
 
       LogDebug('EnumerateClassicDevices: Found %d device info entries', [Count], LOG_SOURCE);
+      LogDebug('EnumerateClassicDevices: About to enter device loop (Count=%d)', [Count], LOG_SOURCE);
 
-      for I := 0 to Count - 1 do
+      I := 0;
+      while I < Count do
       begin
         HR := Collection.GetAt(I, DevInfo);
         if Failed(HR) or (DevInfo = nil) then
@@ -511,21 +541,53 @@ begin
             [Address, DeviceNameStr, CoD, BoolToStr(ConnStatus = BluetoothConnectionStatus_Connected, True)], LOG_SOURCE);
 
           DeviceList.Add(Device);
+
+        Inc(I);
       end;
+
+      LogDebug('EnumerateClassicDevices: Exited device loop, DeviceList.Count=%d', [DeviceList.Count], LOG_SOURCE);
     finally
-      FreeHString(SelectorStr);
+      LogDebug('EnumerateClassicDevices: Entered inner finally block, about to FreeHString(SelectorStr)', LOG_SOURCE);
+      try
+        FreeHString(SelectorStr);
+        LogDebug('EnumerateClassicDevices: FreeHString(SelectorStr) completed', LOG_SOURCE);
+      except
+        on E: Exception do
+          LogDebug('EnumerateClassicDevices: FreeHString raised exception: %s - %s', [E.ClassName, E.Message], LOG_SOURCE);
+      end;
+      LogDebug('EnumerateClassicDevices: Exiting inner finally block', LOG_SOURCE);
     end;
 
-    Result := DeviceList.ToArray;
+    LogDebug('EnumerateClassicDevices: About to call DeviceList.ToArray (Count=%d)', [DeviceList.Count], LOG_SOURCE);
+    try
+      Result := DeviceList.ToArray;
+      LogDebug('EnumerateClassicDevices: DeviceList.ToArray completed, Result length=%d', [Length(Result)], LOG_SOURCE);
+    except
+      on E: Exception do
+      begin
+        LogDebug('EnumerateClassicDevices: DeviceList.ToArray raised exception: %s - %s', [E.ClassName, E.Message], LOG_SOURCE);
+        SetLength(Result, 0);
+      end;
+    end;
   finally
-    DeviceList.Free;
+    LogDebug('EnumerateClassicDevices: Entered outer finally block, about to Free DeviceList', LOG_SOURCE);
+    try
+      DeviceList.Free;
+      LogDebug('EnumerateClassicDevices: DeviceList.Free completed', LOG_SOURCE);
+    except
+      on E: Exception do
+        LogDebug('EnumerateClassicDevices: DeviceList.Free raised exception: %s - %s', [E.ClassName, E.Message], LOG_SOURCE);
+    end;
+    LogDebug('EnumerateClassicDevices: Exiting outer finally block', LOG_SOURCE);
   end;
+  LogDebug('EnumerateClassicDevices: Function exit, returning %d devices', [Length(Result)], LOG_SOURCE);
 end;
 
 function TWinRTBluetoothDeviceQuery.EnumerateBLEDevices: TBluetoothDeviceInfoArray;
 var
   HR: HRESULT;
   ClassName, SelectorStr: HSTRING;
+  ThreadID: Cardinal;
   Factory: IInspectable;
   Statics: IBluetoothLEDeviceStatics;
   Statics2: IBluetoothLEDeviceStatics2;
@@ -545,8 +607,13 @@ var
   Device: TBluetoothDeviceInfo;
   DeviceNameStr: string;
 begin
+  ThreadID := GetCurrentThreadId;
+  LogDebug('EnumerateBLEDevices: Entry [ThreadID=%d]', [ThreadID], LOG_SOURCE);
+
   SetLength(Result, 0);
+  LogDebug('EnumerateBLEDevices: About to create DeviceList [ThreadID=%d]', [ThreadID], LOG_SOURCE);
   DeviceList := TList<TBluetoothDeviceInfo>.Create;
+  LogDebug('EnumerateBLEDevices: DeviceList created successfully [ThreadID=%d]', [ThreadID], LOG_SOURCE);
   try
     // Get BluetoothLEDevice.GetDeviceSelectorFromPairingState(true)
     ClassName := CreateHString(RuntimeClass_BluetoothLEDevice);
@@ -653,8 +720,10 @@ begin
       end;
 
       LogDebug('EnumerateBLEDevices: Found %d device info entries', [Count], LOG_SOURCE);
+      LogDebug('EnumerateBLEDevices: About to enter device loop (Count=%d)', [Count], LOG_SOURCE);
 
-      for I := 0 to Count - 1 do
+      I := 0;
+      while I < Count do
       begin
         HR := Collection.GetAt(I, DevInfo);
         if Failed(HR) or (DevInfo = nil) then
@@ -722,15 +791,46 @@ begin
         finally
           FreeHString(ClassName);
         end;
+
+        Inc(I);
       end;
+
+      LogDebug('EnumerateBLEDevices: Exited device loop, DeviceList.Count=%d', [DeviceList.Count], LOG_SOURCE);
     finally
-      FreeHString(SelectorStr);
+      LogDebug('EnumerateBLEDevices: Entered inner finally block, about to FreeHString(SelectorStr)', LOG_SOURCE);
+      try
+        FreeHString(SelectorStr);
+        LogDebug('EnumerateBLEDevices: FreeHString(SelectorStr) completed', LOG_SOURCE);
+      except
+        on E: Exception do
+          LogDebug('EnumerateBLEDevices: FreeHString raised exception: %s - %s', [E.ClassName, E.Message], LOG_SOURCE);
+      end;
+      LogDebug('EnumerateBLEDevices: Exiting inner finally block', LOG_SOURCE);
     end;
 
-    Result := DeviceList.ToArray;
+    LogDebug('EnumerateBLEDevices: About to call DeviceList.ToArray (Count=%d)', [DeviceList.Count], LOG_SOURCE);
+    try
+      Result := DeviceList.ToArray;
+      LogDebug('EnumerateBLEDevices: DeviceList.ToArray completed, Result length=%d', [Length(Result)], LOG_SOURCE);
+    except
+      on E: Exception do
+      begin
+        LogDebug('EnumerateBLEDevices: DeviceList.ToArray raised exception: %s - %s', [E.ClassName, E.Message], LOG_SOURCE);
+        SetLength(Result, 0);
+      end;
+    end;
   finally
-    DeviceList.Free;
+    LogDebug('EnumerateBLEDevices: Entered outer finally block, about to Free DeviceList', LOG_SOURCE);
+    try
+      DeviceList.Free;
+      LogDebug('EnumerateBLEDevices: DeviceList.Free completed', LOG_SOURCE);
+    except
+      on E: Exception do
+        LogDebug('EnumerateBLEDevices: DeviceList.Free raised exception: %s - %s', [E.ClassName, E.Message], LOG_SOURCE);
+    end;
+    LogDebug('EnumerateBLEDevices: Exiting outer finally block', LOG_SOURCE);
   end;
+  LogDebug('EnumerateBLEDevices: Function exit, returning %d devices', [Length(Result)], LOG_SOURCE);
 end;
 
 function TWinRTBluetoothDeviceQuery.MergeDeviceArrays(
