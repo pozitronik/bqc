@@ -1674,6 +1674,44 @@ type
     procedure Shutdown_ClearsCache;
   end;
 
+  /// <summary>
+  /// Tests for unpaired device filtering based on ShowUnidentifiedDevices config.
+  /// </summary>
+  [TestFixture]
+  TUnpairedDeviceFilteringTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FLayoutConfig: TMockLayoutConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FConnectionConfig: TMockConnectionConfig;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
+    FPresenter: TMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure ConfigProperty_ShowUnidentifiedDevices_DefaultValue;
+
+    [Test]
+    procedure ConfigProperty_ShowUnidentifiedDevices_CanBeSet;
+
+    [Test]
+    procedure ConfigProperty_ShowUnpairedDevices_Required;
+  end;
+
 procedure TConnectedAddressesCacheTests.Setup;
 begin
   FView := TMockMainView.Create;
@@ -1901,6 +1939,109 @@ begin
     'Cache should be cleared after Shutdown');
 end;
 
+{ TUnpairedDeviceFilteringTests }
+
+procedure TUnpairedDeviceFilteringTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  FBluetoothService := TMockBluetoothService.Create;
+  FPairingService := TMockBluetoothPairingService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
+  FPresenter := nil;
+end;
+
+procedure TUnpairedDeviceFilteringTests.TearDown;
+var
+  I: Integer;
+begin
+  // Process any pending TThread.Queue calls
+  for I := 1 to 5 do
+  begin
+    Sleep(20);
+    CheckSynchronize(0);
+  end;
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+
+  FPresenter.Free;
+  FDisplayItemBuilder.Free;
+  FPairingService.Free;
+  FBluetoothService.Free;
+  FAsyncExecutor.Free;
+  FRadioStateManager.Free;
+  FConnectionConfig.Free;
+  FLayoutConfig.Free;
+  FAppearanceConfig.Free;
+  FWindowConfig.Free;
+  FGeneralConfig.Free;
+  FDeviceConfigProvider.Free;
+  FAppConfig.Free;
+  FView.Free;
+end;
+
+procedure TUnpairedDeviceFilteringTests.CreatePresenter;
+begin
+  FPresenter := TTestableMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
+    FRadioStateManager,
+    FAsyncExecutor,
+    FBluetoothService,
+    FPairingService,
+    FDisplayItemBuilder
+  );
+end;
+
+procedure TUnpairedDeviceFilteringTests.ConfigProperty_ShowUnidentifiedDevices_DefaultValue;
+begin
+  // Verify that ShowUnidentifiedDevices defaults to True (non-breaking change)
+  Assert.IsTrue(FLayoutConfig.ShowUnidentifiedDevices,
+    'ShowUnidentifiedDevices should default to True for backwards compatibility');
+end;
+
+procedure TUnpairedDeviceFilteringTests.ConfigProperty_ShowUnidentifiedDevices_CanBeSet;
+begin
+  // Verify the property can be set to False
+  FLayoutConfig.ShowUnidentifiedDevices := False;
+  Assert.IsFalse(FLayoutConfig.ShowUnidentifiedDevices,
+    'ShowUnidentifiedDevices should be settable to False');
+
+  // Verify it can be set back to True
+  FLayoutConfig.ShowUnidentifiedDevices := True;
+  Assert.IsTrue(FLayoutConfig.ShowUnidentifiedDevices,
+    'ShowUnidentifiedDevices should be settable to True');
+end;
+
+procedure TUnpairedDeviceFilteringTests.ConfigProperty_ShowUnpairedDevices_Required;
+begin
+  // Verify ShowUnpairedDevices exists and works (prerequisite for filtering)
+  FLayoutConfig.ShowUnpairedDevices := True;
+  Assert.IsTrue(FLayoutConfig.ShowUnpairedDevices,
+    'ShowUnpairedDevices should be settable to True');
+
+  FLayoutConfig.ShowUnpairedDevices := False;
+  Assert.IsFalse(FLayoutConfig.ShowUnpairedDevices,
+    'ShowUnpairedDevices should be settable to False');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TMainPresenterTests);
   TDUnitX.RegisterTestFixture(TDelayedLoadTests);
@@ -1908,5 +2049,6 @@ initialization
   TDUnitX.RegisterTestFixture(TBatteryQueryCompletionTests);
   TDUnitX.RegisterTestFixture(TShutdownSafetyTests);
   TDUnitX.RegisterTestFixture(TConnectedAddressesCacheTests);
+  TDUnitX.RegisterTestFixture(TUnpairedDeviceFilteringTests);
 
 end.

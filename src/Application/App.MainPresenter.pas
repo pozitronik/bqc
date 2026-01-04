@@ -1011,6 +1011,20 @@ begin
           LogDebug('RefreshDisplayItems: Skipping $%.12X (now in paired list)', [Device.AddressInt], ClassName);
           Continue;
         end;
+
+        // Filter unidentified devices if ShowUnidentifiedDevices is disabled.
+        // Only filters truly empty names (Device.Name = ''), NOT generic names like "Bluetooth XX:XX:XX..."
+        // Generic names are considered better than nothing and remain visible.
+        if not FLayoutConfig.ShowUnidentifiedDevices then
+        begin
+          if Device.Name = '' then  // Only truly empty names are filtered
+          begin
+            LogDebug('RefreshDisplayItems: Filtering unidentified device $%.12X (empty name)',
+              [Device.AddressInt], ClassName);
+            Continue;
+          end;
+        end;
+
         LogDebug('RefreshDisplayItems: Adding unpaired device $%.12X, Name="%s"',
           [Device.AddressInt, Device.Name], ClassName);
         UnpairedItems.Add(FDisplayItemBuilder.BuildDiscoveredDeviceDisplayItem(Device));
