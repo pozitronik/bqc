@@ -35,6 +35,7 @@ type
     FItemBorderWidth: Integer;
     FItemBorderColor: Integer;
     FShowUnpairedDevices: Boolean;
+    FShowUnidentifiedDevices: Boolean;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -50,6 +51,7 @@ type
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
     function GetShowUnpairedDevices: Boolean;
+    function GetShowUnidentifiedDevices: Boolean;
 
     procedure SetItemHeight(AValue: Integer);
     procedure SetItemPadding(AValue: Integer);
@@ -63,6 +65,7 @@ type
     procedure SetItemBorderWidth(AValue: Integer);
     procedure SetItemBorderColor(AValue: Integer);
     procedure SetShowUnpairedDevices(AValue: Boolean);
+    procedure SetShowUnidentifiedDevices(AValue: Boolean);
 
     procedure SetDefaults;
 
@@ -78,6 +81,7 @@ type
     property ItemBorderWidth: Integer read FItemBorderWidth write SetItemBorderWidth;
     property ItemBorderColor: Integer read FItemBorderColor write SetItemBorderColor;
     property ShowUnpairedDevices: Boolean read FShowUnpairedDevices write SetShowUnpairedDevices;
+    property ShowUnidentifiedDevices: Boolean read FShowUnidentifiedDevices write SetShowUnidentifiedDevices;
   end;
 
 implementation
@@ -108,6 +112,7 @@ begin
   FItemBorderWidth := DEF_ITEM_BORDER_WIDTH;
   FItemBorderColor := DEF_ITEM_BORDER_COLOR;
   FShowUnpairedDevices := False;
+  FShowUnidentifiedDevices := True;  // Show all by default (non-breaking)
 end;
 
 function TLayoutConfigSection.GetItemHeight: Integer;
@@ -228,6 +233,16 @@ end;
 procedure TLayoutConfigSection.SetShowUnpairedDevices(AValue: Boolean);
 begin
   SetFieldBoolean(FShowUnpairedDevices, AValue);
+end;
+
+function TLayoutConfigSection.GetShowUnidentifiedDevices: Boolean;
+begin
+  Result := FShowUnidentifiedDevices;
+end;
+
+procedure TLayoutConfigSection.SetShowUnidentifiedDevices(AValue: Boolean);
+begin
+  SetFieldBoolean(FShowUnidentifiedDevices, AValue);
 end;
 
 end.

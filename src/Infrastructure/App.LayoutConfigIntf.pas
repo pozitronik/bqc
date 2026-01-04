@@ -31,6 +31,7 @@ type
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
     function GetShowUnpairedDevices: Boolean;
+    function GetShowUnidentifiedDevices: Boolean;
 
     procedure SetItemHeight(AValue: Integer);
     procedure SetItemPadding(AValue: Integer);
@@ -44,6 +45,7 @@ type
     procedure SetItemBorderWidth(AValue: Integer);
     procedure SetItemBorderColor(AValue: Integer);
     procedure SetShowUnpairedDevices(AValue: Boolean);
+    procedure SetShowUnidentifiedDevices(AValue: Boolean);
 
     property ItemHeight: Integer read GetItemHeight write SetItemHeight;
     property ItemPadding: Integer read GetItemPadding write SetItemPadding;
@@ -57,6 +59,7 @@ type
     property ItemBorderWidth: Integer read GetItemBorderWidth write SetItemBorderWidth;
     property ItemBorderColor: Integer read GetItemBorderColor write SetItemBorderColor;
     property ShowUnpairedDevices: Boolean read GetShowUnpairedDevices write SetShowUnpairedDevices;
+    property ShowUnidentifiedDevices: Boolean read GetShowUnidentifiedDevices write SetShowUnidentifiedDevices;
   end;
 
 implementation

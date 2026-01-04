@@ -53,6 +53,7 @@ type
     FItemBorderWidth: Integer;
     FItemBorderColor: Integer;
     FShowUnpairedDevices: Boolean;
+    FShowUnidentifiedDevices: Boolean;
   public
     constructor Create;
 
@@ -72,6 +73,7 @@ type
     function GetItemBorderWidth: Integer;
     function GetItemBorderColor: Integer;
     function GetShowUnpairedDevices: Boolean;
+    function GetShowUnidentifiedDevices: Boolean;
 
     // ILayoutConfig - setters
     // NOTE: Same constraint as getters - interface requires these methods.
@@ -87,6 +89,7 @@ type
     procedure SetItemBorderWidth(AValue: Integer);
     procedure SetItemBorderColor(AValue: Integer);
     procedure SetShowUnpairedDevices(AValue: Boolean);
+    procedure SetShowUnidentifiedDevices(AValue: Boolean);
 
     // Test setup properties
     // NOTE: Direct field access for test convenience (Arrange-Act-Assert pattern).
@@ -103,6 +106,7 @@ type
     property ItemBorderWidth: Integer read FItemBorderWidth write FItemBorderWidth;
     property ItemBorderColor: Integer read FItemBorderColor write FItemBorderColor;
     property ShowUnpairedDevices: Boolean read FShowUnpairedDevices write FShowUnpairedDevices;
+    property ShowUnidentifiedDevices: Boolean read FShowUnidentifiedDevices write FShowUnidentifiedDevices;
   end;
 
   /// <summary>
@@ -585,6 +589,7 @@ begin
   FItemBorderWidth := 0;
   FItemBorderColor := $00000000;
   FShowUnpairedDevices := False;
+  FShowUnidentifiedDevices := True;  // Show all by default (non-breaking)
 end;
 
 function TMockLayoutConfig.GetItemHeight: Integer;
@@ -705,6 +710,16 @@ end;
 procedure TMockLayoutConfig.SetShowUnpairedDevices(AValue: Boolean);
 begin
   FShowUnpairedDevices := AValue;
+end;
+
+function TMockLayoutConfig.GetShowUnidentifiedDevices: Boolean;
+begin
+  Result := FShowUnidentifiedDevices;
+end;
+
+procedure TMockLayoutConfig.SetShowUnidentifiedDevices(AValue: Boolean);
+begin
+  FShowUnidentifiedDevices := AValue;
 end;
 
 { TMockAppearanceConfig }

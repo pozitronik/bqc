@@ -128,6 +128,7 @@ const
   KEY_ITEM_BORDER_WIDTH = 'ItemBorderWidth';
   KEY_ITEM_BORDER_COLOR = 'ItemBorderColor';
   KEY_SHOW_UNPAIRED_DEVICES = 'ShowUnpairedDevices';
+  KEY_SHOW_UNIDENTIFIED_DEVICES = 'ShowUnidentifiedDevices';
 
   // INI key names - [Device] (global defaults)
   KEY_CONNECTION_TIMEOUT = 'ConnectionTimeout';
@@ -192,6 +193,7 @@ const
   // [Profile] defaults
   DEF_SHOW_PROFILES = False;      // Disabled by default, user opt-in
   DEF_PROFILE_FONT_SIZE = 7;      // Small font for profile tree
+  DEF_SHOW_UNIDENTIFIED_DEVICES = True;  // Show all devices by default (non-breaking)
 
 implementation
 
@@ -359,6 +361,7 @@ begin
   LayoutCfg.ItemBorderWidth := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, DEF_ITEM_BORDER_WIDTH);
   LayoutCfg.ItemBorderColor := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, DEF_ITEM_BORDER_COLOR);
   LayoutCfg.ShowUnpairedDevices := AIni.ReadBool(SEC_LAYOUT, KEY_SHOW_UNPAIRED_DEVICES, False);
+  LayoutCfg.ShowUnidentifiedDevices := AIni.ReadBool(SEC_LAYOUT, KEY_SHOW_UNIDENTIFIED_DEVICES, DEF_SHOW_UNIDENTIFIED_DEVICES);
 
   // [Device] - global defaults
   ConnectionCfg.ConnectionTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
@@ -519,6 +522,7 @@ begin
   AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_WIDTH, LayoutCfg.ItemBorderWidth);
   AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, LayoutCfg.ItemBorderColor);
   AIni.WriteBool(SEC_LAYOUT, KEY_SHOW_UNPAIRED_DEVICES, LayoutCfg.ShowUnpairedDevices);
+  AIni.WriteBool(SEC_LAYOUT, KEY_SHOW_UNIDENTIFIED_DEVICES, LayoutCfg.ShowUnidentifiedDevices);
 
   // [Device] - global defaults
   AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, ConnectionCfg.ConnectionTimeout);
