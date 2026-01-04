@@ -146,6 +146,11 @@ uses
   Bluetooth.EventDebouncer,
   App.SystemClock;
 
+const
+  // Bluetooth inquiry timeout multiplier for device discovery
+  // Each unit = 1.28 seconds, so 10 = ~12.8 seconds (standard duration)
+  INQUIRY_TIMEOUT_MULTIPLIER = 10;
+
 function CreateBluetoothService(
   APollingConfig: IPollingConfig;
   AConnectionConfig: IConnectionConfig;
@@ -587,7 +592,7 @@ begin
   SearchParams.fReturnConnected := False;      // Don't return connected devices
   SearchParams.fReturnUnknown := True;         // DO return unknown/unpaired devices
   SearchParams.fIssueInquiry := True;          // Perform active Bluetooth inquiry
-  SearchParams.cTimeoutMultiplier := 2;        // Inquiry timeout (2 * 1.28s = 2.56s)
+  SearchParams.cTimeoutMultiplier := INQUIRY_TIMEOUT_MULTIPLIER;  // Standard inquiry timeout (~12.8s)
   SearchParams.hRadio := 0;                    // Use default radio
 
   DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
