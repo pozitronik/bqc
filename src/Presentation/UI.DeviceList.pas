@@ -126,6 +126,7 @@ type
     FScrollbarDragging: Boolean;
     FScrollbarDragStartY: Integer;
     FScrollbarDragStartScroll: Integer;
+    FListHovered: Boolean;  // True when mouse is over the entire control
 
     procedure HandleAnimationTimer(Sender: TObject);
 
@@ -295,6 +296,7 @@ begin
   FScrollbarDragging := False;
   FScrollbarDragStartY := 0;
   FScrollbarDragStartScroll := 0;
+  FListHovered := False;
 
   ControlStyle := ControlStyle + [csOpaque];
   TabStop := True;
@@ -764,6 +766,11 @@ begin
     FScrollbarHover := False;
     Invalidate;
   end;
+  if FListHovered then
+  begin
+    FListHovered := False;
+    Invalidate;  // Redraw to hide scrollbar
+  end;
 end;
 
 procedure TDeviceListBox.CMStyleChanged(var Message: TMessage);
@@ -848,7 +855,12 @@ var
   TrackRect, ThumbRect: TRect;
   Style: TCustomStyleServices;
   TrackColor, ThumbColor: TColor;
+  ThumbInset: Integer;
 begin
+  // Only draw scrollbar when list is hovered or scrollbar is being dragged
+  if not (FListHovered or FScrollbarDragging) then
+    Exit;
+
   if FMaxScroll <= 0 then
     Exit; // No scrollbar needed
 
@@ -873,11 +885,12 @@ begin
   ACanvas.Brush.Style := bsSolid;
   ACanvas.Pen.Style := psClear;
 
-  // Draw rounded thumb
+  // Draw rounded thumb centered in track with equal insets on both sides
+  ThumbInset := 3;  // Equal margin on left and right for symmetry
   ACanvas.RoundRect(
-    ThumbRect.Left + 2,
+    ThumbRect.Left + ThumbInset,
     ThumbRect.Top,
-    ThumbRect.Right - 2,
+    ThumbRect.Right - ThumbInset,
     ThumbRect.Bottom,
     4, 4
   );
@@ -1568,6 +1581,13 @@ var
   ScrollRatio: Double;
 begin
   inherited;
+
+  // Track list hover state for scrollbar visibility
+  if not FListHovered then
+  begin
+    FListHovered := True;
+    Invalidate;  // Redraw to show scrollbar
+  end;
 
   // Handle scrollbar dragging
   if FScrollbarDragging then
