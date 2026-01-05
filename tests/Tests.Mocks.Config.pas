@@ -126,6 +126,12 @@ type
     FShowDeviceIcons: Boolean;
     FConnectedColor: Integer;
     FShowBatteryLevel: Boolean;
+    FListBackgroundSource: TListBackgroundSource;
+    FListBackgroundCustomColor: Integer;
+    FMainColorSource: TMainColorSource;
+    FMainCustomColor: Integer;
+    FSecondaryColorSource: TSecondaryColorSource;
+    FSecondaryCustomColor: Integer;
   public
     constructor Create;
 
@@ -138,6 +144,12 @@ type
     function GetShowDeviceIcons: Boolean;
     function GetConnectedColor: Integer;
     function GetShowBatteryLevel: Boolean;
+    function GetListBackgroundSource: TListBackgroundSource;
+    function GetListBackgroundCustomColor: Integer;
+    function GetMainColorSource: TMainColorSource;
+    function GetMainCustomColor: Integer;
+    function GetSecondaryColorSource: TSecondaryColorSource;
+    function GetSecondaryCustomColor: Integer;
 
     // IAppearanceConfig - setters
     procedure SetShowAddresses(AValue: Boolean);
@@ -148,6 +160,12 @@ type
     procedure SetShowDeviceIcons(AValue: Boolean);
     procedure SetConnectedColor(AValue: Integer);
     procedure SetShowBatteryLevel(AValue: Boolean);
+    procedure SetListBackgroundSource(AValue: TListBackgroundSource);
+    procedure SetListBackgroundCustomColor(AValue: Integer);
+    procedure SetMainColorSource(AValue: TMainColorSource);
+    procedure SetMainCustomColor(AValue: Integer);
+    procedure SetSecondaryColorSource(AValue: TSecondaryColorSource);
+    procedure SetSecondaryCustomColor(AValue: Integer);
 
     // Test setup properties
     property ShowAddresses: Boolean read FShowAddresses write FShowAddresses;
@@ -158,6 +176,12 @@ type
     property ShowDeviceIcons: Boolean read FShowDeviceIcons write FShowDeviceIcons;
     property ConnectedColor: Integer read FConnectedColor write FConnectedColor;
     property ShowBatteryLevel: Boolean read FShowBatteryLevel write FShowBatteryLevel;
+    property ListBackgroundSource: TListBackgroundSource read FListBackgroundSource write FListBackgroundSource;
+    property ListBackgroundCustomColor: Integer read FListBackgroundCustomColor write FListBackgroundCustomColor;
+    property MainColorSource: TMainColorSource read FMainColorSource write FMainColorSource;
+    property MainCustomColor: Integer read FMainCustomColor write FMainCustomColor;
+    property SecondaryColorSource: TSecondaryColorSource read FSecondaryColorSource write FSecondaryColorSource;
+    property SecondaryCustomColor: Integer read FSecondaryCustomColor write FSecondaryCustomColor;
   end;
 
   /// <summary>
@@ -758,6 +782,12 @@ begin
   FShowDeviceIcons := True;
   FConnectedColor := $0000AA00;  // Green
   FShowBatteryLevel := False;  // Default to False to avoid async battery cache operations in tests
+  FListBackgroundSource := lbsThemeWindow;
+  FListBackgroundCustomColor := clWindow;
+  FMainColorSource := mcsThemeText;
+  FMainCustomColor := clWindowText;
+  FSecondaryColorSource := scsThemeGrayText;
+  FSecondaryCustomColor := clGrayText;
 end;
 
 function TMockAppearanceConfig.GetShowAddresses: Boolean;
@@ -838,6 +868,66 @@ end;
 procedure TMockAppearanceConfig.SetShowBatteryLevel(AValue: Boolean);
 begin
   FShowBatteryLevel := AValue;
+end;
+
+function TMockAppearanceConfig.GetListBackgroundSource: TListBackgroundSource;
+begin
+  Result := FListBackgroundSource;
+end;
+
+procedure TMockAppearanceConfig.SetListBackgroundSource(AValue: TListBackgroundSource);
+begin
+  FListBackgroundSource := AValue;
+end;
+
+function TMockAppearanceConfig.GetListBackgroundCustomColor: Integer;
+begin
+  Result := FListBackgroundCustomColor;
+end;
+
+procedure TMockAppearanceConfig.SetListBackgroundCustomColor(AValue: Integer);
+begin
+  FListBackgroundCustomColor := AValue;
+end;
+
+function TMockAppearanceConfig.GetMainColorSource: TMainColorSource;
+begin
+  Result := FMainColorSource;
+end;
+
+procedure TMockAppearanceConfig.SetMainColorSource(AValue: TMainColorSource);
+begin
+  FMainColorSource := AValue;
+end;
+
+function TMockAppearanceConfig.GetMainCustomColor: Integer;
+begin
+  Result := FMainCustomColor;
+end;
+
+procedure TMockAppearanceConfig.SetMainCustomColor(AValue: Integer);
+begin
+  FMainCustomColor := AValue;
+end;
+
+function TMockAppearanceConfig.GetSecondaryColorSource: TSecondaryColorSource;
+begin
+  Result := FSecondaryColorSource;
+end;
+
+procedure TMockAppearanceConfig.SetSecondaryColorSource(AValue: TSecondaryColorSource);
+begin
+  FSecondaryColorSource := AValue;
+end;
+
+function TMockAppearanceConfig.GetSecondaryCustomColor: Integer;
+begin
+  Result := FSecondaryCustomColor;
+end;
+
+procedure TMockAppearanceConfig.SetSecondaryCustomColor(AValue: Integer);
+begin
+  FSecondaryCustomColor := AValue;
 end;
 
 { TMockDeviceConfigProvider }

@@ -50,6 +50,33 @@ type
   );
 
   /// <summary>
+  /// Device list background color source.
+  /// Determines which color is used for device list background.
+  /// </summary>
+  TListBackgroundSource = (
+    lbsThemeWindow,  // Use theme window color (clWindow) - default (0)
+    lbsThemeForm,    // Use theme form color (clBtnFace) (1)
+    lbsCustom        // Use custom color (2)
+  );
+
+  /// <summary>
+  /// Main text color source for paired device names and icons.
+  /// </summary>
+  TMainColorSource = (
+    mcsThemeText,  // Use theme text color (clWindowText) - default (0)
+    mcsCustom      // Use custom color (1)
+  );
+
+  /// <summary>
+  /// Secondary text color source for other captions and unpaired device icons.
+  /// </summary>
+  TSecondaryColorSource = (
+    scsThemeText,     // Use theme text color (clWindowText) (0)
+    scsThemeGrayText, // Use theme gray text color (clGrayText) - default (1)
+    scsCustom         // Use custom color (2)
+  );
+
+  /// <summary>
   /// Notification mode for events.
   /// </summary>
   TNotificationMode = (

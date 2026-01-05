@@ -65,6 +65,12 @@ type
     LastSeenRelative: Boolean;
     ShowBatteryLevel: Boolean;
     ConnectedColor: TColor;
+    ListBackgroundSource: TListBackgroundSource;
+    ListBackgroundCustomColor: TColor;
+    MainColorSource: TMainColorSource;
+    MainCustomColor: TColor;
+    SecondaryColorSource: TSecondaryColorSource;
+    SecondaryCustomColor: TColor;
   end;
 
   /// <summary>
@@ -701,6 +707,12 @@ begin
   Appearance.LastSeenRelative := FAppearanceConfig.LastSeenFormat = lsfRelative;
   Appearance.ShowBatteryLevel := FAppearanceConfig.ShowBatteryLevel;
   Appearance.ConnectedColor := TColor(FAppearanceConfig.ConnectedColor);
+  Appearance.ListBackgroundSource := FAppearanceConfig.ListBackgroundSource;
+  Appearance.ListBackgroundCustomColor := TColor(FAppearanceConfig.ListBackgroundCustomColor);
+  Appearance.MainColorSource := FAppearanceConfig.MainColorSource;
+  Appearance.MainCustomColor := TColor(FAppearanceConfig.MainCustomColor);
+  Appearance.SecondaryColorSource := FAppearanceConfig.SecondaryColorSource;
+  Appearance.SecondaryCustomColor := TColor(FAppearanceConfig.SecondaryCustomColor);
   FAppearanceSettingsView.SetAppearanceSettings(Appearance);
 
   // Layout settings
@@ -826,6 +838,12 @@ begin
       FAppearanceConfig.LastSeenFormat := lsfAbsolute;
     FAppearanceConfig.ShowBatteryLevel := Appearance.ShowBatteryLevel;
     FAppearanceConfig.ConnectedColor := Integer(Appearance.ConnectedColor);
+    FAppearanceConfig.ListBackgroundSource := Appearance.ListBackgroundSource;
+    FAppearanceConfig.ListBackgroundCustomColor := Integer(Appearance.ListBackgroundCustomColor);
+    FAppearanceConfig.MainColorSource := Appearance.MainColorSource;
+    FAppearanceConfig.MainCustomColor := Integer(Appearance.MainCustomColor);
+    FAppearanceConfig.SecondaryColorSource := Appearance.SecondaryColorSource;
+    FAppearanceConfig.SecondaryCustomColor := Integer(Appearance.SecondaryCustomColor);
 
     // Layout settings
     Layout := FLayoutSettingsView.GetLayoutSettings;
@@ -1012,9 +1030,15 @@ begin
   Layout.ScrollbarWidth := DEF_SCROLLBAR_WIDTH;
   FLayoutSettingsView.SetLayoutSettings(Layout);
 
-  // Reset connected color (in appearance settings)
+  // Reset connected color and background settings (in appearance settings)
   Appearance := FAppearanceSettingsView.GetAppearanceSettings;
   Appearance.ConnectedColor := TColor(DEF_CONNECTED_COLOR);
+  Appearance.ListBackgroundSource := DEF_LIST_BACKGROUND_SOURCE;
+  Appearance.ListBackgroundCustomColor := TColor(DEF_LIST_BACKGROUND_CUSTOM_COLOR);
+  Appearance.MainColorSource := DEF_MAIN_COLOR_SOURCE;
+  Appearance.MainCustomColor := TColor(DEF_MAIN_CUSTOM_COLOR);
+  Appearance.SecondaryColorSource := DEF_SECONDARY_COLOR_SOURCE;
+  Appearance.SecondaryCustomColor := TColor(DEF_SECONDARY_CUSTOM_COLOR);
   FAppearanceSettingsView.SetAppearanceSettings(Appearance);
 
   MarkModified;

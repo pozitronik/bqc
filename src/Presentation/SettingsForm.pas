@@ -71,8 +71,6 @@ type
     { Tab: Appearance }
     TabAppearance: TTabSheet;
     GroupDisplayOptions: TGroupBox;
-    LabelConnectedColor: TLabel;
-    ShapeConnectedColor: TShape;
     CheckShowDeviceIcons: TCheckBox;
     CheckShowLastSeen: TCheckBox;
     RadioLastSeenRelative: TRadioButton;
@@ -85,14 +83,11 @@ type
     LabelItemMargin: TLabel;
     LabelIconSize: TLabel;
     LabelCornerRadius: TLabel;
-    LabelBorderWidth: TLabel;
-    LabelBorderColor: TLabel;
     LabelPx1: TLabel;
     LabelPx2: TLabel;
     LabelPx3: TLabel;
     LabelPx4: TLabel;
     LabelPx5: TLabel;
-    LabelPx6: TLabel;
     EditItemHeight: TEdit;
     UpDownItemHeight: TUpDown;
     EditItemPadding: TEdit;
@@ -103,9 +98,6 @@ type
     UpDownIconSize: TUpDown;
     EditCornerRadius: TEdit;
     UpDownCornerRadius: TUpDown;
-    EditBorderWidth: TEdit;
-    UpDownBorderWidth: TUpDown;
-    ShapeBorderColor: TShape;
     ButtonResetLayout: TButton;
     GroupFontSizes: TGroupBox;
     LabelDeviceNameSize: TLabel;
@@ -123,12 +115,6 @@ type
     GroupDiscovery: TGroupBox;
     CheckShowUnpairedDevices: TCheckBox;
     CheckShowUnidentifiedDevices: TCheckBox;
-    GroupProfiles: TGroupBox;
-    LabelProfileFontSize: TLabel;
-    LabelProfileFontSizePt: TLabel;
-    CheckShowProfiles: TCheckBox;
-    EditProfileFontSize: TEdit;
-    UpDownProfileFontSize: TUpDown;
 
     { Tab: Keys }
     TabKeys: TTabSheet;
@@ -282,6 +268,28 @@ type
     ComboOutlineColorMode: TComboBox;
     LabelCustomOutlineColor: TLabel;
     ShapeCustomOutlineColor: TShape;
+    EditBorderWidth: TEdit;
+    UpDownBorderWidth: TUpDown;
+    LabelPx7: TLabel;
+    LabelBorderWidth: TLabel;
+    CheckShowProfiles: TCheckBox;
+    LabelProfileFontSize: TLabel;
+    EditProfileFontSize: TEdit;
+    UpDownProfileFontSize: TUpDown;
+    GroupColors: TGroupBox;
+    LabelConnectedColor: TLabel;
+    ShapeConnectedColor: TShape;
+    LabelMainColorSource: TLabel;
+    ShapeMainCustomColor: TShape;
+    LabelSecondaryColorSource: TLabel;
+    ShapeSecondaryCustomColor: TShape;
+    LabelBackgroundSource: TLabel;
+    ShapeCustomBackgroundColor: TShape;
+    LabelBorderColor: TLabel;
+    ShapeBorderColor: TShape;
+    ComboMainColorSource: TComboBox;
+    ComboSecondaryColorSource: TComboBox;
+    ComboBackgroundSource: TComboBox;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
@@ -325,6 +333,9 @@ type
     procedure HandleShapeColorMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure HandleTransparentCheckboxClick(Sender: TObject);
+    procedure ComboBackgroundSourceChange(Sender: TObject);
+    procedure ComboMainColorSourceChange(Sender: TObject);
+    procedure ComboSecondaryColorSourceChange(Sender: TObject);
 
     { Device battery tray events }
     procedure ComboDeviceBatteryColorModeChange(Sender: TObject);
@@ -396,6 +407,9 @@ type
     procedure InitUpDownLimits;
     procedure InitDeviceTypeCombo;
     procedure UpdateWindowModeControls;
+    procedure UpdateBackgroundColorState;
+    procedure UpdateMainColorState;
+    procedure UpdateSecondaryColorState;
     procedure HandleSettingChanged(Sender: TObject);
     procedure ConnectChangeHandlers;
     procedure ConfigureWinRTDependentControls;
@@ -589,6 +603,12 @@ begin
   Result.LastSeenRelative := RadioLastSeenRelative.Checked;
   Result.ShowBatteryLevel := CheckShowBatteryLevel.Checked;
   Result.ConnectedColor := ShapeConnectedColor.Brush.Color;
+  Result.ListBackgroundSource := TListBackgroundSource(ComboBackgroundSource.ItemIndex);
+  Result.ListBackgroundCustomColor := ShapeCustomBackgroundColor.Brush.Color;
+  Result.MainColorSource := TMainColorSource(ComboMainColorSource.ItemIndex);
+  Result.MainCustomColor := ShapeMainCustomColor.Brush.Color;
+  Result.SecondaryColorSource := TSecondaryColorSource(ComboSecondaryColorSource.ItemIndex);
+  Result.SecondaryCustomColor := ShapeSecondaryCustomColor.Brush.Color;
 end;
 
 procedure TFormSettings.SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
@@ -602,6 +622,15 @@ begin
   RadioLastSeenAbsolute.Checked := not ASettings.LastSeenRelative;
   CheckShowBatteryLevel.Checked := ASettings.ShowBatteryLevel;
   ShapeConnectedColor.Brush.Color := ASettings.ConnectedColor;
+  ComboBackgroundSource.ItemIndex := Ord(ASettings.ListBackgroundSource);
+  ShapeCustomBackgroundColor.Brush.Color := ASettings.ListBackgroundCustomColor;
+  ComboMainColorSource.ItemIndex := Ord(ASettings.MainColorSource);
+  ShapeMainCustomColor.Brush.Color := ASettings.MainCustomColor;
+  ComboSecondaryColorSource.ItemIndex := Ord(ASettings.SecondaryColorSource);
+  ShapeSecondaryCustomColor.Brush.Color := ASettings.SecondaryCustomColor;
+  UpdateBackgroundColorState;
+  UpdateMainColorState;
+  UpdateSecondaryColorState;
 end;
 
 function TFormSettings.GetLayoutSettings: TLayoutViewSettings;
@@ -1123,6 +1152,12 @@ begin
   EditCornerRadius.OnChange := HandleSettingChanged;
   EditBorderWidth.OnChange := HandleSettingChanged;
   ShapeBorderColor.OnMouseDown := HandleShapeColorMouseDown;
+  ComboBackgroundSource.OnChange := ComboBackgroundSourceChange;
+  ShapeCustomBackgroundColor.OnMouseDown := HandleShapeColorMouseDown;
+  ComboMainColorSource.OnChange := ComboMainColorSourceChange;
+  ShapeMainCustomColor.OnMouseDown := HandleShapeColorMouseDown;
+  ComboSecondaryColorSource.OnChange := ComboSecondaryColorSourceChange;
+  ShapeSecondaryCustomColor.OnMouseDown := HandleShapeColorMouseDown;
   EditDeviceNameSize.OnChange := HandleSettingChanged;
   EditStatusSize.OnChange := HandleSettingChanged;
   EditAddressSize.OnChange := HandleSettingChanged;
@@ -1382,6 +1417,42 @@ end;
 procedure TFormSettings.ButtonResetLayoutClick(Sender: TObject);
 begin
   FPresenter.OnResetLayoutClicked;
+end;
+
+procedure TFormSettings.ComboBackgroundSourceChange(Sender: TObject);
+begin
+  UpdateBackgroundColorState;
+  FPresenter.MarkModified;
+end;
+
+procedure TFormSettings.UpdateBackgroundColorState;
+begin
+  // Show color shape only when "Custom" is selected (index 2)
+  ShapeCustomBackgroundColor.Visible := (ComboBackgroundSource.ItemIndex = 2);
+end;
+
+procedure TFormSettings.ComboMainColorSourceChange(Sender: TObject);
+begin
+  UpdateMainColorState;
+  FPresenter.MarkModified;
+end;
+
+procedure TFormSettings.UpdateMainColorState;
+begin
+  // Show color shape only when "Custom" is selected (index 1 for TMainColorSource)
+  ShapeMainCustomColor.Visible := (ComboMainColorSource.ItemIndex = 1);
+end;
+
+procedure TFormSettings.ComboSecondaryColorSourceChange(Sender: TObject);
+begin
+  UpdateSecondaryColorState;
+  FPresenter.MarkModified;
+end;
+
+procedure TFormSettings.UpdateSecondaryColorState;
+begin
+  // Show color shape only when "Custom" is selected (index 2 for TSecondaryColorSource)
+  ShapeSecondaryCustomColor.Visible := (ComboSecondaryColorSource.ItemIndex = 2);
 end;
 
 procedure TFormSettings.ComboDeviceBatteryColorModeChange(Sender: TObject);

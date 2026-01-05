@@ -14,6 +14,7 @@ interface
 
 uses
   System.SysUtils,
+  Vcl.Graphics,
   App.ConfigEnums,
   App.AppearanceConfigIntf,
   App.ConfigSectionTypes;
@@ -32,6 +33,12 @@ type
     FShowDeviceIcons: Boolean;
     FConnectedColor: Integer;
     FShowBatteryLevel: Boolean;
+    FListBackgroundSource: TListBackgroundSource;
+    FListBackgroundCustomColor: Integer;
+    FMainColorSource: TMainColorSource;
+    FMainCustomColor: Integer;
+    FSecondaryColorSource: TSecondaryColorSource;
+    FSecondaryCustomColor: Integer;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -43,6 +50,12 @@ type
     function GetShowDeviceIcons: Boolean;
     function GetConnectedColor: Integer;
     function GetShowBatteryLevel: Boolean;
+    function GetListBackgroundSource: TListBackgroundSource;
+    function GetListBackgroundCustomColor: Integer;
+    function GetMainColorSource: TMainColorSource;
+    function GetMainCustomColor: Integer;
+    function GetSecondaryColorSource: TSecondaryColorSource;
+    function GetSecondaryCustomColor: Integer;
 
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
@@ -52,6 +65,12 @@ type
     procedure SetShowDeviceIcons(AValue: Boolean);
     procedure SetConnectedColor(AValue: Integer);
     procedure SetShowBatteryLevel(AValue: Boolean);
+    procedure SetListBackgroundSource(AValue: TListBackgroundSource);
+    procedure SetListBackgroundCustomColor(AValue: Integer);
+    procedure SetMainColorSource(AValue: TMainColorSource);
+    procedure SetMainCustomColor(AValue: Integer);
+    procedure SetSecondaryColorSource(AValue: TSecondaryColorSource);
+    procedure SetSecondaryCustomColor(AValue: Integer);
 
     procedure SetDefaults;
 
@@ -63,6 +82,12 @@ type
     property ShowDeviceIcons: Boolean read FShowDeviceIcons write SetShowDeviceIcons;
     property ConnectedColor: Integer read FConnectedColor write SetConnectedColor;
     property ShowBatteryLevel: Boolean read FShowBatteryLevel write SetShowBatteryLevel;
+    property ListBackgroundSource: TListBackgroundSource read FListBackgroundSource write SetListBackgroundSource;
+    property ListBackgroundCustomColor: Integer read FListBackgroundCustomColor write SetListBackgroundCustomColor;
+    property MainColorSource: TMainColorSource read FMainColorSource write SetMainColorSource;
+    property MainCustomColor: Integer read FMainCustomColor write SetMainCustomColor;
+    property SecondaryColorSource: TSecondaryColorSource read FSecondaryColorSource write SetSecondaryColorSource;
+    property SecondaryCustomColor: Integer read FSecondaryCustomColor write SetSecondaryCustomColor;
   end;
 
 implementation
@@ -89,6 +114,12 @@ begin
   FShowDeviceIcons := DEF_SHOW_DEVICE_ICONS;
   FConnectedColor := DEF_CONNECTED_COLOR;
   FShowBatteryLevel := DEF_SHOW_BATTERY_LEVEL;
+  FListBackgroundSource := DEF_LIST_BACKGROUND_SOURCE;
+  FListBackgroundCustomColor := DEF_LIST_BACKGROUND_CUSTOM_COLOR;
+  FMainColorSource := DEF_MAIN_COLOR_SOURCE;
+  FMainCustomColor := DEF_MAIN_CUSTOM_COLOR;
+  FSecondaryColorSource := DEF_SECONDARY_COLOR_SOURCE;
+  FSecondaryCustomColor := DEF_SECONDARY_CUSTOM_COLOR;
 end;
 
 function TAppearanceConfigSection.GetShowAddresses: Boolean;
@@ -173,6 +204,78 @@ end;
 procedure TAppearanceConfigSection.SetShowBatteryLevel(AValue: Boolean);
 begin
   SetFieldBoolean(FShowBatteryLevel, AValue);
+end;
+
+function TAppearanceConfigSection.GetListBackgroundSource: TListBackgroundSource;
+begin
+  Result := FListBackgroundSource;
+end;
+
+procedure TAppearanceConfigSection.SetListBackgroundSource(AValue: TListBackgroundSource);
+begin
+  if FListBackgroundSource <> AValue then
+  begin
+    FListBackgroundSource := AValue;
+    NotifyModified;
+  end;
+end;
+
+function TAppearanceConfigSection.GetListBackgroundCustomColor: Integer;
+begin
+  Result := FListBackgroundCustomColor;
+end;
+
+procedure TAppearanceConfigSection.SetListBackgroundCustomColor(AValue: Integer);
+begin
+  SetFieldInteger(FListBackgroundCustomColor, AValue);
+end;
+
+function TAppearanceConfigSection.GetMainColorSource: TMainColorSource;
+begin
+  Result := FMainColorSource;
+end;
+
+procedure TAppearanceConfigSection.SetMainColorSource(AValue: TMainColorSource);
+begin
+  if FMainColorSource <> AValue then
+  begin
+    FMainColorSource := AValue;
+    NotifyModified;
+  end;
+end;
+
+function TAppearanceConfigSection.GetMainCustomColor: Integer;
+begin
+  Result := FMainCustomColor;
+end;
+
+procedure TAppearanceConfigSection.SetMainCustomColor(AValue: Integer);
+begin
+  SetFieldInteger(FMainCustomColor, AValue);
+end;
+
+function TAppearanceConfigSection.GetSecondaryColorSource: TSecondaryColorSource;
+begin
+  Result := FSecondaryColorSource;
+end;
+
+procedure TAppearanceConfigSection.SetSecondaryColorSource(AValue: TSecondaryColorSource);
+begin
+  if FSecondaryColorSource <> AValue then
+  begin
+    FSecondaryColorSource := AValue;
+    NotifyModified;
+  end;
+end;
+
+function TAppearanceConfigSection.GetSecondaryCustomColor: Integer;
+begin
+  Result := FSecondaryCustomColor;
+end;
+
+procedure TAppearanceConfigSection.SetSecondaryCustomColor(AValue: Integer);
+begin
+  SetFieldInteger(FSecondaryCustomColor, AValue);
 end;
 
 end.

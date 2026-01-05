@@ -114,6 +114,12 @@ const
   KEY_SHOW_DEVICE_ICONS = 'ShowDeviceIcons';
   KEY_CONNECTED_COLOR = 'ConnectedColor';
   KEY_SHOW_BATTERY_LEVEL = 'ShowBatteryLevel';
+  KEY_LIST_BACKGROUND_SOURCE = 'ListBackgroundSource';
+  KEY_LIST_BACKGROUND_CUSTOM_COLOR = 'ListBackgroundCustomColor';
+  KEY_MAIN_COLOR_SOURCE = 'MainColorSource';
+  KEY_MAIN_CUSTOM_COLOR = 'MainCustomColor';
+  KEY_SECONDARY_COLOR_SOURCE = 'SecondaryColorSource';
+  KEY_SECONDARY_CUSTOM_COLOR = 'SecondaryCustomColor';
 
   // INI key names - [Layout]
   KEY_ITEM_HEIGHT = 'ItemHeight';
@@ -350,6 +356,12 @@ begin
   AppearanceCfg.ShowDeviceIcons := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, DEF_SHOW_DEVICE_ICONS);
   AppearanceCfg.ConnectedColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, DEF_CONNECTED_COLOR);
   AppearanceCfg.ShowBatteryLevel := AIni.ReadBool(SEC_APPEARANCE, KEY_SHOW_BATTERY_LEVEL, DEF_SHOW_BATTERY_LEVEL);
+  AppearanceCfg.ListBackgroundSource := TListBackgroundSource(SafeReadEnum(AIni, SEC_APPEARANCE, KEY_LIST_BACKGROUND_SOURCE, Ord(DEF_LIST_BACKGROUND_SOURCE), TypeInfo(TListBackgroundSource)));
+  AppearanceCfg.ListBackgroundCustomColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_LIST_BACKGROUND_CUSTOM_COLOR, DEF_LIST_BACKGROUND_CUSTOM_COLOR);
+  AppearanceCfg.MainColorSource := TMainColorSource(SafeReadEnum(AIni, SEC_APPEARANCE, KEY_MAIN_COLOR_SOURCE, Ord(DEF_MAIN_COLOR_SOURCE), TypeInfo(TMainColorSource)));
+  AppearanceCfg.MainCustomColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_MAIN_CUSTOM_COLOR, DEF_MAIN_CUSTOM_COLOR);
+  AppearanceCfg.SecondaryColorSource := TSecondaryColorSource(SafeReadEnum(AIni, SEC_APPEARANCE, KEY_SECONDARY_COLOR_SOURCE, Ord(DEF_SECONDARY_COLOR_SOURCE), TypeInfo(TSecondaryColorSource)));
+  AppearanceCfg.SecondaryCustomColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_SECONDARY_CUSTOM_COLOR, DEF_SECONDARY_CUSTOM_COLOR);
 
   // [Layout]
   LayoutCfg.ItemHeight := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, DEF_ITEM_HEIGHT);
@@ -514,6 +526,12 @@ begin
   AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_DEVICE_ICONS, AppearanceCfg.ShowDeviceIcons);
   AIni.WriteInteger(SEC_APPEARANCE, KEY_CONNECTED_COLOR, AppearanceCfg.ConnectedColor);
   AIni.WriteBool(SEC_APPEARANCE, KEY_SHOW_BATTERY_LEVEL, AppearanceCfg.ShowBatteryLevel);
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_LIST_BACKGROUND_SOURCE, Ord(AppearanceCfg.ListBackgroundSource));
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_LIST_BACKGROUND_CUSTOM_COLOR, AppearanceCfg.ListBackgroundCustomColor);
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_MAIN_COLOR_SOURCE, Ord(AppearanceCfg.MainColorSource));
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_MAIN_CUSTOM_COLOR, AppearanceCfg.MainCustomColor);
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_SECONDARY_COLOR_SOURCE, Ord(AppearanceCfg.SecondaryColorSource));
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_SECONDARY_CUSTOM_COLOR, AppearanceCfg.SecondaryCustomColor);
 
   // [Layout]
   AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, LayoutCfg.ItemHeight);

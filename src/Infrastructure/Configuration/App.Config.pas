@@ -16,6 +16,7 @@ uses
   System.IniFiles,
   System.Win.Registry,
   System.Generics.Collections,
+  Vcl.Graphics,
   App.ConfigEnums,
   App.ConfigInterfaces,
   App.ConnectionConfigIntf,
@@ -218,6 +219,12 @@ const
 
   // Appearance defaults
   DEF_CONNECTED_COLOR = $00008000;  // Dark green (BGR format)
+  DEF_LIST_BACKGROUND_SOURCE = TListBackgroundSource(0);  // lbsThemeWindow
+  DEF_LIST_BACKGROUND_CUSTOM_COLOR = clWindow;
+  DEF_MAIN_COLOR_SOURCE = TMainColorSource(0);  // mcsThemeText
+  DEF_MAIN_CUSTOM_COLOR = clWindowText;
+  DEF_SECONDARY_COLOR_SOURCE = TSecondaryColorSource(1);  // scsThemeGrayText
+  DEF_SECONDARY_CUSTOM_COLOR = clGrayText;
 
 implementation
 
