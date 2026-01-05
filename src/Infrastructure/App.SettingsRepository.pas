@@ -129,6 +129,8 @@ const
   KEY_ITEM_BORDER_COLOR = 'ItemBorderColor';
   KEY_SHOW_UNPAIRED_DEVICES = 'ShowUnpairedDevices';
   KEY_SHOW_UNIDENTIFIED_DEVICES = 'ShowUnidentifiedDevices';
+  KEY_SCROLLBAR_WIDTH = 'ScrollbarWidth';
+  KEY_SCROLLBAR_OPACITY = 'ScrollbarOpacity';
 
   // INI key names - [Device] (global defaults)
   KEY_CONNECTION_TIMEOUT = 'ConnectionTimeout';
@@ -362,6 +364,8 @@ begin
   LayoutCfg.ItemBorderColor := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, DEF_ITEM_BORDER_COLOR);
   LayoutCfg.ShowUnpairedDevices := AIni.ReadBool(SEC_LAYOUT, KEY_SHOW_UNPAIRED_DEVICES, False);
   LayoutCfg.ShowUnidentifiedDevices := AIni.ReadBool(SEC_LAYOUT, KEY_SHOW_UNIDENTIFIED_DEVICES, DEF_SHOW_UNIDENTIFIED_DEVICES);
+  LayoutCfg.ScrollbarWidth := AIni.ReadInteger(SEC_LAYOUT, KEY_SCROLLBAR_WIDTH, DEF_SCROLLBAR_WIDTH);
+  LayoutCfg.ScrollbarOpacity := AIni.ReadInteger(SEC_LAYOUT, KEY_SCROLLBAR_OPACITY, DEF_SCROLLBAR_OPACITY);
 
   // [Device] - global defaults
   ConnectionCfg.ConnectionTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
@@ -523,6 +527,8 @@ begin
   AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_BORDER_COLOR, LayoutCfg.ItemBorderColor);
   AIni.WriteBool(SEC_LAYOUT, KEY_SHOW_UNPAIRED_DEVICES, LayoutCfg.ShowUnpairedDevices);
   AIni.WriteBool(SEC_LAYOUT, KEY_SHOW_UNIDENTIFIED_DEVICES, LayoutCfg.ShowUnidentifiedDevices);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_SCROLLBAR_WIDTH, LayoutCfg.ScrollbarWidth);
+  AIni.WriteInteger(SEC_LAYOUT, KEY_SCROLLBAR_OPACITY, LayoutCfg.ScrollbarOpacity);
 
   // [Device] - global defaults
   AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, ConnectionCfg.ConnectionTimeout);

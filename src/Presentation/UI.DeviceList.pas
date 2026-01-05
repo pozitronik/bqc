@@ -121,6 +121,12 @@ type
     FAnimationTimer: TTimer;
     FAnimationFrame: Integer;
 
+    // Custom scrollbar state
+    FScrollbarHover: Boolean;
+    FScrollbarDragging: Boolean;
+    FScrollbarDragStartY: Integer;
+    FScrollbarDragStartScroll: Integer;
+
     procedure HandleAnimationTimer(Sender: TObject);
 
     procedure RefreshLayoutCache;
@@ -166,7 +172,16 @@ type
     procedure WMGetDlgCode(var Message: TWMGetDlgCode); message WM_GETDLGCODE;
     procedure WMVScroll(var Message: TWMVScroll); message WM_VSCROLL;
     procedure CMMouseLeave(var Message: TMessage); message CM_MOUSELEAVE;
+    procedure CMStyleChanged(var Message: TMessage); message CM_STYLECHANGED;
     procedure UpdateScrollBar;
+
+    // Custom scrollbar helpers
+    function GetScrollbarRect: TRect;
+    function GetScrollbarTrackRect: TRect;
+    function GetScrollbarThumbRect: TRect;
+    function IsPointInScrollbar(X, Y: Integer): Boolean;
+    function IsPointInScrollbarThumb(X, Y: Integer): Boolean;
+    procedure DrawCustomScrollbar(ACanvas: TCanvas);
 
   protected
     procedure CreateParams(var Params: TCreateParams); override;
@@ -222,7 +237,8 @@ implementation
 uses
   System.Math,
   UI.ListGeometry,
-  UI.DeviceFormatter;
+  UI.DeviceFormatter,
+  App.Logger;
 
 const
   // Font names used for rendering
@@ -275,6 +291,10 @@ begin
   FMaxScroll := 0;
   FShowAddresses := False;
   FAnimationFrame := 0;
+  FScrollbarHover := False;
+  FScrollbarDragging := False;
+  FScrollbarDragStartY := 0;
+  FScrollbarDragStartScroll := 0;
 
   ControlStyle := ControlStyle + [csOpaque];
   TabStop := True;
@@ -423,7 +443,7 @@ end;
 procedure TDeviceListBox.CreateParams(var Params: TCreateParams);
 begin
   inherited CreateParams(Params);
-  Params.Style := Params.Style or WS_VSCROLL;
+  Params.Style := Params.Style and not WS_VSCROLL;  // Remove native scrollbar
 end;
 
 procedure TDeviceListBox.Resize;
@@ -642,34 +662,15 @@ begin
 end;
 
 procedure TDeviceListBox.UpdateScrollBar;
-var
-  SI: TScrollInfo;
-  TotalHeight: Integer;
 begin
   if not HandleAllocated then
     Exit;
 
-  if Length(FItemHeights) > 0 then
-    TotalHeight := TListGeometry.CalculateTotalHeightVariable(
-      FItemHeights,
-      FCachedLayout.ItemMargin
-    )
-  else
-    TotalHeight := TListGeometry.CalculateTotalHeight(
-      GetItemCount,
-      FCachedLayout.ItemHeight,
-      FCachedLayout.ItemMargin
-    );
+  // Hide native scrollbar (we use custom scrollbar now)
+  ShowScrollBar(Handle, SB_VERT, False);
 
-  SI.cbSize := SizeOf(TScrollInfo);
-  SI.fMask := SIF_ALL;
-  SI.nMin := 0;
-  SI.nMax := TotalHeight;
-  SI.nPage := ClientHeight;
-  SI.nPos := FScrollPos;
-  SI.nTrackPos := 0;
-
-  SetScrollInfo(Handle, SB_VERT, SI, True);
+  // Force repaint to show custom scrollbar
+  Invalidate;
 end;
 
 procedure TDeviceListBox.ScrollTo(APos: Integer);
@@ -758,6 +759,151 @@ begin
     FHoverIndex := -1;
     Invalidate;
   end;
+  if FScrollbarHover then
+  begin
+    FScrollbarHover := False;
+    Invalidate;
+  end;
+end;
+
+procedure TDeviceListBox.CMStyleChanged(var Message: TMessage);
+begin
+  inherited;
+  // VCL style has changed, force repaint to update colors
+  LogDebug('CMStyleChanged: VCL style changed, invalidating device list', ClassName);
+  Invalidate;
+end;
+
+function TDeviceListBox.GetScrollbarRect: TRect;
+var
+  ScrollbarWidth: Integer;
+begin
+  if Assigned(FLayoutConfig) then
+    ScrollbarWidth := FLayoutConfig.ScrollbarWidth
+  else
+    ScrollbarWidth := 10;
+
+  Result := Rect(
+    ClientWidth - ScrollbarWidth,
+    0,
+    ClientWidth,
+    ClientHeight
+  );
+end;
+
+function TDeviceListBox.GetScrollbarTrackRect: TRect;
+begin
+  Result := GetScrollbarRect;
+end;
+
+function TDeviceListBox.GetScrollbarThumbRect: TRect;
+var
+  TrackRect: TRect;
+  TrackHeight, ThumbHeight, ThumbTop: Integer;
+  ScrollRatio: Double;
+begin
+  TrackRect := GetScrollbarTrackRect;
+  TrackHeight := TrackRect.Height;
+
+  if FMaxScroll <= 0 then
+  begin
+    // No scrolling needed - full height thumb
+    Result := TrackRect;
+    Exit;
+  end;
+
+  // Thumb height proportional to visible content
+  // ThumbHeight = TrackHeight * (ClientHeight / TotalContentHeight)
+  ThumbHeight := Round(TrackHeight * (ClientHeight / (ClientHeight + FMaxScroll)));
+
+  // Minimum thumb height for usability
+  if ThumbHeight < 20 then
+    ThumbHeight := 20;
+
+  // Thumb position based on scroll position
+  ScrollRatio := FScrollPos / FMaxScroll;
+  ThumbTop := Round(ScrollRatio * (TrackHeight - ThumbHeight));
+
+  Result := Rect(
+    TrackRect.Left,
+    TrackRect.Top + ThumbTop,
+    TrackRect.Right,
+    TrackRect.Top + ThumbTop + ThumbHeight
+  );
+end;
+
+function TDeviceListBox.IsPointInScrollbar(X, Y: Integer): Boolean;
+var
+  ScrollbarRect: TRect;
+begin
+  ScrollbarRect := GetScrollbarRect;
+  Result := PtInRect(ScrollbarRect, Point(X, Y));
+end;
+
+function TDeviceListBox.IsPointInScrollbarThumb(X, Y: Integer): Boolean;
+var
+  ThumbRect: TRect;
+begin
+  ThumbRect := GetScrollbarThumbRect;
+  Result := PtInRect(ThumbRect, Point(X, Y));
+end;
+
+procedure TDeviceListBox.DrawCustomScrollbar(ACanvas: TCanvas);
+var
+  TrackRect, ThumbRect: TRect;
+  Style: TCustomStyleServices;
+  TrackColor, ThumbColor: TColor;
+  Opacity: Integer;
+begin
+  if FMaxScroll <= 0 then
+    Exit; // No scrollbar needed
+
+  Style := TStyleManager.ActiveStyle;
+  TrackRect := GetScrollbarTrackRect;
+  ThumbRect := GetScrollbarThumbRect;
+
+  // Get opacity setting
+  if Assigned(FLayoutConfig) then
+    Opacity := FLayoutConfig.ScrollbarOpacity
+  else
+    Opacity := 100;
+
+  // Track background - slightly darker than window background
+  TrackColor := Style.GetSystemColor(clBtnFace);
+
+  if Opacity < 100 then
+  begin
+    // Apply alpha blending to track
+    ACanvas.Brush.Color := TrackColor;
+    ACanvas.Brush.Style := bsSolid;
+    ACanvas.Pen.Style := psClear;
+    ACanvas.Rectangle(TrackRect);
+  end
+  else
+  begin
+    ACanvas.Brush.Color := TrackColor;
+    ACanvas.Brush.Style := bsSolid;
+    ACanvas.FillRect(TrackRect);
+  end;
+
+  // Thumb - use theme color, lighter on hover
+  if FScrollbarHover or FScrollbarDragging then
+    ThumbColor := Style.GetSystemColor(clHighlight)
+  else
+    ThumbColor := Style.GetSystemColor(clBtnShadow);
+
+  ACanvas.Brush.Color := ThumbColor;
+  ACanvas.Brush.Style := bsSolid;
+  ACanvas.Pen.Style := psClear;
+
+  // Draw rounded thumb
+  ACanvas.RoundRect(
+    ThumbRect.Left + 2,
+    ThumbRect.Top,
+    ThumbRect.Right - 2,
+    ThumbRect.Bottom,
+    4, 4
+  );
 end;
 
 procedure TDeviceListBox.Paint;
@@ -816,6 +962,9 @@ begin
     Canvas.Rectangle(R);
     Canvas.Pen.Style := psSolid;
   end;
+
+  // Draw custom scrollbar
+  DrawCustomScrollbar(Canvas);
 end;
 
 function TDeviceListBox.CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
@@ -1369,6 +1518,9 @@ procedure TDeviceListBox.MouseDown(Button: TMouseButton; Shift: TShiftState;
   X, Y: Integer);
 var
   Index: Integer;
+  ThumbRect, TrackRect: TRect;
+  ThumbCenter: Integer;
+  PageSize: Integer;
 begin
   inherited;
 
@@ -1377,23 +1529,106 @@ begin
 
   if Button = mbLeft then
   begin
-    Index := ItemAtPos(X, Y);
-    if Index >= 0 then
-      SelectedIndex := Index;
+    // Check if clicking on scrollbar
+    if IsPointInScrollbar(X, Y) and (FMaxScroll > 0) then
+    begin
+      ThumbRect := GetScrollbarThumbRect;
+
+      if IsPointInScrollbarThumb(X, Y) then
+      begin
+        // Start dragging thumb
+        FScrollbarDragging := True;
+        FScrollbarDragStartY := Y;
+        FScrollbarDragStartScroll := FScrollPos;
+        FScrollbarHover := True;
+        Invalidate;
+      end
+      else
+      begin
+        // Click on track - page scroll
+        TrackRect := GetScrollbarTrackRect;
+        ThumbCenter := (ThumbRect.Top + ThumbRect.Bottom) div 2;
+
+        if Y < ThumbCenter then
+        begin
+          // Page up
+          PageSize := ClientHeight;
+          ScrollTo(FScrollPos - PageSize);
+        end
+        else
+        begin
+          // Page down
+          PageSize := ClientHeight;
+          ScrollTo(FScrollPos + PageSize);
+        end;
+      end;
+    end
+    else
+    begin
+      // Regular item click
+      Index := ItemAtPos(X, Y);
+      if Index >= 0 then
+        SelectedIndex := Index;
+    end;
   end;
 end;
 
 procedure TDeviceListBox.MouseMove(Shift: TShiftState; X, Y: Integer);
 var
   Index: Integer;
+  WasHover: Boolean;
+  TrackRect, ThumbRect: TRect;
+  TrackHeight, ThumbHeight: Integer;
+  DeltaY, NewScrollPos: Integer;
+  ScrollRatio: Double;
 begin
   inherited;
 
-  Index := ItemAtPos(X, Y);
-  if Index <> FHoverIndex then
+  // Handle scrollbar dragging
+  if FScrollbarDragging then
   begin
-    FHoverIndex := Index;
+    TrackRect := GetScrollbarTrackRect;
+    ThumbRect := GetScrollbarThumbRect;
+    TrackHeight := TrackRect.Height;
+    ThumbHeight := ThumbRect.Height;
+
+    DeltaY := Y - FScrollbarDragStartY;
+
+    // Convert pixel delta to scroll position delta
+    // ScrollRatio = DeltaY / (TrackHeight - ThumbHeight)
+    if TrackHeight > ThumbHeight then
+    begin
+      ScrollRatio := DeltaY / (TrackHeight - ThumbHeight);
+      NewScrollPos := FScrollbarDragStartScroll + Round(ScrollRatio * FMaxScroll);
+      ScrollTo(NewScrollPos);
+    end;
+
     Invalidate;
+  end
+  else
+  begin
+    // Update scrollbar hover state
+    WasHover := FScrollbarHover;
+    FScrollbarHover := IsPointInScrollbarThumb(X, Y);
+
+    if WasHover <> FScrollbarHover then
+      Invalidate;
+
+    // Update item hover state (only if not over scrollbar)
+    if not IsPointInScrollbar(X, Y) then
+    begin
+      Index := ItemAtPos(X, Y);
+      if Index <> FHoverIndex then
+      begin
+        FHoverIndex := Index;
+        Invalidate;
+      end;
+    end
+    else if FHoverIndex <> -1 then
+    begin
+      FHoverIndex := -1;
+      Invalidate;
+    end;
   end;
 end;
 
@@ -1406,6 +1641,14 @@ begin
 
   if Button = mbLeft then
   begin
+    // End scrollbar dragging
+    if FScrollbarDragging then
+    begin
+      FScrollbarDragging := False;
+      Invalidate;
+      Exit;
+    end;
+
     Index := ItemAtPos(X, Y);
     if (Index >= 0) and (Index = FSelectedIndex) then
     begin

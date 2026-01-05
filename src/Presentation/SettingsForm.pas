@@ -129,6 +129,16 @@ type
     CheckShowProfiles: TCheckBox;
     EditProfileFontSize: TEdit;
     UpDownProfileFontSize: TUpDown;
+    GroupScrollbar: TGroupBox;
+    LabelScrollbarWidth: TLabel;
+    LabelScrollbarWidthPx: TLabel;
+    LabelScrollbarOpacity: TLabel;
+    LabelScrollbarOpacityPercent: TLabel;
+    LabelScrollbarNote: TLabel;
+    EditScrollbarWidth: TEdit;
+    UpDownScrollbarWidth: TUpDown;
+    EditScrollbarOpacity: TEdit;
+    UpDownScrollbarOpacity: TUpDown;
 
     { Tab: Keys }
     TabKeys: TTabSheet;
@@ -619,6 +629,8 @@ begin
   Result.IconFontSize := UpDownIconFontSize.Position;
   Result.ShowUnpairedDevices := CheckShowUnpairedDevices.Checked;
   Result.ShowUnidentifiedDevices := CheckShowUnidentifiedDevices.Checked;
+  Result.ScrollbarWidth := UpDownScrollbarWidth.Position;
+  Result.ScrollbarOpacity := UpDownScrollbarOpacity.Position;
 end;
 
 procedure TFormSettings.SetLayoutSettings(const ASettings: TLayoutViewSettings);
@@ -636,6 +648,8 @@ begin
   UpDownIconFontSize.Position := ASettings.IconFontSize;
   CheckShowUnpairedDevices.Checked := ASettings.ShowUnpairedDevices;
   CheckShowUnidentifiedDevices.Checked := ASettings.ShowUnidentifiedDevices;
+  UpDownScrollbarWidth.Position := ASettings.ScrollbarWidth;
+  UpDownScrollbarOpacity.Position := ASettings.ScrollbarOpacity;
 end;
 
 function TFormSettings.GetConnectionSettings: TConnectionViewSettings;
@@ -1133,6 +1147,10 @@ begin
   // Profile settings
   CheckShowProfiles.OnClick := HandleSettingChanged;
   EditProfileFontSize.OnChange := HandleSettingChanged;
+
+  // Scrollbar settings
+  EditScrollbarWidth.OnChange := HandleSettingChanged;
+  EditScrollbarOpacity.OnChange := HandleSettingChanged;
 end;
 
 procedure TFormSettings.ConfigureWinRTDependentControls;

@@ -36,6 +36,8 @@ type
     FItemBorderColor: Integer;
     FShowUnpairedDevices: Boolean;
     FShowUnidentifiedDevices: Boolean;
+    FScrollbarWidth: Integer;
+    FScrollbarOpacity: Integer;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -52,6 +54,8 @@ type
     function GetItemBorderColor: Integer;
     function GetShowUnpairedDevices: Boolean;
     function GetShowUnidentifiedDevices: Boolean;
+    function GetScrollbarWidth: Integer;
+    function GetScrollbarOpacity: Integer;
 
     procedure SetItemHeight(AValue: Integer);
     procedure SetItemPadding(AValue: Integer);
@@ -66,6 +70,8 @@ type
     procedure SetItemBorderColor(AValue: Integer);
     procedure SetShowUnpairedDevices(AValue: Boolean);
     procedure SetShowUnidentifiedDevices(AValue: Boolean);
+    procedure SetScrollbarWidth(AValue: Integer);
+    procedure SetScrollbarOpacity(AValue: Integer);
 
     procedure SetDefaults;
 
@@ -82,6 +88,8 @@ type
     property ItemBorderColor: Integer read FItemBorderColor write SetItemBorderColor;
     property ShowUnpairedDevices: Boolean read FShowUnpairedDevices write SetShowUnpairedDevices;
     property ShowUnidentifiedDevices: Boolean read FShowUnidentifiedDevices write SetShowUnidentifiedDevices;
+    property ScrollbarWidth: Integer read FScrollbarWidth write SetScrollbarWidth;
+    property ScrollbarOpacity: Integer read FScrollbarOpacity write SetScrollbarOpacity;
   end;
 
 implementation
@@ -113,6 +121,8 @@ begin
   FItemBorderColor := DEF_ITEM_BORDER_COLOR;
   FShowUnpairedDevices := False;
   FShowUnidentifiedDevices := True;  // Show all by default (non-breaking)
+  FScrollbarWidth := DEF_SCROLLBAR_WIDTH;
+  FScrollbarOpacity := DEF_SCROLLBAR_OPACITY;
 end;
 
 function TLayoutConfigSection.GetItemHeight: Integer;
@@ -243,6 +253,26 @@ end;
 procedure TLayoutConfigSection.SetShowUnidentifiedDevices(AValue: Boolean);
 begin
   SetFieldBoolean(FShowUnidentifiedDevices, AValue);
+end;
+
+function TLayoutConfigSection.GetScrollbarWidth: Integer;
+begin
+  Result := FScrollbarWidth;
+end;
+
+procedure TLayoutConfigSection.SetScrollbarWidth(AValue: Integer);
+begin
+  SetFieldInteger(FScrollbarWidth, AValue);
+end;
+
+function TLayoutConfigSection.GetScrollbarOpacity: Integer;
+begin
+  Result := FScrollbarOpacity;
+end;
+
+procedure TLayoutConfigSection.SetScrollbarOpacity(AValue: Integer);
+begin
+  SetFieldInteger(FScrollbarOpacity, AValue);
 end;
 
 end.
