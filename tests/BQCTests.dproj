@@ -55,6 +55,7 @@
         <DCC_F>false</DCC_F>
         <DCC_K>false</DCC_K>
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
+        <DCC_UnitSearchPath>..\src\Domain;..\src\Infrastructure\Configuration;..\src\Infrastructure\Bluetooth;..\src\Infrastructure\System;..\src\Application;..\src\Presentation;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <SanitizedProjectName>BQCTests</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
