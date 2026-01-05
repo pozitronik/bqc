@@ -85,7 +85,6 @@ type
     ShowUnpairedDevices: Boolean;
     ShowUnidentifiedDevices: Boolean;
     ScrollbarWidth: Integer;
-    ScrollbarOpacity: Integer;
   end;
 
   /// <summary>
@@ -719,7 +718,6 @@ begin
   Layout.ShowUnpairedDevices := FLayoutConfig.ShowUnpairedDevices;
   Layout.ShowUnidentifiedDevices := FLayoutConfig.ShowUnidentifiedDevices;
   Layout.ScrollbarWidth := FLayoutConfig.ScrollbarWidth;
-  Layout.ScrollbarOpacity := FLayoutConfig.ScrollbarOpacity;
   FLayoutSettingsView.SetLayoutSettings(Layout);
 
   // Connection settings
@@ -845,7 +843,6 @@ begin
     FLayoutConfig.ShowUnpairedDevices := Layout.ShowUnpairedDevices;
     FLayoutConfig.ShowUnidentifiedDevices := Layout.ShowUnidentifiedDevices;
     FLayoutConfig.ScrollbarWidth := Layout.ScrollbarWidth;
-    FLayoutConfig.ScrollbarOpacity := Layout.ScrollbarOpacity;
 
     // Connection settings
     Connection := FConnectionSettingsView.GetConnectionSettings;
@@ -1013,7 +1010,6 @@ begin
   Layout.ShowUnpairedDevices := False;  // Default: don't show unpaired devices
   Layout.ShowUnidentifiedDevices := True;  // Default: show all devices (non-breaking)
   Layout.ScrollbarWidth := DEF_SCROLLBAR_WIDTH;
-  Layout.ScrollbarOpacity := DEF_SCROLLBAR_OPACITY;
   FLayoutSettingsView.SetLayoutSettings(Layout);
 
   // Reset connected color (in appearance settings)

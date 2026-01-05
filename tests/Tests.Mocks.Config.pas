@@ -55,7 +55,6 @@ type
     FShowUnpairedDevices: Boolean;
     FShowUnidentifiedDevices: Boolean;
     FScrollbarWidth: Integer;
-    FScrollbarOpacity: Integer;
   public
     constructor Create;
 
@@ -77,7 +76,6 @@ type
     function GetShowUnpairedDevices: Boolean;
     function GetShowUnidentifiedDevices: Boolean;
     function GetScrollbarWidth: Integer;
-    function GetScrollbarOpacity: Integer;
 
     // ILayoutConfig - setters
     // NOTE: Same constraint as getters - interface requires these methods.
@@ -95,7 +93,6 @@ type
     procedure SetShowUnpairedDevices(AValue: Boolean);
     procedure SetShowUnidentifiedDevices(AValue: Boolean);
     procedure SetScrollbarWidth(AValue: Integer);
-    procedure SetScrollbarOpacity(AValue: Integer);
 
     // Test setup properties
     // NOTE: Direct field access for test convenience (Arrange-Act-Assert pattern).
@@ -114,7 +111,6 @@ type
     property ShowUnpairedDevices: Boolean read FShowUnpairedDevices write FShowUnpairedDevices;
     property ShowUnidentifiedDevices: Boolean read FShowUnidentifiedDevices write FShowUnidentifiedDevices;
     property ScrollbarWidth: Integer read FScrollbarWidth write FScrollbarWidth;
-    property ScrollbarOpacity: Integer read FScrollbarOpacity write FScrollbarOpacity;
   end;
 
   /// <summary>
@@ -599,7 +595,6 @@ begin
   FShowUnpairedDevices := False;
   FShowUnidentifiedDevices := True;  // Show all by default (non-breaking)
   FScrollbarWidth := 10;
-  FScrollbarOpacity := 100;
 end;
 
 function TMockLayoutConfig.GetItemHeight: Integer;
@@ -740,16 +735,6 @@ end;
 procedure TMockLayoutConfig.SetScrollbarWidth(AValue: Integer);
 begin
   FScrollbarWidth := AValue;
-end;
-
-function TMockLayoutConfig.GetScrollbarOpacity: Integer;
-begin
-  Result := FScrollbarOpacity;
-end;
-
-procedure TMockLayoutConfig.SetScrollbarOpacity(AValue: Integer);
-begin
-  FScrollbarOpacity := AValue;
 end;
 
 { TMockAppearanceConfig }

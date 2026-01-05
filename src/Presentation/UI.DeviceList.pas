@@ -775,16 +775,11 @@ begin
 end;
 
 function TDeviceListBox.GetScrollbarRect: TRect;
-var
-  ScrollbarWidth: Integer;
+const
+  SCROLLBAR_WIDTH = 12;  // Modern thin scrollbar width (px)
 begin
-  if Assigned(FLayoutConfig) then
-    ScrollbarWidth := FLayoutConfig.ScrollbarWidth
-  else
-    ScrollbarWidth := 10;
-
   Result := Rect(
-    ClientWidth - ScrollbarWidth,
+    ClientWidth - SCROLLBAR_WIDTH,
     0,
     ClientWidth,
     ClientHeight
@@ -853,7 +848,6 @@ var
   TrackRect, ThumbRect: TRect;
   Style: TCustomStyleServices;
   TrackColor, ThumbColor: TColor;
-  Opacity: Integer;
 begin
   if FMaxScroll <= 0 then
     Exit; // No scrollbar needed
@@ -862,29 +856,12 @@ begin
   TrackRect := GetScrollbarTrackRect;
   ThumbRect := GetScrollbarThumbRect;
 
-  // Get opacity setting
-  if Assigned(FLayoutConfig) then
-    Opacity := FLayoutConfig.ScrollbarOpacity
-  else
-    Opacity := 100;
-
-  // Track background - slightly darker than window background
+  // Track background - use VCL theme color
   TrackColor := Style.GetSystemColor(clBtnFace);
-
-  if Opacity < 100 then
-  begin
-    // Apply alpha blending to track
-    ACanvas.Brush.Color := TrackColor;
-    ACanvas.Brush.Style := bsSolid;
-    ACanvas.Pen.Style := psClear;
-    ACanvas.Rectangle(TrackRect);
-  end
-  else
-  begin
-    ACanvas.Brush.Color := TrackColor;
-    ACanvas.Brush.Style := bsSolid;
-    ACanvas.FillRect(TrackRect);
-  end;
+  ACanvas.Brush.Color := TrackColor;
+  ACanvas.Brush.Style := bsSolid;
+  ACanvas.Pen.Style := psClear;
+  ACanvas.FillRect(TrackRect);
 
   // Thumb - use theme color, lighter on hover
   if FScrollbarHover or FScrollbarDragging then

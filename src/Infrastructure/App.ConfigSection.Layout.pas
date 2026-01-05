@@ -37,7 +37,6 @@ type
     FShowUnpairedDevices: Boolean;
     FShowUnidentifiedDevices: Boolean;
     FScrollbarWidth: Integer;
-    FScrollbarOpacity: Integer;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -55,7 +54,6 @@ type
     function GetShowUnpairedDevices: Boolean;
     function GetShowUnidentifiedDevices: Boolean;
     function GetScrollbarWidth: Integer;
-    function GetScrollbarOpacity: Integer;
 
     procedure SetItemHeight(AValue: Integer);
     procedure SetItemPadding(AValue: Integer);
@@ -71,7 +69,6 @@ type
     procedure SetShowUnpairedDevices(AValue: Boolean);
     procedure SetShowUnidentifiedDevices(AValue: Boolean);
     procedure SetScrollbarWidth(AValue: Integer);
-    procedure SetScrollbarOpacity(AValue: Integer);
 
     procedure SetDefaults;
 
@@ -89,7 +86,6 @@ type
     property ShowUnpairedDevices: Boolean read FShowUnpairedDevices write SetShowUnpairedDevices;
     property ShowUnidentifiedDevices: Boolean read FShowUnidentifiedDevices write SetShowUnidentifiedDevices;
     property ScrollbarWidth: Integer read FScrollbarWidth write SetScrollbarWidth;
-    property ScrollbarOpacity: Integer read FScrollbarOpacity write SetScrollbarOpacity;
   end;
 
 implementation
@@ -122,7 +118,6 @@ begin
   FShowUnpairedDevices := False;
   FShowUnidentifiedDevices := True;  // Show all by default (non-breaking)
   FScrollbarWidth := DEF_SCROLLBAR_WIDTH;
-  FScrollbarOpacity := DEF_SCROLLBAR_OPACITY;
 end;
 
 function TLayoutConfigSection.GetItemHeight: Integer;
@@ -263,16 +258,6 @@ end;
 procedure TLayoutConfigSection.SetScrollbarWidth(AValue: Integer);
 begin
   SetFieldInteger(FScrollbarWidth, AValue);
-end;
-
-function TLayoutConfigSection.GetScrollbarOpacity: Integer;
-begin
-  Result := FScrollbarOpacity;
-end;
-
-procedure TLayoutConfigSection.SetScrollbarOpacity(AValue: Integer);
-begin
-  SetFieldInteger(FScrollbarOpacity, AValue);
 end;
 
 end.
