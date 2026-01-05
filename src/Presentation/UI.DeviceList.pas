@@ -922,6 +922,7 @@ var
   RightEdge: Integer;
   PinIconWidth: Integer;
   NameColor: TColor;
+  SavedClipRgn: HRGN;
 begin
   Style := TStyleManager.ActiveStyle;
 
@@ -963,16 +964,45 @@ begin
   // Draw device name
   ACanvas.TextOut(AContext.TextRect.Left, AContext.NameLineTop, AItem.DisplayName);
 
-  // Draw address if enabled
+  // Draw address if enabled (with clipping to respect right padding)
   if AContext.ShowAddresses then
   begin
     AddrLeft := AContext.TextRect.Left + ACanvas.TextWidth(AItem.DisplayName) + ADDRESS_SPACING;
-    NameHeight := ACanvas.TextHeight('Ay');
-    ACanvas.Font.Size := AContext.AddressFontSize;
-    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    AddrOffset := (NameHeight - ACanvas.TextHeight('Ay')) div 2;
-    ACanvas.TextOut(AddrLeft, AContext.NameLineTop + AddrOffset,
-      '[' + AItem.Device.AddressString + ']');
+
+    // Only draw if there's space for at least the opening bracket
+    if AddrLeft < AContext.TextRect.Right then
+    begin
+      NameHeight := ACanvas.TextHeight('Ay');
+      ACanvas.Font.Size := AContext.AddressFontSize;
+      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+      AddrOffset := (NameHeight - ACanvas.TextHeight('Ay')) div 2;
+
+      // Clip address text to TextRect.Right boundary to respect padding
+      SavedClipRgn := CreateRectRgn(0, 0, 0, 0);
+      if GetClipRgn(ACanvas.Handle, SavedClipRgn) <> 1 then
+      begin
+        DeleteObject(SavedClipRgn);
+        SavedClipRgn := 0;
+      end;
+
+      IntersectClipRect(ACanvas.Handle,
+        AddrLeft,
+        AContext.NameLineTop + AddrOffset,
+        AContext.TextRect.Right,
+        AContext.NameLineTop + AddrOffset + ACanvas.TextHeight('Ay'));
+
+      ACanvas.TextOut(AddrLeft, AContext.NameLineTop + AddrOffset,
+        '[' + AItem.Device.AddressString + ']');
+
+      // Restore original clipping region
+      if SavedClipRgn <> 0 then
+      begin
+        SelectClipRgn(ACanvas.Handle, SavedClipRgn);
+        DeleteObject(SavedClipRgn);
+      end
+      else
+        SelectClipRgn(ACanvas.Handle, 0);
+    end;
   end;
 end;
 
