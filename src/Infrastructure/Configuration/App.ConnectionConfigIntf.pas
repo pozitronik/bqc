@@ -28,6 +28,8 @@ type
     function GetBluetoothPlatform: TBluetoothPlatform;
     function GetAutoScanOnStartup: Boolean;
     function GetPairingStateSyncInterval: Integer;
+    function GetPairingTimeout: Integer;
+    function GetPairingMode: TPairingMode;
 
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
@@ -35,6 +37,8 @@ type
     procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
     procedure SetAutoScanOnStartup(AValue: Boolean);
     procedure SetPairingStateSyncInterval(AValue: Integer);
+    procedure SetPairingTimeout(AValue: Integer);
+    procedure SetPairingMode(AValue: TPairingMode);
 
     property ConnectionTimeout: Integer read GetConnectionTimeout write SetConnectionTimeout;
     property ConnectionRetryCount: Integer read GetConnectionRetryCount write SetConnectionRetryCount;
@@ -42,6 +46,8 @@ type
     property BluetoothPlatform: TBluetoothPlatform read GetBluetoothPlatform write SetBluetoothPlatform;
     property AutoScanOnStartup: Boolean read GetAutoScanOnStartup write SetAutoScanOnStartup;
     property PairingStateSyncInterval: Integer read GetPairingStateSyncInterval write SetPairingStateSyncInterval;
+    property PairingTimeout: Integer read GetPairingTimeout write SetPairingTimeout;
+    property PairingMode: TPairingMode read GetPairingMode write SetPairingMode;
   end;
 
   /// <summary>

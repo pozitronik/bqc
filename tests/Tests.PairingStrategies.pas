@@ -109,7 +109,7 @@ type
     [Test]
     procedure CanHandle_Classic_ReturnsFalse;
     [Test]
-    procedure CanHandle_Auto_ReturnsFalse;
+    procedure CanHandle_Auto_ReturnsTrue;
 
     // GetPriority tests
     [Test]
@@ -117,13 +117,7 @@ type
 
     // GetName tests
     [Test]
-    procedure GetName_ReturnsWinRTNotImplemented;
-
-    // NotSupported tests (stub implementation)
-    [Test]
-    procedure Pair_ReturnsNotSupported;
-    [Test]
-    procedure Unpair_ReturnsNotSupported;
+    procedure GetName_ReturnsWinRTSimplePairing;
   end;
 
   /// <summary>
@@ -145,7 +139,7 @@ type
     [Test]
     procedure GetStrategy_Classic_ReturnsWindowsStrategy;
     [Test]
-    procedure GetStrategy_Auto_ReturnsWindowsStrategy;
+    procedure GetStrategy_Auto_ReturnsWinRTStrategy;
     [Test]
     procedure GetStrategy_WinRT_ReturnsWinRTStrategy;
 
@@ -354,7 +348,7 @@ end;
 
 procedure TWinRTPairingStrategyTests.Setup;
 begin
-  FStrategy := TWinRTPairingStrategy.Create;
+  FStrategy := TWinRTSimplePairingStrategy.Create(nil);  // Pass nil config for basic tests
 end;
 
 procedure TWinRTPairingStrategyTests.CanHandle_WinRT_ReturnsTrue;
@@ -367,9 +361,9 @@ begin
   Assert.IsFalse(FStrategy.CanHandle(bpClassic));
 end;
 
-procedure TWinRTPairingStrategyTests.CanHandle_Auto_ReturnsFalse;
+procedure TWinRTPairingStrategyTests.CanHandle_Auto_ReturnsTrue;
 begin
-  Assert.IsFalse(FStrategy.CanHandle(bpAuto));
+  Assert.IsTrue(FStrategy.CanHandle(bpAuto));
 end;
 
 procedure TWinRTPairingStrategyTests.GetPriority_Returns100;
@@ -377,46 +371,9 @@ begin
   Assert.AreEqual(100, FStrategy.GetPriority);
 end;
 
-procedure TWinRTPairingStrategyTests.GetName_ReturnsWinRTNotImplemented;
+procedure TWinRTPairingStrategyTests.GetName_ReturnsWinRTSimplePairing;
 begin
-  Assert.AreEqual('WinRT Pairing (Not Implemented)', FStrategy.GetName);
-end;
-
-procedure TWinRTPairingStrategyTests.Pair_ReturnsNotSupported;
-var
-  Device: TBluetoothDeviceInfo;
-  Result: TPairingResult;
-  Addr: TBluetoothAddress;
-begin
-  // Create minimal device info
-  FillChar(Addr, SizeOf(Addr), 0);
-  Device := TBluetoothDeviceInfo.Create(
-    Addr,
-    $112233445566,
-    'Test Device',
-    btUnknown,
-    csDisconnected,
-    False,
-    False,
-    0,
-    Now,
-    0
-  );
-
-  Result := FStrategy.Pair(Device, nil);
-
-  Assert.AreEqual(Ord(prsNotSupported), Ord(Result.Status));
-  Assert.IsFalse(Result.IsSuccess);
-end;
-
-procedure TWinRTPairingStrategyTests.Unpair_ReturnsNotSupported;
-var
-  Result: TPairingResult;
-begin
-  Result := FStrategy.Unpair($112233445566);
-
-  Assert.AreEqual(Ord(prsNotSupported), Ord(Result.Status));
-  Assert.IsFalse(Result.IsSuccess);
+  Assert.AreEqual('WinRT Simple Pairing (Windows Dialogs)', FStrategy.GetName);
 end;
 
 { TPairingStrategyFactoryTests }
@@ -451,7 +408,7 @@ begin
   Assert.AreEqual('Windows Classic Pairing', Strategy.GetName);
 end;
 
-procedure TPairingStrategyFactoryTests.GetStrategy_Auto_ReturnsWindowsStrategy;
+procedure TPairingStrategyFactoryTests.GetStrategy_Auto_ReturnsWinRTStrategy;
 var
   Strategy: IPairingStrategy;
 begin
@@ -459,8 +416,8 @@ begin
 
   Assert.IsNotNull(Strategy);
   Assert.IsTrue(Strategy.CanHandle(bpAuto));
-  Assert.AreEqual(50, Strategy.GetPriority);
-  Assert.AreEqual('Windows Classic Pairing', Strategy.GetName);
+  Assert.AreEqual(100, Strategy.GetPriority);
+  Assert.AreEqual('WinRT Simple Pairing (Windows Dialogs)', Strategy.GetName);
 end;
 
 procedure TPairingStrategyFactoryTests.GetStrategy_WinRT_ReturnsWinRTStrategy;
@@ -472,7 +429,7 @@ begin
   Assert.IsNotNull(Strategy);
   Assert.IsTrue(Strategy.CanHandle(bpWinRT));
   Assert.AreEqual(100, Strategy.GetPriority);
-  Assert.AreEqual('WinRT Pairing (Not Implemented)', Strategy.GetName);
+  Assert.AreEqual('WinRT Simple Pairing (Windows Dialogs)', Strategy.GetName);
 end;
 
 procedure TPairingStrategyFactoryTests.GetStrategy_SelectsHighestPriority;

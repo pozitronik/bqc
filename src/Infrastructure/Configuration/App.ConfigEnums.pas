@@ -99,6 +99,15 @@ type
   );
 
   /// <summary>
+  /// Pairing mode for WinRT Bluetooth pairing operations.
+  /// Determines how pairing ceremonies are handled (automatic Windows dialogs vs custom UI).
+  /// </summary>
+  TPairingMode = (
+    pmAutomatic,  // Use Windows system pairing dialogs (default, simple) (0)
+    pmCustom      // Use custom pairing ceremony with in-app UI (advanced) (1)
+  );
+
+  /// <summary>
   /// Battery icon outline color mode for taskbar visibility.
   /// Controls how the outline color is determined.
   /// </summary>

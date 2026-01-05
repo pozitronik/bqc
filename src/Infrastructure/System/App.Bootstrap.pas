@@ -310,7 +310,7 @@ begin
   if FPairingService = nil then
   begin
     FPairingService := TBluetoothPairingService.Create(
-      CreatePairingStrategyFactory,
+      CreatePairingStrategyFactory(ConnectionConfig),
       nil,  // Repository not used by pairing service
       ConnectionConfig
     );

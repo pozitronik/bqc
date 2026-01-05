@@ -15,10 +15,12 @@ interface
 
 uses
   Winapi.Windows,
+  Winapi.ActiveX,
   System.SysUtils,
   System.Generics.Collections,
   Bluetooth.Types,
-  Bluetooth.Interfaces;
+  Bluetooth.Interfaces,
+  WinRT.AsyncHelpers;
 
 type
   /// <summary>
@@ -38,30 +40,10 @@ type
     function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
   end;
 
-/// <summary>
-/// Creates a WinRT-based Bluetooth device query.
-/// </summary>
-function CreateWinRTBluetoothDeviceQuery: IBluetoothDeviceQuery;
-
-implementation
-
-uses
-  Winapi.ActiveX,
-  App.Logger,
-  App.WinRTSupport,
-  WinRT.AsyncHelpers;
-
-const
-  // BluetoothConnectionStatus
-  BluetoothConnectionStatus_Disconnected = 0;
-  BluetoothConnectionStatus_Connected    = 1;
-
-  // Runtime class names
-  RuntimeClass_BluetoothDevice: string = 'Windows.Devices.Bluetooth.BluetoothDevice';
-  RuntimeClass_BluetoothLEDevice: string = 'Windows.Devices.Bluetooth.BluetoothLEDevice';
-  RuntimeClass_DeviceInformation: string = 'Windows.Devices.Enumeration.DeviceInformation';
-
-type
+  // =============================================================================
+  // WinRT COM Interface Definitions
+  // Publicly exported for use by pairing and other WinRT-dependent modules
+  // =============================================================================
 
   /// <summary>
   /// Generic async operation completed handler.
@@ -69,40 +51,21 @@ type
   IAsyncOperationCompletedHandler = interface(IUnknown)
   end;
 
-  // Forward declarations
-  IBluetoothDevice = interface;
-  IBluetoothLEDevice = interface;
-  IDeviceInformation = interface;
-  IDeviceInformationCollection = interface;
-
   /// <summary>
-  /// Async operation for BluetoothDevice.
+  /// DeviceInformation interface.
+  /// Windows.Devices.Enumeration.DeviceInformation.
   /// </summary>
-  IAsyncOperationBluetoothDevice = interface(IInspectable)
-    ['{B58D8D19-44BD-5AC0-A0D6-1B50800F5191}']
-    function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
-    function get_Completed(out handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
-    function GetResults(out results: IBluetoothDevice): HRESULT; stdcall;
-  end;
-
-  /// <summary>
-  /// Async operation for BluetoothLEDevice.
-  /// </summary>
-  IAsyncOperationBluetoothLEDevice = interface(IInspectable)
-    ['{375F9D67-74A2-5F91-A11D-169093718D41}']
-    function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
-    function get_Completed(out handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
-    function GetResults(out results: IBluetoothLEDevice): HRESULT; stdcall;
-  end;
-
-  /// <summary>
-  /// Async operation for DeviceInformationCollection.
-  /// </summary>
-  IAsyncOperationDeviceInformationCollection = interface(IInspectable)
-    ['{45180254-082E-5274-B2E7-AC0517F44D07}']
-    function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
-    function get_Completed(out handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
-    function GetResults(out results: IDeviceInformationCollection): HRESULT; stdcall;
+  IDeviceInformation = interface(IInspectable)
+    ['{ABA0FB95-4398-489D-8E44-E6130927011F}']
+    function get_Id(out value: HSTRING): HRESULT; stdcall;
+    function get_Name(out value: HSTRING): HRESULT; stdcall;
+    function get_IsEnabled(out value: Boolean): HRESULT; stdcall;
+    function get_IsDefault(out value: Boolean): HRESULT; stdcall;
+    function get_EnclosureLocation(out value: IInspectable): HRESULT; stdcall;
+    function get_Properties(out value: IInspectable): HRESULT; stdcall;
+    function Update(updateInfo: IInspectable): HRESULT; stdcall;
+    function GetThumbnailAsync(out asyncOp: IInspectable): HRESULT; stdcall;
+    function GetGlyphThumbnailAsync(out asyncOp: IInspectable): HRESULT; stdcall;
   end;
 
   /// <summary>
@@ -125,23 +88,29 @@ type
   end;
 
   /// <summary>
-  /// DeviceInformation interface.
+  /// Async operation for DeviceInformation.
+  /// Generic IAsyncOperation<DeviceInformation>.
   /// </summary>
-  IDeviceInformation = interface(IInspectable)
-    ['{ABA0FB95-4398-489D-8E44-E6130927011F}']
-    function get_Id(out value: HSTRING): HRESULT; stdcall;
-    function get_Name(out value: HSTRING): HRESULT; stdcall;
-    function get_IsEnabled(out value: Boolean): HRESULT; stdcall;
-    function get_IsDefault(out value: Boolean): HRESULT; stdcall;
-    function get_EnclosureLocation(out value: IInspectable): HRESULT; stdcall;
-    function get_Properties(out value: IInspectable): HRESULT; stdcall;
-    function Update(updateInfo: IInspectable): HRESULT; stdcall;
-    function GetThumbnailAsync(out asyncOp: IInspectable): HRESULT; stdcall;
-    function GetGlyphThumbnailAsync(out asyncOp: IInspectable): HRESULT; stdcall;
+  IAsyncOperationDeviceInformation = interface(IInspectable)
+    ['{E7598E6F-DCFE-560F-95EB-A1C62BF06895}']
+    function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
+    function get_Completed(out handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
+    function GetResults(out results: IDeviceInformation): HRESULT; stdcall;
   end;
 
   /// <summary>
-  /// DeviceInformation statics for FindAllAsync.
+  /// Async operation for DeviceInformationCollection.
+  /// </summary>
+  IAsyncOperationDeviceInformationCollection = interface(IInspectable)
+    ['{45180254-082E-5274-B2E7-AC0517F44D07}']
+    function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
+    function get_Completed(out handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
+    function GetResults(out results: IDeviceInformationCollection): HRESULT; stdcall;
+  end;
+
+  /// <summary>
+  /// DeviceInformation statics for device enumeration.
+  /// Windows.Devices.Enumeration.IDeviceInformationStatics.
   /// </summary>
   IDeviceInformationStatics = interface(IInspectable)
     ['{C17F100E-3A46-4A78-8013-769DC9B97390}']
@@ -165,6 +134,52 @@ type
     function CreateWatcherAqsFilterAndAdditionalProperties(aqsFilter: HSTRING;
       additionalProperties: IInspectable;
       out watcher: IInspectable): HRESULT; stdcall;
+  end;
+
+/// <summary>
+/// Creates a WinRT-based Bluetooth device query.
+/// </summary>
+function CreateWinRTBluetoothDeviceQuery: IBluetoothDeviceQuery;
+
+implementation
+
+uses
+  App.Logger,
+  App.WinRTSupport;
+
+const
+  // BluetoothConnectionStatus
+  BluetoothConnectionStatus_Disconnected = 0;
+  BluetoothConnectionStatus_Connected    = 1;
+
+  // Runtime class names
+  RuntimeClass_BluetoothDevice: string = 'Windows.Devices.Bluetooth.BluetoothDevice';
+  RuntimeClass_BluetoothLEDevice: string = 'Windows.Devices.Bluetooth.BluetoothLEDevice';
+  RuntimeClass_DeviceInformation: string = 'Windows.Devices.Enumeration.DeviceInformation';
+
+type
+  // Forward declarations for Bluetooth device interfaces (remain in implementation)
+  IBluetoothDevice = interface;
+  IBluetoothLEDevice = interface;
+
+  /// <summary>
+  /// Async operation for BluetoothDevice.
+  /// </summary>
+  IAsyncOperationBluetoothDevice = interface(IInspectable)
+    ['{B58D8D19-44BD-5AC0-A0D6-1B50800F5191}']
+    function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
+    function get_Completed(out handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
+    function GetResults(out results: IBluetoothDevice): HRESULT; stdcall;
+  end;
+
+  /// <summary>
+  /// Async operation for BluetoothLEDevice.
+  /// </summary>
+  IAsyncOperationBluetoothLEDevice = interface(IInspectable)
+    ['{375F9D67-74A2-5F91-A11D-169093718D41}']
+    function put_Completed(handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
+    function get_Completed(out handler: IAsyncOperationCompletedHandler): HRESULT; stdcall;
+    function GetResults(out results: IBluetoothLEDevice): HRESULT; stdcall;
   end;
 
   /// <summary>

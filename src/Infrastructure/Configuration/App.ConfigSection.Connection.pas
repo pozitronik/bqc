@@ -30,6 +30,8 @@ type
     FBluetoothPlatform: TBluetoothPlatform;
     FAutoScanOnStartup: Boolean;
     FPairingStateSyncInterval: Integer;
+    FPairingTimeout: Integer;
+    FPairingMode: TPairingMode;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -39,6 +41,8 @@ type
     function GetBluetoothPlatform: TBluetoothPlatform;
     function GetAutoScanOnStartup: Boolean;
     function GetPairingStateSyncInterval: Integer;
+    function GetPairingTimeout: Integer;
+    function GetPairingMode: TPairingMode;
 
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
@@ -46,6 +50,8 @@ type
     procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
     procedure SetAutoScanOnStartup(AValue: Boolean);
     procedure SetPairingStateSyncInterval(AValue: Integer);
+    procedure SetPairingTimeout(AValue: Integer);
+    procedure SetPairingMode(AValue: TPairingMode);
 
     procedure SetDefaults;
 
@@ -55,6 +61,8 @@ type
     property BluetoothPlatform: TBluetoothPlatform read FBluetoothPlatform write SetBluetoothPlatform;
     property AutoScanOnStartup: Boolean read FAutoScanOnStartup write SetAutoScanOnStartup;
     property PairingStateSyncInterval: Integer read FPairingStateSyncInterval write SetPairingStateSyncInterval;
+    property PairingTimeout: Integer read FPairingTimeout write SetPairingTimeout;
+    property PairingMode: TPairingMode read FPairingMode write SetPairingMode;
   end;
 
 implementation
@@ -78,6 +86,8 @@ begin
   FBluetoothPlatform := bpAuto;  // Auto-detect by default
   FAutoScanOnStartup := False;    // Don't scan on startup by default
   FPairingStateSyncInterval := 30000;  // 30 seconds default, 0 = disabled
+  FPairingTimeout := DEF_PAIRING_TIMEOUT;  // 30 seconds default
+  FPairingMode := pmAutomatic;  // Use Windows dialogs by default
 end;
 
 function TConnectionConfigSection.GetConnectionTimeout: Integer;
@@ -157,6 +167,30 @@ begin
   if FPairingStateSyncInterval <> AValue then
   begin
     FPairingStateSyncInterval := AValue;
+    NotifyModified;
+  end;
+end;
+
+function TConnectionConfigSection.GetPairingTimeout: Integer;
+begin
+  Result := FPairingTimeout;
+end;
+
+procedure TConnectionConfigSection.SetPairingTimeout(AValue: Integer);
+begin
+  SetFieldInteger(FPairingTimeout, AValue);
+end;
+
+function TConnectionConfigSection.GetPairingMode: TPairingMode;
+begin
+  Result := FPairingMode;
+end;
+
+procedure TConnectionConfigSection.SetPairingMode(AValue: TPairingMode);
+begin
+  if FPairingMode <> AValue then
+  begin
+    FPairingMode := AValue;
     NotifyModified;
   end;
 end;

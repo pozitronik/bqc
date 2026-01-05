@@ -279,6 +279,8 @@ type
     FBluetoothPlatform: TBluetoothPlatform;
     FAutoScanOnStartup: Boolean;
     FPairingStateSyncInterval: Integer;
+    FPairingTimeout: Integer;
+    FPairingMode: TPairingMode;
   public
     constructor Create;
 
@@ -289,6 +291,8 @@ type
     function GetBluetoothPlatform: TBluetoothPlatform;
     function GetAutoScanOnStartup: Boolean;
     function GetPairingStateSyncInterval: Integer;
+    function GetPairingTimeout: Integer;
+    function GetPairingMode: TPairingMode;
 
     // IConnectionConfig - setters
     procedure SetConnectionTimeout(AValue: Integer);
@@ -297,6 +301,8 @@ type
     procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
     procedure SetAutoScanOnStartup(AValue: Boolean);
     procedure SetPairingStateSyncInterval(AValue: Integer);
+    procedure SetPairingTimeout(AValue: Integer);
+    procedure SetPairingMode(AValue: TPairingMode);
 
     // Test setup properties
     property ConnectionTimeout: Integer read FConnectionTimeout write FConnectionTimeout;
@@ -305,6 +311,8 @@ type
     property BluetoothPlatform: TBluetoothPlatform read FBluetoothPlatform write FBluetoothPlatform;
     property AutoScanOnStartup: Boolean read FAutoScanOnStartup write FAutoScanOnStartup;
     property PairingStateSyncInterval: Integer read FPairingStateSyncInterval write FPairingStateSyncInterval;
+    property PairingTimeout: Integer read FPairingTimeout write FPairingTimeout;
+    property PairingMode: TPairingMode read FPairingMode write FPairingMode;
   end;
 
   /// <summary>
@@ -990,6 +998,8 @@ begin
   FBluetoothPlatform := bpAuto;
   FAutoScanOnStartup := False;
   FPairingStateSyncInterval := 30000;
+  FPairingTimeout := 30000;
+  FPairingMode := pmAutomatic;
 end;
 
 function TMockConnectionConfig.GetConnectionTimeout: Integer;
@@ -1050,6 +1060,26 @@ end;
 procedure TMockConnectionConfig.SetPairingStateSyncInterval(AValue: Integer);
 begin
   FPairingStateSyncInterval := AValue;
+end;
+
+function TMockConnectionConfig.GetPairingTimeout: Integer;
+begin
+  Result := FPairingTimeout;
+end;
+
+function TMockConnectionConfig.GetPairingMode: TPairingMode;
+begin
+  Result := FPairingMode;
+end;
+
+procedure TMockConnectionConfig.SetPairingTimeout(AValue: Integer);
+begin
+  FPairingTimeout := AValue;
+end;
+
+procedure TMockConnectionConfig.SetPairingMode(AValue: TPairingMode);
+begin
+  FPairingMode := AValue;
 end;
 
 { TMockGeneralConfig }
