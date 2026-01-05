@@ -136,29 +136,7 @@ type
       out watcher: IInspectable): HRESULT; stdcall;
   end;
 
-/// <summary>
-/// Creates a WinRT-based Bluetooth device query.
-/// </summary>
-function CreateWinRTBluetoothDeviceQuery: IBluetoothDeviceQuery;
-
-implementation
-
-uses
-  App.Logger,
-  App.WinRTSupport;
-
-const
-  // BluetoothConnectionStatus
-  BluetoothConnectionStatus_Disconnected = 0;
-  BluetoothConnectionStatus_Connected    = 1;
-
-  // Runtime class names
-  RuntimeClass_BluetoothDevice: string = 'Windows.Devices.Bluetooth.BluetoothDevice';
-  RuntimeClass_BluetoothLEDevice: string = 'Windows.Devices.Bluetooth.BluetoothLEDevice';
-  RuntimeClass_DeviceInformation: string = 'Windows.Devices.Enumeration.DeviceInformation';
-
-type
-  // Forward declarations for Bluetooth device interfaces (remain in implementation)
+  // Forward declarations for Bluetooth device interfaces
   IBluetoothDevice = interface;
   IBluetoothLEDevice = interface;
 
@@ -265,24 +243,16 @@ type
     function get_GattServices(out value: IInspectable): HRESULT; stdcall;
     function get_ConnectionStatus(out value: Integer): HRESULT; stdcall;
     function get_BluetoothAddress(out value: UInt64): HRESULT; stdcall;
-    function GetGattService(serviceUuid: TGUID;
-      out service: IInspectable): HRESULT; stdcall;
-    function add_NameChanged(handler: IInspectable; out token: Int64): HRESULT; stdcall;
-    function remove_NameChanged(token: Int64): HRESULT; stdcall;
-    function add_GattServicesChanged(handler: IInspectable; out token: Int64): HRESULT; stdcall;
-    function remove_GattServicesChanged(token: Int64): HRESULT; stdcall;
-    function add_ConnectionStatusChanged(handler: IInspectable; out token: Int64): HRESULT; stdcall;
-    function remove_ConnectionStatusChanged(token: Int64): HRESULT; stdcall;
   end;
 
   /// <summary>
-  /// BluetoothLEDevice statics for GetDeviceSelector and FromIdAsync.
+  /// BluetoothLEDevice statics for FromIdAsync and GetDeviceSelector.
   /// </summary>
   IBluetoothLEDeviceStatics = interface(IInspectable)
     ['{C8CF1A19-F0B6-4BF0-8689-41303DE2D9F4}']
     function FromIdAsync(deviceId: HSTRING;
       out operation: IAsyncOperationBluetoothLEDevice): HRESULT; stdcall;
-    function FromBluetoothAddressAsync(bluetoothAddress: UInt64;
+    function FromBluetoothAddressAsync(address: UInt64;
       out operation: IAsyncOperationBluetoothLEDevice): HRESULT; stdcall;
     function GetDeviceSelector(out selector: HSTRING): HRESULT; stdcall;
   end;
@@ -309,6 +279,27 @@ type
       bluetoothAddress: UInt64; bluetoothAddressType: Integer;
       out operation: IAsyncOperationBluetoothLEDevice): HRESULT; stdcall;
   end;
+
+/// <summary>
+/// Creates a WinRT-based Bluetooth device query.
+/// </summary>
+function CreateWinRTBluetoothDeviceQuery: IBluetoothDeviceQuery;
+
+implementation
+
+uses
+  App.Logger,
+  App.WinRTSupport;
+
+const
+  // BluetoothConnectionStatus
+  BluetoothConnectionStatus_Disconnected = 0;
+  BluetoothConnectionStatus_Connected    = 1;
+
+  // Runtime class names
+  RuntimeClass_BluetoothDevice: string = 'Windows.Devices.Bluetooth.BluetoothDevice';
+  RuntimeClass_BluetoothLEDevice: string = 'Windows.Devices.Bluetooth.BluetoothLEDevice';
+  RuntimeClass_DeviceInformation: string = 'Windows.Devices.Enumeration.DeviceInformation';
 
 { TWinRTBluetoothDeviceQuery }
 

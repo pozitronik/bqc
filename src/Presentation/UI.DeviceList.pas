@@ -1150,7 +1150,15 @@ begin
   StatusLineHeight := ACanvas.TextHeight('Ay');
 
   // Status line (left-aligned)
-  if AContext.IsDiscovered then
+  // Priority 1: Custom status text (e.g., pairing progress)
+  if AItem.StatusText <> '' then
+  begin
+    StatusText := AItem.StatusText;
+    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+    ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
+  end
+  // Priority 2: Default status based on device type and state
+  else if AContext.IsDiscovered then
   begin
     // Discovered devices: show last seen time if available
     if AContext.ShowLastSeen and (AItem.LastSeenText <> '') then

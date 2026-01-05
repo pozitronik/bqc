@@ -129,12 +129,24 @@ function TBluetoothPairingService.PairDevice(
 var
   Strategy: IPairingStrategy;
   Platform: TBluetoothPlatform;
+  UseClassicForDiscovered: Boolean;
 begin
   LogInfo('PairDevice: Initiating pairing for device $%.12X, Name="%s"',
     [ADevice.AddressInt, ADevice.Name], ClassName);
 
   // Get current platform
   Platform := GetCurrentPlatform;
+
+  // IMPORTANT: For unpaired devices discovered via Classic Bluetooth monitoring,
+  // WinRT pairing doesn't work because FromBluetoothAddressAsync returns wrong device IDs.
+  // We must use Classic Bluetooth pairing (BluetoothAuthenticateDevice) for them.
+  UseClassicForDiscovered := (Platform in [bpWinRT, bpAuto]) and (not ADevice.IsPaired);
+
+  if UseClassicForDiscovered then
+  begin
+    LogDebug('PairDevice: Device is unpaired, forcing Classic Bluetooth pairing', ClassName);
+    Platform := bpClassic;
+  end;
 
   // Get appropriate strategy
   Strategy := FPairingStrategyFactory.GetStrategy(Platform);

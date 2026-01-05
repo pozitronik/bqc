@@ -68,6 +68,9 @@ type
     /// <summary>For action items: whether the action is currently in progress.</summary>
     IsActionInProgress: Boolean;
 
+    /// <summary>Custom status text override. When not empty, displayed in status line instead of default status.</summary>
+    StatusText: string;
+
     /// <summary>Creates a display item from device and config data.</summary>
     class function Create(const ADevice: TBluetoothDeviceInfo;
       ASource: TDeviceSource;
@@ -77,7 +80,8 @@ type
       ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
       const ABatteryText: string;
       const AProfiles: TBluetoothProfileArray;
-      AIsActionInProgress: Boolean = False): TDeviceDisplayItem; static;
+      AIsActionInProgress: Boolean = False;
+      const AStatusText: string = ''): TDeviceDisplayItem; static;
   end;
 
   TDeviceDisplayItemArray = TArray<TDeviceDisplayItem>;
@@ -94,7 +98,8 @@ class function TDeviceDisplayItem.Create(const ADevice: TBluetoothDeviceInfo;
   ASortGroup: Integer; const ABatteryStatus: TBatteryStatus;
   const ABatteryText: string;
   const AProfiles: TBluetoothProfileArray;
-  AIsActionInProgress: Boolean = False): TDeviceDisplayItem;
+  AIsActionInProgress: Boolean = False;
+  const AStatusText: string = ''): TDeviceDisplayItem;
 begin
   Result.Device := ADevice;
   Result.Source := ASource;
@@ -108,6 +113,7 @@ begin
   Result.BatteryText := ABatteryText;
   Result.Profiles := AProfiles;
   Result.IsActionInProgress := AIsActionInProgress;
+  Result.StatusText := AStatusText;
 end;
 
 end.

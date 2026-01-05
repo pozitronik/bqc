@@ -15,8 +15,11 @@ interface
 
 uses
   System.SysUtils,
+  System.Classes,
+  System.SyncObjs,
   System.Generics.Collections,
   Winapi.Windows,
+  Vcl.Forms,
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.WinAPI,
@@ -263,9 +266,75 @@ uses
   Bluetooth.WinRTPairingInterfaces,
   Bluetooth.WinRTDeviceQuery;
 
+{ Helper Functions }
+
+/// <summary>
+/// Calls BluetoothAuthenticateDevice with a timeout to prevent indefinite blocking.
+/// Windows pairing API can hang forever if the dialog doesn't appear or user doesn't respond.
+/// This wrapper runs the call in a dedicated thread and enforces a timeout.
+/// </summary>
+/// <param name="ADeviceInfo">Device to pair with.</param>
+/// <param name="ATimeoutMs">Timeout in milliseconds.</param>
+/// <returns>Windows error code (ERROR_TIMEOUT if timed out).</returns>
+function CallBluetoothAuthenticateDeviceWithTimeout(
+  var ADeviceInfo: BLUETOOTH_DEVICE_INFO;
+  ATimeoutMs: Cardinal
+): DWORD;
+var
+  CompletionEvent: TEvent;
+  ErrorCode: DWORD;
+  PairingThread: TThread;
+  WaitResult: TWaitResult;
+  DeviceInfoCopy: BLUETOOTH_DEVICE_INFO;
+begin
+  ErrorCode := ERROR_TIMEOUT;
+  DeviceInfoCopy := ADeviceInfo;  // Create local copy for thread capture
+  CompletionEvent := TEvent.Create(nil, True, False, '');
+  try
+    // Create thread to call the blocking Windows API
+    PairingThread := TThread.CreateAnonymousThread(
+      procedure
+      begin
+        ErrorCode := BluetoothAuthenticateDevice(Application.Handle, 0, @DeviceInfoCopy, nil, 0);
+        CompletionEvent.SetEvent;
+      end
+    );
+    PairingThread.FreeOnTerminate := False;
+    PairingThread.Start;
+
+    try
+      // Wait for completion with timeout
+      WaitResult := CompletionEvent.WaitFor(ATimeoutMs);
+
+      if WaitResult = wrSignaled then
+      begin
+        // Pairing completed (success or failure)
+        Result := ErrorCode;
+        PairingThread.WaitFor;  // Ensure thread is done
+        PairingThread.Free;
+      end
+      else
+      begin
+        // Timeout - thread is still blocked in Windows API
+        // We cannot safely terminate it, so we abandon it
+        // Set FreeOnTerminate so it eventually cleans itself up
+        PairingThread.FreeOnTerminate := True;
+        Result := ERROR_TIMEOUT;
+      end;
+    except
+      PairingThread.Free;
+      raise;
+    end;
+  finally
+    CompletionEvent.Free;
+  end;
+end;
+
 { TWindowsPairingStrategy }
 
 function TWindowsPairingStrategy.GetErrorMessage(AErrorCode: Cardinal): string;
+const
+  ERROR_NOT_AUTHENTICATED = 1244;
 begin
   case AErrorCode of
     ERROR_SUCCESS:
@@ -282,6 +351,8 @@ begin
       Result := 'Access denied - check Bluetooth permissions';
     ERROR_DEVICE_NOT_FOUND:
       Result := 'Device not found or not in pairing mode. Ensure device is in pairing mode and in range';
+    ERROR_NOT_AUTHENTICATED:
+      Result := 'Authentication failed. Check if Windows showed a pairing dialog (may be hidden) or if device requires button press';
   else
     Result := Format('Pairing failed (error code %d)', [AErrorCode]);
   end;
@@ -324,16 +395,94 @@ begin
     Exit;
   end;
 
+  // CRITICAL ISSUE: Windows auto-connects to devices at HCI/L2CAP level when they enter pairing mode,
+  // even if they're not in the Windows registry. This blocks the authentication dialog from appearing.
+  // BluetoothRemoveDevice fails because the device isn't registered (fRemembered=0).
+  //
+  // SOLUTION: Sacrificial pairing attempt (blocks ~15 sec, fails with ERROR_NOT_AUTHENTICATED) forces
+  // Windows to disconnect as a side effect. Then wait 5 seconds for device to fully reset into pairing
+  // mode before the real attempt. This allows the toast to appear.
+  if DeviceInfo.fConnected then
+  begin
+    LogWarning('Pair: Device is connected but not authenticated. Using sacrificial attempt to force disconnect...', ClassName);
+    if Assigned(AProgressCallback) then
+      AProgressCallback('Preparing device for pairing...');
+
+    // Sacrificial pairing attempt - MUST complete naturally (no timeout) to trigger disconnect
+    LogDebug('Pair: Sacrificial attempt - calling BluetoothAuthenticateDevice (will block ~15 sec)', ClassName);
+    ErrorCode := BluetoothAuthenticateDevice(Application.Handle, 0, @DeviceInfo, nil, 0);
+    LogDebug('Pair: Sacrificial attempt completed with code %d', [ErrorCode], ClassName);
+
+    // CRITICAL: Wait 5 seconds for:
+    // 1. Device to fully disconnect from Windows
+    // 2. Device to reset and re-enter pairing mode properly
+    // 3. Windows to clean up connection state
+    // Empirical testing shows shorter delays result in Windows reconnecting too quickly.
+    LogDebug('Pair: Waiting 5 seconds for device to reset into pairing mode', ClassName);
+    Sleep(5000);
+
+    // Re-query device state - should be disconnected
+    InitDeviceInfo(DeviceInfo);
+    DeviceInfo.Address.ullLong := ADevice.AddressInt;
+    ErrorCode := BluetoothGetDeviceInfo(0, DeviceInfo);
+
+    if ErrorCode = ERROR_SUCCESS then
+    begin
+      LogDebug('Pair: Device state after sacrificial + delay - Connected=%d', [Ord(DeviceInfo.fConnected)], ClassName);
+      if DeviceInfo.fConnected then
+        LogWarning('Pair: Device still connected after sacrificial attempt, pairing may fail', ClassName)
+      else
+        LogDebug('Pair: Device successfully disconnected', ClassName);
+    end
+    else
+    begin
+      LogDebug('Pair: Device not found after sacrificial attempt (expected)', ClassName);
+      InitDeviceInfo(DeviceInfo);
+      DeviceInfo.Address.ullLong := ADevice.AddressInt;
+    end;
+
+    LogInfo('Pair: Retrying pairing after sacrificial disconnect + delay', ClassName);
+  end;
+
   // Notify progress callback
   if Assigned(AProgressCallback) then
     AProgressCallback('Waiting for pairing confirmation...');
 
   // Initiate pairing using Secure Simple Pairing (SSP)
-  // hwndParent=0: Use default parent window
+  // hwndParent=Application.Handle: Use application window as parent (CRITICAL for dialog signaling)
   // hRadio=0: Use default radio
   // pszPasskey=nil, ulPasskeyLength=0: Use SSP (no PIN required for modern devices)
-  LogDebug('Pair: Calling BluetoothAuthenticateDevice', ClassName);
-  ErrorCode := BluetoothAuthenticateDevice(0, 0, @DeviceInfo, nil, 0);
+  //
+  // CRITICAL: Do NOT use timeout wrapper for this call. The timeout wrapper creates a nested thread
+  // that can hang when user cancels the dialog - Windows returns ERROR_CANCELLED but the wrapper's
+  // WaitFor() never unblocks, leaving the main pairing thread stuck forever. Without the wrapper,
+  // the API completes naturally (success, cancel, or timeout from Windows) and always returns,
+  // ensuring HandlePairingResult is called and FIsPairing flag is cleared.
+  //
+  // IMPORTANT: For devices discovered via WM_DEVICECHANGE, there's a race condition where
+  // BluetoothGetDeviceInfo succeeds but BluetoothAuthenticateDevice returns ERROR_DEVICE_NOT_FOUND.
+  // Windows needs time to fully register the device in all Bluetooth subsystems.
+  // Retry with delay if we get ERROR_DEVICE_NOT_FOUND on first attempt.
+
+  LogDebug('Pair: Calling BluetoothAuthenticateDevice (no timeout, will block until user responds)', ClassName);
+  ErrorCode := BluetoothAuthenticateDevice(Application.Handle, 0, @DeviceInfo, nil, 0);
+
+  // Retry logic for ERROR_DEVICE_NOT_FOUND (race condition)
+  // This can occur when device was just discovered but Windows hasn't fully registered it yet
+  if ErrorCode = ERROR_DEVICE_NOT_FOUND then
+  begin
+    LogWarning('Pair: First attempt returned ERROR_DEVICE_NOT_FOUND (race condition), ' +
+      'waiting 800ms and retrying', ClassName);
+    Sleep(800);
+
+    // Re-query device info to ensure we have latest state
+    InitDeviceInfo(DeviceInfo);
+    DeviceInfo.Address.ullLong := ADevice.AddressInt;
+    BluetoothGetDeviceInfo(0, DeviceInfo);
+
+    LogDebug('Pair: Retry - calling BluetoothAuthenticateDevice again', ClassName);
+    ErrorCode := BluetoothAuthenticateDevice(Application.Handle, 0, @DeviceInfo, nil, 0);
+  end;
 
   case ErrorCode of
     ERROR_SUCCESS:
@@ -356,7 +505,7 @@ begin
 
     ERROR_DEVICE_NOT_FOUND:
       begin
-        LogError('Pair: Device not found or not in pairing mode (error %d). ' +
+        LogError('Pair: Device not found or not in pairing mode (error %d) after retry. ' +
           'Device must be in pairing mode, not just discoverable.', [ERROR_DEVICE_NOT_FOUND], ClassName);
         Result := TPairingResult.Failed(ErrorCode, GetErrorMessage(ErrorCode));
       end;
@@ -468,12 +617,16 @@ function TWinRTSimplePairingStrategy.Pair(
 ): TPairingResult;
 var
   HR: HRESULT;
-  DeviceId: string;
-  DeviceIdStr: HSTRING;
-  Factory: IInspectable;
+  DeviceId: HSTRING;
+  DeviceIdStr: string;
+  BTDeviceFactory: IInspectable;
+  DevInfoFactory: IInspectable;
+  BTDeviceStatics: IBluetoothDeviceStatics;
+  AsyncBTDeviceOp: IAsyncOperationBluetoothDevice;
+  AsyncInfo: IAsyncInfo;
+  BTDevice: IBluetoothDevice;
   DevInfoStatics: IDeviceInformationStatics;
   AsyncDevInfoOp: IInspectable;
-  AsyncInfo: IAsyncInfo;
   DevInfo: IDeviceInformation;
   PairingIntf: IDeviceInformationPairing;
   AsyncPairOp: IAsyncOperationDevicePairingResult;
@@ -497,52 +650,140 @@ begin
   if Assigned(FConnectionConfig) then
     TimeoutMs := FConnectionConfig.PairingTimeout;
 
-  // Build WinRT device ID from Bluetooth address
-  // Format: Bluetooth#Bluetooth<addr_reversed>-<addr_formatted>
-  DeviceId := Format('Bluetooth#Bluetooth%.12x-%.2x:%.2x:%.2x:%.2x:%.2x:%.2x',
-    [((ADevice.AddressInt and $FF) shl 40) or
-     ((ADevice.AddressInt and $FF00) shl 24) or
-     ((ADevice.AddressInt and $FF0000) shl 8) or
-     ((ADevice.AddressInt and $FF000000) shr 8) or
-     ((ADevice.AddressInt and $FF00000000) shr 24) or
-     ((ADevice.AddressInt and $FF0000000000) shr 40),
-     (ADevice.AddressInt shr 40) and $FF,
-     (ADevice.AddressInt shr 32) and $FF,
-     (ADevice.AddressInt shr 24) and $FF,
-     (ADevice.AddressInt shr 16) and $FF,
-     (ADevice.AddressInt shr 8) and $FF,
-     ADevice.AddressInt and $FF]);
+  // Get BluetoothDevice from address using FromBluetoothAddressAsync
+  LogDebug('Pair: Getting BluetoothDevice from address $%.12X', [ADevice.AddressInt], ClassName);
 
-  LogDebug('Pair: Device ID: %s', [DeviceId], ClassName);
-
-  // Get DeviceInformation.CreateFromIdAsync
-  if not GetActivationFactory('Windows.Devices.Enumeration.DeviceInformation',
-      IDeviceInformationStatics, Factory, ClassName) then
+  if not GetActivationFactory('Windows.Devices.Bluetooth.BluetoothDevice',
+      IBluetoothDeviceStatics, BTDeviceFactory, ClassName) then
   begin
-    Result := TPairingResult.Failed(0, 'Failed to get DeviceInformation factory');
+    Result := TPairingResult.Failed(0, 'Failed to get BluetoothDevice factory');
     Exit;
   end;
 
-  HR := Factory.QueryInterface(IDeviceInformationStatics, DevInfoStatics);
-  if Failed(HR) or (DevInfoStatics = nil) then
+  HR := BTDeviceFactory.QueryInterface(IBluetoothDeviceStatics, BTDeviceStatics);
+  if Failed(HR) or (BTDeviceStatics = nil) then
   begin
-    LogError('Pair: QueryInterface for DevInfoStatics failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to query DeviceInformationStatics interface');
+    LogError('Pair: QueryInterface for BluetoothDeviceStatics failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to query BluetoothDeviceStatics interface');
     Exit;
   end;
 
-  // Create DeviceInformation from ID
-  DeviceIdStr := CreateHString(DeviceId);
+  // Get BluetoothDevice from address
+  HR := BTDeviceStatics.FromBluetoothAddressAsync(ADevice.AddressInt, AsyncBTDeviceOp);
+  if Failed(HR) or (AsyncBTDeviceOp = nil) then
+  begin
+    LogError('Pair: FromBluetoothAddressAsync failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to get Bluetooth device');
+    Exit;
+  end;
+
+  // Wait for BluetoothDevice
+  if not Supports(AsyncBTDeviceOp, IAsyncInfo, AsyncInfo) then
+  begin
+    LogError('Pair: Failed to get IAsyncInfo for FromBluetoothAddressAsync', ClassName);
+    Result := TPairingResult.Failed(0, 'Internal error: async operation failed');
+    Exit;
+  end;
+
+  if not WaitForAsyncOperation(AsyncInfo, 10000, ClassName) then
+  begin
+    // Check if it was a timeout or an async error
+    var ErrorCode: HRESULT := S_OK;
+    var AsyncStatus: Integer := 0;
+    AsyncInfo.get_Status(AsyncStatus);
+    AsyncInfo.get_ErrorCode(ErrorCode);
+
+    if AsyncStatus = 3 then // AsyncStatus_Error
+    begin
+      LogError('Pair: FromBluetoothAddressAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
+      Result := TPairingResult.Failed(ErrorCode,
+        'Device not found. Ensure device is in pairing mode and within range');
+      Exit;
+    end
+    else
+    begin
+      LogError('Pair: FromBluetoothAddressAsync timeout', ClassName);
+      Result := TPairingResult.Timeout;
+      Exit;
+    end;
+  end;
+
+  // Get BluetoothDevice result
+  HR := AsyncBTDeviceOp.GetResults(BTDevice);
+  if Failed(HR) or (BTDevice = nil) then
+  begin
+    LogError('Pair: GetResults for BluetoothDevice failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to retrieve Bluetooth device');
+    Exit;
+  end;
+
+  // Verify we got the correct device by checking its Bluetooth address
+  var ReturnedAddress: UInt64 := 0;
+  HR := BTDevice.get_BluetoothAddress(ReturnedAddress);
+  if Succeeded(HR) then
+  begin
+    LogDebug('Pair: BluetoothDevice address: $%.12X (requested: $%.12X)',
+      [ReturnedAddress, ADevice.AddressInt], ClassName);
+    if ReturnedAddress <> ADevice.AddressInt then
+      LogWarning('Pair: WARNING - FromBluetoothAddressAsync returned wrong device! Requested $%.12X, got $%.12X',
+        [ADevice.AddressInt, ReturnedAddress], ClassName);
+  end;
+
+  // Get device ID from BluetoothDevice
+  HR := BTDevice.get_DeviceId(DeviceId);
+  if Failed(HR) or (DeviceId = 0) then
+  begin
+    LogError('Pair: get_DeviceId failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to get device ID');
+    Exit;
+  end;
+
+  DeviceIdStr := HStringToString(DeviceId);
+  LogDebug('Pair: Device ID: %s', [DeviceIdStr], ClassName);
+
   try
-    HR := DevInfoStatics.CreateFromIdAsync(DeviceIdStr, AsyncDevInfoOp);
+    // Get DeviceInformation from device ID
+    LogDebug('Pair: Getting DeviceInformation factory', ClassName);
+    if not GetActivationFactory('Windows.Devices.Enumeration.DeviceInformation',
+        IDeviceInformationStatics, DevInfoFactory, ClassName) then
+    begin
+      FreeHString(DeviceId);
+      LogError('Pair: GetActivationFactory for DeviceInformation failed', ClassName);
+      Result := TPairingResult.Failed(0, 'Failed to get DeviceInformation factory');
+      Exit;
+    end;
+    LogDebug('Pair: Got DeviceInformation factory', ClassName);
+
+    HR := DevInfoFactory.QueryInterface(IDeviceInformationStatics, DevInfoStatics);
+    if Failed(HR) or (DevInfoStatics = nil) then
+    begin
+      FreeHString(DeviceId);
+      LogError('Pair: QueryInterface for DevInfoStatics failed: 0x%.8X', [HR], ClassName);
+      Result := TPairingResult.Failed(HR, 'Failed to query DeviceInformationStatics interface');
+      Exit;
+    end;
+    LogDebug('Pair: Got DeviceInformationStatics interface', ClassName);
+
+    // Create DeviceInformation from device ID
+    LogDebug('Pair: Calling CreateFromIdAsync with device ID', ClassName);
+    HR := DevInfoStatics.CreateFromIdAsync(DeviceId, AsyncDevInfoOp);
+    FreeHString(DeviceId);
+
     if Failed(HR) or (AsyncDevInfoOp = nil) then
     begin
       LogError('Pair: CreateFromIdAsync failed: 0x%.8X', [HR], ClassName);
-      Result := TPairingResult.Failed(HR, 'Device not found or not in pairing mode');
+      Result := TPairingResult.Failed(HR, 'Failed to get device information');
       Exit;
     end;
-  finally
-    FreeHString(DeviceIdStr);
+    LogDebug('Pair: CreateFromIdAsync succeeded', ClassName);
+  except
+    on E: Exception do
+    begin
+      FreeHString(DeviceId);
+      LogError('Pair: Exception in DeviceInformation creation: %s', [E.Message], ClassName);
+      Result := TPairingResult.Failed(0, 'Exception: ' + E.Message);
+      Exit;
+    end;
   end;
 
   // Wait for DeviceInformation
@@ -555,9 +796,25 @@ begin
 
   if not WaitForAsyncOperation(AsyncInfo, 10000, ClassName) then
   begin
-    LogError('Pair: CreateFromIdAsync timeout', ClassName);
-    Result := TPairingResult.Timeout;
-    Exit;
+    // Check if it was a timeout or an async error
+    var ErrorCode: HRESULT := S_OK;
+    var AsyncStatus: Integer := 0;
+    AsyncInfo.get_Status(AsyncStatus);
+    AsyncInfo.get_ErrorCode(ErrorCode);
+
+    if AsyncStatus = 3 then // AsyncStatus_Error
+    begin
+      LogError('Pair: CreateFromIdAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
+      Result := TPairingResult.Failed(ErrorCode,
+        'Device not found. Ensure device is in pairing mode and within range');
+      Exit;
+    end
+    else
+    begin
+      LogError('Pair: CreateFromIdAsync timeout', ClassName);
+      Result := TPairingResult.Timeout;
+      Exit;
+    end;
   end;
 
   // Get DeviceInformation
@@ -622,9 +879,30 @@ begin
 
   if not WaitForAsyncOperation(AsyncInfo, TimeoutMs, ClassName) then
   begin
-    LogWarning('Pair: Pairing timeout after %dms', [TimeoutMs], ClassName);
-    Result := TPairingResult.Timeout;
-    Exit;
+    // Check if it was a timeout or an async error/cancellation
+    var ErrorCode: HRESULT := S_OK;
+    var AsyncStatus: Integer := 0;
+    AsyncInfo.get_Status(AsyncStatus);
+    AsyncInfo.get_ErrorCode(ErrorCode);
+
+    if AsyncStatus = 2 then // AsyncStatus_Canceled
+    begin
+      LogWarning('Pair: Pairing was cancelled by user', ClassName);
+      Result := TPairingResult.Cancelled;
+      Exit;
+    end
+    else if AsyncStatus = 3 then // AsyncStatus_Error
+    begin
+      LogError('Pair: PairAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
+      Result := TPairingResult.Failed(ErrorCode, 'Pairing failed');
+      Exit;
+    end
+    else
+    begin
+      LogWarning('Pair: Pairing timeout after %dms', [TimeoutMs], ClassName);
+      Result := TPairingResult.Timeout;
+      Exit;
+    end;
   end;
 
   // Get pairing result
@@ -658,12 +936,16 @@ end;
 function TWinRTSimplePairingStrategy.Unpair(ADeviceAddress: UInt64): TPairingResult;
 var
   HR: HRESULT;
-  DeviceId: string;
-  DeviceIdStr: HSTRING;
-  Factory: IInspectable;
+  DeviceId: HSTRING;
+  DeviceIdStr: string;
+  BTDeviceFactory: IInspectable;
+  DevInfoFactory: IInspectable;
+  BTDeviceStatics: IBluetoothDeviceStatics;
+  AsyncBTDeviceOp: IAsyncOperationBluetoothDevice;
+  AsyncInfo: IAsyncInfo;
+  BTDevice: IBluetoothDevice;
   DevInfoStatics: IDeviceInformationStatics;
   AsyncDevInfoOp: IInspectable;
-  AsyncInfo: IAsyncInfo;
   DevInfo: IDeviceInformation;
   PairingIntf: IDeviceInformationPairing;
   Pairing2: IDeviceInformationPairing2;
@@ -681,71 +963,149 @@ begin
     Exit;
   end;
 
-  // Build WinRT device ID
-  DeviceId := Format('Bluetooth#Bluetooth%.12x-%.2x:%.2x:%.2x:%.2x:%.2x:%.2x',
-    [((ADeviceAddress and $FF) shl 40) or
-     ((ADeviceAddress and $FF00) shl 24) or
-     ((ADeviceAddress and $FF0000) shl 8) or
-     ((ADeviceAddress and $FF000000) shr 8) or
-     ((ADeviceAddress and $FF00000000) shr 24) or
-     ((ADeviceAddress and $FF0000000000) shr 40),
-     (ADeviceAddress shr 40) and $FF,
-     (ADeviceAddress shr 32) and $FF,
-     (ADeviceAddress shr 24) and $FF,
-     (ADeviceAddress shr 16) and $FF,
-     (ADeviceAddress shr 8) and $FF,
-     ADeviceAddress and $FF]);
+  // Get BluetoothDevice from address using FromBluetoothAddressAsync
+  LogDebug('Unpair: Getting BluetoothDevice from address $%.12X', [ADeviceAddress], ClassName);
 
-  LogDebug('Unpair: Device ID: %s', [DeviceId], ClassName);
-
-  // Get DeviceInformation
-  if not GetActivationFactory('Windows.Devices.Enumeration.DeviceInformation',
-      IDeviceInformationStatics, Factory, ClassName) then
+  if not GetActivationFactory('Windows.Devices.Bluetooth.BluetoothDevice',
+      IBluetoothDeviceStatics, BTDeviceFactory, ClassName) then
   begin
-    Result := TPairingResult.Failed(0, 'Failed to get DeviceInformation factory');
+    Result := TPairingResult.Failed(0, 'Failed to get BluetoothDevice factory');
     Exit;
   end;
 
-  HR := Factory.QueryInterface(IDeviceInformationStatics, DevInfoStatics);
-  if Failed(HR) or (DevInfoStatics = nil) then
+  HR := BTDeviceFactory.QueryInterface(IBluetoothDeviceStatics, BTDeviceStatics);
+  if Failed(HR) or (BTDeviceStatics = nil) then
   begin
-    LogError('Unpair: QueryInterface for DevInfoStatics failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to query DeviceInformationStatics interface');
+    LogError('Unpair: QueryInterface for BluetoothDeviceStatics failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to query BluetoothDeviceStatics interface');
     Exit;
   end;
 
-  DeviceIdStr := CreateHString(DeviceId);
-  try
-    HR := DevInfoStatics.CreateFromIdAsync(DeviceIdStr, AsyncDevInfoOp);
-    if Failed(HR) or (AsyncDevInfoOp = nil) then
-    begin
-      LogError('Unpair: CreateFromIdAsync failed: 0x%.8X', [HR], ClassName);
-      Result := TPairingResult.Failed(HR, 'Device not found');
-      Exit;
-    end;
-  finally
-    FreeHString(DeviceIdStr);
+  // Get BluetoothDevice from address
+  HR := BTDeviceStatics.FromBluetoothAddressAsync(ADeviceAddress, AsyncBTDeviceOp);
+  if Failed(HR) or (AsyncBTDeviceOp = nil) then
+  begin
+    LogError('Unpair: FromBluetoothAddressAsync failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to get Bluetooth device');
+    Exit;
   end;
 
-  if not Supports(AsyncDevInfoOp, IAsyncInfo, AsyncInfo) then
+  // Wait for BluetoothDevice
+  if not Supports(AsyncBTDeviceOp, IAsyncInfo, AsyncInfo) then
   begin
-    LogError('Unpair: Failed to get IAsyncInfo', ClassName);
-    Result := TPairingResult.Failed(0, 'Internal error');
+    LogError('Unpair: Failed to get IAsyncInfo for FromBluetoothAddressAsync', ClassName);
+    Result := TPairingResult.Failed(0, 'Internal error: async operation failed');
     Exit;
   end;
 
   if not WaitForAsyncOperation(AsyncInfo, 10000, ClassName) then
   begin
-    LogError('Unpair: CreateFromIdAsync timeout', ClassName);
-    Result := TPairingResult.Timeout;
+    // Check if it was a timeout or an async error
+    var ErrorCode: HRESULT := S_OK;
+    var AsyncStatus: Integer := 0;
+    AsyncInfo.get_Status(AsyncStatus);
+    AsyncInfo.get_ErrorCode(ErrorCode);
+
+    if AsyncStatus = 3 then // AsyncStatus_Error
+    begin
+      LogError('Unpair: FromBluetoothAddressAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
+      Result := TPairingResult.Failed(ErrorCode, 'Device not found');
+      Exit;
+    end
+    else
+    begin
+      LogError('Unpair: FromBluetoothAddressAsync timeout', ClassName);
+      Result := TPairingResult.Timeout;
+      Exit;
+    end;
+  end;
+
+  // Get BluetoothDevice result
+  HR := AsyncBTDeviceOp.GetResults(BTDevice);
+  if Failed(HR) or (BTDevice = nil) then
+  begin
+    LogError('Unpair: GetResults for BluetoothDevice failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to retrieve Bluetooth device');
     Exit;
   end;
 
+  // Get device ID from BluetoothDevice
+  HR := BTDevice.get_DeviceId(DeviceId);
+  if Failed(HR) or (DeviceId = 0) then
+  begin
+    LogError('Unpair: get_DeviceId failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to get device ID');
+    Exit;
+  end;
+
+  DeviceIdStr := HStringToString(DeviceId);
+  LogDebug('Unpair: Device ID: %s', [DeviceIdStr], ClassName);
+
+  // Get DeviceInformation from device ID
+  if not GetActivationFactory('Windows.Devices.Enumeration.DeviceInformation',
+      IDeviceInformationStatics, DevInfoFactory, ClassName) then
+  begin
+    FreeHString(DeviceId);
+    Result := TPairingResult.Failed(0, 'Failed to get DeviceInformation factory');
+    Exit;
+  end;
+
+  HR := DevInfoFactory.QueryInterface(IDeviceInformationStatics, DevInfoStatics);
+  if Failed(HR) or (DevInfoStatics = nil) then
+  begin
+    FreeHString(DeviceId);
+    LogError('Unpair: QueryInterface for DevInfoStatics failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to query DeviceInformationStatics interface');
+    Exit;
+  end;
+
+  // Create DeviceInformation from device ID
+  HR := DevInfoStatics.CreateFromIdAsync(DeviceId, AsyncDevInfoOp);
+  FreeHString(DeviceId);
+
+  if Failed(HR) or (AsyncDevInfoOp = nil) then
+  begin
+    LogError('Unpair: CreateFromIdAsync failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to get device information');
+    Exit;
+  end;
+
+  // Wait for DeviceInformation
+  if not Supports(AsyncDevInfoOp, IAsyncInfo, AsyncInfo) then
+  begin
+    LogError('Unpair: Failed to get IAsyncInfo for CreateFromIdAsync', ClassName);
+    Result := TPairingResult.Failed(0, 'Internal error: async operation failed');
+    Exit;
+  end;
+
+  if not WaitForAsyncOperation(AsyncInfo, 10000, ClassName) then
+  begin
+    // Check if it was a timeout or an async error
+    var ErrorCode: HRESULT := S_OK;
+    var AsyncStatus: Integer := 0;
+    AsyncInfo.get_Status(AsyncStatus);
+    AsyncInfo.get_ErrorCode(ErrorCode);
+
+    if AsyncStatus = 3 then // AsyncStatus_Error
+    begin
+      LogError('Unpair: CreateFromIdAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
+      Result := TPairingResult.Failed(ErrorCode, 'Device not found');
+      Exit;
+    end
+    else
+    begin
+      LogError('Unpair: CreateFromIdAsync timeout', ClassName);
+      Result := TPairingResult.Timeout;
+      Exit;
+    end;
+  end;
+
+  // Get DeviceInformation
   HR := (AsyncDevInfoOp as IAsyncOperationDeviceInformation).GetResults(DevInfo);
   if Failed(HR) or (DevInfo = nil) then
   begin
-    LogError('Unpair: GetResults failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to get device information');
+    LogError('Unpair: GetResults for DeviceInformation failed: 0x%.8X', [HR], ClassName);
+    Result := TPairingResult.Failed(HR, 'Failed to retrieve device information');
     Exit;
   end;
 
@@ -786,9 +1146,24 @@ begin
 
   if not WaitForAsyncOperation(AsyncInfo, 10000, ClassName) then
   begin
-    LogWarning('Unpair: Unpairing timeout', ClassName);
-    Result := TPairingResult.Timeout;
-    Exit;
+    // Check if it was a timeout or an async error
+    var ErrorCode: HRESULT := S_OK;
+    var AsyncStatus: Integer := 0;
+    AsyncInfo.get_Status(AsyncStatus);
+    AsyncInfo.get_ErrorCode(ErrorCode);
+
+    if AsyncStatus = 3 then // AsyncStatus_Error
+    begin
+      LogError('Unpair: UnpairAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
+      Result := TPairingResult.Failed(ErrorCode, 'Unpairing failed');
+      Exit;
+    end
+    else
+    begin
+      LogWarning('Unpair: Unpairing timeout', ClassName);
+      Result := TPairingResult.Timeout;
+      Exit;
+    end;
   end;
 
   HR := AsyncUnpairOp.GetResults(UnpairResult);

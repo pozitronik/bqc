@@ -74,6 +74,8 @@ type
     FUpdatingToggle: Boolean;
     FIsShutdown: Boolean;  // Lifetime safety flag for async callbacks
     FIsScanning: Boolean;  // True when scan is in progress
+    FIsPairing: Boolean;  // True when pairing operation is in progress
+    FDeviceStatusMessages: TDictionary<UInt64, string>;  // Persistent device status messages
 
     { Service event handlers }
     procedure HandleDeviceStateChanged(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
@@ -107,6 +109,18 @@ type
     procedure HandlePairingResult(const ADevice: TBluetoothDeviceInfo; const AResult: TPairingResult);
 
     /// <summary>
+    /// Clears custom status text for a device and refreshes its display.
+    /// Used to remove pairing progress messages after completion.
+    /// </summary>
+    procedure ClearDeviceStatus(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Sets custom status text for a device and refreshes its display.
+    /// Used to show persistent error/info messages in device status line.
+    /// </summary>
+    procedure SetDeviceStatus(ADeviceAddress: UInt64; const AMessage: string);
+
+    /// <summary>
     /// Synchronizes paired device list with Windows Bluetooth state.
     /// Removes devices from FDeviceList that were unpaired externally via Windows Settings.
     /// Runs periodically based on PairingStateSyncInterval config.
@@ -120,6 +134,12 @@ type
     function GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
     procedure ShowDeviceNotification(const ADevice: TBluetoothDeviceInfo);
     procedure RefreshDisplayItems;
+
+    /// <summary>
+    /// Applies persistent status messages to display items after they're built.
+    /// Preserves custom status text across display list rebuilds.
+    /// </summary>
+    procedure ApplyStatusMessages;
 
     /// <summary>
     /// Returns devices as array, building from list if cache is invalid.
@@ -369,6 +389,7 @@ begin
   FDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
   FUnpairedDevicesInRange := TList<TBluetoothDeviceInfo>.Create;
   FUnpairedDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
+  FDeviceStatusMessages := TDictionary<UInt64, string>.Create;
   FDevicesArrayCache := nil;
   FDevicesArrayValid := False;
   FDisplayItems := nil;
@@ -376,6 +397,7 @@ begin
   FUpdatingToggle := False;
   FIsShutdown := False;
   FIsScanning := False;
+  FIsPairing := False;
   LogDebug('Created', ClassName);
 end;
 
@@ -383,6 +405,7 @@ destructor TMainPresenter.Destroy;
 begin
   Shutdown;
   FBatteryCache := nil;
+  FDeviceStatusMessages.Free;
   FUnpairedDeviceIndexMap.Free;
   FUnpairedDevicesInRange.Free;
   FDeviceIndexMap.Free;
@@ -716,43 +739,74 @@ var
   LStatusView: IStatusView;
   DeviceName: string;
 begin
+  // Prevent concurrent pairing operations
+  if FIsPairing then
+  begin
+    LogWarning('PairDeviceAsync: Pairing already in progress, ignoring request', ClassName);
+    Exit;
+  end;
+
   DeviceName := GetDeviceDisplayName(ADevice);
   LDevice := ADevice;
   LPairingService := FPairingService;
   LStatusView := FStatusView;
 
   LogInfo('PairDeviceAsync: Initiating pairing for device %s ($%.12X)', [DeviceName, ADevice.AddressInt], ClassName);
-  FStatusView.ShowStatus(Format('Pairing with %s...', [DeviceName]));
+
+  // Mark pairing as in progress to prevent concurrent attempts
+  FIsPairing := True;
 
   FAsyncExecutor.RunAsync(
     procedure
     var
       PairingResult: TPairingResult;
       ProgressCallback: TPairingProgressCallback;
+      DeviceAddress: UInt64;
     begin
-      // Progress callback to update UI during pairing
-      ProgressCallback := procedure(const AMessage: string)
-      begin
+      try
+        // Capture device address for progress callback
+        DeviceAddress := LDevice.AddressInt;
+
+        // Progress callback to update device status line instead of global status
+        ProgressCallback := procedure(const AMessage: string)
+        begin
+          QueueIfNotShutdown(
+            procedure
+            begin
+              // Store status in dictionary and update display
+              SetDeviceStatus(DeviceAddress, AMessage);
+              LogDebug('PairDeviceAsync: Updated device status - %s', [AMessage], ClassName);
+            end
+          );
+        end;
+
+        LogDebug('PairDeviceAsync: Calling PairDevice', ClassName);
+        PairingResult := LPairingService.PairDevice(LDevice, ProgressCallback);
+        LogInfo('PairDeviceAsync: Pairing complete, Status=%d (%s)',
+          [Ord(PairingResult.Status), PairingResult.ErrorMessage], ClassName);
+
+        // Handle result on main thread
         QueueIfNotShutdown(
           procedure
           begin
-            LStatusView.ShowStatus(AMessage);
+            HandlePairingResult(LDevice, PairingResult);
           end
         );
-      end;
-
-      LogDebug('PairDeviceAsync: Calling PairDevice', ClassName);
-      PairingResult := LPairingService.PairDevice(LDevice, ProgressCallback);
-      LogInfo('PairDeviceAsync: Pairing complete, Status=%d (%s)',
-        [Ord(PairingResult.Status), PairingResult.ErrorMessage], ClassName);
-
-      // Handle result on main thread
-      QueueIfNotShutdown(
-        procedure
+      except
+        on E: Exception do
         begin
-          HandlePairingResult(LDevice, PairingResult);
-        end
-      );
+          LogError('PairDeviceAsync: Exception during pairing - %s: %s', [E.ClassName, E.Message], ClassName);
+
+          // Clear pairing flag and show error in device status on main thread
+          QueueIfNotShutdown(
+            procedure
+            begin
+              FIsPairing := False;
+              SetDeviceStatus(DeviceAddress, Format('Pairing failed: %s', [E.Message]));
+            end
+          );
+        end;
+      end;
     end
   );
 end;
@@ -762,13 +816,18 @@ procedure TMainPresenter.HandlePairingResult(const ADevice: TBluetoothDeviceInfo
 var
   DeviceName: string;
 begin
+  // Clear pairing flag to allow new pairing attempts
+  FIsPairing := False;
+
   DeviceName := GetDeviceDisplayName(ADevice);
 
   case AResult.Status of
     prsSuccess:
       begin
         LogInfo('HandlePairingResult: Success - refreshing device list and auto-connecting', ClassName);
-        FStatusView.ShowStatus(Format('Paired with %s successfully', [DeviceName]));
+
+        // Clear device status - device will be refreshed from repository
+        ClearDeviceStatus(ADevice.AddressInt);
 
         // Refresh device repository to get newly paired device
         FBluetoothService.RefreshAllDevices;
@@ -790,7 +849,6 @@ begin
                 if RefreshedDevice.AddressInt <> 0 then
                 begin
                   LogInfo('HandlePairingResult: Auto-connecting to newly paired device', ClassName);
-                  FStatusView.ShowStatus(Format('Connecting %s...', [DeviceName]));
                   ToggleConnectionAsync(RefreshedDevice);
                 end
                 else
@@ -804,35 +862,89 @@ begin
     prsCancelled:
       begin
         LogInfo('HandlePairingResult: User cancelled pairing', ClassName);
-        FStatusView.ShowStatus(Format('Pairing cancelled', []));
+        SetDeviceStatus(ADevice.AddressInt, 'Pairing cancelled');
       end;
 
     prsAlreadyPaired:
       begin
         LogInfo('HandlePairingResult: Device already paired - refreshing list', ClassName);
-        FStatusView.ShowStatus(Format('%s is already paired', [DeviceName]));
+        SetDeviceStatus(ADevice.AddressInt, 'Already paired');
         FBluetoothService.RefreshAllDevices;
       end;
 
     prsTimeout:
       begin
         LogWarning('HandlePairingResult: Pairing timed out', ClassName);
-        FStatusView.ShowStatus(Format('Pairing timed out', []));
+        SetDeviceStatus(ADevice.AddressInt, 'Pairing timed out');
       end;
 
     prsNotSupported:
       begin
         LogError('HandlePairingResult: Pairing not supported - %s', [AResult.ErrorMessage], ClassName);
-        FStatusView.ShowStatus(AResult.ErrorMessage);
+        SetDeviceStatus(ADevice.AddressInt, AResult.ErrorMessage);
       end;
 
     prsFailed:
       begin
         LogError('HandlePairingResult: Pairing failed - %s (code %d)',
           [AResult.ErrorMessage, AResult.ErrorCode], ClassName);
-        FStatusView.ShowStatus(Format('Pairing failed: %s', [AResult.ErrorMessage]));
+        SetDeviceStatus(ADevice.AddressInt, Format('Pairing failed: %s', [AResult.ErrorMessage]));
       end;
   end;
+end;
+
+procedure TMainPresenter.ClearDeviceStatus(ADeviceAddress: UInt64);
+begin
+  SetDeviceStatus(ADeviceAddress, '');
+end;
+
+procedure TMainPresenter.SetDeviceStatus(ADeviceAddress: UInt64; const AMessage: string);
+var
+  Device: TBluetoothDeviceInfo;
+  DisplayItem: TDeviceDisplayItem;
+  IsDiscovered: Boolean;
+begin
+  // Store in persistent dictionary so it survives display list rebuilds
+  if AMessage <> '' then
+    FDeviceStatusMessages.AddOrSetValue(ADeviceAddress, AMessage)
+  else
+    FDeviceStatusMessages.Remove(ADeviceAddress);
+
+  // Try to find device in paired devices list
+  Device := FindDeviceByAddress(ADeviceAddress);
+  IsDiscovered := False;
+
+  if Device.AddressInt = 0 then
+  begin
+    // Try to find in unpaired devices (discovered devices)
+    if FUnpairedDeviceIndexMap.ContainsKey(ADeviceAddress) then
+    begin
+      Device := FUnpairedDevicesInRange[FUnpairedDeviceIndexMap[ADeviceAddress]];
+      IsDiscovered := True;
+    end
+    else
+    begin
+      LogDebug('SetDeviceStatus: Device $%.12X not found (will be applied when device appears)', [ADeviceAddress], ClassName);
+      // Don't exit - status is stored and will be applied when device appears
+      Exit;
+    end;
+  end;
+
+  // Build display item using appropriate method for device type
+  if IsDiscovered then
+    DisplayItem := FDisplayItemBuilder.BuildDiscoveredDeviceDisplayItem(Device)
+  else
+    DisplayItem := FDisplayItemBuilder.BuildDisplayItem(Device);
+
+  DisplayItem.StatusText := AMessage;
+
+  // Update single item in UI
+  FDeviceListView.UpdateDisplayItem(DisplayItem);
+
+  if AMessage <> '' then
+    LogDebug('SetDeviceStatus: Set status for device $%.12X - "%s"', [ADeviceAddress, AMessage], ClassName)
+  else
+    LogDebug('SetDeviceStatus: Cleared status for device $%.12X', [ADeviceAddress], ClassName);
 end;
 
 procedure TMainPresenter.SyncPairedDeviceList;
@@ -1110,7 +1222,29 @@ begin
     LogDebug('RefreshDisplayItems: Total=%d (Paired only)', [Length(FDisplayItems)], ClassName);
   end;
 
+  // Apply persistent status messages after building display items
+  ApplyStatusMessages;
+
   FDeviceListView.ShowDisplayItems(FDisplayItems);
+end;
+
+procedure TMainPresenter.ApplyStatusMessages;
+var
+  I: Integer;
+  DeviceAddress: UInt64;
+  StatusMessage: string;
+begin
+  // Apply stored status messages to display items
+  for I := 0 to High(FDisplayItems) do
+  begin
+    DeviceAddress := FDisplayItems[I].Device.AddressInt;
+    if FDeviceStatusMessages.TryGetValue(DeviceAddress, StatusMessage) then
+    begin
+      FDisplayItems[I].StatusText := StatusMessage;
+      LogDebug('ApplyStatusMessages: Applied status to device $%.12X - "%s"',
+        [DeviceAddress, StatusMessage], ClassName);
+    end;
+  end;
 end;
 
 function TMainPresenter.GetDevicesArray: TBluetoothDeviceInfoArray;
@@ -1342,6 +1476,9 @@ begin
       I: Integer;
     begin
       LogDebug('HandleDeviceOutOfRange: Device $%.12X left range', [ADeviceAddress], ClassName);
+
+      // Clear any status message for this device since it's going away
+      ClearDeviceStatus(ADeviceAddress);
 
       // Remove from unpaired devices cache if present
       if FUnpairedDeviceIndexMap.TryGetValue(ADeviceAddress, Index) then
