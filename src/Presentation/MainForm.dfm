@@ -2,8 +2,8 @@ object FormMain: TFormMain
   Left = 0
   Top = 0
   Caption = 'Bluetooth Quick Connect'
-  ClientHeight = 361
-  ClientWidth = 284
+  ClientHeight = 344
+  ClientWidth = 278
   Color = clBtnFace
   Constraints.MaxHeight = 1200
   Constraints.MaxWidth = 800
@@ -159,7 +159,7 @@ object FormMain: TFormMain
   object HeaderPanel: TPanel
     Left = 0
     Top = 0
-    Width = 284
+    Width = 278
     Height = 33
     Align = alTop
     BevelOuter = bvNone
@@ -167,7 +167,6 @@ object FormMain: TFormMain
     Padding.Right = 10
     ParentBackground = False
     TabOrder = 0
-    ExplicitWidth = 274
     object TitleLabel: TLabel
       Left = 10
       Top = 0
@@ -186,7 +185,7 @@ object FormMain: TFormMain
       ExplicitHeight = 30
     end
     object BluetoothTogglePanel: TPanel
-      Left = 222
+      Left = 216
       Top = 0
       Width = 52
       Height = 33
@@ -196,7 +195,6 @@ object FormMain: TFormMain
       Padding.Top = 6
       Padding.Bottom = 6
       TabOrder = 0
-      ExplicitLeft = 212
       object BluetoothToggle: TToggleSwitch
         Left = 2
         Top = 6
@@ -218,8 +216,8 @@ object FormMain: TFormMain
   end
   object StatusPanel: TPanel
     Left = 0
-    Top = 331
-    Width = 284
+    Top = 314
+    Width = 278
     Height = 30
     Align = alBottom
     BevelOuter = bvNone
@@ -228,15 +226,11 @@ object FormMain: TFormMain
     Font.Height = -12
     Font.Name = 'Segoe UI'
     Font.Style = []
-    Padding.Left = 10
-    Padding.Right = 10
     ParentBackground = False
     ParentFont = False
     TabOrder = 1
-    ExplicitTop = 299
-    ExplicitWidth = 274
     object WindowsSettingsLink: TLabel
-      Left = 10
+      Left = 0
       Top = 0
       Width = 96
       Height = 30
@@ -254,9 +248,9 @@ object FormMain: TFormMain
       ExplicitHeight = 15
     end
     object StatusLabel: TLabel
-      Left = 106
+      Left = 96
       Top = 0
-      Width = 150
+      Width = 164
       Height = 30
       Cursor = crHandPoint
       Align = alClient
@@ -271,11 +265,12 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       OnClick = HandleSettingsClick
-      ExplicitLeft = 125
-      ExplicitWidth = 131
+      ExplicitLeft = 100
+      ExplicitTop = 6
+      ExplicitWidth = 144
     end
     object SettingsLabel: TLabel
-      Left = 256
+      Left = 260
       Top = 0
       Width = 18
       Height = 30
@@ -297,15 +292,15 @@ object FormMain: TFormMain
       Transparent = True
       Layout = tlCenter
       OnClick = HandleSettingsClick
-      ExplicitLeft = 250
+      ExplicitLeft = 256
       ExplicitHeight = 17
     end
   end
   object DevicesPanel: TPanel
     Left = 0
     Top = 33
-    Width = 284
-    Height = 298
+    Width = 278
+    Height = 281
     Align = alClient
     BevelOuter = bvNone
     Font.Charset = DEFAULT_CHARSET
@@ -315,7 +310,5 @@ object FormMain: TFormMain
     Font.Style = []
     ParentFont = False
     TabOrder = 2
-    ExplicitWidth = 274
-    ExplicitHeight = 266
   end
 end
