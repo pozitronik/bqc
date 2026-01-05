@@ -222,7 +222,7 @@ begin
 
   if ErrorCode = ERROR_SUCCESS then
   begin
-    Result := DeviceInfo.fRemembered;
+    Result := DeviceInfo.fAuthenticated;  // Use fAuthenticated (true pairing), not fRemembered (just known)
     if Result then
       LogDebug('IsDevicePaired: Device $%.12X is paired', [ADeviceAddress], ClassName)
     else
@@ -261,8 +261,8 @@ begin
     begin
       try
         repeat
-          // Only include paired/remembered devices
-          if DeviceInfo.fRemembered then
+          // Only include truly paired devices (fAuthenticated), not just remembered ones
+          if DeviceInfo.fAuthenticated then
           begin
             AddressList.Add(DeviceInfo.Address.ullLong);
             LogDebug('GetPairedDeviceAddresses: Found paired device $%.12X',

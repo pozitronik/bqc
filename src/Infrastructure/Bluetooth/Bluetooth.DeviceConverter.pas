@@ -87,7 +87,7 @@ begin
     string(AWinAPIInfo.szName),
     DetermineDeviceType(AWinAPIInfo.ulClassOfDevice),
     ConnectionState,
-    AWinAPIInfo.fRemembered,
+    AWinAPIInfo.fAuthenticated,  // IsPaired: use fAuthenticated (true pairing), not fRemembered (just known)
     AWinAPIInfo.fAuthenticated,
     AWinAPIInfo.ulClassOfDevice,
     LastSeen,

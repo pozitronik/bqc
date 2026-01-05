@@ -316,8 +316,8 @@ begin
   LogDebug('Pair: Device state - Connected=%d, Remembered=%d, Authenticated=%d',
     [Ord(DeviceInfo.fConnected), Ord(DeviceInfo.fRemembered), Ord(DeviceInfo.fAuthenticated)], ClassName);
 
-  // Check if already paired
-  if DeviceInfo.fRemembered then
+  // Check if already paired (fAuthenticated = truly paired, fRemembered = just known/remembered)
+  if DeviceInfo.fAuthenticated then
   begin
     LogInfo('Pair: Device is already paired', ClassName);
     Result := TPairingResult.AlreadyPaired;

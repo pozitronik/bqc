@@ -88,10 +88,10 @@ type
     procedure Convert_NotConnected_SetsDisconnectedState;
 
     [Test]
-    procedure Convert_Remembered_SetsPairedTrue;
+    procedure Convert_Authenticated_SetsPairedTrue;
 
     [Test]
-    procedure Convert_NotRemembered_SetsPairedFalse;
+    procedure Convert_NotAuthenticated_SetsPairedFalse;
 
     [Test]
     procedure Convert_Authenticated_SetsAuthenticatedTrue;
@@ -351,23 +351,25 @@ begin
   Assert.AreEqual(Integer(csDisconnected), Integer(DeviceInfo.ConnectionState));
 end;
 
-procedure TConvertBluetoothDeviceInfoTests.Convert_Remembered_SetsPairedTrue;
+procedure TConvertBluetoothDeviceInfoTests.Convert_Authenticated_SetsPairedTrue;
 var
   WinInfo: BLUETOOTH_DEVICE_INFO;
   DeviceInfo: TBluetoothDeviceInfo;
 begin
-  WinInfo := CreateTestDeviceInfo(0, 'Test', 0, False, True, False);
+  // IsPaired is now based on fAuthenticated, not fRemembered
+  WinInfo := CreateTestDeviceInfo(0, 'Test', 0, False, False, True);
 
   DeviceInfo := ConvertBluetoothDeviceInfo(WinInfo);
 
   Assert.IsTrue(DeviceInfo.IsPaired);
 end;
 
-procedure TConvertBluetoothDeviceInfoTests.Convert_NotRemembered_SetsPairedFalse;
+procedure TConvertBluetoothDeviceInfoTests.Convert_NotAuthenticated_SetsPairedFalse;
 var
   WinInfo: BLUETOOTH_DEVICE_INFO;
   DeviceInfo: TBluetoothDeviceInfo;
 begin
+  // IsPaired is now based on fAuthenticated, not fRemembered
   WinInfo := CreateTestDeviceInfo(0, 'Test', 0, False, False, False);
 
   DeviceInfo := ConvertBluetoothDeviceInfo(WinInfo);
