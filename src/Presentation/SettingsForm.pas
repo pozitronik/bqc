@@ -347,6 +347,7 @@ type
 
   private
     FPresenter: TSettingsPresenter;
+    FDeviceAddressToSelect: UInt64;  // Device to auto-select when opening Devices tab
 
     { Injected dependencies }
     FAppConfig: IAppConfig;
@@ -429,6 +430,13 @@ type
     function GetOnSettingsApplied: TNotifyEvent;
     procedure SetOnSettingsApplied(AValue: TNotifyEvent);
     property OnSettingsApplied: TNotifyEvent read GetOnSettingsApplied write SetOnSettingsApplied;
+
+    /// <summary>
+    /// Selects a device in the Devices tab by address.
+    /// Must be called BEFORE ShowModal to take effect.
+    /// Stores the address and selects it during FormShow.
+    /// </summary>
+    procedure SelectDeviceByAddress(ADeviceAddress: UInt64);
   end;
 
 var
@@ -507,6 +515,14 @@ begin
   FPresenter.LoadSettings;
   UpdateWindowModeControls;
   ConnectChangeHandlers;
+
+  // If a specific device was requested, select it now (after LoadSettings)
+  if FDeviceAddressToSelect <> 0 then
+  begin
+    LogDebug('FormShow: Selecting device $%.12X', [FDeviceAddressToSelect], ClassName);
+    FPresenter.SelectDeviceByAddress(FDeviceAddressToSelect);
+    FDeviceAddressToSelect := 0;  // Clear flag
+  end;
 end;
 
 procedure TFormSettings.ButtonOKClick(Sender: TObject);
@@ -1028,6 +1044,13 @@ end;
 procedure TFormSettings.SetOnSettingsApplied(AValue: TNotifyEvent);
 begin
   FPresenter.OnSettingsApplied := AValue;
+end;
+
+procedure TFormSettings.SelectDeviceByAddress(ADeviceAddress: UInt64);
+begin
+  // Store the device address to select it in FormShow (after LoadSettings)
+  FDeviceAddressToSelect := ADeviceAddress;
+  LogDebug('SelectDeviceByAddress: Will select $%.12X in FormShow', [ADeviceAddress], ClassName);
 end;
 
 { General tab events }

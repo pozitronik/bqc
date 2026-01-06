@@ -25,6 +25,7 @@ uses
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
   Vcl.Themes,
+  Vcl.Menus,
   Bluetooth.Types,
   App.ConfigInterfaces,
   App.ConfigEnums,
@@ -35,6 +36,7 @@ uses
 
 type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
+  TDeviceAddressEvent = procedure(Sender: TObject; AAddress: UInt64) of object;
 
   /// <summary>
   /// Context record for item drawing operations.
@@ -117,6 +119,16 @@ type
     FOnDisplayItemClick: TDeviceDisplayItemClickEvent;
     FOnActionClick: TDeviceDisplayItemClickEvent;
     FOnSelectionChanged: TNotifyEvent;
+    FOnPinToggle: TDeviceAddressEvent;
+    FOnCopyName: TDeviceAddressEvent;
+    FOnCopyAddress: TDeviceAddressEvent;
+    FOnConfigure: TDeviceAddressEvent;
+    FOnUnpair: TDeviceAddressEvent;
+    FOnHide: TDeviceAddressEvent;
+
+    // Context menu
+    FPopupMenu: TPopupMenu;
+    FContextMenuDeviceAddress: UInt64;
 
     // Injected configuration interfaces (for layout/appearance only)
     FLayoutConfig: ILayoutConfig;
@@ -138,6 +150,15 @@ type
     FListHovered: Boolean;  // True when mouse is over the entire control
 
     procedure HandleAnimationTimer(Sender: TObject);
+
+    procedure BuildContextMenu(AItemIndex: Integer);
+    procedure ShowContextMenuForItem(AItemIndex: Integer; X, Y: Integer);
+    procedure HandleMenuPinToggle(Sender: TObject);
+    procedure HandleMenuCopyName(Sender: TObject);
+    procedure HandleMenuCopyAddress(Sender: TObject);
+    procedure HandleMenuConfigure(Sender: TObject);
+    procedure HandleMenuUnpair(Sender: TObject);
+    procedure HandleMenuHide(Sender: TObject);
 
     procedure RefreshLayoutCache;
     function GetLayoutConfig: ILayoutConfig;
@@ -225,6 +246,12 @@ type
     property OnDisplayItemClick: TDeviceDisplayItemClickEvent read FOnDisplayItemClick write FOnDisplayItemClick;
     property OnActionClick: TDeviceDisplayItemClickEvent read FOnActionClick write FOnActionClick;
     property OnSelectionChanged: TNotifyEvent read FOnSelectionChanged write FOnSelectionChanged;
+    property OnPinToggle: TDeviceAddressEvent read FOnPinToggle write FOnPinToggle;
+    property OnCopyName: TDeviceAddressEvent read FOnCopyName write FOnCopyName;
+    property OnCopyAddress: TDeviceAddressEvent read FOnCopyAddress write FOnCopyAddress;
+    property OnConfigure: TDeviceAddressEvent read FOnConfigure write FOnConfigure;
+    property OnUnpair: TDeviceAddressEvent read FOnUnpair write FOnUnpair;
+    property OnHide: TDeviceAddressEvent read FOnHide write FOnHide;
 
     // Dependency injection properties (must be set before use)
     property LayoutConfig: ILayoutConfig read GetLayoutConfig write SetLayoutConfig;
@@ -318,6 +345,10 @@ begin
   FAnimationTimer.Interval := 50;  // 20 FPS for smooth animation
   FAnimationTimer.OnTimer := HandleAnimationTimer;
   FAnimationTimer.Enabled := True;
+
+  // Create context menu (will be populated dynamically)
+  FPopupMenu := TPopupMenu.Create(Self);
+  FContextMenuDeviceAddress := 0;
 end;
 
 function TDeviceListBox.GetLayoutConfig: ILayoutConfig;
@@ -1815,6 +1846,20 @@ begin
       else if Assigned(FOnDeviceClick) then
         FOnDeviceClick(Self, FDisplayItems[Index].Device);
     end;
+  end
+  else if Button = mbRight then
+  begin
+    // Right-click: show context menu
+    Index := ItemAtPos(X, Y);
+    if (Index >= 0) and (FDisplayItems[Index].Source <> dsAction) then
+    begin
+      // Select item if not already selected
+      if Index <> FSelectedIndex then
+        SetSelectedIndex(Index);
+
+      // Show context menu at cursor position
+      ShowContextMenuForItem(Index, X, Y);
+    end;
   end;
 end;
 
@@ -1884,6 +1929,19 @@ begin
         end;
         Key := 0;
       end;
+
+    VK_F10:
+      begin
+        // Shift+F10: Show context menu for selected device
+        if (ssShift in Shift) and (FSelectedIndex >= 0) and
+           (FDisplayItems[FSelectedIndex].Source <> dsAction) then
+        begin
+          // Get item rect and show menu at top-left of item
+          var ItemRect := GetItemRect(FSelectedIndex);
+          ShowContextMenuForItem(FSelectedIndex, ItemRect.Left, ItemRect.Top);
+          Key := 0;
+        end;
+      end;
   end;
 end;
 
@@ -1942,6 +2000,157 @@ begin
   // Reset animation when no action in progress (so next scan starts from 0)
   if not HasActionInProgress then
     FAnimationFrame := 0;
+end;
+
+{ Context Menu }
+
+procedure TDeviceListBox.BuildContextMenu(AItemIndex: Integer);
+var
+  Item: TDeviceDisplayItem;
+  MenuItem: TMenuItem;
+begin
+  FPopupMenu.Items.Clear;
+
+  if (AItemIndex < 0) or (AItemIndex >= Length(FDisplayItems)) then
+    Exit;
+
+  Item := FDisplayItems[AItemIndex];
+
+  // Store device address for menu handlers
+  FContextMenuDeviceAddress := Item.Device.AddressInt;
+
+  // For paired devices
+  if Item.Device.IsPaired then
+  begin
+    // Pin/Unpin toggle
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    if Item.IsPinned then
+      MenuItem.Caption := 'Unpin'
+    else
+      MenuItem.Caption := 'Pin';
+    MenuItem.OnClick := HandleMenuPinToggle;
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Hide
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := 'Hide from List';
+    MenuItem.OnClick := HandleMenuHide;
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Separator
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := '-';
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Copy Name
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := 'Copy Name';
+    MenuItem.OnClick := HandleMenuCopyName;
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Copy Address
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := 'Copy Address';
+    MenuItem.OnClick := HandleMenuCopyAddress;
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Separator
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := '-';
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Configure
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := 'Configure...';
+    MenuItem.OnClick := HandleMenuConfigure;
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Separator
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := '-';
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Unpair Device
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := 'Unpair Device';
+    MenuItem.OnClick := HandleMenuUnpair;
+    FPopupMenu.Items.Add(MenuItem);
+  end
+  else
+  begin
+    // For unpaired devices: Copy commands + Hide
+    // Copy Name
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := 'Copy Name';
+    MenuItem.OnClick := HandleMenuCopyName;
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Copy Address
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := 'Copy Address';
+    MenuItem.OnClick := HandleMenuCopyAddress;
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Separator
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := '-';
+    FPopupMenu.Items.Add(MenuItem);
+
+    // Hide
+    MenuItem := TMenuItem.Create(FPopupMenu);
+    MenuItem.Caption := 'Hide from List';
+    MenuItem.OnClick := HandleMenuHide;
+    FPopupMenu.Items.Add(MenuItem);
+  end;
+end;
+
+procedure TDeviceListBox.ShowContextMenuForItem(AItemIndex: Integer; X, Y: Integer);
+var
+  ScreenPt: TPoint;
+begin
+  BuildContextMenu(AItemIndex);
+
+  // Convert control coordinates to screen coordinates
+  ScreenPt := ClientToScreen(Point(X, Y));
+
+  // Show menu at specified position
+  FPopupMenu.Popup(ScreenPt.X, ScreenPt.Y);
+end;
+
+procedure TDeviceListBox.HandleMenuPinToggle(Sender: TObject);
+begin
+  if Assigned(FOnPinToggle) and (FContextMenuDeviceAddress <> 0) then
+    FOnPinToggle(Self, FContextMenuDeviceAddress);
+end;
+
+procedure TDeviceListBox.HandleMenuCopyName(Sender: TObject);
+begin
+  if Assigned(FOnCopyName) and (FContextMenuDeviceAddress <> 0) then
+    FOnCopyName(Self, FContextMenuDeviceAddress);
+end;
+
+procedure TDeviceListBox.HandleMenuCopyAddress(Sender: TObject);
+begin
+  if Assigned(FOnCopyAddress) and (FContextMenuDeviceAddress <> 0) then
+    FOnCopyAddress(Self, FContextMenuDeviceAddress);
+end;
+
+procedure TDeviceListBox.HandleMenuConfigure(Sender: TObject);
+begin
+  if Assigned(FOnConfigure) and (FContextMenuDeviceAddress <> 0) then
+    FOnConfigure(Self, FContextMenuDeviceAddress);
+end;
+
+procedure TDeviceListBox.HandleMenuUnpair(Sender: TObject);
+begin
+  if Assigned(FOnUnpair) and (FContextMenuDeviceAddress <> 0) then
+    FOnUnpair(Self, FContextMenuDeviceAddress);
+end;
+
+procedure TDeviceListBox.HandleMenuHide(Sender: TObject);
+begin
+  if Assigned(FOnHide) and (FContextMenuDeviceAddress <> 0) then
+    FOnHide(Self, FContextMenuDeviceAddress);
 end;
 
 end.

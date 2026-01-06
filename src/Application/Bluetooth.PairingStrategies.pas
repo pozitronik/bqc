@@ -955,6 +955,8 @@ var
 begin
   LogInfo('Unpair: Removing pairing for device $%.12X', [ADeviceAddress], ClassName);
 
+  try
+
   // Check WinRT availability
   if not EnsureWinRTInitialized(ClassName) then
   begin
@@ -1192,6 +1194,14 @@ begin
   begin
     LogError('Unpair: Failed with status %d', [Status], ClassName);
     Result := TPairingResult.Failed(Status, Format('Unpairing failed with status %d', [Status]));
+  end;
+
+  except
+    on E: Exception do
+    begin
+      LogError('Unpair: Exception during unpairing: %s', [E.Message], ClassName);
+      Result := TPairingResult.Failed(0, 'Unpairing failed: ' + E.Message);
+    end;
   end;
 end;
 

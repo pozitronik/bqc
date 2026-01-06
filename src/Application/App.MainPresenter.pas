@@ -269,6 +269,32 @@ type
     procedure OnDeviceClicked(const ADevice: TBluetoothDeviceInfo);
 
     /// <summary>
+    /// Called when user toggles pin state via context menu.
+    /// </summary>
+    procedure OnDevicePinToggled(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Called when user selects "Copy Name" from context menu.
+    /// </summary>
+    procedure OnCopyDeviceName(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Called when user selects "Copy Address" from context menu.
+    /// </summary>
+    procedure OnCopyDeviceAddress(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Called when user selects "Hide from List" from context menu.
+    /// Sets device Hidden flag via DeviceConfigProvider.
+    /// </summary>
+    procedure OnDeviceHidden(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Called when user selects "Unpair Device" from context menu.
+    /// </summary>
+    procedure OnUnpairDevice(ADeviceAddress: UInt64);
+
+    /// <summary>
     /// Called when user toggles the Bluetooth switch.
     /// Enables or disables Bluetooth radio.
     /// </summary>
@@ -325,6 +351,7 @@ implementation
 
 uses
   Winapi.Windows,
+  Vcl.Clipbrd,
   App.Logger,
   App.ConfigEnums,
   App.DeviceConfigTypes,
@@ -1177,6 +1204,13 @@ begin
           Continue;
         end;
 
+        // Skip devices marked as hidden
+        if FDeviceConfigProvider.GetDeviceConfig(Device.AddressInt).Hidden then
+        begin
+          LogDebug('RefreshDisplayItems: Skipping $%.12X (marked as hidden)', [Device.AddressInt], ClassName);
+          Continue;
+        end;
+
         // Filter unidentified devices if ShowUnidentifiedDevices is disabled.
         // Only filters truly empty names (Device.Name = ''), NOT generic names like "Bluetooth XX:XX:XX..."
         // Generic names are considered better than nothing and remain visible.
@@ -1663,6 +1697,129 @@ begin
   // Menu will close on focus loss or explicit hotkey/close
 
   ToggleConnectionAsync(CurrentDevice);
+end;
+
+procedure TMainPresenter.OnDevicePinToggled(ADeviceAddress: UInt64);
+var
+  Device: TBluetoothDeviceInfo;
+  DeviceConfig: TDeviceConfig;
+begin
+  LogInfo('OnDevicePinToggled: Address=$%.12X', [ADeviceAddress], ClassName);
+
+  Device := FindDeviceByAddress(ADeviceAddress);
+  if Device.AddressInt = 0 then
+  begin
+    LogWarning('OnDevicePinToggled: Device not found', ClassName);
+    Exit;
+  end;
+
+  // Toggle pin state
+  DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(ADeviceAddress);
+  DeviceConfig.Pinned := not DeviceConfig.Pinned;
+  FDeviceConfigProvider.SetDeviceConfig(DeviceConfig);
+
+  LogInfo('OnDevicePinToggled: Pin state changed to %s', [BoolToStr(DeviceConfig.Pinned, True)], ClassName);
+
+  // Refresh display to show updated pin state
+  RefreshDisplayItems;
+end;
+
+procedure TMainPresenter.OnCopyDeviceName(ADeviceAddress: UInt64);
+var
+  Device: TBluetoothDeviceInfo;
+  Index: Integer;
+begin
+  Device := FindDeviceByAddress(ADeviceAddress);
+  if Device.AddressInt = 0 then
+  begin
+    // Try unpaired devices
+    if FUnpairedDeviceIndexMap.TryGetValue(ADeviceAddress, Index) then
+      Device := FUnpairedDevicesInRange[Index];
+  end;
+
+  if Device.AddressInt <> 0 then
+  begin
+    Vcl.Clipbrd.Clipboard.AsText := Device.Name;
+    LogInfo('OnCopyDeviceName: Copied "%s" to clipboard', [Device.Name], ClassName);
+  end;
+end;
+
+procedure TMainPresenter.OnCopyDeviceAddress(ADeviceAddress: UInt64);
+var
+  AddressStr: string;
+begin
+  AddressStr := Format('%.12X', [ADeviceAddress]);
+  Vcl.Clipbrd.Clipboard.AsText := AddressStr;
+  LogInfo('OnCopyDeviceAddress: Copied "%s" to clipboard', [AddressStr], ClassName);
+end;
+
+procedure TMainPresenter.OnDeviceHidden(ADeviceAddress: UInt64);
+var
+  Device: TBluetoothDeviceInfo;
+  DeviceConfig: TDeviceConfig;
+begin
+  LogInfo('OnDeviceHidden: Address=$%.12X', [ADeviceAddress], ClassName);
+
+  Device := FindDeviceByAddress(ADeviceAddress);
+  if Device.AddressInt = 0 then
+  begin
+    // Try unpaired devices
+    var Index: Integer;
+    if FUnpairedDeviceIndexMap.TryGetValue(ADeviceAddress, Index) then
+      Device := FUnpairedDevicesInRange[Index];
+  end;
+
+  if Device.AddressInt <> 0 then
+  begin
+    // Set hidden flag
+    DeviceConfig := FDeviceConfigProvider.GetDeviceConfig(ADeviceAddress);
+    DeviceConfig.Hidden := True;
+    FDeviceConfigProvider.SetDeviceConfig(DeviceConfig);
+
+    LogInfo('OnDeviceHidden: Device hidden', ClassName);
+
+    // Refresh display to remove from list
+    RefreshDisplayItems;
+  end
+  else
+  begin
+    LogWarning('OnDeviceHidden: Device not found', ClassName);
+  end;
+end;
+
+procedure TMainPresenter.OnUnpairDevice(ADeviceAddress: UInt64);
+var
+  Device: TBluetoothDeviceInfo;
+  PairingResult: TPairingResult;
+begin
+  LogInfo('OnUnpairDevice: Address=$%.12X', [ADeviceAddress], ClassName);
+
+  Device := FindDeviceByAddress(ADeviceAddress);
+  if Device.AddressInt = 0 then
+  begin
+    LogWarning('OnUnpairDevice: Device not found', ClassName);
+    Exit;
+  end;
+
+  FStatusView.ShowStatus(Format('Unpairing %s...', [Device.Name]));
+
+  // Call unpair synchronously
+  PairingResult := FPairingService.UnpairDevice(ADeviceAddress);
+
+  if PairingResult.IsSuccess then
+  begin
+    LogInfo('OnUnpairDevice: Successfully unpaired', ClassName);
+    FStatusView.ShowStatus(Format('Unpaired %s', [Device.Name]));
+
+    // Manually trigger pairing sync to remove device from list immediately
+    // instead of waiting for the next scheduled sync
+    SyncPairedDeviceList;
+  end
+  else
+  begin
+    LogError('OnUnpairDevice: Failed - %s', [PairingResult.ErrorMessage], ClassName);
+    FStatusView.ShowStatus(Format('Failed to unpair %s: %s', [Device.Name, PairingResult.ErrorMessage]));
+  end;
 end;
 
 procedure TMainPresenter.OnToggleChanged(AEnabled: Boolean);

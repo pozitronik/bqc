@@ -328,6 +328,12 @@ type
     /// Called when user requests to refresh the device list.
     /// </summary>
     procedure OnRefreshDevicesClicked;
+
+    /// <summary>
+    /// Selects a device by its Bluetooth address.
+    /// Loads device list, finds device by address, and selects it.
+    /// </summary>
+    procedure SelectDeviceByAddress(ADeviceAddress: UInt64);
   end;
 
   //----------------------------------------------------------------------------
@@ -405,6 +411,8 @@ type
     procedure OnRefreshDevicesClicked;
     procedure OnResetDefaultsClicked;
     procedure OnResetLayoutClicked;
+
+    procedure SelectDeviceByAddress(ADeviceAddress: UInt64);
 
     procedure MarkModified;
     property IsModified: Boolean read FModified;
@@ -604,6 +612,30 @@ procedure TDeviceSettingsPresenter.OnRefreshDevicesClicked;
 begin
   LogInfo('OnRefreshDevicesClicked', ClassName);
   LoadDeviceList;
+end;
+
+procedure TDeviceSettingsPresenter.SelectDeviceByAddress(ADeviceAddress: UInt64);
+var
+  I: Integer;
+begin
+  LogInfo('SelectDeviceByAddress: Address=$%.12X', [ADeviceAddress], ClassName);
+
+  // Load device list to ensure it's up to date
+  LoadDeviceList;
+
+  // Find device by address
+  for I := 0 to FDeviceAddresses.Count - 1 do
+  begin
+    if FDeviceAddresses[I] = ADeviceAddress then
+    begin
+      LogInfo('SelectDeviceByAddress: Found at index %d', [I], ClassName);
+      FView.SetSelectedDeviceIndex(I);
+      OnDeviceSelected(I);
+      Exit;
+    end;
+  end;
+
+  LogWarning('SelectDeviceByAddress: Device not found in list', ClassName);
 end;
 
 { TSettingsPresenter }
@@ -981,6 +1013,11 @@ end;
 procedure TSettingsPresenter.OnDeviceSelected(AIndex: Integer);
 begin
   FDevicePresenter.OnDeviceSelected(AIndex);
+end;
+
+procedure TSettingsPresenter.SelectDeviceByAddress(ADeviceAddress: UInt64);
+begin
+  FDevicePresenter.SelectDeviceByAddress(ADeviceAddress);
 end;
 
 procedure TSettingsPresenter.OnForgetDeviceClicked(AIndex: Integer);

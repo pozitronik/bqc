@@ -141,6 +141,12 @@ type
     { Event handlers }
     procedure HandleDeviceClick(Sender: TObject; const ADevice: TBluetoothDeviceInfo);
     procedure HandleActionClick(Sender: TObject; const AItem: TDeviceDisplayItem);
+    procedure HandleDevicePinToggle(Sender: TObject; AAddress: UInt64);
+    procedure HandleCopyDeviceName(Sender: TObject; AAddress: UInt64);
+    procedure HandleCopyDeviceAddress(Sender: TObject; AAddress: UInt64);
+    procedure HandleConfigureDevice(Sender: TObject; AAddress: UInt64);
+    procedure HandleUnpairDevice(Sender: TObject; AAddress: UInt64);
+    procedure HandleDeviceHide(Sender: TObject; AAddress: UInt64);
     procedure HandleHotkeyTriggered(Sender: TObject);
     procedure HandleCastPanelHotkeyTriggered(Sender: TObject);
     procedure HandleBluetoothPanelHotkeyTriggered(Sender: TObject);
@@ -169,6 +175,7 @@ type
     procedure HideView;
     procedure IVisibilityView.ForceClose = DoForceClose;
     procedure DoForceClose;
+    procedure ShowSettingsDialogForDevice(ADeviceAddress: UInt64);
 
     { Settings application helpers (extracted from ApplyAllSettings for SRP) }
     procedure ApplyHotkeySettings;
@@ -539,6 +546,13 @@ begin
   FDeviceList.OnDeviceClick := HandleDeviceClick;
   FDeviceList.OnActionClick := HandleActionClick;
   FDeviceList.TabOrder := 0;
+  // Context menu callbacks
+  FDeviceList.OnPinToggle := HandleDevicePinToggle;
+  FDeviceList.OnCopyName := HandleCopyDeviceName;
+  FDeviceList.OnCopyAddress := HandleCopyDeviceAddress;
+  FDeviceList.OnConfigure := HandleConfigureDevice;
+  FDeviceList.OnUnpair := HandleUnpairDevice;
+  FDeviceList.OnHide := HandleDeviceHide;
   // Inject configuration dependencies (eliminates Bootstrap fallback)
   FDeviceList.LayoutConfig := FLayoutConfig;
   FDeviceList.AppearanceConfig := FAppearanceConfig;
@@ -910,6 +924,42 @@ begin
   FPresenter.OnScanRequested;
 end;
 
+procedure TFormMain.HandleDevicePinToggle(Sender: TObject; AAddress: UInt64);
+begin
+  if Assigned(FPresenter) then
+    FPresenter.OnDevicePinToggled(AAddress);
+end;
+
+procedure TFormMain.HandleCopyDeviceName(Sender: TObject; AAddress: UInt64);
+begin
+  if Assigned(FPresenter) then
+    FPresenter.OnCopyDeviceName(AAddress);
+end;
+
+procedure TFormMain.HandleCopyDeviceAddress(Sender: TObject; AAddress: UInt64);
+begin
+  if Assigned(FPresenter) then
+    FPresenter.OnCopyDeviceAddress(AAddress);
+end;
+
+procedure TFormMain.HandleConfigureDevice(Sender: TObject; AAddress: UInt64);
+begin
+  // Open settings dialog directly (view-to-view communication)
+  ShowSettingsDialogForDevice(AAddress);
+end;
+
+procedure TFormMain.HandleUnpairDevice(Sender: TObject; AAddress: UInt64);
+begin
+  if Assigned(FPresenter) then
+    FPresenter.OnUnpairDevice(AAddress);
+end;
+
+procedure TFormMain.HandleDeviceHide(Sender: TObject; AAddress: UInt64);
+begin
+  if Assigned(FPresenter) then
+    FPresenter.OnDeviceHidden(AAddress);
+end;
+
 procedure TFormMain.HandleBluetoothToggle(Sender: TObject);
 begin
   if not FPresenter.IsUpdatingToggle then
@@ -947,6 +997,51 @@ begin
       FThemeManager
     );
     SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
+    SettingsDialog.ShowModal;
+  finally
+    SettingsDialog.Free;
+    // Re-apply hotkey settings in case they were changed
+    ApplyHotkeySettings;
+  end;
+end;
+
+procedure TFormMain.ShowSettingsDialogForDevice(ADeviceAddress: UInt64);
+var
+  SettingsDialog: TFormSettings;
+  WasMenuModeVisible: Boolean;
+begin
+  LogInfo('ShowSettingsDialogForDevice: Opening settings for device Address=$%.12X', [ADeviceAddress], ClassName);
+
+  // Remember if menu was visible in menu mode
+  WasMenuModeVisible := Visible and (FGeneralConfig.WindowMode = wmMenu);
+
+  // Hide menu before opening Settings
+  if WasMenuModeVisible then
+  begin
+    LogDebug('ShowSettingsDialogForDevice: Hiding menu before modal dialog', ClassName);
+    HideView;
+  end;
+
+  SettingsDialog := TFormSettings.Create(Self);
+  try
+    // Inject dependencies
+    SettingsDialog.Setup(
+      FAppConfig,
+      FAppConfig.AsLogConfig,
+      FDeviceConfigProvider,
+      FBatteryTrayConfig,
+      Bootstrap.ProfileConfig,
+      FThemeManager
+    );
+    SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
+
+    // Select the device in the settings dialog
+    SettingsDialog.PageControl.ActivePageIndex := 6;  // Devices tab
+
+    // Call SelectDeviceByAddress BEFORE ShowModal
+    // FormShow will load all settings and select index 0, but we'll override it immediately after
+    SettingsDialog.SelectDeviceByAddress(ADeviceAddress);
+
     SettingsDialog.ShowModal;
   finally
     SettingsDialog.Free;
