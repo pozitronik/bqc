@@ -1693,9 +1693,6 @@ type
     FBluetoothService: TMockBluetoothService;
     FPairingService: TMockBluetoothPairingService;
     FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
-    FPresenter: TMainPresenter;
-
-    procedure CreatePresenter;
   public
     [Setup]
     procedure Setup;
@@ -1956,7 +1953,6 @@ begin
   FBluetoothService := TMockBluetoothService.Create;
   FPairingService := TMockBluetoothPairingService.Create;
   FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
-  FPresenter := nil;
 end;
 
 procedure TUnpairedDeviceFilteringTests.TearDown;
@@ -1972,7 +1968,6 @@ begin
   Application.ProcessMessages;
   CheckSynchronize(0);
 
-  FPresenter.Free;
   FDisplayItemBuilder.Free;
   FPairingService.Free;
   FBluetoothService.Free;
@@ -1986,28 +1981,6 @@ begin
   FDeviceConfigProvider.Free;
   FAppConfig.Free;
   FView.Free;
-end;
-
-procedure TUnpairedDeviceFilteringTests.CreatePresenter;
-begin
-  FPresenter := TTestableMainPresenter.Create(
-    FView as IDeviceListView,
-    FView as IToggleView,
-    FView as IStatusView,
-    FView as IVisibilityView,
-    FAppConfig,
-    FDeviceConfigProvider,
-    FGeneralConfig,
-    FWindowConfig,
-    FAppearanceConfig,
-    FLayoutConfig,
-    FConnectionConfig,
-    FRadioStateManager,
-    FAsyncExecutor,
-    FBluetoothService,
-    FPairingService,
-    FDisplayItemBuilder
-  );
 end;
 
 procedure TUnpairedDeviceFilteringTests.ConfigProperty_ShowUnidentifiedDevices_DefaultValue;
