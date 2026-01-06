@@ -967,110 +967,112 @@ begin
 
   AddressesToUnpair := TList<UInt64>.Create;
   try
-    // First pass: Find the device name for the given address and collect all addresses with same name
-    // This handles TWS (True Wireless Stereo) devices that have multiple BT addresses (left/right earbuds)
-    Found := False;
-    DeviceName := '';
-    InitDeviceSearchParams(SearchParams, 0);
-    InitDeviceInfo(DeviceInfo);
+    try
+      // First pass: Find the device name for the given address and collect all addresses with same name
+      // This handles TWS (True Wireless Stereo) devices that have multiple BT addresses (left/right earbuds)
+      Found := False;
+      DeviceName := '';
+      InitDeviceSearchParams(SearchParams, 0);
+      InitDeviceInfo(DeviceInfo);
 
-    FindHandle := BluetoothFindFirstDevice(@SearchParams, DeviceInfo);
-    if FindHandle <> 0 then
-    begin
-      try
-        repeat
-          // Find the target device to get its name
-          if DeviceInfo.Address.ullLong = ADeviceAddress then
-          begin
-            Found := True;
-            DeviceName := string(DeviceInfo.szName);
-            LogDebug('UnpairUsingClassicAPI: Target device found - Name="%s", fAuthenticated=%d, fRemembered=%d, fConnected=%d',
-              [DeviceName, Ord(DeviceInfo.fAuthenticated), Ord(DeviceInfo.fRemembered), Ord(DeviceInfo.fConnected)], ClassName);
-          end;
-
-          // Collect all addresses with the same device name (for TWS devices)
-          if (DeviceName <> '') and (string(DeviceInfo.szName) = DeviceName) then
-          begin
-            if not AddressesToUnpair.Contains(DeviceInfo.Address.ullLong) then
+      FindHandle := BluetoothFindFirstDevice(@SearchParams, DeviceInfo);
+      if FindHandle <> 0 then
+      begin
+        try
+          repeat
+            // Find the target device to get its name
+            if DeviceInfo.Address.ullLong = ADeviceAddress then
             begin
-              AddressesToUnpair.Add(DeviceInfo.Address.ullLong);
-              LogDebug('UnpairUsingClassicAPI: Found paired address $%.12X for device "%s"',
-                [DeviceInfo.Address.ullLong, DeviceName], ClassName);
+              Found := True;
+              DeviceName := string(DeviceInfo.szName);
+              LogDebug('UnpairUsingClassicAPI: Target device found - Name="%s", fAuthenticated=%d, fRemembered=%d, fConnected=%d',
+                [DeviceName, Ord(DeviceInfo.fAuthenticated), Ord(DeviceInfo.fRemembered), Ord(DeviceInfo.fConnected)], ClassName);
             end;
-          end;
 
-          DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
-        until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
-      finally
-        BluetoothFindDeviceClose(FindHandle);
+            // Collect all addresses with the same device name (for TWS devices)
+            if (DeviceName <> '') and (string(DeviceInfo.szName) = DeviceName) then
+            begin
+              if not AddressesToUnpair.Contains(DeviceInfo.Address.ullLong) then
+              begin
+                AddressesToUnpair.Add(DeviceInfo.Address.ullLong);
+                LogDebug('UnpairUsingClassicAPI: Found paired address $%.12X for device "%s"',
+                  [DeviceInfo.Address.ullLong, DeviceName], ClassName);
+              end;
+            end;
+
+            DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
+          until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
+        finally
+          BluetoothFindDeviceClose(FindHandle);
+        end;
       end;
-    end;
 
-    if not Found then
-    begin
-      LogWarning('UnpairUsingClassicAPI: Device $%.12X not found in pairing database, may already be unpaired', [ADeviceAddress], ClassName);
-      Result := TPairingResult.Success;  // Consider already unpaired as success
-      Exit;
-    end;
-
-    if AddressesToUnpair.Count = 0 then
-    begin
-      LogWarning('UnpairUsingClassicAPI: No addresses found to unpair for device "%s"', [DeviceName], ClassName);
-      Result := TPairingResult.Success;  // Nothing to unpair
-      Exit;
-    end;
-
-    // Log TWS device detection
-    if AddressesToUnpair.Count > 1 then
-      LogInfo('UnpairUsingClassicAPI: TWS device detected - "%s" has %d paired addresses, will unpair all',
-        [DeviceName, AddressesToUnpair.Count], ClassName)
-    else
-      LogDebug('UnpairUsingClassicAPI: Single-address device "%s"', [DeviceName], ClassName);
-
-    // Unpair all addresses for this device
-    SuccessCount := 0;
-    FailureCount := 0;
-    FirstError := 0;
-
-    for Address in AddressesToUnpair do
-    begin
-      BtAddress.ullLong := Address;
-      ErrorCode := BluetoothRemoveDevice(@BtAddress);
-
-      if ErrorCode = ERROR_SUCCESS then
+      if not Found then
       begin
-        Inc(SuccessCount);
-        LogInfo('UnpairUsingClassicAPI: Successfully unpaired address $%.12X', [Address], ClassName);
-      end
+        LogWarning('UnpairUsingClassicAPI: Device $%.12X not found in pairing database, may already be unpaired', [ADeviceAddress], ClassName);
+        Result := TPairingResult.Success;  // Consider already unpaired as success
+        Exit;
+      end;
+
+      if AddressesToUnpair.Count = 0 then
+      begin
+        LogWarning('UnpairUsingClassicAPI: No addresses found to unpair for device "%s"', [DeviceName], ClassName);
+        Result := TPairingResult.Success;  // Nothing to unpair
+        Exit;
+      end;
+
+      // Log TWS device detection
+      if AddressesToUnpair.Count > 1 then
+        LogInfo('UnpairUsingClassicAPI: TWS device detected - "%s" has %d paired addresses, will unpair all',
+          [DeviceName, AddressesToUnpair.Count], ClassName)
       else
+        LogDebug('UnpairUsingClassicAPI: Single-address device "%s"', [DeviceName], ClassName);
+
+      // Unpair all addresses for this device
+      SuccessCount := 0;
+      FailureCount := 0;
+      FirstError := 0;
+
+      for Address in AddressesToUnpair do
       begin
-        Inc(FailureCount);
-        if FirstError = 0 then
-          FirstError := ErrorCode;
-        LogError('UnpairUsingClassicAPI: Failed to unpair address $%.12X with error %d', [Address, ErrorCode], ClassName);
+        BtAddress.ullLong := Address;
+        ErrorCode := BluetoothRemoveDevice(@BtAddress);
+
+        if ErrorCode = ERROR_SUCCESS then
+        begin
+          Inc(SuccessCount);
+          LogInfo('UnpairUsingClassicAPI: Successfully unpaired address $%.12X', [Address], ClassName);
+        end
+        else
+        begin
+          Inc(FailureCount);
+          if FirstError = 0 then
+            FirstError := ErrorCode;
+          LogError('UnpairUsingClassicAPI: Failed to unpair address $%.12X with error %d', [Address, ErrorCode], ClassName);
+        end;
+      end;
+
+      // Report results
+      LogInfo('UnpairUsingClassicAPI: Unpair complete for "%s" - Success=%d, Failed=%d, Total=%d',
+        [DeviceName, SuccessCount, FailureCount, AddressesToUnpair.Count], ClassName);
+
+      if FailureCount = 0 then
+        Result := TPairingResult.Success
+      else if SuccessCount > 0 then
+        Result := TPairingResult.Failed(FirstError, Format('Partially unpaired: %d/%d addresses failed', [FailureCount, AddressesToUnpair.Count]))
+      else
+        Result := TPairingResult.Failed(FirstError, Format('Failed to unpair device (error %d)', [FirstError]));
+
+    except
+      on E: Exception do
+      begin
+        LogError('UnpairUsingClassicAPI: Exception: %s', [E.Message], ClassName);
+        Result := TPairingResult.Failed(0, 'Classic unpair failed: ' + E.Message);
       end;
     end;
-
-    // Report results
-    LogInfo('UnpairUsingClassicAPI: Unpair complete for "%s" - Success=%d, Failed=%d, Total=%d',
-      [DeviceName, SuccessCount, FailureCount, AddressesToUnpair.Count], ClassName);
-
-    if FailureCount = 0 then
-      Result := TPairingResult.Success
-    else if SuccessCount > 0 then
-      Result := TPairingResult.Failed(FirstError, Format('Partially unpaired: %d/%d addresses failed', [FailureCount, AddressesToUnpair.Count]))
-    else
-      Result := TPairingResult.Failed(FirstError, Format('Failed to unpair device (error %d)', [FirstError]));
-
-  except
-    on E: Exception do
-    begin
-      LogError('UnpairUsingClassicAPI: Exception: %s', [E.Message], ClassName);
-      Result := TPairingResult.Failed(0, 'Classic unpair failed: ' + E.Message);
-    end;
+  finally
+    AddressesToUnpair.Free;
   end;
-
-  AddressesToUnpair.Free;
 end;
 
 function TWinRTSimplePairingStrategy.CanHandle(APlatform: TBluetoothPlatform): Boolean;
