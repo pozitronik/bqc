@@ -24,7 +24,6 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitTop = 423
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -63,7 +62,6 @@ object FormSettings: TFormSettings
     ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
-    ExplicitTop = 2
     object TabGeneral: TTabSheet
       Caption = 'Program'
       object GroupWindowMode: TGroupBox
@@ -200,8 +198,8 @@ object FormSettings: TFormSettings
         end
       end
       object CheckAutostart: TCheckBox
-        Left = 12
-        Top = 277
+        Left = 10
+        Top = 266
         Width = 136
         Height = 21
         Caption = 'Start with Windows'
@@ -389,11 +387,11 @@ object FormSettings: TFormSettings
           TabOrder = 1
         end
         object EditIconSize: TEdit
-          Left = 443
+          Left = 441
           Top = 21
           Width = 45
           Height = 23
-          TabOrder = 2
+          TabOrder = 10
           Text = '32'
         end
         object UpDownIconSize: TUpDown
@@ -405,14 +403,14 @@ object FormSettings: TFormSettings
           Min = 16
           Max = 64
           Position = 32
-          TabOrder = 3
+          TabOrder = 11
         end
         object EditItemPadding: TEdit
           Left = 100
           Top = 50
           Width = 45
           Height = 23
-          TabOrder = 4
+          TabOrder = 2
           Text = '12'
         end
         object UpDownItemPadding: TUpDown
@@ -423,32 +421,32 @@ object FormSettings: TFormSettings
           Associate = EditItemPadding
           Max = 50
           Position = 12
-          TabOrder = 5
+          TabOrder = 3
         end
         object EditCornerRadius: TEdit
-          Left = 274
+          Left = 275
           Top = 50
           Width = 45
           Height = 23
-          TabOrder = 6
+          TabOrder = 8
           Text = '8'
         end
         object UpDownCornerRadius: TUpDown
-          Left = 321
+          Left = 320
           Top = 50
           Width = 16
           Height = 23
           Associate = EditCornerRadius
           Max = 30
           Position = 8
-          TabOrder = 7
+          TabOrder = 9
         end
         object EditItemMargin: TEdit
           Left = 100
           Top = 79
           Width = 45
           Height = 23
-          TabOrder = 8
+          TabOrder = 4
           Text = '4'
         end
         object UpDownItemMargin: TUpDown
@@ -459,7 +457,7 @@ object FormSettings: TFormSettings
           Associate = EditItemMargin
           Max = 30
           Position = 4
-          TabOrder = 9
+          TabOrder = 5
         end
         object ButtonResetLayout: TButton
           Left = 364
@@ -467,7 +465,7 @@ object FormSettings: TFormSettings
           Width = 154
           Height = 23
           Caption = 'Reset layout to defaults'
-          TabOrder = 10
+          TabOrder = 12
           OnClick = ButtonResetLayoutClick
         end
         object EditBorderWidth: TEdit
@@ -475,7 +473,7 @@ object FormSettings: TFormSettings
           Top = 21
           Width = 45
           Height = 23
-          TabOrder = 11
+          TabOrder = 6
           Text = '0'
         end
         object UpDownBorderWidth: TUpDown
@@ -485,7 +483,7 @@ object FormSettings: TFormSettings
           Height = 23
           Associate = EditBorderWidth
           Max = 20
-          TabOrder = 12
+          TabOrder = 7
         end
       end
       object GroupDiscovery: TGroupBox
@@ -496,7 +494,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'New devices && discovery'
         TabOrder = 2
-        ExplicitTop = 415
+        ExplicitTop = 209
         object CheckShowUnpairedDevices: TCheckBox
           Left = 12
           Top = 24
@@ -522,7 +520,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Font Sizes (pt)'
         TabOrder = 3
-        ExplicitTop = 450
+        ExplicitTop = 301
         object LabelDeviceNameSize: TLabel
           Left = 12
           Top = 24
@@ -582,7 +580,7 @@ object FormSettings: TFormSettings
           Top = 21
           Width = 45
           Height = 23
-          TabOrder = 2
+          TabOrder = 4
           Text = '8'
         end
         object UpDownAddressSize: TUpDown
@@ -594,14 +592,14 @@ object FormSettings: TFormSettings
           Min = 6
           Max = 24
           Position = 8
-          TabOrder = 3
+          TabOrder = 5
         end
         object EditStatusSize: TEdit
           Left = 100
           Top = 50
           Width = 45
           Height = 23
-          TabOrder = 4
+          TabOrder = 2
           Text = '9'
         end
         object UpDownStatusSize: TUpDown
@@ -613,7 +611,7 @@ object FormSettings: TFormSettings
           Min = 6
           Max = 24
           Position = 9
-          TabOrder = 5
+          TabOrder = 3
         end
         object EditIconFontSize: TEdit
           Left = 278
@@ -643,7 +641,7 @@ object FormSettings: TFormSettings
           Text = '7'
         end
         object UpDownProfileFontSize: TUpDown
-          Left = 471
+          Left = 467
           Top = 21
           Width = 16
           Height = 23
@@ -656,33 +654,47 @@ object FormSettings: TFormSettings
       end
     end
     object TabKeys: TTabSheet
-      Caption = 'Keys'
+      Caption = 'Hotkeys'
       ImageIndex = 2
       object GroupHotkey: TGroupBox
         Left = 0
         Top = 0
         Width = 536
-        Height = 95
+        Height = 122
         Align = alTop
-        Caption = 'Global Hotkey'
+        Caption = 'Global Hotkeys'
         TabOrder = 0
         object LabelHotkey: TLabel
           Left = 12
           Top = 27
-          Width = 41
+          Width = 66
           Height = 15
-          Caption = 'Hotkey:'
+          Caption = 'Main hotkey'
+        end
+        object LabelCastPanelHotkey: TLabel
+          Left = 12
+          Top = 59
+          Width = 58
+          Height = 15
+          Caption = 'Cast panel:'
+        end
+        object LabelBluetoothPanelHotkey: TLabel
+          Left = 12
+          Top = 92
+          Width = 87
+          Height = 15
+          Caption = 'Bluetooth panel:'
         end
         object EditHotkey: TEdit
-          Left = 117
+          Left = 118
           Top = 24
-          Width = 207
+          Width = 230
           Height = 23
           ReadOnly = True
           TabOrder = 0
         end
         object ButtonRecordHotkey: TButton
-          Left = 335
+          Left = 359
           Top = 24
           Width = 80
           Height = 23
@@ -691,7 +703,7 @@ object FormSettings: TFormSettings
           OnClick = ButtonRecordHotkeyClick
         end
         object ButtonClearHotkey: TButton
-          Left = 427
+          Left = 445
           Top = 24
           Width = 80
           Height = 23
@@ -699,93 +711,70 @@ object FormSettings: TFormSettings
           TabOrder = 2
           OnClick = ButtonClearHotkeyClick
         end
-        object CheckUseLowLevelHook: TCheckBox
-          Left = 12
-          Top = 58
-          Width = 381
-          Height = 17
-          Caption = 'Use low-level keyboard hook (require to override system hotkeys)'
-          TabOrder = 3
-        end
-      end
-      object GroupSystemPanels: TGroupBox
-        Left = 0
-        Top = 95
-        Width = 536
-        Height = 96
-        Align = alTop
-        Caption = 'Windows System Panels Hotkeys'
-        TabOrder = 1
-        object LabelCastPanelHotkey: TLabel
-          Left = 12
-          Top = 27
-          Width = 58
-          Height = 15
-          Caption = 'Cast panel:'
-        end
-        object LabelBluetoothPanelHotkey: TLabel
-          Left = 12
-          Top = 59
-          Width = 87
-          Height = 15
-          Caption = 'Bluetooth panel:'
-        end
         object EditCastPanelHotkey: TEdit
-          Left = 117
-          Top = 24
-          Width = 207
+          Left = 118
+          Top = 56
+          Width = 230
           Height = 23
           ReadOnly = True
-          TabOrder = 0
+          TabOrder = 3
         end
         object ButtonRecordCastHotkey: TButton
-          Left = 335
-          Top = 24
-          Width = 80
-          Height = 23
-          Caption = 'Record...'
-          TabOrder = 1
-          OnClick = ButtonRecordCastHotkeyClick
-        end
-        object ButtonClearCastHotkey: TButton
-          Left = 427
-          Top = 24
-          Width = 80
-          Height = 23
-          Caption = 'Clear'
-          TabOrder = 2
-          OnClick = ButtonClearCastHotkeyClick
-        end
-        object EditBluetoothPanelHotkey: TEdit
-          Left = 117
-          Top = 56
-          Width = 207
-          Height = 23
-          ReadOnly = True
-          TabOrder = 3
-        end
-        object ButtonRecordBluetoothHotkey: TButton
-          Left = 335
+          Left = 359
           Top = 56
           Width = 80
           Height = 23
           Caption = 'Record...'
           TabOrder = 4
-          OnClick = ButtonRecordBluetoothHotkeyClick
+          OnClick = ButtonRecordCastHotkeyClick
         end
-        object ButtonClearBluetoothHotkey: TButton
-          Left = 427
+        object ButtonClearCastHotkey: TButton
+          Left = 445
           Top = 56
           Width = 80
           Height = 23
           Caption = 'Clear'
           TabOrder = 5
+          OnClick = ButtonClearCastHotkeyClick
+        end
+        object EditBluetoothPanelHotkey: TEdit
+          Left = 118
+          Top = 89
+          Width = 230
+          Height = 23
+          ReadOnly = True
+          TabOrder = 6
+        end
+        object ButtonRecordBluetoothHotkey: TButton
+          Left = 359
+          Top = 89
+          Width = 80
+          Height = 23
+          Caption = 'Record...'
+          TabOrder = 7
+          OnClick = ButtonRecordBluetoothHotkeyClick
+        end
+        object ButtonClearBluetoothHotkey: TButton
+          Left = 445
+          Top = 89
+          Width = 80
+          Height = 23
+          Caption = 'Clear'
+          TabOrder = 8
           OnClick = ButtonClearBluetoothHotkeyClick
         end
       end
+      object CheckUseLowLevelHook: TCheckBox
+        Left = 10
+        Top = 129
+        Width = 381
+        Height = 17
+        Caption = 'Use low-level keyboard hook (require to override system hotkeys)'
+        TabOrder = 1
+      end
     end
     object TabThemes: TTabSheet
-      Caption = 'Themes'
+      Caption = 'Themes && Colors'
       ImageIndex = 3
       object GroupTheme: TGroupBox
         Left = 0
@@ -842,7 +831,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Colors'
         TabOrder = 1
-        ExplicitTop = 103
         object LabelConnectedColor: TLabel
           Left = 12
           Top = 24
@@ -1390,7 +1378,6 @@ object FormSettings: TFormSettings
         Align = alLeft
         BevelOuter = bvNone
         TabOrder = 0
-        ExplicitHeight = 741
         object ListDevices: TListBox
           Left = 0
           Top = 0
@@ -1400,7 +1387,6 @@ object FormSettings: TFormSettings
           ItemHeight = 15
           TabOrder = 0
           OnClick = ListDevicesClick
-          ExplicitHeight = 709
         end
         object PanelDeviceButtons: TPanel
           Left = 0
@@ -1410,7 +1396,6 @@ object FormSettings: TFormSettings
           Align = alBottom
           BevelOuter = bvNone
           TabOrder = 1
-          ExplicitTop = 709
           object ButtonForgetDevice: TButton
             Left = 0
             Top = 4
@@ -1439,7 +1424,6 @@ object FormSettings: TFormSettings
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 1
-        ExplicitHeight = 741
         object GroupDeviceInfo: TGroupBox
           Left = 0
           Top = 0
@@ -1448,7 +1432,6 @@ object FormSettings: TFormSettings
           Align = alClient
           Caption = 'Device Settings'
           TabOrder = 0
-          ExplicitHeight = 741
           object GroupDeviceConnection: TGroupBox
             Left = 2
             Top = 151
@@ -1526,7 +1509,6 @@ object FormSettings: TFormSettings
             Align = alTop
             Caption = 'Notifications (overrides global parameters)'
             TabOrder = 2
-            ExplicitTop = 246
             object LabelDeviceNotifyConnect: TLabel
               Left = 12
               Top = 27
@@ -1612,7 +1594,6 @@ object FormSettings: TFormSettings
             Align = alTop
             Caption = 'Battery Tray Icon (overrides global parameters)'
             TabOrder = 3
-            ExplicitTop = 341
             object LabelDeviceBatteryTrayIcon: TLabel
               Left = 12
               Top = 24
@@ -1856,7 +1837,7 @@ object FormSettings: TFormSettings
       end
     end
     object TabAdvanced: TTabSheet
-      Caption = 'Diagnostics'
+      Caption = 'Logging'
       ImageIndex = 7
       object GroupLogging: TGroupBox
         Left = 0

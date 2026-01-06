@@ -123,16 +123,6 @@ type
     EditHotkey: TEdit;
     ButtonRecordHotkey: TButton;
     ButtonClearHotkey: TButton;
-    CheckUseLowLevelHook: TCheckBox;
-    GroupSystemPanels: TGroupBox;
-    LabelCastPanelHotkey: TLabel;
-    LabelBluetoothPanelHotkey: TLabel;
-    EditCastPanelHotkey: TEdit;
-    ButtonRecordCastHotkey: TButton;
-    ButtonClearCastHotkey: TButton;
-    EditBluetoothPanelHotkey: TEdit;
-    ButtonRecordBluetoothHotkey: TButton;
-    ButtonClearBluetoothHotkey: TButton;
 
     { Tab: Themes }
     TabThemes: TTabSheet;
@@ -270,8 +260,6 @@ type
     ShapeCustomOutlineColor: TShape;
     EditBorderWidth: TEdit;
     UpDownBorderWidth: TUpDown;
-    LabelPx7: TLabel;
-    LabelBorderWidth: TLabel;
     CheckShowProfiles: TCheckBox;
     LabelProfileFontSize: TLabel;
     EditProfileFontSize: TEdit;
@@ -290,6 +278,15 @@ type
     ComboMainColorSource: TComboBox;
     ComboSecondaryColorSource: TComboBox;
     ComboBackgroundSource: TComboBox;
+    LabelCastPanelHotkey: TLabel;
+    LabelBluetoothPanelHotkey: TLabel;
+    EditCastPanelHotkey: TEdit;
+    ButtonRecordCastHotkey: TButton;
+    ButtonClearCastHotkey: TButton;
+    EditBluetoothPanelHotkey: TEdit;
+    ButtonRecordBluetoothHotkey: TButton;
+    ButtonClearBluetoothHotkey: TButton;
+    CheckUseLowLevelHook: TCheckBox;
 
     { Form events }
     procedure FormCreate(Sender: TObject);
