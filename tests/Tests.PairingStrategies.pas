@@ -93,34 +93,6 @@ type
   end;
 
   /// <summary>
-  /// Test fixture for TWinRTPairingStrategy.
-  /// </summary>
-  [TestFixture]
-  TWinRTPairingStrategyTests = class
-  private
-    FStrategy: IPairingStrategy;
-  public
-    [Setup]
-    procedure Setup;
-
-    // CanHandle tests
-    [Test]
-    procedure CanHandle_WinRT_ReturnsTrue;
-    [Test]
-    procedure CanHandle_Classic_ReturnsFalse;
-    [Test]
-    procedure CanHandle_Auto_ReturnsTrue;
-
-    // GetPriority tests
-    [Test]
-    procedure GetPriority_Returns100;
-
-    // GetName tests
-    [Test]
-    procedure GetName_ReturnsWinRTSimplePairing;
-  end;
-
-  /// <summary>
   /// Test fixture for TPairingStrategyFactory.
   /// </summary>
   [TestFixture]
@@ -138,10 +110,6 @@ type
     // GetStrategy tests
     [Test]
     procedure GetStrategy_Classic_ReturnsWindowsStrategy;
-    [Test]
-    procedure GetStrategy_Auto_ReturnsWinRTStrategy;
-    [Test]
-    procedure GetStrategy_WinRT_ReturnsWinRTStrategy;
 
     // Priority selection tests
     [Test]
@@ -344,38 +312,6 @@ begin
   Assert.AreEqual('Windows Classic Pairing', FStrategy.GetName);
 end;
 
-{ TWinRTPairingStrategyTests }
-
-procedure TWinRTPairingStrategyTests.Setup;
-begin
-  FStrategy := TWinRTSimplePairingStrategy.Create(nil);  // Pass nil config for basic tests
-end;
-
-procedure TWinRTPairingStrategyTests.CanHandle_WinRT_ReturnsTrue;
-begin
-  Assert.IsTrue(FStrategy.CanHandle(bpWinRT));
-end;
-
-procedure TWinRTPairingStrategyTests.CanHandle_Classic_ReturnsFalse;
-begin
-  Assert.IsFalse(FStrategy.CanHandle(bpClassic));
-end;
-
-procedure TWinRTPairingStrategyTests.CanHandle_Auto_ReturnsTrue;
-begin
-  Assert.IsTrue(FStrategy.CanHandle(bpAuto));
-end;
-
-procedure TWinRTPairingStrategyTests.GetPriority_Returns100;
-begin
-  Assert.AreEqual(100, FStrategy.GetPriority);
-end;
-
-procedure TWinRTPairingStrategyTests.GetName_ReturnsWinRTSimplePairing;
-begin
-  Assert.AreEqual('WinRT Simple Pairing (Windows Dialogs)', FStrategy.GetName);
-end;
-
 { TPairingStrategyFactoryTests }
 
 procedure TPairingStrategyFactoryTests.Setup;
@@ -386,14 +322,11 @@ end;
 procedure TPairingStrategyFactoryTests.Create_RegistersDefaultStrategies;
 var
   WindowsStrategy: IPairingStrategy;
-  WinRTStrategy: IPairingStrategy;
 begin
-  // Factory should register at least 2 default strategies (Windows and WinRT)
+  // Factory should register Windows Classic strategy
   WindowsStrategy := FFactory.GetStrategy(bpClassic);
-  WinRTStrategy := FFactory.GetStrategy(bpWinRT);
 
   Assert.IsNotNull(WindowsStrategy);
-  Assert.IsNotNull(WinRTStrategy);
 end;
 
 procedure TPairingStrategyFactoryTests.GetStrategy_Classic_ReturnsWindowsStrategy;
@@ -406,30 +339,6 @@ begin
   Assert.IsTrue(Strategy.CanHandle(bpClassic));
   Assert.AreEqual(50, Strategy.GetPriority);
   Assert.AreEqual('Windows Classic Pairing', Strategy.GetName);
-end;
-
-procedure TPairingStrategyFactoryTests.GetStrategy_Auto_ReturnsWinRTStrategy;
-var
-  Strategy: IPairingStrategy;
-begin
-  Strategy := FFactory.GetStrategy(bpAuto);
-
-  Assert.IsNotNull(Strategy);
-  Assert.IsTrue(Strategy.CanHandle(bpAuto));
-  Assert.AreEqual(100, Strategy.GetPriority);
-  Assert.AreEqual('WinRT Simple Pairing (Windows Dialogs)', Strategy.GetName);
-end;
-
-procedure TPairingStrategyFactoryTests.GetStrategy_WinRT_ReturnsWinRTStrategy;
-var
-  Strategy: IPairingStrategy;
-begin
-  Strategy := FFactory.GetStrategy(bpWinRT);
-
-  Assert.IsNotNull(Strategy);
-  Assert.IsTrue(Strategy.CanHandle(bpWinRT));
-  Assert.AreEqual(100, Strategy.GetPriority);
-  Assert.AreEqual('WinRT Simple Pairing (Windows Dialogs)', Strategy.GetName);
 end;
 
 procedure TPairingStrategyFactoryTests.GetStrategy_SelectsHighestPriority;
@@ -499,7 +408,6 @@ begin
 
   Assert.IsNull(FFactory.GetStrategy(bpClassic));
   Assert.IsNull(FFactory.GetStrategy(bpAuto));
-  Assert.IsNull(FFactory.GetStrategy(bpWinRT));
 end;
 
 { TCustomPairingStrategy }
@@ -540,7 +448,6 @@ end;
 initialization
   TDUnitX.RegisterTestFixture(TPairingResultTests);
   TDUnitX.RegisterTestFixture(TWindowsPairingStrategyTests);
-  TDUnitX.RegisterTestFixture(TWinRTPairingStrategyTests);
   TDUnitX.RegisterTestFixture(TPairingStrategyFactoryTests);
 
 end.
