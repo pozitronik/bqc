@@ -1063,13 +1063,14 @@ begin
   else
     BgColor := BaseBgColor;
 
-  // Draw rounded rectangle background
-  ACanvas.Pen.Color := BgColor;
+  // Draw rounded rectangle background (fill only, no pen outline)
   ACanvas.Brush.Color := BgColor;
+  ACanvas.Pen.Style := psClear;
   ACanvas.RoundRect(
     AContext.ItemRect.Left, AContext.ItemRect.Top,
     AContext.ItemRect.Right, AContext.ItemRect.Bottom,
     AContext.CornerRadius, AContext.CornerRadius);
+  ACanvas.Pen.Style := psSolid;
 
   // Draw border if enabled
   if AContext.ItemBorderWidth > 0 then
