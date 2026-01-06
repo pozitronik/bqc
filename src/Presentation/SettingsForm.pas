@@ -271,12 +271,15 @@ type
     ShapeMainCustomColor: TShape;
     LabelSecondaryColorSource: TLabel;
     ShapeSecondaryCustomColor: TShape;
+    LabelHoverColorSource: TLabel;
+    ShapeHoverCustomColor: TShape;
     LabelBackgroundSource: TLabel;
     ShapeCustomBackgroundColor: TShape;
     LabelBorderColor: TLabel;
     ShapeBorderColor: TShape;
     ComboMainColorSource: TComboBox;
     ComboSecondaryColorSource: TComboBox;
+    ComboHoverColorSource: TComboBox;
     ComboBackgroundSource: TComboBox;
     LabelCastPanelHotkey: TLabel;
     LabelBluetoothPanelHotkey: TLabel;
@@ -333,6 +336,7 @@ type
     procedure ComboBackgroundSourceChange(Sender: TObject);
     procedure ComboMainColorSourceChange(Sender: TObject);
     procedure ComboSecondaryColorSourceChange(Sender: TObject);
+    procedure ComboHoverColorSourceChange(Sender: TObject);
 
     { Device battery tray events }
     procedure ComboDeviceBatteryColorModeChange(Sender: TObject);
@@ -407,6 +411,7 @@ type
     procedure UpdateBackgroundColorState;
     procedure UpdateMainColorState;
     procedure UpdateSecondaryColorState;
+    procedure UpdateHoverColorState;
     procedure HandleSettingChanged(Sender: TObject);
     procedure ConnectChangeHandlers;
     procedure ConfigureWinRTDependentControls;
@@ -606,6 +611,8 @@ begin
   Result.MainCustomColor := ShapeMainCustomColor.Brush.Color;
   Result.SecondaryColorSource := TSecondaryColorSource(ComboSecondaryColorSource.ItemIndex);
   Result.SecondaryCustomColor := ShapeSecondaryCustomColor.Brush.Color;
+  Result.HoverColorSource := THoverColorSource(ComboHoverColorSource.ItemIndex);
+  Result.HoverCustomColor := ShapeHoverCustomColor.Brush.Color;
 end;
 
 procedure TFormSettings.SetAppearanceSettings(const ASettings: TAppearanceViewSettings);
@@ -625,9 +632,12 @@ begin
   ShapeMainCustomColor.Brush.Color := ASettings.MainCustomColor;
   ComboSecondaryColorSource.ItemIndex := Ord(ASettings.SecondaryColorSource);
   ShapeSecondaryCustomColor.Brush.Color := ASettings.SecondaryCustomColor;
+  ComboHoverColorSource.ItemIndex := Ord(ASettings.HoverColorSource);
+  ShapeHoverCustomColor.Brush.Color := ASettings.HoverCustomColor;
   UpdateBackgroundColorState;
   UpdateMainColorState;
   UpdateSecondaryColorState;
+  UpdateHoverColorState;
 end;
 
 function TFormSettings.GetLayoutSettings: TLayoutViewSettings;
@@ -1155,6 +1165,8 @@ begin
   ShapeMainCustomColor.OnMouseDown := HandleShapeColorMouseDown;
   ComboSecondaryColorSource.OnChange := ComboSecondaryColorSourceChange;
   ShapeSecondaryCustomColor.OnMouseDown := HandleShapeColorMouseDown;
+  ComboHoverColorSource.OnChange := ComboHoverColorSourceChange;
+  ShapeHoverCustomColor.OnMouseDown := HandleShapeColorMouseDown;
   EditDeviceNameSize.OnChange := HandleSettingChanged;
   EditStatusSize.OnChange := HandleSettingChanged;
   EditAddressSize.OnChange := HandleSettingChanged;
@@ -1450,6 +1462,18 @@ procedure TFormSettings.UpdateSecondaryColorState;
 begin
   // Show color shape only when "Custom" is selected (index 2 for TSecondaryColorSource)
   ShapeSecondaryCustomColor.Visible := (ComboSecondaryColorSource.ItemIndex = 2);
+end;
+
+procedure TFormSettings.ComboHoverColorSourceChange(Sender: TObject);
+begin
+  UpdateHoverColorState;
+  FPresenter.MarkModified;
+end;
+
+procedure TFormSettings.UpdateHoverColorState;
+begin
+  // Show color shape only when "Custom" is selected (index 2 for THoverColorSource)
+  ShapeHoverCustomColor.Visible := (ComboHoverColorSource.ItemIndex = 2);
 end;
 
 procedure TFormSettings.ComboDeviceBatteryColorModeChange(Sender: TObject);

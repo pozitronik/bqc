@@ -77,6 +77,15 @@ type
   );
 
   /// <summary>
+  /// Hover background color source for device list items.
+  /// </summary>
+  THoverColorSource = (
+    hcsThemeWindow,  // Use theme window color (clWindow) (0)
+    hcsThemeForm,    // Use theme form color (clBtnFace) - default (1)
+    hcsCustom        // Use custom color (2)
+  );
+
+  /// <summary>
   /// Notification mode for events.
   /// </summary>
   TNotificationMode = (

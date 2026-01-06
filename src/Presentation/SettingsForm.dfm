@@ -282,7 +282,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Layout'
         TabOrder = 1
-        ExplicitTop = 93
         object LabelItemHeight: TLabel
           Left = 12
           Top = 24
@@ -395,7 +394,7 @@ object FormSettings: TFormSettings
           Text = '32'
         end
         object UpDownIconSize: TUpDown
-          Left = 488
+          Left = 486
           Top = 21
           Width = 16
           Height = 23
@@ -494,7 +493,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'New devices && discovery'
         TabOrder = 2
-        ExplicitTop = 209
         object CheckShowUnpairedDevices: TCheckBox
           Left = 12
           Top = 24
@@ -520,7 +518,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Font Sizes (pt)'
         TabOrder = 3
-        ExplicitTop = 301
         object LabelDeviceNameSize: TLabel
           Left = 12
           Top = 24
@@ -827,7 +824,7 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 95
         Width = 536
-        Height = 155
+        Height = 187
         Align = alTop
         Caption = 'Colors'
         TabOrder = 1
@@ -887,6 +884,20 @@ object FormSettings: TFormSettings
           Height = 23
           Cursor = crHandPoint
         end
+        object LabelHoverColorSource: TLabel
+          Left = 12
+          Top = 150
+          Width = 65
+          Height = 15
+          Caption = 'Hover color:'
+        end
+        object ShapeHoverCustomColor: TShape
+          Left = 446
+          Top = 147
+          Width = 70
+          Height = 23
+          Cursor = crHandPoint
+        end
         object LabelBorderColor: TLabel
           Left = 203
           Top = 24
@@ -932,6 +943,18 @@ object FormSettings: TFormSettings
           Height = 23
           Style = csDropDownList
           TabOrder = 2
+          Items.Strings = (
+            'Theme window color'
+            'Theme form color'
+            'Custom')
+        end
+        object ComboHoverColorSource: TComboBox
+          Left = 121
+          Top = 147
+          Width = 319
+          Height = 23
+          Style = csDropDownList
+          TabOrder = 3
           Items.Strings = (
             'Theme window color'
             'Theme form color'

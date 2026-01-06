@@ -39,6 +39,8 @@ type
     FMainCustomColor: Integer;
     FSecondaryColorSource: TSecondaryColorSource;
     FSecondaryCustomColor: Integer;
+    FHoverColorSource: THoverColorSource;
+    FHoverCustomColor: Integer;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -56,6 +58,8 @@ type
     function GetMainCustomColor: Integer;
     function GetSecondaryColorSource: TSecondaryColorSource;
     function GetSecondaryCustomColor: Integer;
+    function GetHoverColorSource: THoverColorSource;
+    function GetHoverCustomColor: Integer;
 
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
@@ -71,6 +75,8 @@ type
     procedure SetMainCustomColor(AValue: Integer);
     procedure SetSecondaryColorSource(AValue: TSecondaryColorSource);
     procedure SetSecondaryCustomColor(AValue: Integer);
+    procedure SetHoverColorSource(AValue: THoverColorSource);
+    procedure SetHoverCustomColor(AValue: Integer);
 
     procedure SetDefaults;
 
@@ -88,6 +94,8 @@ type
     property MainCustomColor: Integer read FMainCustomColor write SetMainCustomColor;
     property SecondaryColorSource: TSecondaryColorSource read FSecondaryColorSource write SetSecondaryColorSource;
     property SecondaryCustomColor: Integer read FSecondaryCustomColor write SetSecondaryCustomColor;
+    property HoverColorSource: THoverColorSource read FHoverColorSource write SetHoverColorSource;
+    property HoverCustomColor: Integer read FHoverCustomColor write SetHoverCustomColor;
   end;
 
 implementation
@@ -120,6 +128,8 @@ begin
   FMainCustomColor := DEF_MAIN_CUSTOM_COLOR;
   FSecondaryColorSource := DEF_SECONDARY_COLOR_SOURCE;
   FSecondaryCustomColor := DEF_SECONDARY_CUSTOM_COLOR;
+  FHoverColorSource := DEF_HOVER_COLOR_SOURCE;
+  FHoverCustomColor := DEF_HOVER_CUSTOM_COLOR;
 end;
 
 function TAppearanceConfigSection.GetShowAddresses: Boolean;
@@ -276,6 +286,30 @@ end;
 procedure TAppearanceConfigSection.SetSecondaryCustomColor(AValue: Integer);
 begin
   SetFieldInteger(FSecondaryCustomColor, AValue);
+end;
+
+function TAppearanceConfigSection.GetHoverColorSource: THoverColorSource;
+begin
+  Result := FHoverColorSource;
+end;
+
+procedure TAppearanceConfigSection.SetHoverColorSource(AValue: THoverColorSource);
+begin
+  if FHoverColorSource <> AValue then
+  begin
+    FHoverColorSource := AValue;
+    NotifyModified;
+  end;
+end;
+
+function TAppearanceConfigSection.GetHoverCustomColor: Integer;
+begin
+  Result := FHoverCustomColor;
+end;
+
+procedure TAppearanceConfigSection.SetHoverCustomColor(AValue: Integer);
+begin
+  SetFieldInteger(FHoverCustomColor, AValue);
 end;
 
 end.

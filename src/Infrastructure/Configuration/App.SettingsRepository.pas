@@ -120,6 +120,8 @@ const
   KEY_MAIN_CUSTOM_COLOR = 'MainCustomColor';
   KEY_SECONDARY_COLOR_SOURCE = 'SecondaryColorSource';
   KEY_SECONDARY_CUSTOM_COLOR = 'SecondaryCustomColor';
+  KEY_HOVER_COLOR_SOURCE = 'HoverColorSource';
+  KEY_HOVER_CUSTOM_COLOR = 'HoverCustomColor';
 
   // INI key names - [Layout]
   KEY_ITEM_HEIGHT = 'ItemHeight';
@@ -362,6 +364,8 @@ begin
   AppearanceCfg.MainCustomColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_MAIN_CUSTOM_COLOR, DEF_MAIN_CUSTOM_COLOR);
   AppearanceCfg.SecondaryColorSource := TSecondaryColorSource(SafeReadEnum(AIni, SEC_APPEARANCE, KEY_SECONDARY_COLOR_SOURCE, Ord(DEF_SECONDARY_COLOR_SOURCE), TypeInfo(TSecondaryColorSource)));
   AppearanceCfg.SecondaryCustomColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_SECONDARY_CUSTOM_COLOR, DEF_SECONDARY_CUSTOM_COLOR);
+  AppearanceCfg.HoverColorSource := THoverColorSource(SafeReadEnum(AIni, SEC_APPEARANCE, KEY_HOVER_COLOR_SOURCE, Ord(DEF_HOVER_COLOR_SOURCE), TypeInfo(THoverColorSource)));
+  AppearanceCfg.HoverCustomColor := AIni.ReadInteger(SEC_APPEARANCE, KEY_HOVER_CUSTOM_COLOR, DEF_HOVER_CUSTOM_COLOR);
 
   // [Layout]
   LayoutCfg.ItemHeight := AIni.ReadInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, DEF_ITEM_HEIGHT);
@@ -532,6 +536,8 @@ begin
   AIni.WriteInteger(SEC_APPEARANCE, KEY_MAIN_CUSTOM_COLOR, AppearanceCfg.MainCustomColor);
   AIni.WriteInteger(SEC_APPEARANCE, KEY_SECONDARY_COLOR_SOURCE, Ord(AppearanceCfg.SecondaryColorSource));
   AIni.WriteInteger(SEC_APPEARANCE, KEY_SECONDARY_CUSTOM_COLOR, AppearanceCfg.SecondaryCustomColor);
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_HOVER_COLOR_SOURCE, Ord(AppearanceCfg.HoverColorSource));
+  AIni.WriteInteger(SEC_APPEARANCE, KEY_HOVER_CUSTOM_COLOR, AppearanceCfg.HoverCustomColor);
 
   // [Layout]
   AIni.WriteInteger(SEC_LAYOUT, KEY_ITEM_HEIGHT, LayoutCfg.ItemHeight);

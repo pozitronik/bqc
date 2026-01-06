@@ -37,6 +37,8 @@ type
     function GetMainCustomColor: Integer;
     function GetSecondaryColorSource: TSecondaryColorSource;
     function GetSecondaryCustomColor: Integer;
+    function GetHoverColorSource: THoverColorSource;
+    function GetHoverCustomColor: Integer;
 
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetTheme(const AValue: string);
@@ -52,6 +54,8 @@ type
     procedure SetMainCustomColor(AValue: Integer);
     procedure SetSecondaryColorSource(AValue: TSecondaryColorSource);
     procedure SetSecondaryCustomColor(AValue: Integer);
+    procedure SetHoverColorSource(AValue: THoverColorSource);
+    procedure SetHoverCustomColor(AValue: Integer);
 
     property ShowAddresses: Boolean read GetShowAddresses write SetShowAddresses;
     property Theme: string read GetTheme write SetTheme;
@@ -88,6 +92,14 @@ type
     /// Custom secondary color used when SecondaryColorSource is scsCustom.
     /// </summary>
     property SecondaryCustomColor: Integer read GetSecondaryCustomColor write SetSecondaryCustomColor;
+    /// <summary>
+    /// Source of hover background color for device list items.
+    /// </summary>
+    property HoverColorSource: THoverColorSource read GetHoverColorSource write SetHoverColorSource;
+    /// <summary>
+    /// Custom hover color used when HoverColorSource is hcsCustom.
+    /// </summary>
+    property HoverCustomColor: Integer read GetHoverCustomColor write SetHoverCustomColor;
   end;
 
 implementation

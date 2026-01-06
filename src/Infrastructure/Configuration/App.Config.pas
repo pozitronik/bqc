@@ -225,6 +225,8 @@ const
   DEF_MAIN_CUSTOM_COLOR = clWindowText;
   DEF_SECONDARY_COLOR_SOURCE = TSecondaryColorSource(1);  // scsThemeGrayText
   DEF_SECONDARY_CUSTOM_COLOR = clGrayText;
+  DEF_HOVER_COLOR_SOURCE = THoverColorSource(1);  // hcsThemeForm
+  DEF_HOVER_CUSTOM_COLOR = clBtnFace;
 
 implementation
 

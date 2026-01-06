@@ -92,6 +92,8 @@ type
     MainCustomColor: Integer;
     SecondaryColorSource: TSecondaryColorSource;
     SecondaryCustomColor: Integer;
+    HoverColorSource: THoverColorSource;
+    HoverCustomColor: Integer;
   end;
 
   TDeviceDisplayItemClickEvent = procedure(Sender: TObject;
@@ -425,6 +427,8 @@ begin
     FCachedLayout.MainCustomColor := FAppearanceConfig.MainCustomColor;
     FCachedLayout.SecondaryColorSource := FAppearanceConfig.SecondaryColorSource;
     FCachedLayout.SecondaryCustomColor := FAppearanceConfig.SecondaryCustomColor;
+    FCachedLayout.HoverColorSource := FAppearanceConfig.HoverColorSource;
+    FCachedLayout.HoverCustomColor := FAppearanceConfig.HoverCustomColor;
   end;
 end;
 
@@ -1052,13 +1056,16 @@ begin
     BaseBgColor := Style.GetSystemColor(clWindow);  // Fallback
   end;
 
-  // Apply hover effect: use form color for hover if base is window color, otherwise slightly darker
+  // Apply hover effect using configured hover color
   if AContext.IsHover then
   begin
-    if FCachedLayout.ListBackgroundSource = lbsThemeWindow then
-      BgColor := Style.GetSystemColor(clBtnFace)  // Standard hover for window background
+    case FCachedLayout.HoverColorSource of
+      hcsThemeWindow: BgColor := Style.GetSystemColor(clWindow);
+      hcsThemeForm:   BgColor := Style.GetSystemColor(clBtnFace);
+      hcsCustom:      BgColor := TColor(FCachedLayout.HoverCustomColor);
     else
-      BgColor := BaseBgColor;  // Keep same color when hovering over non-window backgrounds
+      BgColor := Style.GetSystemColor(clBtnFace);  // Fallback
+    end;
   end
   else
     BgColor := BaseBgColor;

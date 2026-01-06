@@ -71,6 +71,8 @@ type
     MainCustomColor: TColor;
     SecondaryColorSource: TSecondaryColorSource;
     SecondaryCustomColor: TColor;
+    HoverColorSource: THoverColorSource;
+    HoverCustomColor: TColor;
   end;
 
   /// <summary>
@@ -713,6 +715,8 @@ begin
   Appearance.MainCustomColor := TColor(FAppearanceConfig.MainCustomColor);
   Appearance.SecondaryColorSource := FAppearanceConfig.SecondaryColorSource;
   Appearance.SecondaryCustomColor := TColor(FAppearanceConfig.SecondaryCustomColor);
+  Appearance.HoverColorSource := FAppearanceConfig.HoverColorSource;
+  Appearance.HoverCustomColor := TColor(FAppearanceConfig.HoverCustomColor);
   FAppearanceSettingsView.SetAppearanceSettings(Appearance);
 
   // Layout settings
@@ -844,6 +848,8 @@ begin
     FAppearanceConfig.MainCustomColor := Integer(Appearance.MainCustomColor);
     FAppearanceConfig.SecondaryColorSource := Appearance.SecondaryColorSource;
     FAppearanceConfig.SecondaryCustomColor := Integer(Appearance.SecondaryCustomColor);
+    FAppearanceConfig.HoverColorSource := Appearance.HoverColorSource;
+    FAppearanceConfig.HoverCustomColor := Integer(Appearance.HoverCustomColor);
 
     // Layout settings
     Layout := FLayoutSettingsView.GetLayoutSettings;

@@ -132,6 +132,8 @@ type
     FMainCustomColor: Integer;
     FSecondaryColorSource: TSecondaryColorSource;
     FSecondaryCustomColor: Integer;
+    FHoverColorSource: THoverColorSource;
+    FHoverCustomColor: Integer;
   public
     constructor Create;
 
@@ -150,6 +152,8 @@ type
     function GetMainCustomColor: Integer;
     function GetSecondaryColorSource: TSecondaryColorSource;
     function GetSecondaryCustomColor: Integer;
+    function GetHoverColorSource: THoverColorSource;
+    function GetHoverCustomColor: Integer;
 
     // IAppearanceConfig - setters
     procedure SetShowAddresses(AValue: Boolean);
@@ -166,6 +170,8 @@ type
     procedure SetMainCustomColor(AValue: Integer);
     procedure SetSecondaryColorSource(AValue: TSecondaryColorSource);
     procedure SetSecondaryCustomColor(AValue: Integer);
+    procedure SetHoverColorSource(AValue: THoverColorSource);
+    procedure SetHoverCustomColor(AValue: Integer);
 
     // Test setup properties
     property ShowAddresses: Boolean read FShowAddresses write FShowAddresses;
@@ -182,6 +188,8 @@ type
     property MainCustomColor: Integer read FMainCustomColor write FMainCustomColor;
     property SecondaryColorSource: TSecondaryColorSource read FSecondaryColorSource write FSecondaryColorSource;
     property SecondaryCustomColor: Integer read FSecondaryCustomColor write FSecondaryCustomColor;
+    property HoverColorSource: THoverColorSource read FHoverColorSource write FHoverColorSource;
+    property HoverCustomColor: Integer read FHoverCustomColor write FHoverCustomColor;
   end;
 
   /// <summary>
@@ -788,6 +796,8 @@ begin
   FMainCustomColor := clWindowText;
   FSecondaryColorSource := scsThemeGrayText;
   FSecondaryCustomColor := clGrayText;
+  FHoverColorSource := hcsThemeForm;
+  FHoverCustomColor := clBtnFace;
 end;
 
 function TMockAppearanceConfig.GetShowAddresses: Boolean;
@@ -928,6 +938,26 @@ end;
 procedure TMockAppearanceConfig.SetSecondaryCustomColor(AValue: Integer);
 begin
   FSecondaryCustomColor := AValue;
+end;
+
+function TMockAppearanceConfig.GetHoverColorSource: THoverColorSource;
+begin
+  Result := FHoverColorSource;
+end;
+
+procedure TMockAppearanceConfig.SetHoverColorSource(AValue: THoverColorSource);
+begin
+  FHoverColorSource := AValue;
+end;
+
+function TMockAppearanceConfig.GetHoverCustomColor: Integer;
+begin
+  Result := FHoverCustomColor;
+end;
+
+procedure TMockAppearanceConfig.SetHoverCustomColor(AValue: Integer);
+begin
+  FHoverCustomColor := AValue;
 end;
 
 { TMockDeviceConfigProvider }
