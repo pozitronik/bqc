@@ -4,10 +4,26 @@
 {       Pairing Strategy Pattern Implementation         }
 {                                                       }
 {       Provides extensible pairing strategies for      }
-{       Windows Classic and WinRT Bluetooth APIs.       }
-{       Follows same pattern as connection strategies.  }
+{       Windows Bluetooth pairing operations.           }
+{       Currently implements only Classic Bluetooth     }
+{       pairing (Win32 API). Follows same pattern as    }
+{       connection strategies.                          }
+{                                                       }
+{       IMPORTANT: WinRT Pairing Not Supported          }
+{       See detailed explanation below.                 }
 {                                                       }
 {*******************************************************}
+
+{===============================================================================
+  WHY WINRT PAIRING IS NOT SUPPORTED - ARCHITECTURAL ANALYSIS
+===============================================================================
+
+  This unit previously contained WinRT-based pairing strategies using
+  Windows.Devices.Bluetooth custom pairing APIs. These were removed because
+  they were fundamentally non-functional due to an architectural mismatch
+  between device discovery and pairing subsystems.
+
+===============================================================================}
 
 unit Bluetooth.PairingStrategies;
 
@@ -29,7 +45,9 @@ uses
 type
   /// <summary>
   /// Interface for pairing strategy implementations.
-  /// Allows different pairing approaches (Windows Classic, WinRT, custom).
+  /// Currently only implemented by TWindowsPairingStrategy (Classic Bluetooth).
+  /// Designed to allow different pairing approaches, but WinRT pairing was
+  /// removed due to architectural incompatibility (see unit header for details).
   /// </summary>
   IPairingStrategy = interface
     ['{F1A2B3C4-5555-6666-7777-888899990000}']
@@ -102,7 +120,11 @@ type
   /// <summary>
   /// Windows Classic Bluetooth pairing strategy.
   /// Uses BluetoothAuthenticateDevice API (Win7-Win11).
-  /// Delegates pairing to Windows dialog, provides SSP support.
+  /// Delegates pairing to Windows system dialogs, provides SSP support.
+  ///
+  /// This is currently the ONLY pairing strategy used by the application.
+  /// Works reliably with devices discovered via Classic Bluetooth monitoring.
+  /// WinRT pairing strategies were removed - see unit header for explanation.
   /// </summary>
   TWindowsPairingStrategy = class(TInterfacedObject, IPairingStrategy)
   private
@@ -150,7 +172,9 @@ type
     FConnectionConfig: IConnectionConfig;
 
     /// <summary>
-    /// Registers default strategies (Windows, WinRT Simple, WinRT Custom).
+    /// Registers default strategies.
+    /// Currently only registers Windows Classic Bluetooth pairing.
+    /// See unit header comment for explanation of why WinRT pairing is not supported.
     /// </summary>
     procedure RegisterDefaultStrategies;
   public
@@ -499,7 +523,6 @@ end;
 
 procedure TPairingStrategyFactory.RegisterDefaultStrategies;
 begin
-  // Register Windows Classic strategy (always available)
   RegisterStrategy(TWindowsPairingStrategy.Create);
 
   LogDebug('RegisterDefaultStrategies: Registered %d pairing strategies', [FStrategies.Count], ClassName);
