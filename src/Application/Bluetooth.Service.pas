@@ -77,6 +77,7 @@ type
     function Connect(const ADevice: TBluetoothDeviceInfo): Boolean;
     function Disconnect(const ADevice: TBluetoothDeviceInfo): Boolean;
     function ToggleConnection(const ADevice: TBluetoothDeviceInfo): Boolean;
+    procedure RemoveDevice(ADeviceAddress: UInt64);
 
     function GetOnDeviceStateChanged: TDeviceStateChangedEvent;
     procedure SetOnDeviceStateChanged(AValue: TDeviceStateChangedEvent);
@@ -303,6 +304,12 @@ begin
     Result := Disconnect(ADevice)
   else
     Result := Connect(ADevice);
+end;
+
+procedure TBluetoothService.RemoveDevice(ADeviceAddress: UInt64);
+begin
+  LogDebug('RemoveDevice: Removing device $%.12X from repository', [ADeviceAddress], ClassName);
+  FDeviceRepository.Remove(ADeviceAddress);
 end;
 
 function TBluetoothService.ConnectWithStrategy(

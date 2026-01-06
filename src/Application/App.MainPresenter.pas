@@ -1811,9 +1811,21 @@ begin
     LogInfo('OnUnpairDevice: Successfully unpaired', ClassName);
     FStatusView.ShowStatus(Format('Unpaired %s', [Device.Name]));
 
-    // Manually trigger pairing sync to remove device from list immediately
-    // instead of waiting for the next scheduled sync
-    SyncPairedDeviceList;
+    // Disconnect if connected
+    if Device.IsConnected then
+    begin
+      LogInfo('OnUnpairDevice: Disconnecting device before removal', ClassName);
+      FBluetoothService.Disconnect(Device);
+    end;
+
+    // Remove device from repository to prevent re-adding when Windows cache still has it
+    FBluetoothService.RemoveDevice(ADeviceAddress);
+
+    // Remove device from presenter's list immediately (Windows cache may not reflect unpair yet)
+    RemoveDeviceFromList(ADeviceAddress);
+
+    // Refresh display
+    RefreshDisplayItems;
   end
   else
   begin

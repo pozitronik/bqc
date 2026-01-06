@@ -155,6 +155,12 @@ type
     /// Maps all 20 WinRT status codes to appropriate result types.
     /// </summary>
     function MapPairingResult(AStatus: Integer; const ADevice: TBluetoothDeviceInfo): TPairingResult;
+
+    /// <summary>
+    /// Fallback unpair using Classic Bluetooth API.
+    /// Used when WinRT IDeviceInformationPairing2 is not available (Windows 8/8.1).
+    /// </summary>
+    function UnpairUsingClassicAPI(ADeviceAddress: UInt64): TPairingResult;
   public
     /// <summary>
     /// Creates simple pairing strategy with optional config injection.
@@ -934,273 +940,84 @@ begin
 end;
 
 function TWinRTSimplePairingStrategy.Unpair(ADeviceAddress: UInt64): TPairingResult;
-var
-  HR: HRESULT;
-  DeviceId: HSTRING;
-  DeviceIdStr: string;
-  BTDeviceFactory: IInspectable;
-  DevInfoFactory: IInspectable;
-  BTDeviceStatics: IBluetoothDeviceStatics;
-  AsyncBTDeviceOp: IAsyncOperationBluetoothDevice;
-  AsyncInfo: IAsyncInfo;
-  BTDevice: IBluetoothDevice;
-  DevInfoStatics: IDeviceInformationStatics;
-  AsyncDevInfoOp: IInspectable;
-  DevInfo: IDeviceInformation;
-  PairingIntf: IDeviceInformationPairing;
-  Pairing2: IDeviceInformationPairing2;
-  AsyncUnpairOp: IAsyncOperationDeviceUnpairingResult;
-  UnpairResult: IDeviceUnpairingResult;
-  Status: Integer;
 begin
   LogInfo('Unpair: Removing pairing for device $%.12X', [ADeviceAddress], ClassName);
 
+  // WinRT unpair is complex and unreliable (hangs on CreateFromIdAsync on some systems).
+  // Use Classic Bluetooth API which works reliably on all Windows versions (7-11).
+  LogDebug('Unpair: Using Classic Bluetooth API (BluetoothRemoveDevice)', ClassName);
+  Result := UnpairUsingClassicAPI(ADeviceAddress);
+end;
+
+function TWinRTSimplePairingStrategy.UnpairUsingClassicAPI(ADeviceAddress: UInt64): TPairingResult;
+var
+  Address: BLUETOOTH_ADDRESS;
+  ErrorCode: DWORD;
+  SearchParams: BLUETOOTH_DEVICE_SEARCH_PARAMS;
+  DeviceInfo: BLUETOOTH_DEVICE_INFO;
+  FindHandle: HBLUETOOTH_DEVICE_FIND;
+  Found: Boolean;
+begin
+  LogInfo('UnpairUsingClassicAPI: Using BluetoothRemoveDevice for $%.12X', [ADeviceAddress], ClassName);
+
   try
+    // Convert address
+    Address.ullLong := ADeviceAddress;
 
-  // Check WinRT availability
-  if not EnsureWinRTInitialized(ClassName) then
-  begin
-    LogError('Unpair: WinRT not available', ClassName);
-    Result := TPairingResult.NotSupported('WinRT APIs not available (requires Windows 8+)');
-    Exit;
-  end;
+    // First, verify the device exists in Windows pairing database
+    // BluetoothRemoveDevice fails with ERROR_NOT_FOUND if device isn't in database
+    Found := False;
+    InitDeviceSearchParams(SearchParams, 0);
+    InitDeviceInfo(DeviceInfo);
 
-  // Get BluetoothDevice from address using FromBluetoothAddressAsync
-  LogDebug('Unpair: Getting BluetoothDevice from address $%.12X', [ADeviceAddress], ClassName);
-
-  if not GetActivationFactory('Windows.Devices.Bluetooth.BluetoothDevice',
-      IBluetoothDeviceStatics, BTDeviceFactory, ClassName) then
-  begin
-    Result := TPairingResult.Failed(0, 'Failed to get BluetoothDevice factory');
-    Exit;
-  end;
-
-  HR := BTDeviceFactory.QueryInterface(IBluetoothDeviceStatics, BTDeviceStatics);
-  if Failed(HR) or (BTDeviceStatics = nil) then
-  begin
-    LogError('Unpair: QueryInterface for BluetoothDeviceStatics failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to query BluetoothDeviceStatics interface');
-    Exit;
-  end;
-
-  // Get BluetoothDevice from address
-  HR := BTDeviceStatics.FromBluetoothAddressAsync(ADeviceAddress, AsyncBTDeviceOp);
-  if Failed(HR) or (AsyncBTDeviceOp = nil) then
-  begin
-    LogError('Unpair: FromBluetoothAddressAsync failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to get Bluetooth device');
-    Exit;
-  end;
-
-  // Wait for BluetoothDevice
-  if not Supports(AsyncBTDeviceOp, IAsyncInfo, AsyncInfo) then
-  begin
-    LogError('Unpair: Failed to get IAsyncInfo for FromBluetoothAddressAsync', ClassName);
-    Result := TPairingResult.Failed(0, 'Internal error: async operation failed');
-    Exit;
-  end;
-
-  if not WaitForAsyncOperation(AsyncInfo, 10000, ClassName) then
-  begin
-    // Check if it was a timeout or an async error
-    var ErrorCode: HRESULT := S_OK;
-    var AsyncStatus: Integer := 0;
-    AsyncInfo.get_Status(AsyncStatus);
-    AsyncInfo.get_ErrorCode(ErrorCode);
-
-    if AsyncStatus = 3 then // AsyncStatus_Error
+    FindHandle := BluetoothFindFirstDevice(@SearchParams, DeviceInfo);
+    if FindHandle <> 0 then
     begin
-      LogError('Unpair: FromBluetoothAddressAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
-      Result := TPairingResult.Failed(ErrorCode, 'Device not found');
+      try
+        repeat
+          if DeviceInfo.Address.ullLong = ADeviceAddress then
+          begin
+            Found := True;
+            LogDebug('UnpairUsingClassicAPI: Device found in pairing database - fAuthenticated=%d, fRemembered=%d, fConnected=%d',
+              [Ord(DeviceInfo.fAuthenticated), Ord(DeviceInfo.fRemembered), Ord(DeviceInfo.fConnected)], ClassName);
+
+            // Use the address from the found device info (ensures correct format)
+            Address := DeviceInfo.Address;
+            Break;
+          end;
+          DeviceInfo.dwSize := SizeOf(BLUETOOTH_DEVICE_INFO);
+        until not BluetoothFindNextDevice(FindHandle, DeviceInfo);
+      finally
+        BluetoothFindDeviceClose(FindHandle);
+      end;
+    end;
+
+    if not Found then
+    begin
+      LogWarning('UnpairUsingClassicAPI: Device $%.12X not found in pairing database, may already be unpaired', [ADeviceAddress], ClassName);
+      Result := TPairingResult.Success;  // Consider already unpaired as success
       Exit;
+    end;
+
+    // Call BluetoothRemoveDevice (Classic Bluetooth API)
+    ErrorCode := BluetoothRemoveDevice(@Address);
+
+    if ErrorCode = ERROR_SUCCESS then
+    begin
+      LogInfo('UnpairUsingClassicAPI: Device unpaired successfully', ClassName);
+      Result := TPairingResult.Success;
     end
     else
     begin
-      LogError('Unpair: FromBluetoothAddressAsync timeout', ClassName);
-      Result := TPairingResult.Timeout;
-      Exit;
+      LogError('UnpairUsingClassicAPI: BluetoothRemoveDevice failed with error %d', [ErrorCode], ClassName);
+      Result := TPairingResult.Failed(ErrorCode, Format('Failed to remove device pairing (error %d)', [ErrorCode]));
     end;
-  end;
-
-  // Get BluetoothDevice result
-  HR := AsyncBTDeviceOp.GetResults(BTDevice);
-  if Failed(HR) or (BTDevice = nil) then
-  begin
-    LogError('Unpair: GetResults for BluetoothDevice failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to retrieve Bluetooth device');
-    Exit;
-  end;
-
-  // Get device ID from BluetoothDevice
-  HR := BTDevice.get_DeviceId(DeviceId);
-  if Failed(HR) or (DeviceId = 0) then
-  begin
-    LogError('Unpair: get_DeviceId failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to get device ID');
-    Exit;
-  end;
-
-  DeviceIdStr := HStringToString(DeviceId);
-  LogDebug('Unpair: Device ID: %s', [DeviceIdStr], ClassName);
-
-  // Get DeviceInformation from device ID
-  if not GetActivationFactory('Windows.Devices.Enumeration.DeviceInformation',
-      IDeviceInformationStatics, DevInfoFactory, ClassName) then
-  begin
-    FreeHString(DeviceId);
-    Result := TPairingResult.Failed(0, 'Failed to get DeviceInformation factory');
-    Exit;
-  end;
-
-  HR := DevInfoFactory.QueryInterface(IDeviceInformationStatics, DevInfoStatics);
-  if Failed(HR) or (DevInfoStatics = nil) then
-  begin
-    FreeHString(DeviceId);
-    LogError('Unpair: QueryInterface for DevInfoStatics failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to query DeviceInformationStatics interface');
-    Exit;
-  end;
-
-  // Create DeviceInformation from device ID
-  HR := DevInfoStatics.CreateFromIdAsync(DeviceId, AsyncDevInfoOp);
-  FreeHString(DeviceId);
-
-  if Failed(HR) or (AsyncDevInfoOp = nil) then
-  begin
-    LogError('Unpair: CreateFromIdAsync failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to get device information');
-    Exit;
-  end;
-
-  // Wait for DeviceInformation
-  if not Supports(AsyncDevInfoOp, IAsyncInfo, AsyncInfo) then
-  begin
-    LogError('Unpair: Failed to get IAsyncInfo for CreateFromIdAsync', ClassName);
-    Result := TPairingResult.Failed(0, 'Internal error: async operation failed');
-    Exit;
-  end;
-
-  if not WaitForAsyncOperation(AsyncInfo, 10000, ClassName) then
-  begin
-    // Check if it was a timeout or an async error
-    var ErrorCode: HRESULT := S_OK;
-    var AsyncStatus: Integer := 0;
-    AsyncInfo.get_Status(AsyncStatus);
-    AsyncInfo.get_ErrorCode(ErrorCode);
-
-    if AsyncStatus = 3 then // AsyncStatus_Error
-    begin
-      LogError('Unpair: CreateFromIdAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
-      Result := TPairingResult.Failed(ErrorCode, 'Device not found');
-      Exit;
-    end
-    else
-    begin
-      LogError('Unpair: CreateFromIdAsync timeout', ClassName);
-      Result := TPairingResult.Timeout;
-      Exit;
-    end;
-  end;
-
-  // Get DeviceInformation
-  HR := (AsyncDevInfoOp as IAsyncOperationDeviceInformation).GetResults(DevInfo);
-  if Failed(HR) or (DevInfo = nil) then
-  begin
-    LogError('Unpair: GetResults for DeviceInformation failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to retrieve device information');
-    Exit;
-  end;
-
-  // Get Pairing interface
-  PairingIntf := GetDevicePairingInterface(DevInfo);
-  if PairingIntf = nil then
-  begin
-    LogError('Unpair: Failed to get pairing interface', ClassName);
-    Result := TPairingResult.Failed(0, 'Device does not support pairing operations');
-    Exit;
-  end;
-
-  // Query for IDeviceInformationPairing2 (adds UnpairAsync)
-  HR := PairingIntf.QueryInterface(IDeviceInformationPairing2, Pairing2);
-  if Failed(HR) or (Pairing2 = nil) then
-  begin
-    LogError('Unpair: QueryInterface for Pairing2 failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Unpairing not supported (requires Windows 10+)');
-    Exit;
-  end;
-
-  // Initiate unpairing
-  LogDebug('Unpair: Calling UnpairAsync', ClassName);
-  HR := Pairing2.UnpairAsync(AsyncUnpairOp);
-  if Failed(HR) or (AsyncUnpairOp = nil) then
-  begin
-    LogError('Unpair: UnpairAsync failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to initiate unpairing');
-    Exit;
-  end;
-
-  if not Supports(AsyncUnpairOp, IAsyncInfo, AsyncInfo) then
-  begin
-    LogError('Unpair: Failed to get IAsyncInfo for UnpairAsync', ClassName);
-    Result := TPairingResult.Failed(0, 'Internal error');
-    Exit;
-  end;
-
-  if not WaitForAsyncOperation(AsyncInfo, 10000, ClassName) then
-  begin
-    // Check if it was a timeout or an async error
-    var ErrorCode: HRESULT := S_OK;
-    var AsyncStatus: Integer := 0;
-    AsyncInfo.get_Status(AsyncStatus);
-    AsyncInfo.get_ErrorCode(ErrorCode);
-
-    if AsyncStatus = 3 then // AsyncStatus_Error
-    begin
-      LogError('Unpair: UnpairAsync failed with HRESULT 0x%.8X', [ErrorCode], ClassName);
-      Result := TPairingResult.Failed(ErrorCode, 'Unpairing failed');
-      Exit;
-    end
-    else
-    begin
-      LogWarning('Unpair: Unpairing timeout', ClassName);
-      Result := TPairingResult.Timeout;
-      Exit;
-    end;
-  end;
-
-  HR := AsyncUnpairOp.GetResults(UnpairResult);
-  if Failed(HR) or (UnpairResult = nil) then
-  begin
-    LogError('Unpair: GetResults failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to get unpairing result');
-    Exit;
-  end;
-
-  HR := UnpairResult.get_Status(Status);
-  if Failed(HR) then
-  begin
-    LogError('Unpair: get_Status failed: 0x%.8X', [HR], ClassName);
-    Result := TPairingResult.Failed(HR, 'Failed to get unpairing status');
-    Exit;
-  end;
-
-  // Status 0 = success for unpairing (DeviceUnpairingResultStatus.Unpaired)
-  if Status = 0 then
-  begin
-    LogInfo('Unpair: Device unpaired successfully', ClassName);
-    Result := TPairingResult.Success;
-  end
-  else
-  begin
-    LogError('Unpair: Failed with status %d', [Status], ClassName);
-    Result := TPairingResult.Failed(Status, Format('Unpairing failed with status %d', [Status]));
-  end;
 
   except
     on E: Exception do
     begin
-      LogError('Unpair: Exception during unpairing: %s', [E.Message], ClassName);
-      Result := TPairingResult.Failed(0, 'Unpairing failed: ' + E.Message);
+      LogError('UnpairUsingClassicAPI: Exception: %s', [E.Message], ClassName);
+      Result := TPairingResult.Failed(0, 'Classic unpair failed: ' + E.Message);
     end;
   end;
 end;

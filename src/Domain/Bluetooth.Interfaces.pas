@@ -207,6 +207,12 @@ type
     function ToggleConnection(const ADevice: TBluetoothDeviceInfo): Boolean;
 
     /// <summary>
+    /// Removes a device from the internal cache/repository.
+    /// Used after unpairing to prevent the device from reappearing in the list.
+    /// </summary>
+    procedure RemoveDevice(ADeviceAddress: UInt64);
+
+    /// <summary>
     /// Gets/sets the handler for device state changes.
     /// </summary>
     function GetOnDeviceStateChanged: TDeviceStateChangedEvent;

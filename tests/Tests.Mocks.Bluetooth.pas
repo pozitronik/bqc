@@ -448,6 +448,7 @@ type
     function Connect(const ADevice: TBluetoothDeviceInfo): Boolean;
     function Disconnect(const ADevice: TBluetoothDeviceInfo): Boolean;
     function ToggleConnection(const ADevice: TBluetoothDeviceInfo): Boolean;
+    procedure RemoveDevice(ADeviceAddress: UInt64);
     function GetOnDeviceStateChanged: TDeviceStateChangedEvent;
     procedure SetOnDeviceStateChanged(AValue: TDeviceStateChangedEvent);
     function GetOnDeviceListChanged: TDeviceListChangedEvent;
@@ -1326,6 +1327,27 @@ begin
     Result := FDisconnectResult.Success
   else
     Result := FConnectResult.Success;
+end;
+
+procedure TMockBluetoothService.RemoveDevice(ADeviceAddress: UInt64);
+var
+  I: Integer;
+  NewDevices: TBluetoothDeviceInfoArray;
+  WriteIndex: Integer;
+begin
+  // Remove device from mock device list
+  WriteIndex := 0;
+  SetLength(NewDevices, Length(FDevices));
+  for I := 0 to High(FDevices) do
+  begin
+    if FDevices[I].AddressInt <> ADeviceAddress then
+    begin
+      NewDevices[WriteIndex] := FDevices[I];
+      Inc(WriteIndex);
+    end;
+  end;
+  SetLength(NewDevices, WriteIndex);
+  FDevices := NewDevices;
 end;
 
 function TMockBluetoothService.GetOnDeviceStateChanged: TDeviceStateChangedEvent;
