@@ -72,19 +72,6 @@ type
     function GetPairedDeviceAddresses: TArray<UInt64>;
   end;
 
-/// <summary>
-/// Creates a pairing service instance.
-/// </summary>
-/// <param name="APairingStrategyFactory">Factory for pairing strategies.</param>
-/// <param name="ADeviceRepository">Device repository (optional).</param>
-/// <param name="AConnectionConfig">Connection configuration (optional).</param>
-/// <returns>Pairing service instance.</returns>
-function CreatePairingService(
-  APairingStrategyFactory: IPairingStrategyFactory;
-  ADeviceRepository: IDeviceRepository;
-  AConnectionConfig: IConnectionConfig
-): IBluetoothPairingService;
-
 implementation
 
 uses
@@ -261,19 +248,6 @@ begin
   finally
     AddressList.Free;
   end;
-end;
-
-function CreatePairingService(
-  APairingStrategyFactory: IPairingStrategyFactory;
-  ADeviceRepository: IDeviceRepository;
-  AConnectionConfig: IConnectionConfig
-): IBluetoothPairingService;
-begin
-  Result := TBluetoothPairingService.Create(
-    APairingStrategyFactory,
-    ADeviceRepository,
-    AConnectionConfig
-  );
 end;
 
 end.
