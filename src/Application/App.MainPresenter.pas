@@ -24,7 +24,8 @@ uses
   App.LayoutConfigIntf,
   App.AsyncExecutor,
   App.DeviceDisplayTypes,
-  App.DeviceDisplayItemBuilder;
+  App.DeviceDisplayItemBuilder,
+  App.DeviceNotificationCoordinator;
 
 type
   /// <summary>
@@ -50,6 +51,9 @@ type
 
     FBluetoothService: IBluetoothService;
     FPairingService: IBluetoothPairingService;
+
+    { Coordinators (extracted from god class) }
+    FNotificationCoordinator: TDeviceNotificationCoordinator;
 
     { Injected configuration dependencies }
     FAppConfig: IAppConfig;
@@ -132,7 +136,6 @@ type
     procedure RemoveDeviceFromList(ADeviceAddress: UInt64);
 
     function GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
-    procedure ShowDeviceNotification(const ADevice: TBluetoothDeviceInfo);
     procedure RefreshDisplayItems;
 
     /// <summary>
@@ -420,6 +423,10 @@ begin
   FPairingService := APairingService;
   FDisplayItemBuilder := ADisplayItemBuilder;
   FBatteryCache := nil;
+
+  // Create coordinators (extracted from god class)
+  FNotificationCoordinator := TDeviceNotificationCoordinator.Create(FStatusView, FDeviceConfigProvider);
+
   FDeviceList := TList<TBluetoothDeviceInfo>.Create;
   FDeviceIndexMap := TDictionary<UInt64, Integer>.Create;
   FUnpairedDevicesInRange := TList<TBluetoothDeviceInfo>.Create;
@@ -439,6 +446,7 @@ end;
 destructor TMainPresenter.Destroy;
 begin
   Shutdown;
+  FNotificationCoordinator.Free;
   FBatteryCache := nil;
   FDeviceStatusMessages.Free;
   FUnpairedDeviceIndexMap.Free;
@@ -1114,35 +1122,6 @@ begin
     Result := ADevice.Name;
 end;
 
-procedure TMainPresenter.ShowDeviceNotification(const ADevice: TBluetoothDeviceInfo);
-var
-  NotifyMode: TNotificationMode;
-  DeviceName: string;
-begin
-  DeviceName := GetDeviceDisplayName(ADevice);
-
-  case ADevice.ConnectionState of
-    csConnected:
-      begin
-        NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnect);
-        if NotifyMode = nmBalloon then
-          FStatusView.ShowNotification(DeviceName, 'Connected', nfInfo);
-      end;
-    csDisconnected:
-      begin
-        NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neDisconnect);
-        if NotifyMode = nmBalloon then
-          FStatusView.ShowNotification(DeviceName, 'Disconnected', nfInfo);
-      end;
-    csError:
-      begin
-        NotifyMode := FDeviceConfigProvider.GetEffectiveNotification(ADevice.AddressInt, neConnectFailed);
-        if NotifyMode = nmBalloon then
-          FStatusView.ShowNotification(DeviceName, 'Connection failed', nfError);
-      end;
-  end;
-end;
-
 function TMainPresenter.CreateScanActionItem: TDeviceDisplayItem;
 var
   DummyDevice: TBluetoothDeviceInfo;
@@ -1461,7 +1440,7 @@ begin
       RefreshDisplayItems;
 
       FStatusView.ShowStatus(Format('%s: %s', [LDevice.Name, TDeviceFormatter.FormatConnectionState(LDevice.ConnectionState)]));
-      ShowDeviceNotification(LDevice);
+      FNotificationCoordinator.ShowNotification(LDevice);
     end
   );
 end;
