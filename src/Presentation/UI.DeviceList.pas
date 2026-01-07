@@ -328,22 +328,23 @@ const
   ICON_BATTERY_0 = #$E850;         // 0% (empty)
   ICON_BATTERY_100 = #$E83F;       // 100% (full)
 
-  // System icon indices for Win7 compatibility (extracted from DLL resources)
-  // Format: [File, Index] - Indices based on Windows 7 resource inspection
-  SYSICON_COMPUTER_FILE = 'shell32.dll';
-  SYSICON_COMPUTER_INDEX = 15;        // Desktop computer icon
-  SYSICON_PHONE_FILE = 'imageres.dll';
-  SYSICON_PHONE_INDEX = 41;           // Mobile phone icon
-  SYSICON_HEADPHONE_FILE = 'imageres.dll';
-  SYSICON_HEADPHONE_INDEX = 120;      // Headphones/audio icon
-  SYSICON_KEYBOARD_FILE = 'imageres.dll';
-  SYSICON_KEYBOARD_INDEX = 174;       // Keyboard icon
-  SYSICON_MOUSE_FILE = 'imageres.dll';
-  SYSICON_MOUSE_INDEX = 175;          // Mouse icon
-  SYSICON_GAMEPAD_FILE = 'imageres.dll';
-  SYSICON_GAMEPAD_INDEX = 74;         // Gaming controller icon (fallback: use generic)
-  SYSICON_GENERIC_FILE = 'shell32.dll';
-  SYSICON_GENERIC_INDEX = 13;         // Generic network/Bluetooth device
+  // System icon indices for Win7 compatibility (extracted from ddores.dll)
+  // ddores.dll = Device Center resources, contains proper device icons on Win7+
+  // Verified indices using IconViewer tool on actual Win7 installation
+  SYSICON_HEADPHONE_FILE = 'ddores.dll';
+  SYSICON_HEADPHONE_INDEX = 2;        // Headphones/speakers (also: 6=headset, 7=headset variant)
+  SYSICON_KEYBOARD_FILE = 'ddores.dll';
+  SYSICON_KEYBOARD_INDEX = 26;        // Keyboard icon
+  SYSICON_MOUSE_FILE = 'ddores.dll';
+  SYSICON_MOUSE_INDEX = 27;           // Mouse icon
+  SYSICON_COMPUTER_FILE = 'ddores.dll';
+  SYSICON_COMPUTER_INDEX = 12;        // Desktop computer icon
+  SYSICON_PHONE_FILE = 'ddores.dll';
+  SYSICON_PHONE_INDEX = 11;           // Mobile device icon
+  SYSICON_GAMEPAD_FILE = 'ddores.dll';
+  SYSICON_GAMEPAD_INDEX = 25;         // Gamepad/controller icon
+  SYSICON_GENERIC_FILE = 'ddores.dll';
+  SYSICON_GENERIC_INDEX = 0;          // Generic device icon
 
   // Layout spacing constants
   FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
