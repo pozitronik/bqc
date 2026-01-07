@@ -911,7 +911,7 @@ const
   COD_MINOR_PERIPH_KEYBOARD   = $10;
   COD_MINOR_PERIPH_POINTING   = $20;
   COD_MINOR_PERIPH_COMBO      = $30;
-  COD_MINOR_PERIPH_GAMEPAD    = $08;
+  COD_MINOR_PERIPH_GAMEPAD    = $02;  // Bluetooth spec: gamepad subtype = 2 (not 8!)
 
 { Helper Functions }
 
@@ -948,15 +948,17 @@ begin
 
     COD_MAJOR_PERIPHERAL:
       begin
+        // Check gamepad FIRST - gamepads often set keyboard/pointing bits for d-pad navigation
+        // This matches Windows device detection behavior
+        if (MinorClass and $0F) = COD_MINOR_PERIPH_GAMEPAD then
+          Result := btGamepad
         // Check keyboard/pointing bits (bits 6-7 of minor class)
-        if (MinorClass and $30) = COD_MINOR_PERIPH_KEYBOARD then
+        else if (MinorClass and $30) = COD_MINOR_PERIPH_KEYBOARD then
           Result := btKeyboard
         else if (MinorClass and $30) = COD_MINOR_PERIPH_POINTING then
           Result := btMouse
         else if (MinorClass and $30) = COD_MINOR_PERIPH_COMBO then
           Result := btKeyboard // Keyboard+Mouse combo
-        else if (MinorClass and $0F) = COD_MINOR_PERIPH_GAMEPAD then
-          Result := btGamepad
         else
           Result := btHID;
       end;

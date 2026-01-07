@@ -386,7 +386,7 @@ const
   MINOR_PERIPH_KEYBOARD   = $40;   // 0x10 << 2
   MINOR_PERIPH_POINTING   = $80;   // 0x20 << 2
   MINOR_PERIPH_COMBO      = $C0;   // 0x30 << 2
-  MINOR_PERIPH_GAMEPAD    = $20;   // 0x08 << 2 (in lower nibble)
+  MINOR_PERIPH_GAMEPAD    = $08;   // 0x02 << 2 (Bluetooth spec: gamepad subtype = 2)
 
 procedure TDetermineDeviceTypeTests.Computer_Desktop_ReturnsComputer;
 begin
