@@ -44,9 +44,6 @@ const
   WM_DPICHANGED = $02E0;
   WM_FOREGROUND_LOST = WM_USER + 200;  // Custom message for foreground loss detection
 
-  // Windows Settings URI for Bluetooth
-  WINDOWS_BLUETOOTH_SETTINGS_URI = 'ms-settings:bluetooth';
-
   // WinEvent constants (not defined in Winapi.Windows)
   EVENT_SYSTEM_FOREGROUND = $0003;
   WINEVENT_OUTOFCONTEXT = $0000;
@@ -1051,12 +1048,8 @@ begin
 end;
 
 procedure TFormMain.HandleWindowsSettingsClick(Sender: TObject);
-var
-  Result: HINST;
 begin
-  Result := ShellExecute(0, 'open', WINDOWS_BLUETOOTH_SETTINGS_URI, nil, nil, SW_SHOWNORMAL);
-  if Result <= 32 then
-    LogWarning('Failed to open Windows Bluetooth settings, error code: %d', [Result], ClassName);
+  FPresenter.OnBluetoothSettingsRequested;
 end;
 
 procedure TFormMain.HandleRefreshClick(Sender: TObject);

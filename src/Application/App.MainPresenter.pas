@@ -324,6 +324,12 @@ type
     procedure OnExitRequested;
 
     /// <summary>
+    /// Called when user requests to open Windows Bluetooth settings.
+    /// Opens appropriate settings UI based on OS version.
+    /// </summary>
+    procedure OnBluetoothSettingsRequested;
+
+    /// <summary>
     /// Called when settings have been changed.
     /// Restarts Bluetooth monitoring if polling settings changed.
     /// </summary>
@@ -351,10 +357,12 @@ implementation
 
 uses
   Winapi.Windows,
+  Winapi.ShellAPI,
   Vcl.Clipbrd,
   App.Logger,
   App.ConfigEnums,
   App.DeviceConfigTypes,
+  App.WinRTSupport,
   Bluetooth.WinAPI,
   Bluetooth.BatteryQuery,
   Bluetooth.ProfileQuery,
@@ -1917,6 +1925,30 @@ procedure TMainPresenter.OnExitRequested;
 begin
   LogInfo('OnExitRequested', ClassName);
   FVisibilityView.ForceClose;
+end;
+
+procedure TMainPresenter.OnBluetoothSettingsRequested;
+const
+  WINDOWS_BLUETOOTH_SETTINGS_URI = 'ms-settings:bluetooth';
+var
+  Result: HINST;
+begin
+  LogInfo('OnBluetoothSettingsRequested: Opening Bluetooth settings', ClassName);
+
+  // Win7 uses classic Control Panel, Win8+ uses modern Settings app
+  if TWinRTSupport.IsAvailable then
+  begin
+    LogDebug('OnBluetoothSettingsRequested: Opening modern Settings app', ClassName);
+    Result := ShellExecute(0, 'open', WINDOWS_BLUETOOTH_SETTINGS_URI, nil, nil, SW_SHOWNORMAL);
+  end
+  else
+  begin
+    LogDebug('OnBluetoothSettingsRequested: Opening classic Control Panel', ClassName);
+    Result := ShellExecute(0, 'open', 'control.exe', 'bthprops.cpl', nil, SW_SHOWNORMAL);
+  end;
+
+  if Result <= 32 then
+    LogWarning('OnBluetoothSettingsRequested: Failed to open Bluetooth settings, error code: %d', [Result], ClassName);
 end;
 
 procedure TMainPresenter.OnSettingsChanged;
