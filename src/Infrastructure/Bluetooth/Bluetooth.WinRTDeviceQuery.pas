@@ -471,37 +471,40 @@ begin
       LogDebug('EnumerateClassicDevices: Found %d device info entries', [Count], LOG_SOURCE);
       LogDebug('EnumerateClassicDevices: About to enter device loop (Count=%d)', [Count], LOG_SOURCE);
 
+      // Use while loop to avoid Cardinal underflow when Count=0 (Count-1 would be 4294967295)
+      // Wrap in try-finally to ensure Inc(I) executes even with Continue statements
       I := 0;
       while I < Count do
       begin
-        HR := Collection.GetAt(I, DevInfo);
-        if Failed(HR) or (DevInfo = nil) then
-          Continue;
+        try
+          HR := Collection.GetAt(I, DevInfo);
+          if Failed(HR) or (DevInfo = nil) then
+            Continue;
 
-        // Get device ID
-        HR := DevInfo.get_Id(DeviceId);
-        if Failed(HR) or (DeviceId = 0) then
-          Continue;
+          // Get device ID
+          HR := DevInfo.get_Id(DeviceId);
+          if Failed(HR) or (DeviceId = 0) then
+            Continue;
 
-        DeviceIdStr := HStringToString(DeviceId);
-        FreeHString(DeviceId);
+          DeviceIdStr := HStringToString(DeviceId);
+          FreeHString(DeviceId);
 
-        // Get BluetoothDevice.FromIdAsync
-        ClassName := CreateHString(DeviceIdStr);
-        HR := Statics.FromIdAsync(ClassName, AsyncDevOp);
-        FreeHString(ClassName);
+          // Get BluetoothDevice.FromIdAsync
+          ClassName := CreateHString(DeviceIdStr);
+          HR := Statics.FromIdAsync(ClassName, AsyncDevOp);
+          FreeHString(ClassName);
 
-        if Failed(HR) or (AsyncDevOp = nil) then
-        begin
-          LogDebug('EnumerateClassicDevices: FromIdAsync failed for %s: 0x%.8X', [DeviceIdStr, HR], LOG_SOURCE);
-          Continue;
-        end;
+          if Failed(HR) or (AsyncDevOp = nil) then
+          begin
+            LogDebug('EnumerateClassicDevices: FromIdAsync failed for %s: 0x%.8X', [DeviceIdStr, HR], LOG_SOURCE);
+            Continue;
+          end;
 
-        if not Supports(AsyncDevOp, IAsyncInfo, AsyncInfo) then
-          Continue;
+          if not Supports(AsyncDevOp, IAsyncInfo, AsyncInfo) then
+            Continue;
 
-        if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS, LOG_SOURCE) then
-          Continue;
+          if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS, LOG_SOURCE) then
+            Continue;
 
           HR := AsyncDevOp.GetResults(BTDevice);
           if Failed(HR) or (BTDevice = nil) then
@@ -547,8 +550,9 @@ begin
             [Address, DeviceNameStr, CoD, BoolToStr(ConnStatus = BluetoothConnectionStatus_Connected, True)], LOG_SOURCE);
 
           DeviceList.Add(Device);
-
-        Inc(I);
+        finally
+          Inc(I);  // Always increment, even when Continue is executed
+        end;
       end;
 
       LogDebug('EnumerateClassicDevices: Exited device loop, DeviceList.Count=%d', [DeviceList.Count], LOG_SOURCE);
@@ -728,77 +732,81 @@ begin
       LogDebug('EnumerateBLEDevices: Found %d device info entries', [Count], LOG_SOURCE);
       LogDebug('EnumerateBLEDevices: About to enter device loop (Count=%d)', [Count], LOG_SOURCE);
 
+      // Use while loop to avoid Cardinal underflow when Count=0 (Count-1 would be 4294967295)
+      // Wrap in try-finally to ensure Inc(I) executes even with Continue statements
       I := 0;
       while I < Count do
       begin
-        HR := Collection.GetAt(I, DevInfo);
-        if Failed(HR) or (DevInfo = nil) then
-          Continue;
-
-        // Get device ID
-        HR := DevInfo.get_Id(DeviceId);
-        if Failed(HR) or (DeviceId = 0) then
-          Continue;
-
-        DeviceIdStr := HStringToString(DeviceId);
-        FreeHString(DeviceId);
-
-        // Get BluetoothLEDevice.FromIdAsync
-        ClassName := CreateHString(DeviceIdStr);
         try
-          HR := Statics.FromIdAsync(ClassName, AsyncDevOp);
-          if Failed(HR) or (AsyncDevOp = nil) then
-          begin
-            LogDebug('EnumerateBLEDevices: FromIdAsync failed for %s: 0x%.8X', [DeviceIdStr, HR], LOG_SOURCE);
+          HR := Collection.GetAt(I, DevInfo);
+          if Failed(HR) or (DevInfo = nil) then
             Continue;
+
+          // Get device ID
+          HR := DevInfo.get_Id(DeviceId);
+          if Failed(HR) or (DeviceId = 0) then
+            Continue;
+
+          DeviceIdStr := HStringToString(DeviceId);
+          FreeHString(DeviceId);
+
+          // Get BluetoothLEDevice.FromIdAsync
+          ClassName := CreateHString(DeviceIdStr);
+          try
+            HR := Statics.FromIdAsync(ClassName, AsyncDevOp);
+            if Failed(HR) or (AsyncDevOp = nil) then
+            begin
+              LogDebug('EnumerateBLEDevices: FromIdAsync failed for %s: 0x%.8X', [DeviceIdStr, HR], LOG_SOURCE);
+              Continue;
+            end;
+
+            if not Supports(AsyncDevOp, IAsyncInfo, AsyncInfo) then
+              Continue;
+
+            if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS, LOG_SOURCE) then
+              Continue;
+
+            HR := AsyncDevOp.GetResults(BLEDevice);
+            if Failed(HR) or (BLEDevice = nil) then
+            begin
+              LogDebug('EnumerateBLEDevices: GetResults for BLEDevice failed: 0x%.8X', [HR], LOG_SOURCE);
+              Continue;
+            end;
+
+            // Extract device info
+            BLEDevice.get_BluetoothAddress(Address);
+
+            DeviceName := 0;
+            BLEDevice.get_Name(DeviceName);
+            DeviceNameStr := HStringToString(DeviceName);
+            FreeHString(DeviceName);
+
+            BLEDevice.get_ConnectionStatus(ConnStatus);
+
+            // Create TBluetoothDeviceInfo (BLE devices have CoD=0)
+            Device := TBluetoothDeviceInfo.Create(
+              UInt64ToBluetoothAddress(Address),
+              Address,
+              DeviceNameStr,
+              btUnknown,  // BLE devices don't have CoD, will be determined by usage
+              TBluetoothConnectionState(Ord(ConnStatus = BluetoothConnectionStatus_Connected)),
+              True,  // IsPaired
+              True,  // IsAuthenticated
+              0,     // CoD = 0 for BLE
+              Now,
+              0
+            );
+
+            LogDebug('EnumerateBLEDevices: Device Address=$%.12X, Name="%s", CoD=0 (BLE), Connected=%s',
+              [Address, DeviceNameStr, BoolToStr(ConnStatus = BluetoothConnectionStatus_Connected, True)], LOG_SOURCE);
+
+            DeviceList.Add(Device);
+          finally
+            FreeHString(ClassName);
           end;
-
-          if not Supports(AsyncDevOp, IAsyncInfo, AsyncInfo) then
-            Continue;
-
-          if not WaitForAsyncOperation(AsyncInfo, DEFAULT_TIMEOUT_MS, LOG_SOURCE) then
-            Continue;
-
-          HR := AsyncDevOp.GetResults(BLEDevice);
-          if Failed(HR) or (BLEDevice = nil) then
-          begin
-            LogDebug('EnumerateBLEDevices: GetResults for BLEDevice failed: 0x%.8X', [HR], LOG_SOURCE);
-            Continue;
-          end;
-
-          // Extract device info
-          BLEDevice.get_BluetoothAddress(Address);
-
-          DeviceName := 0;
-          BLEDevice.get_Name(DeviceName);
-          DeviceNameStr := HStringToString(DeviceName);
-          FreeHString(DeviceName);
-
-          BLEDevice.get_ConnectionStatus(ConnStatus);
-
-          // Create TBluetoothDeviceInfo (BLE devices have CoD=0)
-          Device := TBluetoothDeviceInfo.Create(
-            UInt64ToBluetoothAddress(Address),
-            Address,
-            DeviceNameStr,
-            btUnknown,  // BLE devices don't have CoD, will be determined by usage
-            TBluetoothConnectionState(Ord(ConnStatus = BluetoothConnectionStatus_Connected)),
-            True,  // IsPaired
-            True,  // IsAuthenticated
-            0,     // CoD = 0 for BLE
-            Now,
-            0
-          );
-
-          LogDebug('EnumerateBLEDevices: Device Address=$%.12X, Name="%s", CoD=0 (BLE), Connected=%s',
-            [Address, DeviceNameStr, BoolToStr(ConnStatus = BluetoothConnectionStatus_Connected, True)], LOG_SOURCE);
-
-          DeviceList.Add(Device);
         finally
-          FreeHString(ClassName);
+          Inc(I);  // Always increment, even when Continue is executed
         end;
-
-        Inc(I);
       end;
 
       LogDebug('EnumerateBLEDevices: Exited device loop, DeviceList.Count=%d', [DeviceList.Count], LOG_SOURCE);
