@@ -228,6 +228,7 @@ uses
   Vcl.Themes,
   ShellAPI,
   Bluetooth.Service,
+  Bluetooth.BatteryQuery,
   Bluetooth.ProfileQuery,
   App.Logger,
   App.Bootstrap,
@@ -712,13 +713,28 @@ procedure TFormMain.InitializePresenter;
 var
   BluetoothService: IBluetoothService;
   DisplayItemBuilder: IDeviceDisplayItemBuilder;
+  BatteryQuery: IBatteryQuery;
+  ProfileQuery: IProfileQuery;
 begin
+  // Create queries for connection verification and display
+  BatteryQuery := CreateBatteryQuery;
+  ProfileQuery := CreateProfileQuery;
+
   // Create Bluetooth service with its dependencies
+  // Connection verification strategies use battery and profile queries
   BluetoothService := CreateBluetoothService(
     FPollingConfig,
     FConnectionConfig,
     FDeviceConfigProvider,
-    FStrategyFactory
+    FStrategyFactory,
+    nil,            // ADeviceMonitor - use default
+    nil,            // ADeviceRepository - use default
+    nil,            // AConnectionExecutor - use default
+    nil,            // AAdapterQuery - use default
+    nil,            // AEventDebouncer - use default
+    nil,            // AVerificationStrategy - auto-created from default
+    BatteryQuery,   // ABatteryQuery - for vsBatteryQuery verification strategy
+    ProfileQuery    // AProfileQuery - for vsProfileQuery verification strategy
   );
 
   // Create display item builder with its dependencies
@@ -726,7 +742,7 @@ begin
     FDeviceConfigProvider,
     FAppearanceConfig,
     Bootstrap.ProfileConfig,
-    CreateProfileQuery
+    ProfileQuery  // Reuse the same ProfileQuery instance
   );
 
   // Create and initialize presenter with injected dependencies

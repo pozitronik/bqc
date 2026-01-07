@@ -19,6 +19,7 @@ uses
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.ConnectionStrategies,
+  Bluetooth.ConnectionVerification,
   App.Logger,
   App.ConfigInterfaces,
   App.DeviceConfigTypes,
@@ -47,6 +48,7 @@ type
     FConnectionExecutor: IConnectionExecutor;
     FAdapterQuery: IBluetoothAdapterQuery;
     FEventDebouncer: IEventDebouncer;
+    FVerificationStrategy: IConnectionVerificationStrategy;
 
     procedure DoDeviceStateChanged(const ADevice: TBluetoothDeviceInfo);
     procedure DoDeviceDiscovered(const ADevice: TBluetoothDeviceInfo);
@@ -101,7 +103,8 @@ type
       ADeviceRepository: IDeviceRepository;
       AConnectionExecutor: IConnectionExecutor;
       AAdapterQuery: IBluetoothAdapterQuery;
-      AEventDebouncer: IEventDebouncer
+      AEventDebouncer: IEventDebouncer;
+      AVerificationStrategy: IConnectionVerificationStrategy
     );
     destructor Destroy; override;
 
@@ -131,7 +134,10 @@ function CreateBluetoothService(
   ADeviceRepository: IDeviceRepository = nil;
   AConnectionExecutor: IConnectionExecutor = nil;
   AAdapterQuery: IBluetoothAdapterQuery = nil;
-  AEventDebouncer: IEventDebouncer = nil
+  AEventDebouncer: IEventDebouncer = nil;
+  AVerificationStrategy: IConnectionVerificationStrategy = nil;
+  ABatteryQuery: IBatteryQuery = nil;
+  AProfileQuery: IProfileQuery = nil
 ): IBluetoothService;
 
 implementation
@@ -161,7 +167,10 @@ function CreateBluetoothService(
   ADeviceRepository: IDeviceRepository;
   AConnectionExecutor: IConnectionExecutor;
   AAdapterQuery: IBluetoothAdapterQuery;
-  AEventDebouncer: IEventDebouncer
+  AEventDebouncer: IEventDebouncer;
+  AVerificationStrategy: IConnectionVerificationStrategy;
+  ABatteryQuery: IBatteryQuery;
+  AProfileQuery: IProfileQuery
 ): IBluetoothService;
 var
   LDeviceMonitor: IDeviceMonitor;
@@ -169,6 +178,7 @@ var
   LConnectionExecutor: IConnectionExecutor;
   LAdapterQuery: IBluetoothAdapterQuery;
   LEventDebouncer: IEventDebouncer;
+  LVerificationStrategy: IConnectionVerificationStrategy;
   MonitorFactory: IDeviceMonitorFactory;
 begin
   // Use provided dependencies or create defaults
@@ -200,6 +210,13 @@ begin
   else
     LEventDebouncer := TDeviceEventDebouncer.Create(SystemClock, 500);
 
+  // Create verification strategy if not provided
+  // Uses DEFAULT_VERIFICATION_STRATEGY constant from Bluetooth.ConnectionVerification
+  if AVerificationStrategy <> nil then
+    LVerificationStrategy := AVerificationStrategy
+  else
+    LVerificationStrategy := CreateDefaultVerificationStrategy(ABatteryQuery, AProfileQuery);
+
   Result := TBluetoothService.Create(
     AConnectionConfig,
     ADeviceConfigProvider,
@@ -208,7 +225,8 @@ begin
     LDeviceRepository,
     LConnectionExecutor,
     LAdapterQuery,
-    LEventDebouncer
+    LEventDebouncer,
+    LVerificationStrategy
   );
 end;
 
@@ -222,7 +240,8 @@ constructor TBluetoothService.Create(
   ADeviceRepository: IDeviceRepository;
   AConnectionExecutor: IConnectionExecutor;
   AAdapterQuery: IBluetoothAdapterQuery;
-  AEventDebouncer: IEventDebouncer
+  AEventDebouncer: IEventDebouncer;
+  AVerificationStrategy: IConnectionVerificationStrategy
 );
 begin
   inherited Create;
@@ -236,6 +255,7 @@ begin
   FConnectionExecutor := AConnectionExecutor;
   FAdapterQuery := AAdapterQuery;
   FEventDebouncer := AEventDebouncer;
+  FVerificationStrategy := AVerificationStrategy;
 
   // Configure and start device monitor
   FDeviceMonitor.OnDeviceStateChanged := HandleMonitorDeviceStateChanged;
@@ -370,7 +390,38 @@ begin
   if Result then
   begin
     if AEnable then
-      UpdatedDevice := ADevice.WithConnectionState(csConnected)
+    begin
+      // CRITICAL: Windows may report connection success even for powered-off devices
+      // Verify connection by actually communicating with the device
+      if Assigned(FVerificationStrategy) then
+      begin
+        LogDebug('ConnectWithStrategy: Verifying connection for $%.12X using %s strategy',
+          [ADevice.AddressInt, FVerificationStrategy.GetStrategyName], ClassName);
+
+        if FVerificationStrategy.VerifyConnection(ADevice.AddressInt) then
+        begin
+          LogInfo('ConnectWithStrategy: Connection VERIFIED for $%.12X (%s)',
+            [ADevice.AddressInt, ADevice.Name], ClassName);
+          UpdatedDevice := ADevice.WithConnectionState(csConnected);
+        end
+        else
+        begin
+          LogWarning('ConnectWithStrategy: Connection VERIFICATION FAILED for $%.12X (%s) - ' +
+            'Windows reported success but device is unreachable. Rejecting connection.',
+            [ADevice.AddressInt, ADevice.Name], ClassName);
+          UpdatedDevice := ADevice.WithConnectionState(csDisconnected);
+          Result := False;
+          DoError('Connection verification failed - device unreachable', 0);
+        end;
+      end
+      else
+      begin
+        // No verification strategy - trust Windows (vulnerable to bug)
+        LogWarning('ConnectWithStrategy: No verification strategy - trusting Windows state ' +
+          '(vulnerable to false positives)', ClassName);
+        UpdatedDevice := ADevice.WithConnectionState(csConnected);
+      end;
+    end
     else
       UpdatedDevice := ADevice.WithConnectionState(csDisconnected);
   end
@@ -491,7 +542,26 @@ begin
     ADeviceAddress, Ord(ANewState)
   ], ClassName);
 
-  // Determine event type based on new state
+  // CRITICAL: Windows may report csConnected for powered-off devices (bug)
+  // Verify connection before accepting state change
+  if (ANewState = csConnected) and Assigned(FVerificationStrategy) then
+  begin
+    LogDebug('HandleMonitorDeviceStateChanged: Verifying connection for $%.12X using %s strategy',
+      [ADeviceAddress, FVerificationStrategy.GetStrategyName], ClassName);
+
+    if not FVerificationStrategy.VerifyConnection(ADeviceAddress) then
+    begin
+      LogWarning('HandleMonitorDeviceStateChanged: Connection VERIFICATION FAILED for $%.12X - ' +
+        'Windows reported connected but device is unreachable. Rejecting state change.',
+        [ADeviceAddress], ClassName);
+      // Override state to Disconnected - device is not actually connected
+      ANewState := csDisconnected;
+    end
+    else
+      LogDebug('HandleMonitorDeviceStateChanged: Connection VERIFIED for $%.12X', [ADeviceAddress], ClassName);
+  end;
+
+  // Determine event type based on (possibly corrected) state
   case ANewState of
     csConnected: EventType := detConnect;
     csDisconnected: EventType := detDisconnect;

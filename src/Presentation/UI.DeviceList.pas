@@ -674,6 +674,8 @@ end;
 procedure TDeviceListBox.Resize;
 begin
   inherited;
+  // Refresh layout cache on resize - dimensions may have changed
+  RefreshLayoutCache;
   UpdateScrollRange;
 end;
 
@@ -999,8 +1001,9 @@ end;
 procedure TDeviceListBox.CMStyleChanged(var Message: TMessage);
 begin
   inherited;
-  // VCL style has changed, force repaint to update colors
-  LogDebug('CMStyleChanged: VCL style changed, invalidating device list', ClassName);
+  // VCL style has changed - refresh layout cache and force repaint
+  LogDebug('CMStyleChanged: VCL style changed, refreshing layout cache and invalidating device list', ClassName);
+  RefreshLayoutCache;
   Invalidate;
 end;
 
@@ -1126,9 +1129,7 @@ var
   IsHover, IsSelected: Boolean;
   Style: TCustomStyleServices;
 begin
-  // Refresh cached layout params once per paint (not per item)
-  RefreshLayoutCache;
-
+  // Layout cache refreshed on resize/style change, not on every paint
   Style := TStyleManager.ActiveStyle;
 
   // Background (color source from config)

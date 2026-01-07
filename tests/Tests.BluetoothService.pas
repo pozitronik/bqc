@@ -155,7 +155,8 @@ begin
     FDeviceRepository,
     FConnectionExecutor,
     FAdapterQuery,
-    FEventDebouncer
+    FEventDebouncer,
+    nil  // AVerificationStrategy - not needed for these tests
   );
 end;
 
