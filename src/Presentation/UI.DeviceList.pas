@@ -15,20 +15,16 @@ interface
 uses
   Winapi.Windows,
   Winapi.Messages,
-  Winapi.ShellAPI,
   System.SysUtils,
   System.Classes,
   System.Types,
-  System.Generics.Collections,
   Vcl.Controls,
   Vcl.Graphics,
   Vcl.Forms,
-  Vcl.StdCtrls,
   Vcl.ExtCtrls,
   Vcl.Themes,
   Vcl.Menus,
   Bluetooth.Types,
-  App.ConfigInterfaces,
   App.ConfigEnums,
   App.LayoutConfigIntf,
   App.AppearanceConfigIntf,
@@ -192,44 +188,12 @@ type
 implementation
 
 uses
-  System.Math,
   UI.ListGeometry,
-  App.DeviceFormatter,
   App.Logger;
 
 const
-  // Font names used for rendering
-  FONT_UI = 'Segoe UI';
-  FONT_ICONS = 'Segoe MDL2 Assets';
-
-  // Profile section constants
-  PROFILE_INDENT = 20;           // Indent from left edge
-  PROFILE_ICON_SIZE = 10;        // Font size for profile icons
-  DEFAULT_PROFILE_FONT_SIZE = 7; // Fallback when config unavailable
-  PROFILE_LINE_HEIGHT_FACTOR = 2; // LineHeight = FontSize * Factor
-
-  // Icon characters from Segoe MDL2 Assets (Win10+)
-  ICON_PIN = #$E718;
-  ICON_HEADPHONE = #$E7F6;
-  ICON_MICROPHONE = #$E720;
-  ICON_KEYBOARD = #$E765;
-  ICON_MOUSE = #$E962;
-  ICON_GAMEPAD = #$E7FC;
-  ICON_COMPUTER = #$E7F8;
-  ICON_PHONE = #$E8EA;
-  ICON_INPUT_DEVICE = #$E961;
-  ICON_BLUETOOTH = #$E702;
-  // Battery icons: $E850-$E859 for 0%-90% (10% steps), $E83F for 100%
-  ICON_BATTERY_0 = #$E850;         // 0% (empty)
-  ICON_BATTERY_100 = #$E83F;       // 100% (full)
-
   // Layout spacing constants
   FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
-  PIN_ICON_FONT_SIZE = 10;     // Font size for pin icon
-  ADDRESS_SPACING = 8;         // Space between device name and address
-  BATTERY_SPACING = 4;         // Space between battery text and icon
-  BATTERY_FONT_SIZE = 9;       // Font size for battery percentage text
-  BATTERY_ICON_FONT_SIZE = 12; // Font size for battery icon
 
   // Default control dimensions
   DEFAULT_CONTROL_WIDTH = 300;
