@@ -34,99 +34,19 @@ uses
   App.AppearanceConfigIntf,
   App.ProfileConfigIntf,
   App.DeviceDisplayTypes,
-  App.WinRTSupport;
+  App.WinRTSupport,
+  UI.DeviceContextMenuBuilder,
+  UI.CustomScrollbar,
+  UI.ListDataSource,
+  UI.DeviceItemRenderer,
+  UI.DeviceListTypes;
 
 type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
   TDeviceAddressEvent = procedure(Sender: TObject; AAddress: UInt64) of object;
 
-  /// <summary>
-  /// Context record for item drawing operations.
-  /// Holds layout parameters and calculated positions to avoid repeated lookups.
-  /// </summary>
-  TItemDrawContext = record
-    // Layout settings
-    ItemPadding: Integer;
-    IconSize: Integer;
-    CornerRadius: Integer;
-    DeviceNameFontSize: Integer;
-    StatusFontSize: Integer;
-    AddressFontSize: Integer;
-    ItemBorderWidth: Integer;
-    ItemBorderColor: TColor;
-    // Appearance settings
-    ShowDeviceIcons: Boolean;
-    ShowLastSeen: Boolean;
-    ShowAddresses: Boolean;
-    ConnectedColor: TColor;
-    // Calculated positions
-    NameLineTop: Integer;
-    StatusLineTop: Integer;
-    TextRect: TRect;
-    ItemRect: TRect;
-    // State
-    IsSelected: Boolean;
-    IsHover: Boolean;
-    IsDiscovered: Boolean;  // True for unpaired discovered devices
-  end;
-
-  /// <summary>
-  /// Cached layout and appearance parameters.
-  /// Populated once per paint cycle to avoid repeated config interface queries.
-  /// </summary>
-  TCachedLayoutParams = record
-    // From ILayoutConfig
-    ItemHeight: Integer;
-    ItemMargin: Integer;
-    ItemPadding: Integer;
-    IconSize: Integer;
-    CornerRadius: Integer;
-    DeviceNameFontSize: Integer;
-    StatusFontSize: Integer;
-    AddressFontSize: Integer;
-    ItemBorderWidth: Integer;
-    ItemBorderColor: TColor;
-    // From IAppearanceConfig
-    ShowDeviceIcons: Boolean;
-    ShowLastSeen: Boolean;
-    ConnectedColor: TColor;
-    ListBackgroundSource: TListBackgroundSource;
-    ListBackgroundCustomColor: Integer;
-    MainColorSource: TMainColorSource;
-    MainCustomColor: Integer;
-    SecondaryColorSource: TSecondaryColorSource;
-    SecondaryCustomColor: Integer;
-    HoverColorSource: THoverColorSource;
-    HoverCustomColor: Integer;
-  end;
-
   TDeviceDisplayItemClickEvent = procedure(Sender: TObject;
     const AItem: TDeviceDisplayItem) of object;
-
-  /// <summary>
-  /// System icon cache for Windows 7 compatibility.
-  /// Extracts and caches device icons from shell32.dll and imageres.dll.
-  /// On Win10+, icons are rendered using Segoe MDL2 Assets font instead.
-  /// </summary>
-  TSystemIconCache = class
-  private
-    FIconHandles: TDictionary<TBluetoothDeviceType, HICON>;
-    FPinIconHandle: HICON;
-    FIconSize: Integer;
-    function TryExtractIcon(const AFilename: string; AIndex: Integer): HICON;
-    function LoadIconForDeviceType(ADeviceType: TBluetoothDeviceType): HICON;
-  public
-    constructor Create(AIconSize: Integer);
-    destructor Destroy; override;
-    /// <summary>
-    /// Gets cached icon for device type. Returns 0 if not available.
-    /// </summary>
-    function GetIcon(ADeviceType: TBluetoothDeviceType): HICON;
-    /// <summary>
-    /// Gets cached pin icon. Returns 0 if not available.
-    /// </summary>
-    function GetPinIcon: HICON;
-  end;
 
   /// <summary>
   /// Custom device list control with owner-draw rendering.
@@ -134,11 +54,9 @@ type
   /// </summary>
   TDeviceListBox = class(TCustomControl)
   private
-    FDisplayItems: TDeviceDisplayItemArray;
-    FDisplayItemIndexMap: TDictionary<UInt64, Integer>;  // Address -> Index for O(1) lookup
-    FItemHeights: TArray<Integer>;
-    FHoverIndex: Integer;
-    FSelectedIndex: Integer;
+    // Data source (extracted) - manages items, heights, selection, hover
+    FDataSource: TListDataSource;
+
     FScrollPos: Integer;
     FMaxScroll: Integer;
     FShowAddresses: Boolean;
@@ -153,9 +71,14 @@ type
     FOnUnpair: TDeviceAddressEvent;
     FOnHide: TDeviceAddressEvent;
 
-    // Context menu
-    FPopupMenu: TPopupMenu;
-    FContextMenuDeviceAddress: UInt64;
+    // Context menu builder (extracted)
+    FContextMenuBuilder: TDeviceContextMenuBuilder;
+
+    // Custom scrollbar (extracted)
+    FScrollbar: TCustomScrollbar;
+
+    // Item renderer (extracted)
+    FRenderer: TDeviceItemRenderer;
 
     // Injected configuration interfaces (for layout/appearance only)
     FLayoutConfig: ILayoutConfig;
@@ -169,26 +92,23 @@ type
     FAnimationTimer: TTimer;
     FAnimationFrame: Integer;
 
-    // Custom scrollbar state
-    FScrollbarHover: Boolean;
-    FScrollbarDragging: Boolean;
-    FScrollbarDragStartY: Integer;
-    FScrollbarDragStartScroll: Integer;
-    FListHovered: Boolean;  // True when mouse is over the entire control
-
     // Win7 system icon cache (nil on Win10+ where we use Segoe MDL2 Assets)
     FSystemIconCache: TSystemIconCache;
 
     procedure HandleAnimationTimer(Sender: TObject);
-
-    procedure BuildContextMenu(AItemIndex: Integer);
     procedure ShowContextMenuForItem(AItemIndex: Integer; X, Y: Integer);
-    procedure HandleMenuPinToggle(Sender: TObject);
-    procedure HandleMenuCopyName(Sender: TObject);
-    procedure HandleMenuCopyAddress(Sender: TObject);
-    procedure HandleMenuConfigure(Sender: TObject);
-    procedure HandleMenuUnpair(Sender: TObject);
-    procedure HandleMenuHide(Sender: TObject);
+
+    // Data source event handlers
+    procedure HandleDataSourceItemsChanged(Sender: TObject);
+    procedure HandleDataSourceSelectionChanged(Sender: TObject);
+
+    // Event setters to forward to context menu builder
+    procedure SetOnPinToggle(AValue: TDeviceAddressEvent);
+    procedure SetOnCopyName(AValue: TDeviceAddressEvent);
+    procedure SetOnCopyAddress(AValue: TDeviceAddressEvent);
+    procedure SetOnConfigure(AValue: TDeviceAddressEvent);
+    procedure SetOnUnpair(AValue: TDeviceAddressEvent);
+    procedure SetOnHide(AValue: TDeviceAddressEvent);
 
     procedure RefreshLayoutCache;
     function GetLayoutConfig: ILayoutConfig;
@@ -198,51 +118,21 @@ type
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetLayoutConfig(AValue: ILayoutConfig);
     procedure SetAppearanceConfig(AValue: IAppearanceConfig);
-    procedure SetSelectedIndex(AValue: Integer);
     function GetDevice(AIndex: Integer): TBluetoothDeviceInfo;
     function GetDeviceCount: Integer;
     function GetItemCount: Integer;
+    function GetSelectedIndex: Integer;
+    procedure SetSelectedIndex(AValue: Integer);
     function ItemAtPos(X, Y: Integer): Integer;
     procedure UpdateScrollRange;
     procedure ScrollTo(APos: Integer);
 
-    procedure RecalculateItemHeights;
-    function CalculateItemHeight(AIndex: Integer): Integer;
-    function GetProfileSectionHeight(AProfileCount: Integer): Integer;
-    function GetProfileLineHeight: Integer;
-
-    procedure DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
-      const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
-    procedure DrawActionButton(ACanvas: TCanvas; const ARect: TRect;
-      const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
-    function CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
-      AIsHover, AIsSelected, AIsDiscovered: Boolean): TItemDrawContext;
-    procedure DrawItemBackground(ACanvas: TCanvas; const AContext: TItemDrawContext);
-    procedure DrawItemTopLine(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
-      const AContext: TItemDrawContext);
-    procedure DrawItemBottomLine(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
-      const AContext: TItemDrawContext);
-    procedure DrawProfileSection(ACanvas: TCanvas; const AItem: TDeviceDisplayItem;
-      const AContext: TItemDrawContext);
-    procedure DrawSeparator(ACanvas: TCanvas; const ARect: TRect);
-    procedure DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
-      ADeviceType: TBluetoothDeviceType; AIsDiscovered: Boolean);
-    function GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Char;
-    function GetBatteryIconChar(ALevel: Integer): Char;
+    procedure HandleScrollbarScrollChanged(Sender: TObject);
     procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
     procedure WMGetDlgCode(var Message: TWMGetDlgCode); message WM_GETDLGCODE;
     procedure WMVScroll(var Message: TWMVScroll); message WM_VSCROLL;
     procedure CMMouseLeave(var Message: TMessage); message CM_MOUSELEAVE;
     procedure CMStyleChanged(var Message: TMessage); message CM_STYLECHANGED;
-    procedure UpdateScrollBar;
-
-    // Custom scrollbar helpers
-    function GetScrollbarRect: TRect;
-    function GetScrollbarTrackRect: TRect;
-    function GetScrollbarThumbRect: TRect;
-    function IsPointInScrollbar(X, Y: Integer): Boolean;
-    function IsPointInScrollbarThumb(X, Y: Integer): Boolean;
-    procedure DrawCustomScrollbar(ACanvas: TCanvas);
 
   protected
     procedure CreateParams(var Params: TCreateParams); override;
@@ -270,18 +160,18 @@ type
 
     property Devices[AIndex: Integer]: TBluetoothDeviceInfo read GetDevice;
     property DeviceCount: Integer read GetDeviceCount;
-    property SelectedIndex: Integer read FSelectedIndex write SetSelectedIndex;
+    property SelectedIndex: Integer read GetSelectedIndex write SetSelectedIndex;
     property ShowAddresses: Boolean read FShowAddresses write SetShowAddresses;
     property OnDeviceClick: TDeviceClickEvent read FOnDeviceClick write FOnDeviceClick;
     property OnDisplayItemClick: TDeviceDisplayItemClickEvent read FOnDisplayItemClick write FOnDisplayItemClick;
     property OnActionClick: TDeviceDisplayItemClickEvent read FOnActionClick write FOnActionClick;
     property OnSelectionChanged: TNotifyEvent read FOnSelectionChanged write FOnSelectionChanged;
-    property OnPinToggle: TDeviceAddressEvent read FOnPinToggle write FOnPinToggle;
-    property OnCopyName: TDeviceAddressEvent read FOnCopyName write FOnCopyName;
-    property OnCopyAddress: TDeviceAddressEvent read FOnCopyAddress write FOnCopyAddress;
-    property OnConfigure: TDeviceAddressEvent read FOnConfigure write FOnConfigure;
-    property OnUnpair: TDeviceAddressEvent read FOnUnpair write FOnUnpair;
-    property OnHide: TDeviceAddressEvent read FOnHide write FOnHide;
+    property OnPinToggle: TDeviceAddressEvent read FOnPinToggle write SetOnPinToggle;
+    property OnCopyName: TDeviceAddressEvent read FOnCopyName write SetOnCopyName;
+    property OnCopyAddress: TDeviceAddressEvent read FOnCopyAddress write SetOnCopyAddress;
+    property OnConfigure: TDeviceAddressEvent read FOnConfigure write SetOnConfigure;
+    property OnUnpair: TDeviceAddressEvent read FOnUnpair write SetOnUnpair;
+    property OnHide: TDeviceAddressEvent read FOnHide write SetOnHide;
 
     // Dependency injection properties (must be set before use)
     property LayoutConfig: ILayoutConfig read GetLayoutConfig write SetLayoutConfig;
@@ -333,26 +223,6 @@ const
   ICON_BATTERY_0 = #$E850;         // 0% (empty)
   ICON_BATTERY_100 = #$E83F;       // 100% (full)
 
-  // System icon indices for Win7 compatibility (extracted from ddores.dll)
-  // ddores.dll = Device Center resources, contains proper device icons on Win7+
-  // Verified indices using IconViewer tool on actual Win7 installation
-  SYSICON_HEADPHONE_FILE = 'ddores.dll';
-  SYSICON_HEADPHONE_INDEX = 2;        // Headphones/speakers (also: 6=headset, 7=headset variant)
-  SYSICON_KEYBOARD_FILE = 'ddores.dll';
-  SYSICON_KEYBOARD_INDEX = 26;        // Keyboard icon
-  SYSICON_MOUSE_FILE = 'ddores.dll';
-  SYSICON_MOUSE_INDEX = 27;           // Mouse icon
-  SYSICON_COMPUTER_FILE = 'ddores.dll';
-  SYSICON_COMPUTER_INDEX = 12;        // Desktop computer icon
-  SYSICON_PHONE_FILE = 'ddores.dll';
-  SYSICON_PHONE_INDEX = 11;           // Mobile device icon
-  SYSICON_GAMEPAD_FILE = 'ddores.dll';
-  SYSICON_GAMEPAD_INDEX = 25;         // Gamepad/controller icon
-  SYSICON_GENERIC_FILE = 'ddores.dll';
-  SYSICON_GENERIC_INDEX = 0;          // Generic device icon
-  SYSICON_PIN_FILE = 'imageres.dll';
-  SYSICON_PIN_INDEX = 216;            // Pin/favorite icon (Win7 fallback)
-
   // Layout spacing constants
   FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
   PIN_ICON_FONT_SIZE = 10;     // Font size for pin icon
@@ -365,143 +235,15 @@ const
   DEFAULT_CONTROL_WIDTH = 300;
   DEFAULT_CONTROL_HEIGHT = 400;
 
-{ TSystemIconCache }
-
-constructor TSystemIconCache.Create(AIconSize: Integer);
-begin
-  inherited Create;
-  FIconHandles := TDictionary<TBluetoothDeviceType, HICON>.Create;
-  FPinIconHandle := 0;
-  FIconSize := AIconSize;
-end;
-
-destructor TSystemIconCache.Destroy;
-var
-  IconHandle: HICON;
-begin
-  // Free pin icon
-  if FPinIconHandle <> 0 then
-    DestroyIcon(FPinIconHandle);
-
-  // Free all cached icon handles
-  for IconHandle in FIconHandles.Values do
-  begin
-    if IconHandle <> 0 then
-      DestroyIcon(IconHandle);
-  end;
-  FIconHandles.Free;
-  inherited Destroy;
-end;
-
-function TSystemIconCache.TryExtractIcon(const AFilename: string; AIndex: Integer): HICON;
-var
-  SystemPath: string;
-  FullPath: string;
-  LargeIcon, SmallIcon: HICON;
-  ExtractedCount: UINT;
-begin
-  Result := 0;
-
-  // Build full path to system DLL
-  SetLength(SystemPath, MAX_PATH);
-  SetLength(SystemPath, GetSystemDirectory(PChar(SystemPath), MAX_PATH));
-  FullPath := IncludeTrailingPathDelimiter(SystemPath) + AFilename;
-
-  // Extract icon at specified size
-  // We request both large and small, but only use the one matching our size
-  LargeIcon := 0;
-  SmallIcon := 0;
-
-  // ExtractIconEx: negative index extracts count, non-negative extracts specific icon
-  ExtractedCount := ExtractIconEx(PChar(FullPath), AIndex, LargeIcon, SmallIcon, 1);
-
-  if ExtractedCount > 0 then
-  begin
-    // Choose icon based on requested size (use small icon for sizes <= 32)
-    if FIconSize <= 32 then
-    begin
-      Result := SmallIcon;
-      if LargeIcon <> 0 then
-        DestroyIcon(LargeIcon);
-    end
-    else
-    begin
-      Result := LargeIcon;
-      if SmallIcon <> 0 then
-        DestroyIcon(SmallIcon);
-    end;
-  end;
-end;
-
-function TSystemIconCache.LoadIconForDeviceType(ADeviceType: TBluetoothDeviceType): HICON;
-begin
-  // Try to extract appropriate system icon based on device type
-  case ADeviceType of
-    btHeadset,
-    btAudioOutput:
-      Result := TryExtractIcon(SYSICON_HEADPHONE_FILE, SYSICON_HEADPHONE_INDEX);
-    btAudioInput:
-      Result := TryExtractIcon(SYSICON_HEADPHONE_FILE, SYSICON_HEADPHONE_INDEX);
-    btKeyboard:
-      Result := TryExtractIcon(SYSICON_KEYBOARD_FILE, SYSICON_KEYBOARD_INDEX);
-    btMouse:
-      Result := TryExtractIcon(SYSICON_MOUSE_FILE, SYSICON_MOUSE_INDEX);
-    btGamepad:
-      Result := TryExtractIcon(SYSICON_GAMEPAD_FILE, SYSICON_GAMEPAD_INDEX);
-    btComputer:
-      Result := TryExtractIcon(SYSICON_COMPUTER_FILE, SYSICON_COMPUTER_INDEX);
-    btPhone:
-      Result := TryExtractIcon(SYSICON_PHONE_FILE, SYSICON_PHONE_INDEX);
-    btHID:
-      Result := TryExtractIcon(SYSICON_KEYBOARD_FILE, SYSICON_KEYBOARD_INDEX);
-  else
-    Result := TryExtractIcon(SYSICON_GENERIC_FILE, SYSICON_GENERIC_INDEX);
-  end;
-
-  // Fallback to generic icon if specific icon failed
-  if (Result = 0) and (ADeviceType <> btUnknown) then
-    Result := TryExtractIcon(SYSICON_GENERIC_FILE, SYSICON_GENERIC_INDEX);
-end;
-
-function TSystemIconCache.GetIcon(ADeviceType: TBluetoothDeviceType): HICON;
-begin
-  // Check cache first
-  if not FIconHandles.TryGetValue(ADeviceType, Result) then
-  begin
-    // Not in cache - load and cache it
-    Result := LoadIconForDeviceType(ADeviceType);
-    if Result <> 0 then
-      FIconHandles.Add(ADeviceType, Result);
-  end;
-end;
-
-function TSystemIconCache.GetPinIcon: HICON;
-begin
-  // Check cache first (extract on first use)
-  if FPinIconHandle = 0 then
-    FPinIconHandle := TryExtractIcon(SYSICON_PIN_FILE, SYSICON_PIN_INDEX);
-  Result := FPinIconHandle;
-end;
-
 { TDeviceListBox }
 
 constructor TDeviceListBox.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FDisplayItems := nil;
-  FDisplayItemIndexMap := TDictionary<UInt64, Integer>.Create;
-  FHoverIndex := -1;
-  FSelectedIndex := -1;
   FScrollPos := 0;
   FMaxScroll := 0;
   FShowAddresses := False;
   FAnimationFrame := 0;
-  FScrollbarHover := False;
-  FScrollbarDragging := False;
-  FScrollbarDragStartY := 0;
-  FScrollbarDragStartScroll := 0;
-  FListHovered := False;
-
   // Initialize system icon cache on Win7 (nil on Win10+ where we use Segoe MDL2 Assets)
   if not TWinRTSupport.IsAvailable then
     FSystemIconCache := TSystemIconCache.Create(32)  // 32x32 icons for device list
@@ -514,15 +256,28 @@ begin
   Width := DEFAULT_CONTROL_WIDTH;
   Height := DEFAULT_CONTROL_HEIGHT;
 
+  // Create data source (extracted from god class)
+  FDataSource := TListDataSource.Create;
+  FDataSource.OnItemsChanged := HandleDataSourceItemsChanged;
+  FDataSource.OnSelectionChanged := HandleDataSourceSelectionChanged;
+
   // Create animation timer for action button progress indicator
   FAnimationTimer := TTimer.Create(Self);
   FAnimationTimer.Interval := 50;  // 20 FPS for smooth animation
   FAnimationTimer.OnTimer := HandleAnimationTimer;
   FAnimationTimer.Enabled := True;
 
-  // Create context menu (will be populated dynamically)
-  FPopupMenu := TPopupMenu.Create(Self);
-  FContextMenuDeviceAddress := 0;
+  // Create item renderer (extracted from god class)
+  FRenderer := TDeviceItemRenderer.Create(FSystemIconCache);
+
+  // Create context menu builder (extracted from god class)
+  // Events will be forwarded via property setters when external code sets them
+  FContextMenuBuilder := TDeviceContextMenuBuilder.Create(Self);
+
+  // Create custom scrollbar (extracted from god class)
+  FScrollbar := TCustomScrollbar.Create;
+  FScrollbar.OnScrollChanged := HandleScrollbarScrollChanged;
+  // Note: UpdateClientSize will be called in Resize when control gets dimensions
 end;
 
 function TDeviceListBox.GetLayoutConfig: ILayoutConfig;
@@ -538,69 +293,6 @@ end;
 function TDeviceListBox.GetProfileConfig: IProfileConfig;
 begin
   Result := FProfileConfig;
-end;
-
-function TDeviceListBox.GetProfileLineHeight: Integer;
-var
-  FontSize: Integer;
-begin
-  if Assigned(FProfileConfig) then
-    FontSize := FProfileConfig.ProfileFontSize
-  else
-    FontSize := DEFAULT_PROFILE_FONT_SIZE;
-  Result := FontSize * PROFILE_LINE_HEIGHT_FACTOR;
-end;
-
-function TDeviceListBox.GetProfileSectionHeight(AProfileCount: Integer): Integer;
-var
-  LineHeight: Integer;
-begin
-  if AProfileCount <= 1 then
-    Result := 0
-  else
-  begin
-    LineHeight := GetProfileLineHeight;
-    // Profiles start right after status line, add bottom padding
-    Result := AProfileCount * LineHeight + LineHeight div 2;
-  end;
-end;
-
-function TDeviceListBox.CalculateItemHeight(AIndex: Integer): Integer;
-const
-  ACTION_BUTTON_HEIGHT = 28;  // Thin button height
-  ACTION_BUTTON_PADDING = 8;  // Top and bottom padding
-var
-  BaseHeight: Integer;
-  ProfileCount: Integer;
-begin
-  // Action items (scan button, etc.) have smaller height
-  if (AIndex >= 0) and (AIndex < Length(FDisplayItems)) and
-     (FDisplayItems[AIndex].Source = dsAction) then
-  begin
-    Result := ACTION_BUTTON_HEIGHT + (ACTION_BUTTON_PADDING * 2);
-    Exit;
-  end;
-
-  BaseHeight := FCachedLayout.ItemHeight;
-
-  // Add profile section height if profiles are shown
-  if Assigned(FProfileConfig) and FProfileConfig.ShowProfiles and
-     (AIndex >= 0) and (AIndex < Length(FDisplayItems)) then
-  begin
-    ProfileCount := Length(FDisplayItems[AIndex].Profiles);
-    Result := BaseHeight + GetProfileSectionHeight(ProfileCount);
-  end
-  else
-    Result := BaseHeight;
-end;
-
-procedure TDeviceListBox.RecalculateItemHeights;
-var
-  I: Integer;
-begin
-  SetLength(FItemHeights, Length(FDisplayItems));
-  for I := 0 to High(FDisplayItems) do
-    FItemHeights[I] := CalculateItemHeight(I);
 end;
 
 procedure TDeviceListBox.RefreshLayoutCache;
@@ -650,6 +342,8 @@ procedure TDeviceListBox.SetLayoutConfig(AValue: ILayoutConfig);
 begin
   FLayoutConfig := AValue;
   RefreshLayoutCache;
+  // Notify data source to recalculate heights
+  FDataSource.UpdateConfigs(FLayoutConfig, FProfileConfig);
 end;
 
 procedure TDeviceListBox.SetAppearanceConfig(AValue: IAppearanceConfig);
@@ -660,7 +354,10 @@ end;
 
 destructor TDeviceListBox.Destroy;
 begin
-  FDisplayItemIndexMap.Free;
+  FScrollbar.Free;
+  FContextMenuBuilder.Free;
+  FDataSource.Free;
+  FRenderer.Free;
   FSystemIconCache.Free;  // Safe to free nil
   inherited Destroy;
 end;
@@ -674,6 +371,8 @@ end;
 procedure TDeviceListBox.Resize;
 begin
   inherited;
+  // Notify scrollbar of size changes
+  FScrollbar.UpdateClientSize(ClientWidth, ClientHeight);
   // Refresh layout cache on resize - dimensions may have changed
   RefreshLayoutCache;
   UpdateScrollRange;
@@ -681,10 +380,7 @@ end;
 
 procedure TDeviceListBox.Clear;
 begin
-  FDisplayItems := nil;
-  FDisplayItemIndexMap.Clear;  // Clear index map to prevent stale lookups
-  FHoverIndex := -1;
-  FSelectedIndex := -1;
+  FDataSource.Clear;
   FScrollPos := 0;
   UpdateScrollRange;
   Invalidate;
@@ -692,90 +388,44 @@ end;
 
 function TDeviceListBox.GetDevice(AIndex: Integer): TBluetoothDeviceInfo;
 begin
-  if (AIndex >= 0) and (AIndex < Length(FDisplayItems)) then
-    Result := FDisplayItems[AIndex].Device
-  else
-    Result := Default(TBluetoothDeviceInfo);
+  Result := FDataSource.GetDevice(AIndex);
 end;
 
 function TDeviceListBox.GetDeviceCount: Integer;
 begin
-  Result := Length(FDisplayItems);
+  Result := FDataSource.ItemCount;
 end;
 
 function TDeviceListBox.GetSelectedDevice: TBluetoothDeviceInfo;
 begin
-  if (FSelectedIndex >= 0) and (FSelectedIndex < Length(FDisplayItems)) then
-    Result := FDisplayItems[FSelectedIndex].Device
-  else
-    Result := Default(TBluetoothDeviceInfo);
+  Result := FDataSource.GetSelectedDevice;
 end;
 
 function TDeviceListBox.GetSelectedDisplayItem: TDeviceDisplayItem;
 begin
-  if (FSelectedIndex >= 0) and (FSelectedIndex < Length(FDisplayItems)) then
-    Result := FDisplayItems[FSelectedIndex]
-  else
-    Result := Default(TDeviceDisplayItem);
+  Result := FDataSource.GetSelectedDisplayItem;
 end;
 
 function TDeviceListBox.GetItemCount: Integer;
 begin
-  Result := Length(FDisplayItems);
+  Result := FDataSource.ItemCount;
+end;
+
+function TDeviceListBox.GetSelectedIndex: Integer;
+begin
+  Result := FDataSource.SelectedIndex;
 end;
 
 procedure TDeviceListBox.SetDisplayItems(const AItems: TDeviceDisplayItemArray);
 var
   I: Integer;
   OldScrollPos: Integer;
-  OldHoverAddress: UInt64;
-  OldSelectedAddress: UInt64;
-  NewIndex: Integer;
 begin
   // Save current scroll position to preserve it across refreshes
   OldScrollPos := FScrollPos;
 
-  // Save addresses of currently hovered/selected items to restore them after rebuild
-  if (FHoverIndex >= 0) and (FHoverIndex < Length(FDisplayItems)) then
-    OldHoverAddress := FDisplayItems[FHoverIndex].Device.AddressInt
-  else
-    OldHoverAddress := 0;
-
-  if (FSelectedIndex >= 0) and (FSelectedIndex < Length(FDisplayItems)) then
-    OldSelectedAddress := FDisplayItems[FSelectedIndex].Device.AddressInt
-  else
-    OldSelectedAddress := 0;
-
-  FDisplayItems := AItems;
-
-  // Rebuild index map for O(1) lookup by device address
-  FDisplayItemIndexMap.Clear;
-  for I := 0 to High(FDisplayItems) do
-    FDisplayItemIndexMap.Add(FDisplayItems[I].Device.AddressInt, I);
-
-  RecalculateItemHeights;
-
-  // Restore hover state by looking up the device in the new list
-  if OldHoverAddress <> 0 then
-  begin
-    if FDisplayItemIndexMap.TryGetValue(OldHoverAddress, NewIndex) then
-      FHoverIndex := NewIndex
-    else
-      FHoverIndex := -1;
-  end
-  else
-    FHoverIndex := -1;
-
-  // Restore selection state by looking up the device in the new list
-  if OldSelectedAddress <> 0 then
-  begin
-    if FDisplayItemIndexMap.TryGetValue(OldSelectedAddress, NewIndex) then
-      FSelectedIndex := NewIndex
-    else
-      FSelectedIndex := -1;
-  end
-  else if FSelectedIndex >= Length(FDisplayItems) then
-    FSelectedIndex := -1;
+  // Delegate to data source (handles items, index map, heights, selection/hover restoration)
+  FDataSource.SetDisplayItems(AItems);
 
   // Restore scroll position (will be clamped by UpdateScrollRange if needed)
   FScrollPos := OldScrollPos;
@@ -783,9 +433,9 @@ begin
   Invalidate;
 
   // If action item is in progress, force immediate update (no delay)
-  for I := 0 to High(FDisplayItems) do
+  for I := 0 to High(FDataSource.Items) do
   begin
-    if (FDisplayItems[I].Source = dsAction) and FDisplayItems[I].IsActionInProgress then
+    if (FDataSource.Items[I].Source = dsAction) and FDataSource.Items[I].IsActionInProgress then
     begin
       UpdateWindow(Handle);
       Break;
@@ -794,46 +444,26 @@ begin
 end;
 
 procedure TDeviceListBox.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
-var
-  Index: Integer;
 begin
-  // O(1) lookup using index map instead of O(n) linear search
-  if FDisplayItemIndexMap.TryGetValue(AItem.Device.AddressInt, Index) then
-  begin
-    FDisplayItems[Index] := AItem;
-    // Recalculate height for this item in case profiles changed
-    if Index < Length(FItemHeights) then
-      FItemHeights[Index] := CalculateItemHeight(Index);
-    UpdateScrollRange;
-    Invalidate;
-  end;
+  // Delegate to data source (O(1) lookup, update item, recalculate height)
+  FDataSource.UpdateDisplayItem(AItem);
+  UpdateScrollRange;
+  Invalidate;
 end;
 
 procedure TDeviceListBox.SetSelectedIndex(AValue: Integer);
-var
-  Count: Integer;
 begin
-  Count := GetItemCount;
-  if AValue < -1 then AValue := -1;
-  if AValue >= Count then AValue := Count - 1;
-
-  if FSelectedIndex <> AValue then
-  begin
-    FSelectedIndex := AValue;
-    if FSelectedIndex >= 0 then
-      EnsureVisible(FSelectedIndex);
-    Invalidate;
-    if Assigned(FOnSelectionChanged) then
-      FOnSelectionChanged(Self);
-  end;
+  // Delegate to data source (handles validation and fires OnSelectionChanged event)
+  FDataSource.SelectedIndex := AValue;
+  // EnsureVisible called in HandleDataSourceSelectionChanged
 end;
 
 function TDeviceListBox.GetItemRect(AIndex: Integer): TRect;
 begin
-  if Length(FItemHeights) > 0 then
+  if Length(FDataSource.ItemHeights) > 0 then
     Result := TListGeometry.GetItemRectVariable(
       AIndex,
-      FItemHeights,
+      FDataSource.ItemHeights,
       FCachedLayout.ItemMargin,
       ClientWidth,
       FScrollPos
@@ -850,10 +480,10 @@ end;
 
 function TDeviceListBox.ItemAtPos(X, Y: Integer): Integer;
 begin
-  if Length(FItemHeights) > 0 then
+  if Length(FDataSource.ItemHeights) > 0 then
     Result := TListGeometry.ItemAtPosVariable(
       X, Y,
-      FItemHeights,
+      FDataSource.ItemHeights,
       FCachedLayout.ItemMargin,
       ClientWidth,
       FScrollPos
@@ -871,9 +501,10 @@ end;
 
 procedure TDeviceListBox.UpdateScrollRange;
 begin
-  if Length(FItemHeights) > 0 then
+  // Calculate max scroll
+  if Length(FDataSource.ItemHeights) > 0 then
     FMaxScroll := TListGeometry.CalculateMaxScrollVariable(
-      FItemHeights,
+      FDataSource.ItemHeights,
       FCachedLayout.ItemMargin,
       ClientHeight
     )
@@ -884,31 +515,45 @@ begin
       FCachedLayout.ItemMargin,
       ClientHeight
     );
+
   FScrollPos := TListGeometry.ClampScrollPos(FScrollPos, FMaxScroll);
-  UpdateScrollBar;
-end;
 
-procedure TDeviceListBox.UpdateScrollBar;
-begin
-  if not HandleAllocated then
-    Exit;
+  // Delegate to scrollbar (extracted)
+  FScrollbar.UpdateScrollRange(FMaxScroll);
+  FScrollbar.ScrollTo(FScrollPos);
 
-  // Hide native scrollbar (we use custom scrollbar now)
-  ShowScrollBar(Handle, SB_VERT, False);
+  // Hide native scrollbar (we use custom scrollbar)
+  if HandleAllocated then
+    ShowScrollBar(Handle, SB_VERT, False);
 
-  // Force repaint to show custom scrollbar
   Invalidate;
 end;
 
 procedure TDeviceListBox.ScrollTo(APos: Integer);
 begin
-  APos := EnsureRange(APos, 0, FMaxScroll);
-  if FScrollPos <> APos then
-  begin
-    FScrollPos := APos;
-    UpdateScrollBar;
-    Invalidate;
-  end;
+  FScrollbar.ScrollTo(APos);
+  // FScrollPos will be updated via HandleScrollbarScrollChanged callback
+end;
+
+procedure TDeviceListBox.HandleScrollbarScrollChanged(Sender: TObject);
+begin
+  FScrollPos := FScrollbar.ScrollPos;
+  Invalidate;
+end;
+
+procedure TDeviceListBox.HandleDataSourceItemsChanged(Sender: TObject);
+begin
+  UpdateScrollRange;
+  Invalidate;
+end;
+
+procedure TDeviceListBox.HandleDataSourceSelectionChanged(Sender: TObject);
+begin
+  if FDataSource.SelectedIndex >= 0 then
+    EnsureVisible(FDataSource.SelectedIndex);
+  Invalidate;
+  if Assigned(FOnSelectionChanged) then
+    FOnSelectionChanged(Self);
 end;
 
 procedure TDeviceListBox.EnsureVisible(AIndex: Integer);
@@ -918,10 +563,10 @@ begin
   if (AIndex < 0) or (AIndex >= GetItemCount) then
     Exit;
 
-  if Length(FItemHeights) > 0 then
+  if Length(FDataSource.ItemHeights) > 0 then
     NewScrollPos := TListGeometry.ScrollPosToMakeVisibleVariable(
       AIndex,
-      FItemHeights,
+      FDataSource.ItemHeights,
       FScrollPos,
       FCachedLayout.ItemMargin,
       ClientHeight
@@ -981,21 +626,14 @@ end;
 procedure TDeviceListBox.CMMouseLeave(var Message: TMessage);
 begin
   inherited;
-  if FHoverIndex <> -1 then
+  if FDataSource.HoverIndex <> -1 then
   begin
-    FHoverIndex := -1;
+    FDataSource.HoverIndex := -1;
     Invalidate;
   end;
-  if FScrollbarHover then
-  begin
-    FScrollbarHover := False;
+  // Delegate to scrollbar (returns true if state changed)
+  if FScrollbar.HandleMouseLeave then
     Invalidate;
-  end;
-  if FListHovered then
-  begin
-    FListHovered := False;
-    Invalidate;  // Redraw to hide scrollbar
-  end;
 end;
 
 procedure TDeviceListBox.CMStyleChanged(var Message: TMessage);
@@ -1005,121 +643,6 @@ begin
   LogDebug('CMStyleChanged: VCL style changed, refreshing layout cache and invalidating device list', ClassName);
   RefreshLayoutCache;
   Invalidate;
-end;
-
-function TDeviceListBox.GetScrollbarRect: TRect;
-const
-  SCROLLBAR_WIDTH = 12;  // Modern thin scrollbar width (px)
-begin
-  Result := Rect(
-    ClientWidth - SCROLLBAR_WIDTH,
-    0,
-    ClientWidth,
-    ClientHeight
-  );
-end;
-
-function TDeviceListBox.GetScrollbarTrackRect: TRect;
-begin
-  Result := GetScrollbarRect;
-end;
-
-function TDeviceListBox.GetScrollbarThumbRect: TRect;
-var
-  TrackRect: TRect;
-  TrackHeight, ThumbHeight, ThumbTop: Integer;
-  ScrollRatio: Double;
-begin
-  TrackRect := GetScrollbarTrackRect;
-  TrackHeight := TrackRect.Height;
-
-  if FMaxScroll <= 0 then
-  begin
-    // No scrolling needed - full height thumb
-    Result := TrackRect;
-    Exit;
-  end;
-
-  // Thumb height proportional to visible content
-  // ThumbHeight = TrackHeight * (ClientHeight / TotalContentHeight)
-  ThumbHeight := Round(TrackHeight * (ClientHeight / (ClientHeight + FMaxScroll)));
-
-  // Minimum thumb height for usability
-  if ThumbHeight < 20 then
-    ThumbHeight := 20;
-
-  // Thumb position based on scroll position
-  ScrollRatio := FScrollPos / FMaxScroll;
-  ThumbTop := Round(ScrollRatio * (TrackHeight - ThumbHeight));
-
-  Result := Rect(
-    TrackRect.Left,
-    TrackRect.Top + ThumbTop,
-    TrackRect.Right,
-    TrackRect.Top + ThumbTop + ThumbHeight
-  );
-end;
-
-function TDeviceListBox.IsPointInScrollbar(X, Y: Integer): Boolean;
-var
-  ScrollbarRect: TRect;
-begin
-  ScrollbarRect := GetScrollbarRect;
-  Result := PtInRect(ScrollbarRect, Point(X, Y));
-end;
-
-function TDeviceListBox.IsPointInScrollbarThumb(X, Y: Integer): Boolean;
-var
-  ThumbRect: TRect;
-begin
-  ThumbRect := GetScrollbarThumbRect;
-  Result := PtInRect(ThumbRect, Point(X, Y));
-end;
-
-procedure TDeviceListBox.DrawCustomScrollbar(ACanvas: TCanvas);
-var
-  TrackRect, ThumbRect: TRect;
-  Style: TCustomStyleServices;
-  TrackColor, ThumbColor: TColor;
-  ThumbInset: Integer;
-begin
-  // Only draw scrollbar when list is hovered or scrollbar is being dragged
-  if not (FListHovered or FScrollbarDragging) then
-    Exit;
-
-  if FMaxScroll <= 0 then
-    Exit; // No scrollbar needed
-
-  Style := TStyleManager.ActiveStyle;
-  TrackRect := GetScrollbarTrackRect;
-  ThumbRect := GetScrollbarThumbRect;
-
-  // Track background - use VCL theme color
-  TrackColor := Style.GetSystemColor(clBtnFace);
-  ACanvas.Brush.Color := TrackColor;
-  ACanvas.Brush.Style := bsSolid;
-  ACanvas.Pen.Style := psClear;
-  ACanvas.FillRect(TrackRect);
-
-  // Thumb - use theme color, lighter on hover
-  if FScrollbarHover or FScrollbarDragging then
-    ThumbColor := Style.GetSystemColor(clHighlight)
-  else
-    ThumbColor := Style.GetSystemColor(clBtnShadow);
-
-  ACanvas.Brush.Color := ThumbColor;
-  ACanvas.Brush.Style := bsSolid;
-  ACanvas.Pen.Style := psClear;
-
-  // Draw rounded thumb centered in track with equal insets on both sides
-  ThumbInset := 3;  // Equal margin on left and right for symmetry
-  ACanvas.RoundRect(
-    ThumbRect.Left + ThumbInset,
-    ThumbRect.Top,
-    ThumbRect.Right - ThumbInset,
-    ThumbRect.Bottom,
-    4, 4
-  );
 end;
 
 procedure TDeviceListBox.Paint;
@@ -1132,6 +655,9 @@ begin
   // Layout cache refreshed on resize/style change, not on every paint
   Style := TStyleManager.ActiveStyle;
 
+  // Update renderer cache with current configuration
+  FRenderer.UpdateCache(FCachedLayout, FProfileConfig, FShowAddresses, FAnimationFrame);
+
   // Background (color source from config)
   case FCachedLayout.ListBackgroundSource of
     lbsThemeWindow: Canvas.Brush.Color := Style.GetSystemColor(clWindow);
@@ -1142,7 +668,7 @@ begin
   end;
   Canvas.FillRect(ClientRect);
 
-  // Draw items
+  // Draw items (delegated to renderer)
   Count := GetItemCount;
   for I := 0 to Count - 1 do
   begin
@@ -1156,25 +682,25 @@ begin
 
     // Draw separator before first non-paired item (action button or discovered device)
     if (I > 0) and
-       (FDisplayItems[I].Source in [dsAction, dsDiscovered]) and
-       (FDisplayItems[I - 1].Source = dsPaired) then
+       (FDataSource.Items[I].Source in [dsAction, dsDiscovered]) and
+       (FDataSource.Items[I - 1].Source = dsPaired) then
     begin
-      DrawSeparator(Canvas, R);
+      FRenderer.DrawSeparator(Canvas, R);
       // Adjust item rect to start below separator to prevent background overlap
       // Separator is drawn at ARect.Top + (ItemMargin div 2), so offset by ItemMargin
       R.Top := R.Top + FCachedLayout.ItemMargin;
     end;
 
-    IsHover := (I = FHoverIndex);
-    IsSelected := (I = FSelectedIndex);
+    IsHover := (I = FDataSource.HoverIndex);
+    IsSelected := (I = FDataSource.SelectedIndex);
 
-    DrawDisplayItem(Canvas, R, FDisplayItems[I], IsHover, IsSelected);
+    FRenderer.DrawDisplayItem(Canvas, R, FDataSource.Items[I], IsHover, IsSelected);
   end;
 
   // Focus rectangle
-  if Focused and (FSelectedIndex >= 0) then
+  if Focused and (FDataSource.SelectedIndex >= 0) then
   begin
-    R := GetItemRect(FSelectedIndex);
+    R := GetItemRect(FDataSource.SelectedIndex);
     InflateRect(R, -FOCUS_RECT_INSET, -FOCUS_RECT_INSET);
     Canvas.Pen.Color := Style.GetSystemColor(clHighlight);
     Canvas.Pen.Style := psDot;
@@ -1183,744 +709,15 @@ begin
     Canvas.Pen.Style := psSolid;
   end;
 
-  // Draw custom scrollbar
-  DrawCustomScrollbar(Canvas);
+  // Draw custom scrollbar (delegated to extracted component)
+  FScrollbar.Render(Canvas);
 end;
 
-function TDeviceListBox.CreateDrawContext(ACanvas: TCanvas; const ARect: TRect;
-  AIsHover, AIsSelected, AIsDiscovered: Boolean): TItemDrawContext;
-var
-  StatusLineHeight: Integer;
-  IconRect: TRect;
-  BaseHeight: Integer;
-begin
-  // Store item rect for reference
-  Result.ItemRect := ARect;
-
-  // Use cached layout settings (populated once per paint cycle)
-  Result.ItemPadding := FCachedLayout.ItemPadding;
-  Result.IconSize := FCachedLayout.IconSize;
-  Result.CornerRadius := FCachedLayout.CornerRadius;
-  Result.DeviceNameFontSize := FCachedLayout.DeviceNameFontSize;
-  Result.StatusFontSize := FCachedLayout.StatusFontSize;
-  Result.AddressFontSize := FCachedLayout.AddressFontSize;
-  Result.ItemBorderWidth := FCachedLayout.ItemBorderWidth;
-  Result.ItemBorderColor := FCachedLayout.ItemBorderColor;
-
-  // Use cached appearance settings
-  Result.ShowDeviceIcons := FCachedLayout.ShowDeviceIcons;
-  Result.ShowLastSeen := FCachedLayout.ShowLastSeen;
-  Result.ConnectedColor := FCachedLayout.ConnectedColor;
-  Result.ShowAddresses := FShowAddresses;
-
-  // State
-  Result.IsSelected := AIsSelected;
-  Result.IsHover := AIsHover;
-  Result.IsDiscovered := AIsDiscovered;
-
-  // Calculate status line height for bottom anchoring
-  ACanvas.Font.Name := FONT_UI;
-  ACanvas.Font.Size := Result.StatusFontSize;
-  StatusLineHeight := ACanvas.TextHeight('Ay');
-
-  // Get base height (without profile section) for proper positioning
-  // Status line should be anchored to base height, not expanded rect
-  BaseHeight := FCachedLayout.ItemHeight;
-
-  Result.NameLineTop := ARect.Top + Result.ItemPadding;
-  // Anchor status line to base height area, not full expanded height
-  Result.StatusLineTop := ARect.Top + BaseHeight - Result.ItemPadding - StatusLineHeight;
-
-  // Calculate text rect based on icon visibility
-  if Result.ShowDeviceIcons then
-  begin
-    IconRect.Left := ARect.Left + Result.ItemPadding;
-    IconRect.Right := IconRect.Left + Result.IconSize;
-    Result.TextRect.Left := IconRect.Right + Result.ItemPadding;
-  end
-  else
-    Result.TextRect.Left := ARect.Left + Result.ItemPadding;
-
-  Result.TextRect.Right := ARect.Right - Result.ItemPadding;
-  Result.TextRect.Top := ARect.Top;
-  Result.TextRect.Bottom := ARect.Bottom;
-end;
-
-procedure TDeviceListBox.DrawItemBackground(ACanvas: TCanvas;
-  const AContext: TItemDrawContext);
-var
-  BgColor, BaseBgColor: TColor;
-  Style: TCustomStyleServices;
-begin
-  Style := TStyleManager.ActiveStyle;
-
-  // Determine base background color from config
-  case FCachedLayout.ListBackgroundSource of
-    lbsThemeWindow: BaseBgColor := Style.GetSystemColor(clWindow);
-    lbsThemeForm:   BaseBgColor := Style.GetSystemColor(clBtnFace);
-    lbsCustom:      BaseBgColor := TColor(FCachedLayout.ListBackgroundCustomColor);
-  else
-    BaseBgColor := Style.GetSystemColor(clWindow);  // Fallback
-  end;
-
-  // Apply hover effect using configured hover color
-  if AContext.IsHover then
-  begin
-    case FCachedLayout.HoverColorSource of
-      hcsThemeWindow: BgColor := Style.GetSystemColor(clWindow);
-      hcsThemeForm:   BgColor := Style.GetSystemColor(clBtnFace);
-      hcsCustom:      BgColor := TColor(FCachedLayout.HoverCustomColor);
-    else
-      BgColor := Style.GetSystemColor(clBtnFace);  // Fallback
-    end;
-  end
-  else
-    BgColor := BaseBgColor;
-
-  // Draw rounded rectangle background (fill only, no pen outline)
-  ACanvas.Brush.Color := BgColor;
-  ACanvas.Pen.Style := psClear;
-  ACanvas.RoundRect(
-    AContext.ItemRect.Left, AContext.ItemRect.Top,
-    AContext.ItemRect.Right, AContext.ItemRect.Bottom,
-    AContext.CornerRadius, AContext.CornerRadius);
-  ACanvas.Pen.Style := psSolid;
-
-  // Draw border if enabled
-  if AContext.ItemBorderWidth > 0 then
-  begin
-    ACanvas.Pen.Color := AContext.ItemBorderColor;
-    ACanvas.Pen.Width := AContext.ItemBorderWidth;
-    ACanvas.Brush.Style := bsClear;
-    ACanvas.RoundRect(
-      AContext.ItemRect.Left, AContext.ItemRect.Top,
-      AContext.ItemRect.Right, AContext.ItemRect.Bottom,
-      AContext.CornerRadius, AContext.CornerRadius);
-    ACanvas.Pen.Width := 1;
-    ACanvas.Brush.Style := bsSolid;
-  end;
-end;
-
-procedure TDeviceListBox.DrawItemTopLine(ACanvas: TCanvas;
-  const AItem: TDeviceDisplayItem; const AContext: TItemDrawContext);
-var
-  Style: TCustomStyleServices;
-  AddrLeft, NameHeight, AddrOffset: Integer;
-  RightEdge: Integer;
-  PinIconWidth: Integer;
-  PinIconHandle: HICON;
-  NameColor: TColor;
-  SavedClipRgn: HRGN;
-begin
-  Style := TStyleManager.ActiveStyle;
-
-  // Determine text color based on state
-  if AContext.IsDiscovered then
-  begin
-    // Use Secondary color for unpaired/discovered devices
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     NameColor := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: NameColor := Style.GetSystemColor(clGrayText);
-      scsCustom:        NameColor := TColor(FCachedLayout.SecondaryCustomColor);
-    else
-      NameColor := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
-  end
-  else if AContext.IsSelected then
-    NameColor := Style.GetSystemColor(clHighlightText)
-  else
-  begin
-    // Use Main color for paired devices
-    case FCachedLayout.MainColorSource of
-      mcsThemeText: NameColor := Style.GetSystemColor(clWindowText);
-      mcsCustom:    NameColor := TColor(FCachedLayout.MainCustomColor);
-    else
-      NameColor := Style.GetSystemColor(clWindowText);  // Fallback
-    end;
-  end;
-
-  // Set up font for device name
-  ACanvas.Font.Name := FONT_UI;
-  ACanvas.Font.Size := AContext.DeviceNameFontSize;
-  ACanvas.Font.Style := [];
-  ACanvas.Font.Color := NameColor;
-  ACanvas.Brush.Style := bsClear;
-
-  // Start from right edge of text area (already has padding applied)
-  RightEdge := AContext.TextRect.Right;
-
-  // Draw pin indicator (rightmost on top line)
-  if AItem.IsPinned then
-  begin
-    // Win7: Use system icon extracted from imageres.dll
-    if Assigned(FSystemIconCache) then
-    begin
-      PinIconHandle := FSystemIconCache.GetPinIcon;
-      if PinIconHandle <> 0 then
-      begin
-        // Use PIN_ICON_FONT_SIZE as icon size to match font icon size
-        PinIconWidth := PIN_ICON_FONT_SIZE;
-        RightEdge := RightEdge - PinIconWidth;
-        // Draw system icon (system-colored, no custom color support)
-        DrawIconEx(ACanvas.Handle, RightEdge, AContext.NameLineTop, PinIconHandle,
-          PinIconWidth, PinIconWidth, 0, 0, DI_NORMAL);
-      end;
-      // If extraction failed, just skip the icon (pin status still obvious from UI)
-    end
-    else
-    begin
-      // Win10+: Use Segoe MDL2 Assets font icon
-      ACanvas.Font.Name := FONT_ICONS;
-      ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
-      // Use Secondary color for pin icon
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
-      PinIconWidth := ACanvas.TextWidth(ICON_PIN);
-      RightEdge := RightEdge - PinIconWidth;
-      ACanvas.TextOut(RightEdge, AContext.NameLineTop, ICON_PIN);
-    end;
-  end;
-
-  // Restore font for name
-  ACanvas.Font.Name := FONT_UI;
-  ACanvas.Font.Size := AContext.DeviceNameFontSize;
-  ACanvas.Font.Style := [];
-  ACanvas.Font.Color := NameColor;
-
-  // Draw device name
-  ACanvas.TextOut(AContext.TextRect.Left, AContext.NameLineTop, AItem.DisplayName);
-
-  // Draw address if enabled (with clipping to respect right padding)
-  if AContext.ShowAddresses then
-  begin
-    AddrLeft := AContext.TextRect.Left + ACanvas.TextWidth(AItem.DisplayName) + ADDRESS_SPACING;
-
-    // Only draw if there's space for at least the opening bracket
-    if AddrLeft < AContext.TextRect.Right then
-    begin
-      NameHeight := ACanvas.TextHeight('Ay');
-      ACanvas.Font.Size := AContext.AddressFontSize;
-      // Use Secondary color for device address
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
-      AddrOffset := (NameHeight - ACanvas.TextHeight('Ay')) div 2;
-
-      // Clip address text to TextRect.Right boundary to respect padding
-      SavedClipRgn := CreateRectRgn(0, 0, 0, 0);
-      if GetClipRgn(ACanvas.Handle, SavedClipRgn) <> 1 then
-      begin
-        DeleteObject(SavedClipRgn);
-        SavedClipRgn := 0;
-      end;
-
-      IntersectClipRect(ACanvas.Handle,
-        AddrLeft,
-        AContext.NameLineTop + AddrOffset,
-        AContext.TextRect.Right,
-        AContext.NameLineTop + AddrOffset + ACanvas.TextHeight('Ay'));
-
-      ACanvas.TextOut(AddrLeft, AContext.NameLineTop + AddrOffset,
-        '[' + AItem.Device.AddressString + ']');
-
-      // Restore original clipping region
-      if SavedClipRgn <> 0 then
-      begin
-        SelectClipRgn(ACanvas.Handle, SavedClipRgn);
-        DeleteObject(SavedClipRgn);
-      end
-      else
-        SelectClipRgn(ACanvas.Handle, 0);
-    end;
-  end;
-end;
-
-procedure TDeviceListBox.DrawItemBottomLine(ACanvas: TCanvas;
-  const AItem: TDeviceDisplayItem; const AContext: TItemDrawContext);
-var
-  Style: TCustomStyleServices;
-  StatusText: string;
-  BatteryIconChar: Char;
-  BatteryIconWidth, BatteryTextWidth: Integer;
-  StatusLineHeight, BatteryOffset: Integer;
-begin
-  Style := TStyleManager.ActiveStyle;
-
-  ACanvas.Font.Name := FONT_UI;
-  ACanvas.Font.Size := AContext.StatusFontSize;
-  ACanvas.Font.Style := [];
-
-  StatusLineHeight := ACanvas.TextHeight('Ay');
-
-  // Status line (left-aligned)
-  // Priority 1: Custom status text (e.g., pairing progress)
-  if AItem.StatusText <> '' then
-  begin
-    StatusText := AItem.StatusText;
-    // Use Secondary color for custom status text
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-      scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
-    ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
-  end
-  // Priority 2: Default status based on device type and state
-  else if AContext.IsDiscovered then
-  begin
-    // Discovered devices: show last seen time if available
-    if AContext.ShowLastSeen and (AItem.LastSeenText <> '') then
-    begin
-      StatusText := AItem.LastSeenText;
-      // Use Secondary color for last seen text
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
-      ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
-    end;
-  end
-  else
-  begin
-    // Paired devices: show connection status + last seen for disconnected
-    StatusText := TDeviceFormatter.FormatConnectionState(AItem.Device.ConnectionState);
-    if AContext.ShowLastSeen and (not AItem.Device.IsConnected) and (AItem.LastSeenText <> '') then
-      StatusText := StatusText + '. ' + AItem.LastSeenText;
-
-    if AItem.Device.IsConnected then
-      ACanvas.Font.Color := AContext.ConnectedColor
-    else
-    begin
-      // Use Secondary color for disconnected status
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
-    end;
-
-    ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
-  end;
-
-  // Battery indicator (right-aligned on bottom line)
-  if AItem.BatteryStatus.HasLevel then
-  begin
-    // Win10+: Draw battery icon (rightmost, font-based)
-    // Win7: Skip icon, percentage text is sufficient
-    if not Assigned(FSystemIconCache) then
-    begin
-      BatteryIconChar := GetBatteryIconChar(AItem.BatteryStatus.Level);
-      ACanvas.Font.Name := FONT_ICONS;
-      ACanvas.Font.Size := BATTERY_ICON_FONT_SIZE;
-      // Use Secondary color for battery icon
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
-      BatteryIconWidth := ACanvas.TextWidth(BatteryIconChar);
-      BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(BatteryIconChar)) div 2;
-      ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth,
-        AContext.StatusLineTop + BatteryOffset, BatteryIconChar);
-    end
-    else
-      BatteryIconWidth := 0;  // No icon on Win7
-
-    // Draw battery percentage text (Win10+: left of icon, Win7: right-aligned)
-    ACanvas.Font.Name := FONT_UI;
-    ACanvas.Font.Size := BATTERY_FONT_SIZE;
-    // Use Secondary color for battery text
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-      scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
-    BatteryTextWidth := ACanvas.TextWidth(AItem.BatteryText);
-    BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(AItem.BatteryText)) div 2;
-    if BatteryIconWidth > 0 then
-      // Win10+: Position text left of icon
-      ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth - BATTERY_SPACING - BatteryTextWidth,
-        AContext.StatusLineTop + BatteryOffset, AItem.BatteryText)
-    else
-      // Win7: Position text at right edge (no icon)
-      ACanvas.TextOut(AContext.TextRect.Right - BatteryTextWidth,
-        AContext.StatusLineTop + BatteryOffset, AItem.BatteryText);
-  end;
-end;
-
-procedure TDeviceListBox.DrawProfileSection(ACanvas: TCanvas;
-  const AItem: TDeviceDisplayItem; const AContext: TItemDrawContext);
-var
-  Style: TCustomStyleServices;
-  I: Integer;
-  ProfileTop: Integer;
-  ProfileFontSize: Integer;
-  LineHeight: Integer;
-  ProfileText: string;
-  TreeChar: string;
-  IsLast: Boolean;
-  TreeX: Integer;
-begin
-  if Length(AItem.Profiles) <= 1 then
-    Exit;
-
-  Style := TStyleManager.ActiveStyle;
-
-  // Get font size from config or use default
-  if Assigned(FProfileConfig) then
-    ProfileFontSize := FProfileConfig.ProfileFontSize
-  else
-    ProfileFontSize := DEFAULT_PROFILE_FONT_SIZE;
-
-  // Use shared helper to ensure consistency with GetProfileSectionHeight
-  LineHeight := GetProfileLineHeight;
-
-  // Calculate profile position - start just below status line
-  // Use status font to measure status line height correctly
-  ACanvas.Font.Name := FONT_UI;
-  ACanvas.Font.Size := AContext.StatusFontSize;
-  TreeX := AContext.TextRect.Left;
-  // Profiles start immediately after status text
-  ProfileTop := AContext.StatusLineTop + ACanvas.TextHeight('A');
-
-  // Now set up font for profiles
-  ACanvas.Font.Size := ProfileFontSize;
-  ACanvas.Font.Style := [];
-  // Use Secondary color for profile names
-  case FCachedLayout.SecondaryColorSource of
-    scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-    scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-  else
-    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-  end;
-  ACanvas.Brush.Style := bsClear;
-
-  // Draw each profile with tree connectors
-  for I := 0 to High(AItem.Profiles) do
-  begin
-    ProfileText := AItem.Profiles[I].DisplayName;
-    IsLast := (I = High(AItem.Profiles));
-
-    // Use box-drawing characters for tree structure
-    if IsLast then
-      TreeChar := #$2514 + #$2500  // "└─" (corner + horizontal)
-    else
-      TreeChar := #$251C + #$2500; // "├─" (tee + horizontal)
-
-    // Draw tree connector
-    ACanvas.TextOut(TreeX, ProfileTop, TreeChar);
-
-    // Draw profile name (offset by connector width)
-    ACanvas.TextOut(
-      TreeX + ACanvas.TextWidth(TreeChar) + 4,
-      ProfileTop,
-      ProfileText
-    );
-
-    ProfileTop := ProfileTop + LineHeight;
-  end;
-end;
-
-procedure TDeviceListBox.DrawSeparator(ACanvas: TCanvas; const ARect: TRect);
-var
-  Style: TCustomStyleServices;
-  SeparatorY: Integer;
-  SeparatorColor: TColor;
-  LeftMargin, RightMargin: Integer;
-begin
-  Style := TStyleManager.ActiveStyle;
-
-  // Windows 11 style separator: subtle horizontal line with margins
-  SeparatorY := ARect.Top + (FCachedLayout.ItemMargin div 2);
-  SeparatorColor := Style.GetSystemColor(clBtnShadow);
-
-  // Add horizontal margins (indent separator slightly)
-  LeftMargin := FCachedLayout.ItemPadding;
-  RightMargin := FCachedLayout.ItemPadding;
-
-  ACanvas.Pen.Color := SeparatorColor;
-  ACanvas.Pen.Width := 1;
-  ACanvas.Pen.Style := psSolid;
-  ACanvas.MoveTo(ARect.Left + LeftMargin, SeparatorY);
-  ACanvas.LineTo(ARect.Right - RightMargin, SeparatorY);
-end;
-
-procedure TDeviceListBox.DrawDisplayItem(ACanvas: TCanvas; const ARect: TRect;
-  const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
-var
-  Context: TItemDrawContext;
-  IconRect: TRect;
-  BaseHeight: Integer;
-begin
-  // Action items (scan button, etc.) use special rendering
-  if AItem.Source = dsAction then
-  begin
-    DrawActionButton(ACanvas, ARect, AItem, AIsHover, AIsSelected);
-    Exit;
-  end;
-
-  // Create context with all layout parameters
-  Context := CreateDrawContext(ACanvas, ARect, AIsHover, AIsSelected, AItem.Source = dsDiscovered);
-
-  // Draw background and border
-  DrawItemBackground(ACanvas, Context);
-
-  // Calculate base height (without profile section) for icon centering
-  BaseHeight := FCachedLayout.ItemHeight;
-
-  // Draw device icon if enabled (centered in base height area)
-  if Context.ShowDeviceIcons then
-  begin
-    IconRect.Left := Context.ItemRect.Left + Context.ItemPadding;
-    IconRect.Top := Context.ItemRect.Top + (BaseHeight - Context.IconSize) div 2;
-    IconRect.Right := IconRect.Left + Context.IconSize;
-    IconRect.Bottom := IconRect.Top + Context.IconSize;
-    DrawDeviceIcon(ACanvas, IconRect, AItem.EffectiveDeviceType, Context.IsDiscovered);
-  end;
-
-  // Draw text content
-  DrawItemTopLine(ACanvas, AItem, Context);
-  DrawItemBottomLine(ACanvas, AItem, Context);
-
-  // Draw profile section if profiles are present
-  if Length(AItem.Profiles) > 1 then
-    DrawProfileSection(ACanvas, AItem, Context);
-
-  ACanvas.Brush.Style := bsSolid;
-end;
-
-procedure TDeviceListBox.DrawActionButton(ACanvas: TCanvas; const ARect: TRect;
-  const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
-const
-  BUTTON_HEIGHT = 28;  // Thin Windows 11 style button
-  TEXT_LEFT_PADDING = 12;  // Left padding for text
-  PROGRESS_HEIGHT = 2;  // Thin progress bar
-  PROGRESS_SEGMENT_WIDTH = 100;  // Width of moving segment
-var
-  Style: TCustomStyleServices;
-  TextColor, ProgressColor, ProgressBgColor: TColor;
-  TextRect, ProgressRect, SegmentRect: TRect;
-  ButtonText: string;
-  ButtonTop: Integer;
-  BarWidth, SegmentPos: Integer;
-begin
-  Style := TStyleManager.ActiveStyle;
-
-  // Create thin button rect, centered vertically in ARect
-  ButtonTop := ARect.Top + (ARect.Bottom - ARect.Top - BUTTON_HEIGHT) div 2;
-
-  if AItem.IsActionInProgress then
-  begin
-    // Draw animated progress bar instead of text
-    BarWidth := ARect.Right - ARect.Left - (FCachedLayout.ItemPadding * 2);
-
-    // Progress bar background
-    ProgressRect := Rect(
-      ARect.Left + FCachedLayout.ItemPadding,
-      ButtonTop + (BUTTON_HEIGHT - PROGRESS_HEIGHT) div 2,
-      ARect.Right - FCachedLayout.ItemPadding,
-      ButtonTop + (BUTTON_HEIGHT - PROGRESS_HEIGHT) div 2 + PROGRESS_HEIGHT
-    );
-
-    ProgressBgColor := Style.GetSystemColor(clBtnFace);
-    ACanvas.Brush.Color := ProgressBgColor;
-    ACanvas.FillRect(ProgressRect);
-
-    // Animated progress segment (sliding left to right, faster movement)
-    SegmentPos := (FAnimationFrame * 8) mod (BarWidth + PROGRESS_SEGMENT_WIDTH);
-    SegmentPos := SegmentPos - PROGRESS_SEGMENT_WIDTH;  // Start off-screen left
-
-    SegmentRect := Rect(
-      ProgressRect.Left + SegmentPos,
-      ProgressRect.Top,
-      ProgressRect.Left + SegmentPos + PROGRESS_SEGMENT_WIDTH,
-      ProgressRect.Bottom
-    );
-
-    // Clip segment to progress bar bounds
-    if SegmentRect.Left < ProgressRect.Left then
-      SegmentRect.Left := ProgressRect.Left;
-    if SegmentRect.Right > ProgressRect.Right then
-      SegmentRect.Right := ProgressRect.Right;
-
-    ProgressColor := Style.GetSystemColor(clHighlight);
-    ACanvas.Brush.Color := ProgressColor;
-    ACanvas.FillRect(SegmentRect);
-  end
-  else
-  begin
-    // Draw button text
-    ButtonText := AItem.DisplayName;
-
-    // Use Main color for action button text
-    case FCachedLayout.MainColorSource of
-      mcsThemeText: TextColor := Style.GetSystemColor(clWindowText);
-      mcsCustom:    TextColor := TColor(FCachedLayout.MainCustomColor);
-    else
-      TextColor := Style.GetSystemColor(clWindowText);  // Fallback
-    end;
-
-    // Set up font - clean, left-aligned text
-    ACanvas.Font.Name := FONT_UI;
-    ACanvas.Font.Size := FCachedLayout.StatusFontSize;
-    ACanvas.Font.Color := TextColor;
-    ACanvas.Font.Style := [];
-    ACanvas.Brush.Style := bsClear;
-
-    // Draw left-aligned text with padding
-    TextRect := Rect(
-      ARect.Left + FCachedLayout.ItemPadding + TEXT_LEFT_PADDING,
-      ButtonTop,
-      ARect.Right - FCachedLayout.ItemPadding,
-      ButtonTop + BUTTON_HEIGHT
-    );
-    DrawText(ACanvas.Handle, PChar(ButtonText), Length(ButtonText),
-      TextRect, DT_LEFT or DT_VCENTER or DT_SINGLELINE);
-
-    ACanvas.Brush.Style := bsSolid;
-  end;
-end;
-
-procedure TDeviceListBox.DrawDeviceIcon(ACanvas: TCanvas; const ARect: TRect;
-  ADeviceType: TBluetoothDeviceType; AIsDiscovered: Boolean);
-var
-  IconChar: Char;
-  TextSize: TSize;
-  X, Y: Integer;
-  Style: TCustomStyleServices;
-  IconHandle: HICON;
-  IconSize: Integer;
-begin
-  Style := TStyleManager.ActiveStyle;
-
-  // Win7: Use system icons extracted from DLLs
-  if Assigned(FSystemIconCache) then
-  begin
-    IconHandle := FSystemIconCache.GetIcon(ADeviceType);
-    if IconHandle <> 0 then
-    begin
-      // Calculate centered position for icon
-      IconSize := ARect.Width;  // Assume square rect
-      X := ARect.Left;
-      Y := ARect.Top;
-
-      // Draw system icon
-      // Note: Icons are colored by the system, we can't apply custom colors
-      DrawIconEx(ACanvas.Handle, X, Y, IconHandle, IconSize, IconSize, 0, 0, DI_NORMAL);
-      Exit;
-    end;
-    // If icon extraction failed, fall through to font-based rendering
-  end;
-
-  // Win10+: Use Segoe MDL2 Assets font icons (current implementation)
-  IconChar := GetDeviceIconChar(ADeviceType);
-
-  // Use icon font for device icons
-  ACanvas.Font.Name := FONT_ICONS;
-  ACanvas.Font.Size := LayoutConfig.IconFontSize;
-  ACanvas.Font.Style := [];
-
-  // Apply Main/Secondary color based on paired/unpaired state
-  if AIsDiscovered then
-  begin
-    // Use Secondary color for unpaired/discovered devices
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-      scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
-  end
-  else
-  begin
-    // Use Main color for paired devices
-    case FCachedLayout.MainColorSource of
-      mcsThemeText: ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      mcsCustom:    ACanvas.Font.Color := TColor(FCachedLayout.MainCustomColor);
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clWindowText);  // Fallback
-    end;
-  end;
-
-  ACanvas.Brush.Style := bsClear;
-
-  TextSize := ACanvas.TextExtent(IconChar);
-  X := ARect.Left + (ARect.Width - TextSize.cx) div 2;
-  Y := ARect.Top + (ARect.Height - TextSize.cy) div 2;
-
-  ACanvas.TextOut(X, Y, IconChar);
-
-  // Restore font
-  ACanvas.Font.Name := FONT_UI;
-  ACanvas.Brush.Style := bsSolid;
-end;
-
-function TDeviceListBox.GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Char;
-begin
-  case ADeviceType of
-    btAudioOutput,
-    btHeadset:      Result := ICON_HEADPHONE;
-    btAudioInput:   Result := ICON_MICROPHONE;
-    btKeyboard:     Result := ICON_KEYBOARD;
-    btMouse:        Result := ICON_MOUSE;
-    btGamepad:      Result := ICON_GAMEPAD;
-    btComputer:     Result := ICON_COMPUTER;
-    btPhone:        Result := ICON_PHONE;
-    btHID:          Result := ICON_INPUT_DEVICE;
-  else
-    Result := ICON_BLUETOOTH;
-  end;
-end;
-
-function TDeviceListBox.GetBatteryIconChar(ALevel: Integer): Char;
-var
-  IconIndex: Integer;
-begin
-  // Icons: $E850-$E859 for 0%-90% (10% steps), $E83F for 100%
-  if ALevel >= 100 then
-    Result := ICON_BATTERY_100
-  else if ALevel <= 0 then
-    Result := ICON_BATTERY_0
-  else
-  begin
-    // Calculate icon index: 0-9 for levels 0-99%
-    // Level 1-9 -> 0, Level 10-19 -> 1, ..., Level 90-99 -> 9
-    IconIndex := ALevel div 10;
-    if IconIndex > 9 then
-      IconIndex := 9;
-    Result := Char(Ord(ICON_BATTERY_0) + IconIndex);
-  end;
-end;
 
 procedure TDeviceListBox.MouseDown(Button: TMouseButton; Shift: TShiftState;
   X, Y: Integer);
 var
   Index: Integer;
-  ThumbRect, TrackRect: TRect;
-  ThumbCenter: Integer;
-  PageSize: Integer;
 begin
   inherited;
 
@@ -1929,113 +726,36 @@ begin
 
   if Button = mbLeft then
   begin
-    // Check if clicking on scrollbar
-    if IsPointInScrollbar(X, Y) and (FMaxScroll > 0) then
+    // Check if scrollbar handled it (delegated to extracted component)
+    if FScrollbar.HandleMouseDown(X, Y) then
     begin
-      ThumbRect := GetScrollbarThumbRect;
-
-      if IsPointInScrollbarThumb(X, Y) then
-      begin
-        // Start dragging thumb
-        FScrollbarDragging := True;
-        FScrollbarDragStartY := Y;
-        FScrollbarDragStartScroll := FScrollPos;
-        FScrollbarHover := True;
-        Invalidate;
-      end
-      else
-      begin
-        // Click on track - page scroll
-        TrackRect := GetScrollbarTrackRect;
-        ThumbCenter := (ThumbRect.Top + ThumbRect.Bottom) div 2;
-
-        if Y < ThumbCenter then
-        begin
-          // Page up
-          PageSize := ClientHeight;
-          ScrollTo(FScrollPos - PageSize);
-        end
-        else
-        begin
-          // Page down
-          PageSize := ClientHeight;
-          ScrollTo(FScrollPos + PageSize);
-        end;
-      end;
-    end
-    else
-    begin
-      // Regular item click
-      Index := ItemAtPos(X, Y);
-      if Index >= 0 then
-        SelectedIndex := Index;
+      Invalidate;
+      Exit;  // Scrollbar handled it
     end;
+
+    // Regular item click
+    Index := ItemAtPos(X, Y);
+    if Index >= 0 then
+      SelectedIndex := Index;
   end;
 end;
 
 procedure TDeviceListBox.MouseMove(Shift: TShiftState; X, Y: Integer);
 var
   Index: Integer;
-  WasHover: Boolean;
-  TrackRect, ThumbRect: TRect;
-  TrackHeight, ThumbHeight: Integer;
-  DeltaY, NewScrollPos: Integer;
-  ScrollRatio: Double;
 begin
   inherited;
 
-  // Track list hover state for scrollbar visibility
-  if not FListHovered then
+  // Notify scrollbar of mouse enter/move (delegated to extracted component)
+  FScrollbar.HandleMouseEnter;
+  FScrollbar.HandleMouseMove(X, Y);
+
+  // Update item hover state
+  Index := ItemAtPos(X, Y);
+  if Index <> FDataSource.HoverIndex then
   begin
-    FListHovered := True;
-    Invalidate;  // Redraw to show scrollbar
-  end;
-
-  // Handle scrollbar dragging
-  if FScrollbarDragging then
-  begin
-    TrackRect := GetScrollbarTrackRect;
-    ThumbRect := GetScrollbarThumbRect;
-    TrackHeight := TrackRect.Height;
-    ThumbHeight := ThumbRect.Height;
-
-    DeltaY := Y - FScrollbarDragStartY;
-
-    // Convert pixel delta to scroll position delta
-    // ScrollRatio = DeltaY / (TrackHeight - ThumbHeight)
-    if TrackHeight > ThumbHeight then
-    begin
-      ScrollRatio := DeltaY / (TrackHeight - ThumbHeight);
-      NewScrollPos := FScrollbarDragStartScroll + Round(ScrollRatio * FMaxScroll);
-      ScrollTo(NewScrollPos);
-    end;
-
+    FDataSource.HoverIndex := Index;
     Invalidate;
-  end
-  else
-  begin
-    // Update scrollbar hover state
-    WasHover := FScrollbarHover;
-    FScrollbarHover := IsPointInScrollbarThumb(X, Y);
-
-    if WasHover <> FScrollbarHover then
-      Invalidate;
-
-    // Update item hover state (only if not over scrollbar)
-    if not IsPointInScrollbar(X, Y) then
-    begin
-      Index := ItemAtPos(X, Y);
-      if Index <> FHoverIndex then
-      begin
-        FHoverIndex := Index;
-        Invalidate;
-      end;
-    end
-    else if FHoverIndex <> -1 then
-    begin
-      FHoverIndex := -1;
-      Invalidate;
-    end;
   end;
 end;
 
@@ -2046,46 +766,41 @@ var
 begin
   inherited;
 
+  // Notify scrollbar of mouse up (delegated to extracted component)
+  FScrollbar.HandleMouseUp(X, Y);
+
   if Button = mbLeft then
   begin
-    // End scrollbar dragging
-    if FScrollbarDragging then
-    begin
-      FScrollbarDragging := False;
-      Invalidate;
-      Exit;
-    end;
-
     Index := ItemAtPos(X, Y);
-    if (Index >= 0) and (Index = FSelectedIndex) then
+    if (Index >= 0) and (Index = FDataSource.SelectedIndex) then
     begin
       // Check if action item (scan button, etc.)
-      if FDisplayItems[Index].Source = dsAction then
+      if FDataSource.Items[Index].Source = dsAction then
       begin
         // Don't trigger if action is in progress (e.g., scanning)
-        if not FDisplayItems[Index].IsActionInProgress then
+        if not FDataSource.Items[Index].IsActionInProgress then
         begin
           if Assigned(FOnActionClick) then
-            FOnActionClick(Self, FDisplayItems[Index]);
+            FOnActionClick(Self, FDataSource.Items[Index]);
         end;
         Exit;  // Don't process as device click
       end;
 
       // Regular device click
       if Assigned(FOnDisplayItemClick) then
-        FOnDisplayItemClick(Self, FDisplayItems[Index])
+        FOnDisplayItemClick(Self, FDataSource.Items[Index])
       else if Assigned(FOnDeviceClick) then
-        FOnDeviceClick(Self, FDisplayItems[Index].Device);
+        FOnDeviceClick(Self, FDataSource.Items[Index].Device);
     end;
   end
   else if Button = mbRight then
   begin
     // Right-click: show context menu
     Index := ItemAtPos(X, Y);
-    if (Index >= 0) and (FDisplayItems[Index].Source <> dsAction) then
+    if (Index >= 0) and (FDataSource.Items[Index].Source <> dsAction) then
     begin
       // Select item if not already selected
-      if Index <> FSelectedIndex then
+      if Index <> FDataSource.SelectedIndex then
         SetSelectedIndex(Index);
 
       // Show context menu at cursor position
@@ -2105,18 +820,18 @@ begin
   case Key of
     VK_UP:
       begin
-        if FSelectedIndex > 0 then
-          SelectedIndex := FSelectedIndex - 1
-        else if (FSelectedIndex = -1) and (Count > 0) then
+        if FDataSource.SelectedIndex > 0 then
+          SelectedIndex := FDataSource.SelectedIndex - 1
+        else if (FDataSource.SelectedIndex = -1) and (Count > 0) then
           SelectedIndex := 0;
         Key := 0;
       end;
 
     VK_DOWN:
       begin
-        if FSelectedIndex < Count - 1 then
-          SelectedIndex := FSelectedIndex + 1
-        else if (FSelectedIndex = -1) and (Count > 0) then
+        if FDataSource.SelectedIndex < Count - 1 then
+          SelectedIndex := FDataSource.SelectedIndex + 1
+        else if (FDataSource.SelectedIndex = -1) and (Count > 0) then
           SelectedIndex := 0;
         Key := 0;
       end;
@@ -2137,25 +852,25 @@ begin
 
     VK_RETURN, VK_SPACE:
       begin
-        if FSelectedIndex >= 0 then
+        if FDataSource.SelectedIndex >= 0 then
         begin
           // Check if action item (scan button, etc.)
-          if FDisplayItems[FSelectedIndex].Source = dsAction then
+          if FDataSource.Items[FDataSource.SelectedIndex].Source = dsAction then
           begin
             // Don't trigger if action is in progress (e.g., scanning)
-            if not FDisplayItems[FSelectedIndex].IsActionInProgress then
+            if not FDataSource.Items[FDataSource.SelectedIndex].IsActionInProgress then
             begin
               if Assigned(FOnActionClick) then
-                FOnActionClick(Self, FDisplayItems[FSelectedIndex]);
+                FOnActionClick(Self, FDataSource.Items[FDataSource.SelectedIndex]);
             end;
           end
           else
           begin
             // Regular device activation
             if Assigned(FOnDisplayItemClick) then
-              FOnDisplayItemClick(Self, FDisplayItems[FSelectedIndex])
+              FOnDisplayItemClick(Self, FDataSource.Items[FDataSource.SelectedIndex])
             else if Assigned(FOnDeviceClick) then
-              FOnDeviceClick(Self, FDisplayItems[FSelectedIndex].Device);
+              FOnDeviceClick(Self, FDataSource.Items[FDataSource.SelectedIndex].Device);
           end;
         end;
         Key := 0;
@@ -2164,12 +879,12 @@ begin
     VK_F10:
       begin
         // Shift+F10: Show context menu for selected device
-        if (ssShift in Shift) and (FSelectedIndex >= 0) and
-           (FDisplayItems[FSelectedIndex].Source <> dsAction) then
+        if (ssShift in Shift) and (FDataSource.SelectedIndex >= 0) and
+           (FDataSource.Items[FDataSource.SelectedIndex].Source <> dsAction) then
         begin
           // Get item rect and show menu at top-left of item
-          var ItemRect := GetItemRect(FSelectedIndex);
-          ShowContextMenuForItem(FSelectedIndex, ItemRect.Left, ItemRect.Top);
+          var ItemRect := GetItemRect(FDataSource.SelectedIndex);
+          ShowContextMenuForItem(FDataSource.SelectedIndex, ItemRect.Left, ItemRect.Top);
           Key := 0;
         end;
       end;
@@ -2179,8 +894,8 @@ end;
 function TDeviceListBox.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer;
   MousePos: TPoint): Boolean;
 begin
-  Result := True;
-  ScrollTo(FScrollPos - (WheelDelta div 2));
+  // Delegate to scrollbar (extracted component)
+  Result := FScrollbar.HandleMouseWheel(WheelDelta);
 end;
 
 procedure TDeviceListBox.DoEnter;
@@ -2204,9 +919,9 @@ var
 begin
   // Check if any action item is in progress
   HasActionInProgress := False;
-  for I := 0 to High(FDisplayItems) do
+  for I := 0 to High(FDataSource.Items) do
   begin
-    if (FDisplayItems[I].Source = dsAction) and FDisplayItems[I].IsActionInProgress then
+    if (FDataSource.Items[I].Source = dsAction) and FDataSource.Items[I].IsActionInProgress then
     begin
       HasActionInProgress := True;
 
@@ -2233,155 +948,67 @@ begin
     FAnimationFrame := 0;
 end;
 
-{ Context Menu }
+{ Event Setters (forward to context menu builder) }
 
-procedure TDeviceListBox.BuildContextMenu(AItemIndex: Integer);
-var
-  Item: TDeviceDisplayItem;
-  MenuItem: TMenuItem;
+procedure TDeviceListBox.SetOnPinToggle(AValue: TDeviceAddressEvent);
 begin
-  FPopupMenu.Items.Clear;
-
-  if (AItemIndex < 0) or (AItemIndex >= Length(FDisplayItems)) then
-    Exit;
-
-  Item := FDisplayItems[AItemIndex];
-
-  // Store device address for menu handlers
-  FContextMenuDeviceAddress := Item.Device.AddressInt;
-
-  // For paired devices
-  if Item.Device.IsPaired then
-  begin
-    // Pin/Unpin toggle
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    if Item.IsPinned then
-      MenuItem.Caption := 'Unpin'
-    else
-      MenuItem.Caption := 'Pin';
-    MenuItem.OnClick := HandleMenuPinToggle;
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Hide
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := 'Hide from List';
-    MenuItem.OnClick := HandleMenuHide;
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Separator
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := '-';
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Copy Name
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := 'Copy Name';
-    MenuItem.OnClick := HandleMenuCopyName;
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Copy Address
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := 'Copy Address';
-    MenuItem.OnClick := HandleMenuCopyAddress;
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Separator
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := '-';
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Configure
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := 'Configure...';
-    MenuItem.OnClick := HandleMenuConfigure;
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Separator
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := '-';
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Unpair Device
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := 'Unpair Device';
-    MenuItem.OnClick := HandleMenuUnpair;
-    FPopupMenu.Items.Add(MenuItem);
-  end
-  else
-  begin
-    // For unpaired devices: Copy commands + Hide
-    // Copy Name
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := 'Copy Name';
-    MenuItem.OnClick := HandleMenuCopyName;
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Copy Address
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := 'Copy Address';
-    MenuItem.OnClick := HandleMenuCopyAddress;
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Separator
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := '-';
-    FPopupMenu.Items.Add(MenuItem);
-
-    // Hide
-    MenuItem := TMenuItem.Create(FPopupMenu);
-    MenuItem.Caption := 'Hide from List';
-    MenuItem.OnClick := HandleMenuHide;
-    FPopupMenu.Items.Add(MenuItem);
-  end;
+  FOnPinToggle := AValue;
+  if Assigned(FContextMenuBuilder) then
+    FContextMenuBuilder.OnPinToggle := AValue;
 end;
+
+procedure TDeviceListBox.SetOnCopyName(AValue: TDeviceAddressEvent);
+begin
+  FOnCopyName := AValue;
+  if Assigned(FContextMenuBuilder) then
+    FContextMenuBuilder.OnCopyName := AValue;
+end;
+
+procedure TDeviceListBox.SetOnCopyAddress(AValue: TDeviceAddressEvent);
+begin
+  FOnCopyAddress := AValue;
+  if Assigned(FContextMenuBuilder) then
+    FContextMenuBuilder.OnCopyAddress := AValue;
+end;
+
+procedure TDeviceListBox.SetOnConfigure(AValue: TDeviceAddressEvent);
+begin
+  FOnConfigure := AValue;
+  if Assigned(FContextMenuBuilder) then
+    FContextMenuBuilder.OnConfigure := AValue;
+end;
+
+procedure TDeviceListBox.SetOnUnpair(AValue: TDeviceAddressEvent);
+begin
+  FOnUnpair := AValue;
+  if Assigned(FContextMenuBuilder) then
+    FContextMenuBuilder.OnUnpair := AValue;
+end;
+
+procedure TDeviceListBox.SetOnHide(AValue: TDeviceAddressEvent);
+begin
+  FOnHide := AValue;
+  if Assigned(FContextMenuBuilder) then
+    FContextMenuBuilder.OnHide := AValue;
+end;
+
+{ Context Menu (delegated to TDeviceContextMenuBuilder) }
 
 procedure TDeviceListBox.ShowContextMenuForItem(AItemIndex: Integer; X, Y: Integer);
 var
+  Item: TDeviceDisplayItem;
   ScreenPt: TPoint;
 begin
-  BuildContextMenu(AItemIndex);
+  if (AItemIndex < 0) or (AItemIndex >= FDataSource.ItemCount) then
+    Exit;
+
+  Item := FDataSource.Items[AItemIndex];
 
   // Convert control coordinates to screen coordinates
   ScreenPt := ClientToScreen(Point(X, Y));
 
-  // Show menu at specified position
-  FPopupMenu.Popup(ScreenPt.X, ScreenPt.Y);
-end;
-
-procedure TDeviceListBox.HandleMenuPinToggle(Sender: TObject);
-begin
-  if Assigned(FOnPinToggle) and (FContextMenuDeviceAddress <> 0) then
-    FOnPinToggle(Self, FContextMenuDeviceAddress);
-end;
-
-procedure TDeviceListBox.HandleMenuCopyName(Sender: TObject);
-begin
-  if Assigned(FOnCopyName) and (FContextMenuDeviceAddress <> 0) then
-    FOnCopyName(Self, FContextMenuDeviceAddress);
-end;
-
-procedure TDeviceListBox.HandleMenuCopyAddress(Sender: TObject);
-begin
-  if Assigned(FOnCopyAddress) and (FContextMenuDeviceAddress <> 0) then
-    FOnCopyAddress(Self, FContextMenuDeviceAddress);
-end;
-
-procedure TDeviceListBox.HandleMenuConfigure(Sender: TObject);
-begin
-  if Assigned(FOnConfigure) and (FContextMenuDeviceAddress <> 0) then
-    FOnConfigure(Self, FContextMenuDeviceAddress);
-end;
-
-procedure TDeviceListBox.HandleMenuUnpair(Sender: TObject);
-begin
-  if Assigned(FOnUnpair) and (FContextMenuDeviceAddress <> 0) then
-    FOnUnpair(Self, FContextMenuDeviceAddress);
-end;
-
-procedure TDeviceListBox.HandleMenuHide(Sender: TObject);
-begin
-  if Assigned(FOnHide) and (FContextMenuDeviceAddress <> 0) then
-    FOnHide(Self, FContextMenuDeviceAddress);
+  // Delegate to context menu builder
+  FContextMenuBuilder.ShowMenuForItem(Item, ScreenPt.X, ScreenPt.Y);
 end;
 
 end.
