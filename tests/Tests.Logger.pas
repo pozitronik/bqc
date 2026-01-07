@@ -225,6 +225,46 @@ type
     { Dynamic Configuration Tests }
     [Test]
     procedure DynamicLevelChange_MidSession;
+
+    { Early-Exit Optimization Tests }
+    [Test]
+    procedure IsDebugEnabled_WhenDisabled_ReturnsFalse;
+
+    [Test]
+    procedure IsDebugEnabled_BelowMinLevel_ReturnsFalse;
+
+    [Test]
+    procedure IsDebugEnabled_AtMinLevel_ReturnsTrue;
+
+    [Test]
+    procedure IsInfoEnabled_WhenDisabled_ReturnsFalse;
+
+    [Test]
+    procedure IsInfoEnabled_BelowMinLevel_ReturnsFalse;
+
+    [Test]
+    procedure IsInfoEnabled_AtMinLevel_ReturnsTrue;
+
+    [Test]
+    procedure IsWarningEnabled_WhenDisabled_ReturnsFalse;
+
+    [Test]
+    procedure IsWarningEnabled_BelowMinLevel_ReturnsFalse;
+
+    [Test]
+    procedure IsWarningEnabled_AtMinLevel_ReturnsTrue;
+
+    [Test]
+    procedure IsErrorEnabled_WhenDisabled_ReturnsFalse;
+
+    [Test]
+    procedure IsErrorEnabled_AtMinLevel_ReturnsTrue;
+
+    [Test]
+    procedure EarlyExit_DisabledDebug_NoFileWrite;
+
+    [Test]
+    procedure EarlyExit_BelowMinLevel_NoFileWrite;
   end;
 
 implementation
@@ -1206,6 +1246,115 @@ begin
   // Verify messages from third configuration (Error level)
   Assert.DoesNotContain(Content, 'Warning message 2', 'Second warning should be filtered (Error level)');
   Assert.Contains(Content, 'Error message 2', 'Second error should appear (Error level)');
+end;
+
+{ Early-Exit Optimization Tests }
+
+procedure TLoggerTests.IsDebugEnabled_WhenDisabled_ReturnsFalse;
+begin
+  FLogger.Configure(False, FTestLogFile, False, llDebug);
+  Assert.IsFalse(FLogger.IsDebugEnabled, 'IsDebugEnabled should return False when logger is disabled');
+end;
+
+procedure TLoggerTests.IsDebugEnabled_BelowMinLevel_ReturnsFalse;
+begin
+  // Set min level to Warning - Debug should be filtered
+  FLogger.Configure(True, FTestLogFile, False, llWarning);
+  Assert.IsFalse(FLogger.IsDebugEnabled, 'IsDebugEnabled should return False when below min level');
+end;
+
+procedure TLoggerTests.IsDebugEnabled_AtMinLevel_ReturnsTrue;
+begin
+  FLogger.Configure(True, FTestLogFile, False, llDebug);
+  Assert.IsTrue(FLogger.IsDebugEnabled, 'IsDebugEnabled should return True when at min level');
+end;
+
+procedure TLoggerTests.IsInfoEnabled_WhenDisabled_ReturnsFalse;
+begin
+  FLogger.Configure(False, FTestLogFile, False, llInfo);
+  Assert.IsFalse(FLogger.IsInfoEnabled, 'IsInfoEnabled should return False when logger is disabled');
+end;
+
+procedure TLoggerTests.IsInfoEnabled_BelowMinLevel_ReturnsFalse;
+begin
+  // Set min level to Warning - Info should be filtered
+  FLogger.Configure(True, FTestLogFile, False, llWarning);
+  Assert.IsFalse(FLogger.IsInfoEnabled, 'IsInfoEnabled should return False when below min level');
+end;
+
+procedure TLoggerTests.IsInfoEnabled_AtMinLevel_ReturnsTrue;
+begin
+  FLogger.Configure(True, FTestLogFile, False, llInfo);
+  Assert.IsTrue(FLogger.IsInfoEnabled, 'IsInfoEnabled should return True when at min level');
+end;
+
+procedure TLoggerTests.IsWarningEnabled_WhenDisabled_ReturnsFalse;
+begin
+  FLogger.Configure(False, FTestLogFile, False, llWarning);
+  Assert.IsFalse(FLogger.IsWarningEnabled, 'IsWarningEnabled should return False when logger is disabled');
+end;
+
+procedure TLoggerTests.IsWarningEnabled_BelowMinLevel_ReturnsFalse;
+begin
+  // Set min level to Error - Warning should be filtered
+  FLogger.Configure(True, FTestLogFile, False, llError);
+  Assert.IsFalse(FLogger.IsWarningEnabled, 'IsWarningEnabled should return False when below min level');
+end;
+
+procedure TLoggerTests.IsWarningEnabled_AtMinLevel_ReturnsTrue;
+begin
+  FLogger.Configure(True, FTestLogFile, False, llWarning);
+  Assert.IsTrue(FLogger.IsWarningEnabled, 'IsWarningEnabled should return True when at min level');
+end;
+
+procedure TLoggerTests.IsErrorEnabled_WhenDisabled_ReturnsFalse;
+begin
+  FLogger.Configure(False, FTestLogFile, False, llError);
+  Assert.IsFalse(FLogger.IsErrorEnabled, 'IsErrorEnabled should return False when logger is disabled');
+end;
+
+procedure TLoggerTests.IsErrorEnabled_AtMinLevel_ReturnsTrue;
+begin
+  FLogger.Configure(True, FTestLogFile, False, llError);
+  Assert.IsTrue(FLogger.IsErrorEnabled, 'IsErrorEnabled should return True when at min level');
+end;
+
+procedure TLoggerTests.EarlyExit_DisabledDebug_NoFileWrite;
+begin
+  // Disable logging entirely
+  FLogger.Configure(False, FTestLogFile, False, llDebug);
+
+  // Call debug with format args - should exit early without calling Format or writing file
+  FLogger.Debug('Value: %d', [42], 'Test');
+
+  // Verify no file was created
+  Assert.IsFalse(TFile.Exists(FTestLogFile),
+    'Log file should not be created when logging is disabled (early exit worked)');
+end;
+
+procedure TLoggerTests.EarlyExit_BelowMinLevel_NoFileWrite;
+begin
+  // Enable logging but set min level to Warning - Debug and Info should be filtered
+  FLogger.Configure(True, FTestLogFile, False, llWarning);
+
+  // Call debug and info with format args - should exit early without calling Format or writing file
+  FLogger.Debug('Debug: %d', [1], 'Test');
+  FLogger.Info('Info: %d', [2], 'Test');
+
+  // Call warning to ensure logger is actually working
+  FLogger.Warning('Warning: %d', [3], 'Test');
+
+  var Content := ReadLogFile;
+
+  // Verify debug and info were filtered (early exit worked)
+  Assert.DoesNotContain(Content, 'Debug:',
+    'Debug message should not appear when below min level (early exit worked)');
+  Assert.DoesNotContain(Content, 'Info:',
+    'Info message should not appear when below min level (early exit worked)');
+
+  // Verify warning appeared (logger is working)
+  Assert.Contains(Content, 'Warning: 3',
+    'Warning message should appear when at min level');
 end;
 
 initialization

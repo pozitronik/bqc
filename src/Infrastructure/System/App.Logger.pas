@@ -88,6 +88,12 @@ type
       const ASource: string = ''); overload;
     procedure Error(const AFormat: string; const AArgs: array of const;
       const ASource: string = ''); overload;
+
+    { Level check helpers for early-exit optimization }
+    function IsDebugEnabled: Boolean;
+    function IsInfoEnabled: Boolean;
+    function IsWarningEnabled: Boolean;
+    function IsErrorEnabled: Boolean;
   end;
 
 //------------------------------------------------------------------------------
@@ -205,8 +211,13 @@ end;
 
 procedure LogDebug(const AFormat: string; const AArgs: array of const;
   const ASource: string);
+var
+  L: TLogger;
 begin
-  GetLogger.Debug(Format(AFormat, AArgs), ASource);
+  L := GetLogger;
+  // Early exit: check level before expensive Format call
+  if not L.IsDebugEnabled then Exit;
+  L.Debug(Format(AFormat, AArgs), ASource);
 end;
 
 procedure LogInfo(const AMessage: string; const ASource: string);
@@ -216,8 +227,13 @@ end;
 
 procedure LogInfo(const AFormat: string; const AArgs: array of const;
   const ASource: string);
+var
+  L: TLogger;
 begin
-  GetLogger.Info(Format(AFormat, AArgs), ASource);
+  L := GetLogger;
+  // Early exit: check level before expensive Format call
+  if not L.IsInfoEnabled then Exit;
+  L.Info(Format(AFormat, AArgs), ASource);
 end;
 
 procedure LogWarning(const AMessage: string; const ASource: string);
@@ -227,8 +243,13 @@ end;
 
 procedure LogWarning(const AFormat: string; const AArgs: array of const;
   const ASource: string);
+var
+  L: TLogger;
 begin
-  GetLogger.Warning(Format(AFormat, AArgs), ASource);
+  L := GetLogger;
+  // Early exit: check level before expensive Format call
+  if not L.IsWarningEnabled then Exit;
+  L.Warning(Format(AFormat, AArgs), ASource);
 end;
 
 procedure LogError(const AMessage: string; const ASource: string);
@@ -238,8 +259,13 @@ end;
 
 procedure LogError(const AFormat: string; const AArgs: array of const;
   const ASource: string);
+var
+  L: TLogger;
 begin
-  GetLogger.Error(Format(AFormat, AArgs), ASource);
+  L := GetLogger;
+  // Early exit: check level before expensive Format call
+  if not L.IsErrorEnabled then Exit;
+  L.Error(Format(AFormat, AArgs), ASource);
 end;
 
 procedure SetLoggingEnabled(AEnabled: Boolean; const AFilename: string;
@@ -328,6 +354,26 @@ begin
   Result := FMinLevel;
 end;
 
+function TLogger.IsDebugEnabled: Boolean;
+begin
+  Result := FEnabled and (llDebug >= FMinLevel);
+end;
+
+function TLogger.IsInfoEnabled: Boolean;
+begin
+  Result := FEnabled and (llInfo >= FMinLevel);
+end;
+
+function TLogger.IsWarningEnabled: Boolean;
+begin
+  Result := FEnabled and (llWarning >= FMinLevel);
+end;
+
+function TLogger.IsErrorEnabled: Boolean;
+begin
+  Result := FEnabled and (llError >= FMinLevel);
+end;
+
 procedure TLogger.Debug(const AMessage: string; const ASource: string);
 begin
   WriteToFile(llDebug, AMessage, ASource);
@@ -351,24 +397,32 @@ end;
 procedure TLogger.Debug(const AFormat: string; const AArgs: array of const;
   const ASource: string);
 begin
+  // Early exit: check level before expensive Format call
+  if not IsDebugEnabled then Exit;
   WriteToFile(llDebug, Format(AFormat, AArgs), ASource);
 end;
 
 procedure TLogger.Info(const AFormat: string; const AArgs: array of const;
   const ASource: string);
 begin
+  // Early exit: check level before expensive Format call
+  if not IsInfoEnabled then Exit;
   WriteToFile(llInfo, Format(AFormat, AArgs), ASource);
 end;
 
 procedure TLogger.Warning(const AFormat: string; const AArgs: array of const;
   const ASource: string);
 begin
+  // Early exit: check level before expensive Format call
+  if not IsWarningEnabled then Exit;
   WriteToFile(llWarning, Format(AFormat, AArgs), ASource);
 end;
 
 procedure TLogger.Error(const AFormat: string; const AArgs: array of const;
   const ASource: string);
 begin
+  // Early exit: check level before expensive Format call
+  if not IsErrorEnabled then Exit;
   WriteToFile(llError, Format(AFormat, AArgs), ASource);
 end;
 
