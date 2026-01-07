@@ -478,14 +478,14 @@ begin
 
     if RadioEnabled then
     begin
-      FToggleView.SetToggleState(True);
+      SetToggleStateSafe(True);
       FStatusView.ShowStatus('Loading devices...');
       LoadDevices;
       AutoConnectDevices;
     end
     else
     begin
-      FToggleView.SetToggleState(False);
+      SetToggleStateSafe(False);
       FStatusView.ShowStatus('Bluetooth is off');
       FDeviceListView.ClearDevices;
     end;
@@ -498,7 +498,7 @@ begin
   else
   begin
     LogDebug('Initialize: No Bluetooth adapter found', ClassName);
-    FToggleView.SetToggleState(False);
+    SetToggleStateSafe(False);
     FToggleView.SetToggleEnabled(False);
     FStatusView.ShowStatus('No Bluetooth adapter found');
   end;

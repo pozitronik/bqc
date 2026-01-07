@@ -208,7 +208,8 @@ uses
   System.SysUtils,
   Winapi.ActiveX,
   App.WinRTSupport,
-  WinRT.AsyncHelpers;
+  WinRT.AsyncHelpers,
+  Bluetooth.WinAPI;
 
 const
   TIMER_ID_RADIO_POLL = 1;
@@ -425,20 +426,39 @@ var
   Radio: IRadio;
   RadioState: Integer;
   HR: HRESULT;
+  FindParams: BLUETOOTH_FIND_RADIO_PARAMS;
+  FindHandle: HBLUETOOTH_RADIO_FIND;
+  RadioHandle: THandle;
 begin
   Result := False;
   AEnabled := False;
 
-  if not GetBluetoothRadio(Radio) then
+  // Try WinRT approach first (Win8+)
+  if GetBluetoothRadio(Radio) then
+  begin
+    HR := Radio.get_State(RadioState);
+    if Succeeded(HR) then
+    begin
+      AEnabled := (RadioState = RadioState_On);
+      Result := True;
+    end;
+    // See RoUninitialize declaration for why we don't call it here
     Exit;
+  end;
 
-  HR := Radio.get_State(RadioState);
-  if Failed(HR) then
-    Exit;
+  // Fallback to Win32 Classic approach (Win7)
+  // On Win7, if we can find a radio, we assume it's enabled
+  // (Win32 API doesn't provide radio on/off state without admin privileges)
+  FindParams.dwSize := SizeOf(BLUETOOTH_FIND_RADIO_PARAMS);
+  FindHandle := BluetoothFindFirstRadio(@FindParams, RadioHandle);
 
-  AEnabled := (RadioState = RadioState_On);
-  Result := True;
-  // See RoUninitialize declaration for why we don't call it here
+  if FindHandle <> 0 then
+  begin
+    BluetoothFindRadioClose(FindHandle);
+    CloseHandle(RadioHandle);
+    AEnabled := True;  // Assume enabled if radio exists (Win7 limitation)
+    Result := True;
+  end;
 end;
 
 { TBluetoothRadioWatcher }
