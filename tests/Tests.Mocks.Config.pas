@@ -307,8 +307,6 @@ type
   private
     FConnectionTimeout: Integer;
     FConnectionRetryCount: Integer;
-    FEnumerationMode: TEnumerationMode;
-    FBluetoothPlatform: TBluetoothPlatform;
     FAutoScanOnStartup: Boolean;
     FPairingStateSyncInterval: Integer;
     FPairingTimeout: Integer;
@@ -319,8 +317,6 @@ type
     // IConnectionConfig - getters
     function GetConnectionTimeout: Integer;
     function GetConnectionRetryCount: Integer;
-    function GetEnumerationMode: TEnumerationMode;
-    function GetBluetoothPlatform: TBluetoothPlatform;
     function GetAutoScanOnStartup: Boolean;
     function GetPairingStateSyncInterval: Integer;
     function GetPairingTimeout: Integer;
@@ -329,8 +325,6 @@ type
     // IConnectionConfig - setters
     procedure SetConnectionTimeout(AValue: Integer);
     procedure SetConnectionRetryCount(AValue: Integer);
-    procedure SetEnumerationMode(AValue: TEnumerationMode);
-    procedure SetBluetoothPlatform(AValue: TBluetoothPlatform);
     procedure SetAutoScanOnStartup(AValue: Boolean);
     procedure SetPairingStateSyncInterval(AValue: Integer);
     procedure SetPairingTimeout(AValue: Integer);
@@ -339,8 +333,6 @@ type
     // Test setup properties
     property ConnectionTimeout: Integer read FConnectionTimeout write FConnectionTimeout;
     property ConnectionRetryCount: Integer read FConnectionRetryCount write FConnectionRetryCount;
-    property EnumerationMode: TEnumerationMode read FEnumerationMode write FEnumerationMode;
-    property BluetoothPlatform: TBluetoothPlatform read FBluetoothPlatform write FBluetoothPlatform;
     property AutoScanOnStartup: Boolean read FAutoScanOnStartup write FAutoScanOnStartup;
     property PairingStateSyncInterval: Integer read FPairingStateSyncInterval write FPairingStateSyncInterval;
     property PairingTimeout: Integer read FPairingTimeout write FPairingTimeout;
@@ -1114,8 +1106,6 @@ begin
   inherited Create;
   FConnectionTimeout := 10000;
   FConnectionRetryCount := 2;
-  FEnumerationMode := emComposite;
-  FBluetoothPlatform := bpAuto;
   FAutoScanOnStartup := False;
   FPairingStateSyncInterval := 30000;
   FPairingTimeout := 30000;
@@ -1132,11 +1122,6 @@ begin
   Result := FConnectionRetryCount;
 end;
 
-function TMockConnectionConfig.GetEnumerationMode: TEnumerationMode;
-begin
-  Result := FEnumerationMode;
-end;
-
 procedure TMockConnectionConfig.SetConnectionTimeout(AValue: Integer);
 begin
   FConnectionTimeout := AValue;
@@ -1145,21 +1130,6 @@ end;
 procedure TMockConnectionConfig.SetConnectionRetryCount(AValue: Integer);
 begin
   FConnectionRetryCount := AValue;
-end;
-
-procedure TMockConnectionConfig.SetEnumerationMode(AValue: TEnumerationMode);
-begin
-  FEnumerationMode := AValue;
-end;
-
-function TMockConnectionConfig.GetBluetoothPlatform: TBluetoothPlatform;
-begin
-  Result := FBluetoothPlatform;
-end;
-
-procedure TMockConnectionConfig.SetBluetoothPlatform(AValue: TBluetoothPlatform);
-begin
-  FBluetoothPlatform := AValue;
 end;
 
 function TMockConnectionConfig.GetAutoScanOnStartup: Boolean;

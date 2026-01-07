@@ -319,14 +319,11 @@ begin
 end;
 
 function TAppBootstrap.RadioStateManager: IRadioStateManager;
-var
-  Platform: TBluetoothPlatform;
 begin
   if FRadioStateManager = nil then
   begin
-    // Select platform based on configuration
-    Platform := ConnectionConfig.BluetoothPlatform;
-    FRadioStateManager := CreateRadioStateManager(Platform);
+    // Auto-detect platform: WinRT if available, otherwise Classic
+    FRadioStateManager := CreateRadioStateManager;
   end;
   Result := FRadioStateManager;
 end;

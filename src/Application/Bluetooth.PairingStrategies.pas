@@ -71,11 +71,10 @@ type
     function Unpair(ADeviceAddress: UInt64): TPairingResult;
 
     /// <summary>
-    /// Checks if this strategy can handle pairing for the given platform.
+    /// Checks if this strategy is available on current system.
     /// </summary>
-    /// <param name="APlatform">Bluetooth platform.</param>
-    /// <returns>True if strategy supports this platform.</returns>
-    function CanHandle(APlatform: TBluetoothPlatform): Boolean;
+    /// <returns>True if strategy can be used.</returns>
+    function CanHandle: Boolean;
 
     /// <summary>
     /// Gets strategy name for logging.
@@ -97,12 +96,11 @@ type
     ['{F2A3B4C5-6666-7777-8888-999900001111}']
 
     /// <summary>
-    /// Gets the appropriate pairing strategy for the current platform.
-    /// Selects highest-priority strategy that can handle the platform.
+    /// Gets the appropriate pairing strategy for the current system.
+    /// Selects highest-priority strategy that is available.
     /// </summary>
-    /// <param name="APlatform">Bluetooth platform.</param>
     /// <returns>Pairing strategy, or nil if none available.</returns>
-    function GetStrategy(APlatform: TBluetoothPlatform): IPairingStrategy;
+    function GetStrategy: IPairingStrategy;
 
     /// <summary>
     /// Registers a custom pairing strategy.
@@ -147,9 +145,9 @@ type
     function Unpair(ADeviceAddress: UInt64): TPairingResult;
 
     /// <summary>
-    /// Handles Classic and Auto platforms.
+    /// Returns True (always available on Windows).
     /// </summary>
-    function CanHandle(APlatform: TBluetoothPlatform): Boolean;
+    function CanHandle: Boolean;
 
     /// <summary>
     /// Returns "Windows Classic Pairing".
@@ -185,9 +183,9 @@ type
     destructor Destroy; override;
 
     /// <summary>
-    /// Gets highest-priority strategy that can handle the platform.
+    /// Gets highest-priority available strategy.
     /// </summary>
-    function GetStrategy(APlatform: TBluetoothPlatform): IPairingStrategy;
+    function GetStrategy: IPairingStrategy;
 
     /// <summary>
     /// Registers a custom strategy.
@@ -488,10 +486,10 @@ begin
   end;
 end;
 
-function TWindowsPairingStrategy.CanHandle(APlatform: TBluetoothPlatform): Boolean;
+function TWindowsPairingStrategy.CanHandle: Boolean;
 begin
-  // Supports Classic Bluetooth and Auto (fallback to Classic)
-  Result := APlatform in [bpClassic, bpAuto];
+  // Always available on Windows
+  Result := True;
 end;
 
 function TWindowsPairingStrategy.GetName: string;
@@ -528,7 +526,7 @@ begin
   LogDebug('RegisterDefaultStrategies: Registered %d pairing strategies', [FStrategies.Count], ClassName);
 end;
 
-function TPairingStrategyFactory.GetStrategy(APlatform: TBluetoothPlatform): IPairingStrategy;
+function TPairingStrategyFactory.GetStrategy: IPairingStrategy;
 var
   Strategy: IPairingStrategy;
   BestStrategy: IPairingStrategy;
@@ -537,10 +535,10 @@ begin
   BestStrategy := nil;
   BestPriority := -1;
 
-  // Find highest-priority strategy that can handle this platform
+  // Find highest-priority available strategy
   for Strategy in FStrategies do
   begin
-    if Strategy.CanHandle(APlatform) and (Strategy.GetPriority > BestPriority) then
+    if Strategy.CanHandle and (Strategy.GetPriority > BestPriority) then
     begin
       BestStrategy := Strategy;
       BestPriority := Strategy.GetPriority;
@@ -548,10 +546,10 @@ begin
   end;
 
   if Assigned(BestStrategy) then
-    LogDebug('GetStrategy: Selected "%s" (priority %d) for platform %d',
-      [BestStrategy.GetName, BestPriority, Ord(APlatform)], ClassName)
+    LogDebug('GetStrategy: Selected "%s" (priority %d)',
+      [BestStrategy.GetName, BestPriority], ClassName)
   else
-    LogWarning('GetStrategy: No strategy found for platform %d', [Ord(APlatform)], ClassName);
+    LogWarning('GetStrategy: No available strategy found', ClassName);
 
   Result := BestStrategy;
 end;

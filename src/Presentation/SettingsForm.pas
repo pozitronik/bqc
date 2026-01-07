@@ -248,12 +248,6 @@ type
     CheckDeviceAutoConnect: TCheckBox;
     LabelDeviceShowProfiles: TLabel;
     ComboDeviceShowProfiles: TComboBox;
-    LabelEnumerationMode: TLabel;
-    LabelEnumerationModeHint: TLabel;
-    ComboEnumerationMode: TComboBox;
-    LabelBluetoothPlatform: TLabel;
-    LabelBluetoothPlatformHint: TLabel;
-    ComboBluetoothPlatform: TComboBox;
     LabelOutlineColorMode: TLabel;
     ComboOutlineColorMode: TComboBox;
     LabelCustomOutlineColor: TLabel;
@@ -694,8 +688,6 @@ function TFormSettings.GetConnectionSettings: TConnectionViewSettings;
 begin
   Result.Timeout := UpDownTimeout.Position;
   Result.RetryCount := UpDownRetryCount.Position;
-  Result.EnumerationMode := TEnumerationMode(ComboEnumerationMode.ItemIndex);
-  Result.BluetoothPlatform := TBluetoothPlatform(ComboBluetoothPlatform.ItemIndex);
   Result.PollingMode := TPollingMode(ComboPollingMode.ItemIndex);
   Result.PollingInterval := UpDownPollingInterval.Position;
   Result.NotifyOnConnect := CheckNotifyOnConnect.Checked;
@@ -708,8 +700,6 @@ procedure TFormSettings.SetConnectionSettings(const ASettings: TConnectionViewSe
 begin
   UpDownTimeout.Position := ASettings.Timeout;
   UpDownRetryCount.Position := ASettings.RetryCount;
-  ComboEnumerationMode.ItemIndex := Ord(ASettings.EnumerationMode);
-  ComboBluetoothPlatform.ItemIndex := Ord(ASettings.BluetoothPlatform);
   ComboPollingMode.ItemIndex := Ord(ASettings.PollingMode);
   UpDownPollingInterval.Position := ASettings.PollingInterval;
   CheckNotifyOnConnect.Checked := ASettings.NotifyOnConnect;
@@ -1112,8 +1102,6 @@ begin
   // Tab: Connection
   EditTimeout.OnChange := HandleSettingChanged;
   EditRetryCount.OnChange := HandleSettingChanged;
-  ComboEnumerationMode.OnChange := HandleSettingChanged;
-  ComboBluetoothPlatform.OnChange := HandleSettingChanged;
   ComboPollingMode.OnChange := HandleSettingChanged;
   EditPollingInterval.OnChange := HandleSettingChanged;
 
@@ -1206,27 +1194,12 @@ procedure TFormSettings.ConfigureWinRTDependentControls;
 const
   WINRT_UNAVAILABLE_SUFFIX = ' (Windows 8+)';
 var
-  I: Integer;
   ItemText: string;
 begin
   // Configure controls that depend on WinRT availability
   if not IsWinRTAvailable then
   begin
     LogInfo('WinRT not available - disabling WinRT-dependent options', ClassName);
-
-    // Enumeration mode: mark WinRT options as unavailable
-    // TEnumerationMode: emClassic=0, emWinRT=1, emHybrid=2
-    // WinRT and Hybrid modes require WinRT
-    for I := 0 to ComboEnumerationMode.Items.Count - 1 do
-    begin
-      ItemText := ComboEnumerationMode.Items[I];
-      // Mark WinRT-dependent options (indices 1 and 2)
-      if (I >= 1) and (Pos(WINRT_UNAVAILABLE_SUFFIX, ItemText) = 0) then
-        ComboEnumerationMode.Items[I] := ItemText + WINRT_UNAVAILABLE_SUFFIX;
-    end;
-    // Force Classic mode if WinRT mode was selected
-    if ComboEnumerationMode.ItemIndex >= 1 then
-      ComboEnumerationMode.ItemIndex := 0;
 
     // Outline color mode: Auto detection requires Windows 10 dark mode detection
     // TOutlineColorMode: ocmAuto=0, ocmLight=1, ocmDark=2, ocmCustom=3

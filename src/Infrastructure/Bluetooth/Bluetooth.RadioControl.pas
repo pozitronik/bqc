@@ -182,10 +182,10 @@ type
   TRadioStateManager = TWinRTRadioControl;
 
 /// <summary>
-/// Creates the appropriate radio state manager based on platform.
-/// Returns TClassicRadioControl for bpClassic, TWinRTRadioControl for bpWinRT.
+/// Creates the appropriate radio state manager with automatic platform detection.
+/// Returns TWinRTRadioControl if WinRT is available, otherwise TClassicRadioControl.
 /// </summary>
-function CreateRadioStateManager(APlatform: TBluetoothPlatform): IRadioStateManager;
+function CreateRadioStateManager: IRadioStateManager;
 
 /// <summary>
 /// Enables or disables the Bluetooth radio adapter using WinRT API.
@@ -644,23 +644,13 @@ end;
 
 { Factory function }
 
-function CreateRadioStateManager(APlatform: TBluetoothPlatform): IRadioStateManager;
+function CreateRadioStateManager: IRadioStateManager;
 begin
-  case APlatform of
-    bpClassic:
-      Result := TClassicRadioControl.Create;
-    bpWinRT:
-      Result := TWinRTRadioControl.Create;
-    bpAuto:
-      // Auto-detect: Use actual platform detection
-      if TWinRTSupport.IsAvailable then
-        Result := TWinRTRadioControl.Create
-      else
-        Result := TClassicRadioControl.Create;
+  // Auto-detect platform: WinRT if available, otherwise Classic
+  if TWinRTSupport.IsAvailable then
+    Result := TWinRTRadioControl.Create
   else
-    // Fallback to auto-detection
-    Result := CreateRadioStateManager(bpAuto);
-  end;
+    Result := TClassicRadioControl.Create;
 end;
 
 end.

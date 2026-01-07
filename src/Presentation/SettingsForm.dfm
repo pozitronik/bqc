@@ -24,6 +24,8 @@ object FormSettings: TFormSettings
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
+    ExplicitTop = 518
+    ExplicitWidth = 538
     object ButtonOK: TButton
       Left = 282
       Top = 8
@@ -62,6 +64,8 @@ object FormSettings: TFormSettings
     ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
+    ExplicitWidth = 538
+    ExplicitHeight = 518
     object TabGeneral: TTabSheet
       Caption = 'Program'
       object GroupWindowMode: TGroupBox
@@ -72,6 +76,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'How to display?'
         TabOrder = 0
+        ExplicitWidth = 530
         object LabelWindowMode: TLabel
           Left = 12
           Top = 27
@@ -99,6 +104,7 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's window:'
           TabOrder = 1
+          ExplicitWidth = 526
           object CheckMinimizeToTray: TCheckBox
             Left = 12
             Top = 25
@@ -132,6 +138,7 @@ object FormSettings: TFormSettings
           Align = alBottom
           Caption = 'When it'#39's menu:'
           TabOrder = 2
+          ExplicitWidth = 526
           object CheckHideOnFocusLoss: TCheckBox
             Left = 12
             Top = 25
@@ -150,6 +157,7 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
+        ExplicitWidth = 530
         object LabelPositionMode: TLabel
           Left = 12
           Top = 28
@@ -1034,7 +1042,7 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 95
         Width = 536
-        Height = 160
+        Height = 90
         Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
@@ -1062,46 +1070,6 @@ object FormSettings: TFormSettings
         object LabelPollingModeHint: TLabel
           Left = 269
           Top = 27
-          Width = 130
-          Height = 15
-          Caption = 'Requires program restart'
-          Font.Charset = DEFAULT_CHARSET
-          Font.Color = clBtnShadow
-          Font.Height = -12
-          Font.Name = 'Segoe UI'
-          Font.Style = []
-          ParentFont = False
-        end
-        object LabelEnumerationMode: TLabel
-          Left = 12
-          Top = 95
-          Width = 105
-          Height = 15
-          Caption = 'Enumeration mode:'
-        end
-        object LabelEnumerationModeHint: TLabel
-          Left = 269
-          Top = 95
-          Width = 130
-          Height = 15
-          Caption = 'Requires program restart'
-          Font.Charset = DEFAULT_CHARSET
-          Font.Color = clBtnShadow
-          Font.Height = -12
-          Font.Name = 'Segoe UI'
-          Font.Style = []
-          ParentFont = False
-        end
-        object LabelBluetoothPlatform: TLabel
-          Left = 12
-          Top = 127
-          Width = 104
-          Height = 15
-          Caption = 'Bluetooth platform:'
-        end
-        object LabelBluetoothPlatformHint: TLabel
-          Left = 269
-          Top = 127
           Width = 130
           Height = 15
           Caption = 'Requires program restart'
@@ -1145,45 +1113,16 @@ object FormSettings: TFormSettings
           Increment = 500
           TabOrder = 2
         end
-        object ComboEnumerationMode: TComboBox
-          Left = 129
-          Top = 92
-          Width = 125
-          Height = 23
-          Hint = 'Requires app restart'
-          Style = csDropDownList
-          ParentShowHint = False
-          ShowHint = True
-          TabOrder = 3
-          Items.Strings = (
-            'Win32 API only'
-            'WinRT API only'
-            'Combined')
-        end
-        object ComboBluetoothPlatform: TComboBox
-          Left = 129
-          Top = 124
-          Width = 125
-          Height = 23
-          Hint = 'Requires app restart'
-          Style = csDropDownList
-          ParentShowHint = False
-          ShowHint = True
-          TabOrder = 4
-          Items.Strings = (
-            'Auto-detect'
-            'Classic (Win32)'
-            'WinRT')
-        end
       end
       object GroupNotifications: TGroupBox
         Left = 0
-        Top = 255
+        Top = 185
         Width = 536
         Height = 123
         Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
+        ExplicitTop = 255
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24

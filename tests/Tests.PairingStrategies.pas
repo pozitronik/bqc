@@ -77,11 +77,7 @@ type
 
     // CanHandle tests
     [Test]
-    procedure CanHandle_Classic_ReturnsTrue;
-    [Test]
-    procedure CanHandle_Auto_ReturnsTrue;
-    [Test]
-    procedure CanHandle_WinRT_ReturnsFalse;
+    procedure CanHandle_ReturnsTrue;
 
     // GetPriority tests
     [Test]
@@ -144,7 +140,7 @@ type
     function Pair(const ADevice: TBluetoothDeviceInfo;
                   AProgressCallback: TPairingProgressCallback): TPairingResult;
     function Unpair(ADeviceAddress: UInt64): TPairingResult;
-    function CanHandle(APlatform: TBluetoothPlatform): Boolean;
+    function CanHandle: Boolean;
     function GetName: string;
     function GetPriority: Integer;
   end;
@@ -287,19 +283,10 @@ begin
   FStrategy := TWindowsPairingStrategy.Create;
 end;
 
-procedure TWindowsPairingStrategyTests.CanHandle_Classic_ReturnsTrue;
+procedure TWindowsPairingStrategyTests.CanHandle_ReturnsTrue;
 begin
-  Assert.IsTrue(FStrategy.CanHandle(bpClassic));
-end;
-
-procedure TWindowsPairingStrategyTests.CanHandle_Auto_ReturnsTrue;
-begin
-  Assert.IsTrue(FStrategy.CanHandle(bpAuto));
-end;
-
-procedure TWindowsPairingStrategyTests.CanHandle_WinRT_ReturnsFalse;
-begin
-  Assert.IsFalse(FStrategy.CanHandle(bpWinRT));
+  // Windows pairing strategy is always available
+  Assert.IsTrue(FStrategy.CanHandle);
 end;
 
 procedure TWindowsPairingStrategyTests.GetPriority_Returns50;
@@ -324,7 +311,7 @@ var
   WindowsStrategy: IPairingStrategy;
 begin
   // Factory should register Windows Classic strategy
-  WindowsStrategy := FFactory.GetStrategy(bpClassic);
+  WindowsStrategy := FFactory.GetStrategy;
 
   Assert.IsNotNull(WindowsStrategy);
 end;
@@ -333,10 +320,10 @@ procedure TPairingStrategyFactoryTests.GetStrategy_Classic_ReturnsWindowsStrateg
 var
   Strategy: IPairingStrategy;
 begin
-  Strategy := FFactory.GetStrategy(bpClassic);
+  Strategy := FFactory.GetStrategy;
 
   Assert.IsNotNull(Strategy);
-  Assert.IsTrue(Strategy.CanHandle(bpClassic));
+  Assert.IsTrue(Strategy.CanHandle);
   Assert.AreEqual(50, Strategy.GetPriority);
   Assert.AreEqual('Windows Classic Pairing', Strategy.GetName);
 end;
@@ -352,14 +339,14 @@ begin
   Factory := TPairingStrategyFactory.Create;
   Factory.Clear;
 
-  // Register two strategies that can handle bpClassic with different priorities
+  // Register two strategies with different priorities
   LowPriorityStrategy := TCustomPairingStrategy.Create(25);
   HighPriorityStrategy := TCustomPairingStrategy.Create(75);
 
   Factory.RegisterStrategy(LowPriorityStrategy);
   Factory.RegisterStrategy(HighPriorityStrategy);
 
-  SelectedStrategy := Factory.GetStrategy(bpClassic);
+  SelectedStrategy := Factory.GetStrategy;
 
   Assert.IsNotNull(SelectedStrategy);
   Assert.AreEqual(75, SelectedStrategy.GetPriority);
@@ -375,7 +362,7 @@ begin
   Factory.Clear;
 
   // Initially should return nil (no strategies)
-  SelectedStrategy := Factory.GetStrategy(bpClassic);
+  SelectedStrategy := Factory.GetStrategy;
   Assert.IsNull(SelectedStrategy);
 
   // Register a custom strategy
@@ -383,7 +370,7 @@ begin
   Factory.RegisterStrategy(Strategy);
 
   // Now should return the registered strategy
-  SelectedStrategy := Factory.GetStrategy(bpClassic);
+  SelectedStrategy := Factory.GetStrategy;
   Assert.IsNotNull(SelectedStrategy);
 end;
 
@@ -392,13 +379,13 @@ var
   Strategy: IPairingStrategy;
 begin
   // Factory starts with default strategies
-  Strategy := FFactory.GetStrategy(bpClassic);
+  Strategy := FFactory.GetStrategy;
   Assert.IsNotNull(Strategy);
 
   // Clear should remove all
   FFactory.Clear;
 
-  Strategy := FFactory.GetStrategy(bpClassic);
+  Strategy := FFactory.GetStrategy;
   Assert.IsNull(Strategy);
 end;
 
@@ -406,8 +393,8 @@ procedure TPairingStrategyFactoryTests.Clear_GetStrategyReturnsNil;
 begin
   FFactory.Clear;
 
-  Assert.IsNull(FFactory.GetStrategy(bpClassic));
-  Assert.IsNull(FFactory.GetStrategy(bpAuto));
+  // After clearing, no strategy should be available
+  Assert.IsNull(FFactory.GetStrategy);
 end;
 
 { TCustomPairingStrategy }
@@ -429,9 +416,9 @@ begin
   Result := TPairingResult.NotSupported('Test strategy');
 end;
 
-function TCustomPairingStrategy.CanHandle(APlatform: TBluetoothPlatform): Boolean;
+function TCustomPairingStrategy.CanHandle: Boolean;
 begin
-  // Handle all platforms for testing
+  // Always available for testing
   Result := True;
 end;
 

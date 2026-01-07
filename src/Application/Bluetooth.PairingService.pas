@@ -35,10 +35,6 @@ type
     FDeviceRepository: IDeviceRepository;
     FConnectionConfig: IConnectionConfig;
 
-    /// <summary>
-    /// Gets current platform from connection config.
-    /// </summary>
-    function GetCurrentPlatform: TBluetoothPlatform;
   public
     /// <summary>
     /// Creates pairing service with injected dependencies.
@@ -114,37 +110,23 @@ begin
   LogDebug('Create: Pairing service initialized', ClassName);
 end;
 
-function TBluetoothPairingService.GetCurrentPlatform: TBluetoothPlatform;
-begin
-  if Assigned(FConnectionConfig) then
-    Result := FConnectionConfig.BluetoothPlatform
-  else
-    Result := bpAuto; // Default to Auto if no config
-end;
-
 function TBluetoothPairingService.PairDevice(
   const ADevice: TBluetoothDeviceInfo;
   AProgressCallback: TPairingProgressCallback
 ): TPairingResult;
 var
   Strategy: IPairingStrategy;
-  Platform: TBluetoothPlatform;
 begin
   LogInfo('PairDevice: Initiating pairing for device $%.12X, Name="%s"',
     [ADevice.AddressInt, ADevice.Name], ClassName);
 
-  // Get current platform
-  Platform := GetCurrentPlatform;
-
   // Get appropriate strategy
-  Strategy := FPairingStrategyFactory.GetStrategy(Platform);
+  Strategy := FPairingStrategyFactory.GetStrategy;
 
   if not Assigned(Strategy) then
   begin
-    LogError('PairDevice: No pairing strategy available for platform %d', [Ord(Platform)], ClassName);
-    Result := TPairingResult.NotSupported(
-      Format('No pairing strategy available for platform %d', [Ord(Platform)])
-    );
+    LogError('PairDevice: No pairing strategy available', ClassName);
+    Result := TPairingResult.NotSupported('No pairing strategy available');
     Exit;
   end;
 
@@ -174,22 +156,16 @@ end;
 function TBluetoothPairingService.UnpairDevice(ADeviceAddress: UInt64): TPairingResult;
 var
   Strategy: IPairingStrategy;
-  Platform: TBluetoothPlatform;
 begin
   LogInfo('UnpairDevice: Removing pairing for device $%.12X', [ADeviceAddress], ClassName);
 
-  // Get current platform
-  Platform := GetCurrentPlatform;
-
   // Get appropriate strategy
-  Strategy := FPairingStrategyFactory.GetStrategy(Platform);
+  Strategy := FPairingStrategyFactory.GetStrategy;
 
   if not Assigned(Strategy) then
   begin
-    LogError('UnpairDevice: No pairing strategy available for platform %d', [Ord(Platform)], ClassName);
-    Result := TPairingResult.NotSupported(
-      Format('No pairing strategy available for platform %d', [Ord(Platform)])
-    );
+    LogError('UnpairDevice: No pairing strategy available', ClassName);
+    Result := TPairingResult.NotSupported('No pairing strategy available');
     Exit;
   end;
 

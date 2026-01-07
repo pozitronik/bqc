@@ -101,8 +101,6 @@ type
   TConnectionViewSettings = record
     Timeout: Integer;
     RetryCount: Integer;
-    EnumerationMode: TEnumerationMode;
-    BluetoothPlatform: TBluetoothPlatform;
     PollingMode: TPollingMode;
     PollingInterval: Integer;
     NotifyOnConnect: Boolean;
@@ -771,8 +769,6 @@ begin
   // Connection settings
   Connection.Timeout := FConnectionConfig.ConnectionTimeout;
   Connection.RetryCount := FConnectionConfig.ConnectionRetryCount;
-  Connection.EnumerationMode := FConnectionConfig.EnumerationMode;
-  Connection.BluetoothPlatform := FConnectionConfig.BluetoothPlatform;
   Connection.PollingMode := FPollingConfig.PollingMode;
   Connection.PollingInterval := FPollingConfig.PollingInterval;
   Connection.NotifyOnConnect := FNotificationConfig.NotifyOnConnect = nmBalloon;
@@ -904,8 +900,6 @@ begin
     Connection := FConnectionSettingsView.GetConnectionSettings;
     FConnectionConfig.ConnectionTimeout := Connection.Timeout;
     FConnectionConfig.ConnectionRetryCount := Connection.RetryCount;
-    FConnectionConfig.EnumerationMode := Connection.EnumerationMode;
-    FConnectionConfig.BluetoothPlatform := Connection.BluetoothPlatform;
     FPollingConfig.PollingMode := Connection.PollingMode;
     FPollingConfig.PollingInterval := Connection.PollingInterval;
     if Connection.NotifyOnConnect then

@@ -143,8 +143,6 @@ const
   KEY_CONNECTION_TIMEOUT = 'ConnectionTimeout';
   KEY_CONNECTION_RETRY_COUNT = 'ConnectionRetryCount';
   KEY_PAIRING_STATE_SYNC_INTERVAL = 'PairingStateSyncInterval';
-  KEY_ENUMERATION_MODE = 'EnumerationMode';
-  KEY_BLUETOOTH_PLATFORM = 'BluetoothPlatform';
   KEY_PAIRING_TIMEOUT = 'PairingTimeout';
   KEY_PAIRING_MODE = 'PairingMode';
   KEY_NOTIFY_ON_CONNECT = 'NotifyOnConnect';
@@ -387,8 +385,6 @@ begin
   ConnectionCfg.ConnectionTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, DEF_CONNECTION_TIMEOUT);
   ConnectionCfg.ConnectionRetryCount := AIni.ReadInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, DEF_CONNECTION_RETRY_COUNT);
   ConnectionCfg.PairingStateSyncInterval := AIni.ReadInteger(SEC_DEVICE, KEY_PAIRING_STATE_SYNC_INTERVAL, 30000);
-  ConnectionCfg.EnumerationMode := TEnumerationMode(SafeReadEnum(AIni, SEC_DEVICE, KEY_ENUMERATION_MODE, Ord(emComposite), TypeInfo(TEnumerationMode)));
-  ConnectionCfg.BluetoothPlatform := TBluetoothPlatform(SafeReadEnum(AIni, SEC_DEVICE, KEY_BLUETOOTH_PLATFORM, Ord(bpAuto), TypeInfo(TBluetoothPlatform)));
   ConnectionCfg.PairingTimeout := AIni.ReadInteger(SEC_DEVICE, KEY_PAIRING_TIMEOUT, DEF_PAIRING_TIMEOUT);
   ConnectionCfg.PairingMode := TPairingMode(SafeReadEnum(AIni, SEC_DEVICE, KEY_PAIRING_MODE, Ord(pmAutomatic), TypeInfo(TPairingMode)));
   NotificationCfg.NotifyOnConnect := TNotificationMode(SafeReadEnum(AIni, SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(DEF_NOTIFY_ON_CONNECT), TypeInfo(TNotificationMode)));
@@ -559,8 +555,6 @@ begin
   AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_TIMEOUT, ConnectionCfg.ConnectionTimeout);
   AIni.WriteInteger(SEC_DEVICE, KEY_CONNECTION_RETRY_COUNT, ConnectionCfg.ConnectionRetryCount);
   AIni.WriteInteger(SEC_DEVICE, KEY_PAIRING_STATE_SYNC_INTERVAL, ConnectionCfg.PairingStateSyncInterval);
-  AIni.WriteInteger(SEC_DEVICE, KEY_ENUMERATION_MODE, Ord(ConnectionCfg.EnumerationMode));
-  AIni.WriteInteger(SEC_DEVICE, KEY_BLUETOOTH_PLATFORM, Ord(ConnectionCfg.BluetoothPlatform));
   AIni.WriteInteger(SEC_DEVICE, KEY_PAIRING_TIMEOUT, ConnectionCfg.PairingTimeout);
   AIni.WriteInteger(SEC_DEVICE, KEY_PAIRING_MODE, Ord(ConnectionCfg.PairingMode));
   AIni.WriteInteger(SEC_DEVICE, KEY_NOTIFY_ON_CONNECT, Ord(NotificationCfg.NotifyOnConnect));

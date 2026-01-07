@@ -101,15 +101,12 @@ type
   private
     FWin32Query: IBluetoothDeviceQuery;
     FWinRTQuery: IBluetoothDeviceQuery;
-    FConnectionConfig: IConnectionConfig;
     FRegistryNameCache: TRegistryNameCache;
     procedure LogComparison(const AWin32, AWinRT: TBluetoothDeviceInfoArray);
     function MergeResults(const AWin32, AWinRT: TBluetoothDeviceInfoArray): TBluetoothDeviceInfoArray;
-    function GetEnumerationMode: TEnumerationMode;
     function TryGetNameFromRegistryCached(AAddress: UInt64; out AName: string): Boolean;
   public
-    constructor Create; overload;
-    constructor Create(AConnectionConfig: IConnectionConfig); overload;
+    constructor Create;
     destructor Destroy; override;
     function EnumeratePairedDevices: TBluetoothDeviceInfoArray;
   end;
@@ -164,14 +161,10 @@ function CreateDeviceRepository: IDeviceRepository; overload;
 function CreateDeviceRepository(AConnectionConfig: IConnectionConfig): IDeviceRepository; overload;
 
 /// <summary>
-/// Creates the default Windows API device query.
+/// Creates a device query with automatic platform detection.
+/// Always uses Win32 + WinRT (if available) with intelligent merge and registry fallback.
 /// </summary>
-function CreateBluetoothDeviceQuery: IBluetoothDeviceQuery; overload;
-
-/// <summary>
-/// Creates a config-aware device query (uses EnumerationMode setting).
-/// </summary>
-function CreateBluetoothDeviceQuery(AConnectionConfig: IConnectionConfig): IBluetoothDeviceQuery; overload;
+function CreateBluetoothDeviceQuery: IBluetoothDeviceQuery;
 
 implementation
 
@@ -386,11 +379,6 @@ begin
   Result := TCompositeBluetoothDeviceQuery.Create;
 end;
 
-function CreateBluetoothDeviceQuery(AConnectionConfig: IConnectionConfig): IBluetoothDeviceQuery;
-begin
-  Result := TCompositeBluetoothDeviceQuery.Create(AConnectionConfig);
-end;
-
 function CreateDeviceRepository: IDeviceRepository;
 begin
   Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery);
@@ -398,7 +386,8 @@ end;
 
 function CreateDeviceRepository(AConnectionConfig: IConnectionConfig): IDeviceRepository;
 begin
-  Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery(AConnectionConfig));
+  // Config parameter is no longer used - always use auto-detect
+  Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery);
 end;
 
 { TClassicBluetoothDeviceQuery }
@@ -460,42 +449,22 @@ end;
 
 constructor TCompositeBluetoothDeviceQuery.Create;
 begin
-  Create(nil);
-end;
-
-constructor TCompositeBluetoothDeviceQuery.Create(AConnectionConfig: IConnectionConfig);
-var
-  Platform: TBluetoothPlatform;
-begin
   inherited Create;
-  FConnectionConfig := AConnectionConfig;
   FRegistryNameCache := TRegistryNameCache.Create(SystemClock, 60);
 
-  // Determine platform: use config if available, otherwise auto-detect
-  if Assigned(AConnectionConfig) then
-    Platform := TWinRTSupport.SelectPlatform(AConnectionConfig.BluetoothPlatform)
-  else
-    Platform := TWinRTSupport.SelectPlatform(bpAuto);
+  // Always create Win32 query (works everywhere)
+  FWin32Query := TClassicBluetoothDeviceQuery.Create;
 
-  // Create only the query for the selected platform
-  case Platform of
-    bpClassic:
-      begin
-        FWin32Query := TClassicBluetoothDeviceQuery.Create;
-        FWinRTQuery := nil;  // Classic platform only
-        LogDebug('TCompositeBluetoothDeviceQuery: Using Classic Bluetooth (Win32) platform', ClassName);
-      end;
-    bpWinRT:
-      begin
-        FWin32Query := nil;
-        FWinRTQuery := CreateWinRTBluetoothDeviceQuery;  // WinRT platform only
-        LogDebug('TCompositeBluetoothDeviceQuery: Using WinRT Bluetooth platform', ClassName);
-      end;
-  else
-    // Fallback: create both for composite mode (shouldn't happen with proper SelectPlatform)
-    FWin32Query := TClassicBluetoothDeviceQuery.Create;
+  // Add WinRT query if available (Win8+)
+  if TWinRTSupport.IsAvailable then
+  begin
     FWinRTQuery := CreateWinRTBluetoothDeviceQuery;
-    LogWarning('TCompositeBluetoothDeviceQuery: Unexpected platform, creating both queries', ClassName);
+    LogDebug('Create: Using both Win32 and WinRT queries (composite mode)', ClassName);
+  end
+  else
+  begin
+    FWinRTQuery := nil;
+    LogDebug('Create: Using Win32 query only (WinRT not available)', ClassName);
   end;
 end;
 
@@ -537,68 +506,26 @@ begin
       [AAddress], ClassName);
 end;
 
-function TCompositeBluetoothDeviceQuery.GetEnumerationMode: TEnumerationMode;
-begin
-  if Assigned(FConnectionConfig) then
-    Result := FConnectionConfig.EnumerationMode
-  else
-    Result := emComposite;
-end;
-
 function TCompositeBluetoothDeviceQuery.EnumeratePairedDevices: TBluetoothDeviceInfoArray;
 var
   Win32Devices, WinRTDevices: TBluetoothDeviceInfoArray;
-  Mode: TEnumerationMode;
 begin
-  // Platform selection overrides enumeration mode
-  // If only one query is available, use it regardless of mode
-  if not Assigned(FWin32Query) and Assigned(FWinRTQuery) then
-  begin
-    // WinRT platform only
-    Result := FWinRTQuery.EnumeratePairedDevices;
-    LogDebug('EnumeratePairedDevices: WinRT platform, %d devices', [Length(Result)], ClassName);
-    Exit;
-  end;
+  // Enumerate from available sources
+  if Assigned(FWin32Query) then
+    Win32Devices := FWin32Query.EnumeratePairedDevices
+  else
+    SetLength(Win32Devices, 0);
 
-  if Assigned(FWin32Query) and not Assigned(FWinRTQuery) then
-  begin
-    // Classic platform only
-    Result := FWin32Query.EnumeratePairedDevices;
-    LogDebug('EnumeratePairedDevices: Classic platform, %d devices', [Length(Result)], ClassName);
-    Exit;
-  end;
+  if Assigned(FWinRTQuery) then
+    WinRTDevices := FWinRTQuery.EnumeratePairedDevices
+  else
+    SetLength(WinRTDevices, 0);
 
-  // Both queries available - use enumeration mode
-  Mode := GetEnumerationMode;
-  LogDebug('EnumeratePairedDevices: Starting enumeration, mode=%d', [Ord(Mode)], ClassName);
+  // Log comparison if both sources exist
+  if (Length(Win32Devices) > 0) and (Length(WinRTDevices) > 0) then
+    LogComparison(Win32Devices, WinRTDevices);
 
-  case Mode of
-    emWin32:
-      begin
-        // Win32 only
-        Win32Devices := FWin32Query.EnumeratePairedDevices;
-        SetLength(WinRTDevices, 0);
-        LogDebug('EnumeratePairedDevices: Win32 only mode, %d devices', [Length(Win32Devices)], ClassName);
-      end;
-
-    emWinRT:
-      begin
-        // WinRT only
-        SetLength(Win32Devices, 0);
-        WinRTDevices := FWinRTQuery.EnumeratePairedDevices;
-        LogDebug('EnumeratePairedDevices: WinRT only mode, %d devices', [Length(WinRTDevices)], ClassName);
-      end;
-
-    emComposite:
-      begin
-        // Both sources
-        Win32Devices := FWin32Query.EnumeratePairedDevices;
-        WinRTDevices := FWinRTQuery.EnumeratePairedDevices;
-        LogComparison(Win32Devices, WinRTDevices);
-      end;
-  end;
-
-  // Merge results (also applies registry fallback)
+  // Merge and apply registry fallback
   Result := MergeResults(Win32Devices, WinRTDevices);
 
   LogDebug('EnumeratePairedDevices: Complete, %d devices', [Length(Result)], ClassName);

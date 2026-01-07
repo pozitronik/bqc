@@ -115,26 +115,6 @@ type
   );
 
   /// <summary>
-  /// Device enumeration mode for Bluetooth device discovery.
-  /// </summary>
-  TEnumerationMode = (
-    emWin32,     // Win32 Bluetooth API only (0)
-    emWinRT,     // WinRT API only (1)
-    emComposite  // Combined Win32 + WinRT (default) (2)
-  );
-
-  /// <summary>
-  /// Bluetooth platform mode.
-  /// Determines which Bluetooth API platform to use (Classic Win32 vs WinRT).
-  /// Allows explicit platform selection for debugging and Windows 7 support.
-  /// </summary>
-  TBluetoothPlatform = (
-    bpAuto,     // Auto-detect: WinRT if available, otherwise Classic (0)
-    bpClassic,  // Force Classic Bluetooth (Win32 APIs) - Works on Win7-Win11 (1)
-    bpWinRT     // Force WinRT Bluetooth APIs - Requires Win8+ (2)
-  );
-
-  /// <summary>
   /// Pairing mode for WinRT Bluetooth pairing operations.
   /// Determines how pairing ceremonies are handled (automatic Windows dialogs vs custom UI).
   /// </summary>
