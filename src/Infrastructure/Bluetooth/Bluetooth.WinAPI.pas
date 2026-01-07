@@ -759,27 +759,6 @@ function UnregisterDeviceNotification(
 // =============================================================================
 
 /// <summary>
-/// Extracts the major device class from a Class of Device value.
-/// </summary>
-/// <param name="AClassOfDevice">The full CoD value.</param>
-/// <returns>Major device class (bits 8-12).</returns>
-function GetMajorDeviceClass(AClassOfDevice: ULONG): Byte; inline;
-
-/// <summary>
-/// Extracts the minor device class from a Class of Device value.
-/// </summary>
-/// <param name="AClassOfDevice">The full CoD value.</param>
-/// <returns>Minor device class (bits 2-7).</returns>
-function GetMinorDeviceClass(AClassOfDevice: ULONG): Byte; inline;
-
-/// <summary>
-/// Formats a Bluetooth address as a string (XX:XX:XX:XX:XX:XX).
-/// </summary>
-/// <param name="AAddress">The Bluetooth address.</param>
-/// <returns>Formatted address string.</returns>
-function BluetoothAddressToString(const AAddress: BLUETOOTH_ADDRESS): string;
-
-/// <summary>
 /// Initializes a BLUETOOTH_DEVICE_SEARCH_PARAMS structure for finding paired devices.
 /// </summary>
 /// <param name="AParams">The structure to initialize.</param>
@@ -800,21 +779,6 @@ implementation
 uses
   System.SysUtils,
   Bluetooth.Types;
-
-function GetMajorDeviceClass(AClassOfDevice: ULONG): Byte;
-begin
-  Result := (AClassOfDevice shr 8) and $1F;
-end;
-
-function GetMinorDeviceClass(AClassOfDevice: ULONG): Byte;
-begin
-  Result := (AClassOfDevice shr 2) and $3F;
-end;
-
-function BluetoothAddressToString(const AAddress: BLUETOOTH_ADDRESS): string;
-begin
-  Result := FormatAddressAsMAC(AAddress.ullLong);
-end;
 
 procedure InitDeviceSearchParams(
   out AParams: BLUETOOTH_DEVICE_SEARCH_PARAMS;
