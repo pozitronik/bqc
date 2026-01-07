@@ -111,6 +111,7 @@ type
   TSystemIconCache = class
   private
     FIconHandles: TDictionary<TBluetoothDeviceType, HICON>;
+    FPinIconHandle: HICON;
     FIconSize: Integer;
     function TryExtractIcon(const AFilename: string; AIndex: Integer): HICON;
     function LoadIconForDeviceType(ADeviceType: TBluetoothDeviceType): HICON;
@@ -121,6 +122,10 @@ type
     /// Gets cached icon for device type. Returns 0 if not available.
     /// </summary>
     function GetIcon(ADeviceType: TBluetoothDeviceType): HICON;
+    /// <summary>
+    /// Gets cached pin icon. Returns 0 if not available.
+    /// </summary>
+    function GetPinIcon: HICON;
   end;
 
   /// <summary>
@@ -345,6 +350,8 @@ const
   SYSICON_GAMEPAD_INDEX = 25;         // Gamepad/controller icon
   SYSICON_GENERIC_FILE = 'ddores.dll';
   SYSICON_GENERIC_INDEX = 0;          // Generic device icon
+  SYSICON_PIN_FILE = 'imageres.dll';
+  SYSICON_PIN_INDEX = 216;            // Pin/favorite icon (Win7 fallback)
 
   // Layout spacing constants
   FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
@@ -364,6 +371,7 @@ constructor TSystemIconCache.Create(AIconSize: Integer);
 begin
   inherited Create;
   FIconHandles := TDictionary<TBluetoothDeviceType, HICON>.Create;
+  FPinIconHandle := 0;
   FIconSize := AIconSize;
 end;
 
@@ -371,6 +379,10 @@ destructor TSystemIconCache.Destroy;
 var
   IconHandle: HICON;
 begin
+  // Free pin icon
+  if FPinIconHandle <> 0 then
+    DestroyIcon(FPinIconHandle);
+
   // Free all cached icon handles
   for IconHandle in FIconHandles.Values do
   begin
@@ -461,6 +473,14 @@ begin
     if Result <> 0 then
       FIconHandles.Add(ADeviceType, Result);
   end;
+end;
+
+function TSystemIconCache.GetPinIcon: HICON;
+begin
+  // Check cache first (extract on first use)
+  if FPinIconHandle = 0 then
+    FPinIconHandle := TryExtractIcon(SYSICON_PIN_FILE, SYSICON_PIN_INDEX);
+  Result := FPinIconHandle;
 end;
 
 { TDeviceListBox }
@@ -1287,6 +1307,7 @@ var
   AddrLeft, NameHeight, AddrOffset: Integer;
   RightEdge: Integer;
   PinIconWidth: Integer;
+  PinIconHandle: HICON;
   NameColor: TColor;
   SavedClipRgn: HRGN;
 begin
@@ -1330,19 +1351,38 @@ begin
   // Draw pin indicator (rightmost on top line)
   if AItem.IsPinned then
   begin
-    ACanvas.Font.Name := FONT_ICONS;
-    ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
-    // Use Secondary color for pin icon
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-      scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
+    // Win7: Use system icon extracted from imageres.dll
+    if Assigned(FSystemIconCache) then
+    begin
+      PinIconHandle := FSystemIconCache.GetPinIcon;
+      if PinIconHandle <> 0 then
+      begin
+        // Use PIN_ICON_FONT_SIZE as icon size to match font icon size
+        PinIconWidth := PIN_ICON_FONT_SIZE;
+        RightEdge := RightEdge - PinIconWidth;
+        // Draw system icon (system-colored, no custom color support)
+        DrawIconEx(ACanvas.Handle, RightEdge, AContext.NameLineTop, PinIconHandle,
+          PinIconWidth, PinIconWidth, 0, 0, DI_NORMAL);
+      end;
+      // If extraction failed, just skip the icon (pin status still obvious from UI)
+    end
     else
-      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
+    begin
+      // Win10+: Use Segoe MDL2 Assets font icon
+      ACanvas.Font.Name := FONT_ICONS;
+      ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
+      // Use Secondary color for pin icon
+      case FCachedLayout.SecondaryColorSource of
+        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
+        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
+      else
+        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
+      end;
+      PinIconWidth := ACanvas.TextWidth(ICON_PIN);
+      RightEdge := RightEdge - PinIconWidth;
+      ACanvas.TextOut(RightEdge, AContext.NameLineTop, ICON_PIN);
     end;
-    PinIconWidth := ACanvas.TextWidth(ICON_PIN);
-    RightEdge := RightEdge - PinIconWidth;
-    ACanvas.TextOut(RightEdge, AContext.NameLineTop, ICON_PIN);
   end;
 
   // Restore font for name
@@ -1480,24 +1520,30 @@ begin
   // Battery indicator (right-aligned on bottom line)
   if AItem.BatteryStatus.HasLevel then
   begin
-    // Draw battery icon (rightmost)
-    BatteryIconChar := GetBatteryIconChar(AItem.BatteryStatus.Level);
-    ACanvas.Font.Name := FONT_ICONS;
-    ACanvas.Font.Size := BATTERY_ICON_FONT_SIZE;
-    // Use Secondary color for battery icon
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-      scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
+    // Win10+: Draw battery icon (rightmost, font-based)
+    // Win7: Skip icon, percentage text is sufficient
+    if not Assigned(FSystemIconCache) then
+    begin
+      BatteryIconChar := GetBatteryIconChar(AItem.BatteryStatus.Level);
+      ACanvas.Font.Name := FONT_ICONS;
+      ACanvas.Font.Size := BATTERY_ICON_FONT_SIZE;
+      // Use Secondary color for battery icon
+      case FCachedLayout.SecondaryColorSource of
+        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
+        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
+        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
+      else
+        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
+      end;
+      BatteryIconWidth := ACanvas.TextWidth(BatteryIconChar);
+      BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(BatteryIconChar)) div 2;
+      ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth,
+        AContext.StatusLineTop + BatteryOffset, BatteryIconChar);
+    end
     else
-      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
-    BatteryIconWidth := ACanvas.TextWidth(BatteryIconChar);
-    BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(BatteryIconChar)) div 2;
-    ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth,
-      AContext.StatusLineTop + BatteryOffset, BatteryIconChar);
+      BatteryIconWidth := 0;  // No icon on Win7
 
-    // Draw battery percentage text (left of icon)
+    // Draw battery percentage text (Win10+: left of icon, Win7: right-aligned)
     ACanvas.Font.Name := FONT_UI;
     ACanvas.Font.Size := BATTERY_FONT_SIZE;
     // Use Secondary color for battery text
@@ -1510,8 +1556,14 @@ begin
     end;
     BatteryTextWidth := ACanvas.TextWidth(AItem.BatteryText);
     BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(AItem.BatteryText)) div 2;
-    ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth - BATTERY_SPACING - BatteryTextWidth,
-      AContext.StatusLineTop + BatteryOffset, AItem.BatteryText);
+    if BatteryIconWidth > 0 then
+      // Win10+: Position text left of icon
+      ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth - BATTERY_SPACING - BatteryTextWidth,
+        AContext.StatusLineTop + BatteryOffset, AItem.BatteryText)
+    else
+      // Win7: Position text at right edge (no icon)
+      ACanvas.TextOut(AContext.TextRect.Right - BatteryTextWidth,
+        AContext.StatusLineTop + BatteryOffset, AItem.BatteryText);
   end;
 end;
 
