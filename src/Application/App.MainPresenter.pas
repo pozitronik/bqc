@@ -25,7 +25,8 @@ uses
   App.AsyncExecutor,
   App.DeviceDisplayTypes,
   App.DeviceDisplayItemBuilder,
-  App.DeviceNotificationCoordinator;
+  App.DeviceNotificationCoordinator,
+  App.DeviceBatteryCoordinator;
 
 type
   /// <summary>
@@ -54,6 +55,7 @@ type
 
     { Coordinators (extracted from god class) }
     FNotificationCoordinator: TDeviceNotificationCoordinator;
+    FBatteryCoordinator: TDeviceBatteryCoordinator;
 
     { Injected configuration dependencies }
     FAppConfig: IAppConfig;
@@ -89,10 +91,8 @@ type
     procedure HandleError(Sender: TObject; const AMessage: string; AErrorCode: Cardinal);
     procedure HandleRadioStateChanged(Sender: TObject; AEnabled: Boolean);
 
-    procedure RefreshBatteryForConnectedDevices;
-    procedure ScheduleDelayedBatteryRefresh(AAddress: UInt64; ADelayMs: Integer);
-
     { Internal methods }
+    function GetConnectedDeviceAddresses: TArray<UInt64>;
     procedure LoadDevices;
     procedure LoadDevicesDelayed;
     procedure CancelDelayedLoad;
@@ -177,14 +177,6 @@ type
 
   protected
     /// <summary>
-    /// Handles battery query completion event.
-    /// Updates single display item using O(1) lookup instead of full refresh.
-    /// Protected for testability.
-    /// </summary>
-    procedure HandleBatteryQueryCompleted(Sender: TObject; ADeviceAddress: UInt64;
-      const AStatus: TBatteryStatus);
-
-    /// <summary>
     /// Updates existing device or adds new one.
     /// Uses O(1) dictionary lookup + O(1) list update/append.
     /// </summary>
@@ -208,6 +200,11 @@ type
     /// </summary>
     function GetConnectedDeviceCount: Integer;
 
+    /// <summary>
+    /// Returns the battery cache instance.
+    /// Exposed for testing to trigger battery query events.
+    /// </summary>
+    function GetBatteryCache: IBatteryCache;
 
   public
     /// <summary>
@@ -446,6 +443,7 @@ end;
 destructor TMainPresenter.Destroy;
 begin
   Shutdown;
+  FBatteryCoordinator.Free;
   FNotificationCoordinator.Free;
   FBatteryCache := nil;
   FDeviceStatusMessages.Free;
@@ -476,8 +474,18 @@ begin
     LogDebug('Initialize: Using null battery cache (feature disabled)', ClassName);
     FBatteryCache := CreateNullBatteryCache;
   end;
-  FBatteryCache.OnQueryCompleted := HandleBatteryQueryCompleted;
   FDisplayItemBuilder.SetBatteryCache(FBatteryCache);
+
+  // Create battery coordinator (extracted from god class)
+  FBatteryCoordinator := TDeviceBatteryCoordinator.Create(
+    FBatteryCache,
+    FDisplayItemBuilder,
+    FDeviceListView,
+    FAsyncExecutor,
+    FindDeviceByAddress,
+    GetConnectedDeviceAddresses
+  );
+  FBatteryCoordinator.Initialize;
 
   // Wire up Bluetooth service event handlers
   FBluetoothService.OnDeviceStateChanged := HandleDeviceStateChanged;
@@ -548,6 +556,10 @@ begin
   // Set shutdown flag first to prevent async callbacks from accessing freed state
   FIsShutdown := True;
 
+  // Shutdown coordinators
+  if FBatteryCoordinator <> nil then
+    FBatteryCoordinator.Shutdown;
+
   // Cancel any pending delayed load
   CancelDelayedLoad;
 
@@ -614,8 +626,8 @@ begin
     else
       FStatusView.ShowStatus(Format('%d device(s)', [FDeviceList.Count]));
 
-    // Trigger battery level refresh for connected devices
-    RefreshBatteryForConnectedDevices;
+    // Trigger battery level refresh for connected devices (delegated to coordinator)
+    FBatteryCoordinator.RefreshBatteryForConnectedDevices;
   finally
     FStatusView.SetBusy(False);
   end;
@@ -1343,6 +1355,35 @@ begin
       Inc(Result);
 end;
 
+function TMainPresenter.GetConnectedDeviceAddresses: TArray<UInt64>;
+var
+  I, Count: Integer;
+begin
+  // Skip if battery display is disabled
+  if not FAppearanceConfig.ShowBatteryLevel then
+  begin
+    SetLength(Result, 0);
+    Exit;
+  end;
+
+  // Compute connected addresses on-demand - O(n) but n is small (~10 devices)
+  // and this is called infrequently (view shown, devices loaded)
+  SetLength(Result, FDeviceList.Count);
+  Count := 0;
+  for I := 0 to FDeviceList.Count - 1 do
+    if FDeviceList[I].IsConnected then
+    begin
+      Result[Count] := FDeviceList[I].AddressInt;
+      Inc(Count);
+    end;
+  SetLength(Result, Count);
+end;
+
+function TMainPresenter.GetBatteryCache: IBatteryCache;
+begin
+  Result := FBatteryCache;
+end;
+
 procedure TMainPresenter.SetToggleStateSafe(AState: Boolean);
 begin
   FUpdatingToggle := True;
@@ -1426,7 +1467,7 @@ begin
         begin
           if not FBatteryCache.HasCachedStatus(LDevice.AddressInt) then
             FBatteryCache.SetBatteryStatus(LDevice.AddressInt, TBatteryStatus.Pending);
-          ScheduleDelayedBatteryRefresh(LDevice.AddressInt, BATTERY_REFRESH_DELAY_MS);
+          FBatteryCoordinator.ScheduleDelayedBatteryRefresh(LDevice.AddressInt, BATTERY_REFRESH_DELAY_MS);
         end;
       end
       else if LDevice.ConnectionState = csDisconnected then
@@ -1563,85 +1604,6 @@ begin
     CancelDelayedLoad;
     FDeviceListView.ClearDevices;
   end;
-end;
-
-procedure TMainPresenter.HandleBatteryQueryCompleted(Sender: TObject;
-  ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
-var
-  Device: TBluetoothDeviceInfo;
-  DisplayItem: TDeviceDisplayItem;
-begin
-  // Skip if presenter is shutting down
-  if FIsShutdown then
-    Exit;
-
-  LogDebug('HandleBatteryQueryCompleted: Address=$%.12X, Level=%d', [ADeviceAddress, AStatus.Level], ClassName);
-
-  // Find the device in our cache - O(1) lookup
-  Device := FindDeviceByAddress(ADeviceAddress);
-  if Device.AddressInt = 0 then
-  begin
-    LogDebug('HandleBatteryQueryCompleted: Device not found, skipping update', ClassName);
-    Exit;
-  end;
-
-  // Build single display item and update UI - O(1) update instead of O(n) full rebuild
-  // Battery level doesn't affect sort order, so single-item update is safe
-  DisplayItem := FDisplayItemBuilder.BuildDisplayItem(Device);
-  FDeviceListView.UpdateDisplayItem(DisplayItem);
-  LogDebug('HandleBatteryQueryCompleted: Updated single display item', ClassName);
-end;
-
-procedure TMainPresenter.RefreshBatteryForConnectedDevices;
-var
-  I, Count: Integer;
-  ConnectedAddresses: TArray<UInt64>;
-begin
-  // Skip if battery display is disabled (null object will no-op anyway,
-  // but this avoids collecting addresses unnecessarily)
-  if not FAppearanceConfig.ShowBatteryLevel then
-    Exit;
-
-  // Compute connected addresses on-demand - O(n) but n is small (~10 devices)
-  // and this is called infrequently (view shown, devices loaded)
-  SetLength(ConnectedAddresses, FDeviceList.Count);
-  Count := 0;
-  for I := 0 to FDeviceList.Count - 1 do
-    if FDeviceList[I].IsConnected then
-    begin
-      ConnectedAddresses[Count] := FDeviceList[I].AddressInt;
-      Inc(Count);
-    end;
-  SetLength(ConnectedAddresses, Count);
-
-  if Count > 0 then
-  begin
-    LogDebug('RefreshBatteryForConnectedDevices: Refreshing %d devices', [Count], ClassName);
-    FBatteryCache.RequestRefreshAll(ConnectedAddresses);
-  end;
-end;
-
-procedure TMainPresenter.ScheduleDelayedBatteryRefresh(AAddress: UInt64; ADelayMs: Integer);
-var
-  LAddress: UInt64;
-  LBatteryCache: IBatteryCache;
-begin
-  LAddress := AAddress;
-  LBatteryCache := FBatteryCache;
-
-  FAsyncExecutor.RunDelayed(
-    procedure
-    begin
-      QueueIfNotShutdown(
-        procedure
-        begin
-          // LBatteryCache is always valid (real or null object)
-          LBatteryCache.RequestRefresh(LAddress);
-        end
-      );
-    end,
-    ADelayMs
-  );
 end;
 
 { Public methods called by View }
@@ -1941,7 +1903,7 @@ end;
 
 procedure TMainPresenter.OnViewShown;
 begin
-  RefreshBatteryForConnectedDevices;
+  FBatteryCoordinator.RefreshBatteryForConnectedDevices;
 end;
 
 function TMainPresenter.CanClose: Boolean;

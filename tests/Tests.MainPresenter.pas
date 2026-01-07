@@ -39,6 +39,7 @@ type
     function FindDeviceByAddress(AAddress: UInt64): TBluetoothDeviceInfo;
     function GetDeviceCount: Integer;
     function GetConnectedDeviceCount: Integer;
+    function GetBatteryCache: IBatteryCache;
     /// <summary>
     /// Exposes HandleBatteryQueryCompleted for testing single-item update behavior.
     /// </summary>
@@ -297,10 +298,21 @@ begin
   Result := inherited GetConnectedDeviceCount;
 end;
 
+function TTestableMainPresenter.GetBatteryCache: IBatteryCache;
+begin
+  Result := inherited GetBatteryCache;
+end;
+
 procedure TTestableMainPresenter.SimulateBatteryQueryCompleted(
   ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
+var
+  BatteryCache: IBatteryCache;
 begin
-  inherited HandleBatteryQueryCompleted(nil, ADeviceAddress, AStatus);
+  // Trigger the battery query completed event on the battery cache
+  // This will call the coordinator's HandleBatteryQueryCompleted internally
+  BatteryCache := GetBatteryCache;
+  if Assigned(BatteryCache) and Assigned(BatteryCache.OnQueryCompleted) then
+    BatteryCache.OnQueryCompleted(nil, ADeviceAddress, AStatus);
 end;
 
 { TMainPresenterTests }
@@ -1315,6 +1327,7 @@ begin
     FPairingService,
     FDisplayItemBuilder
   );
+  FPresenter.Initialize;
 end;
 
 procedure TBatteryQueryCompletionTests.BatteryQueryCompleted_ExistingDevice_CallsUpdateDisplayItem;
