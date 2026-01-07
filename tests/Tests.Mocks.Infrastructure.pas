@@ -30,7 +30,7 @@ uses
   App.SystemClock,
   App.DeviceDisplayTypes,
   UI.Theme,
-  UI.DeviceDisplayItemBuilder;
+  App.DeviceDisplayItemBuilder;
 
 type
   /// <summary>

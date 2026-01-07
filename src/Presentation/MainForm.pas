@@ -233,7 +233,7 @@ uses
   App.Bootstrap,
   App.SettingsPresenter,
   UI.WindowPositioner,
-  UI.DeviceDisplayItemBuilder,
+  App.DeviceDisplayItemBuilder,
   SettingsForm;
 
 {$R *.dfm}

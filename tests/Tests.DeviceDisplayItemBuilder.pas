@@ -20,7 +20,7 @@ uses
   App.ConfigInterfaces,
   App.DeviceConfigTypes,
   App.DeviceDisplayTypes,
-  UI.DeviceDisplayItemBuilder,
+  App.DeviceDisplayItemBuilder,
   Tests.Mocks;
 
 type

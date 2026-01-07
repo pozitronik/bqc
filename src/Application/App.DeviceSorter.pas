@@ -8,7 +8,7 @@
 {                                                       }
 {*******************************************************}
 
-unit UI.DeviceSorter;
+unit App.DeviceSorter;
 
 interface
 

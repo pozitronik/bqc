@@ -8,7 +8,7 @@
 {                                                       }
 {*******************************************************}
 
-unit UI.DeviceFormatter;
+unit App.DeviceFormatter;
 
 interface
 

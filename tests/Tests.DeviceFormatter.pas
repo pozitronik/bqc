@@ -17,7 +17,7 @@ uses
   App.ConfigEnums,
   App.ConfigInterfaces,
   App.DeviceConfigTypes,
-  UI.DeviceFormatter,
+  App.DeviceFormatter,
   Tests.Mocks;
 
 type

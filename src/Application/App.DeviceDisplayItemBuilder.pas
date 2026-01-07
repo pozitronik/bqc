@@ -9,7 +9,7 @@
 {                                                       }
 {*******************************************************}
 
-unit UI.DeviceDisplayItemBuilder;
+unit App.DeviceDisplayItemBuilder;
 
 interface
 
@@ -148,8 +148,8 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   App.Logger,
-  UI.DeviceFormatter,
-  UI.DeviceSorter;
+  App.DeviceFormatter,
+  App.DeviceSorter;
 
 { TDeviceDisplayItemBuilder }
 

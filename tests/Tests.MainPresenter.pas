@@ -26,7 +26,7 @@ uses
   Bluetooth.Interfaces,
   Bluetooth.RadioControl,
   UI.DeviceList,
-  UI.DeviceDisplayItemBuilder,
+  App.DeviceDisplayItemBuilder,
   Tests.Mocks;
 
 type

@@ -16,7 +16,7 @@ uses
   Bluetooth.Types,
   App.ConfigInterfaces,
   App.DeviceDisplayTypes,
-  UI.DeviceSorter,
+  App.DeviceSorter,
   Tests.Mocks;
 
 type

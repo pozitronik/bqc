@@ -304,7 +304,7 @@ implementation
 uses
   System.Math,
   UI.ListGeometry,
-  UI.DeviceFormatter,
+  App.DeviceFormatter,
   App.Logger;
 
 const

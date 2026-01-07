@@ -24,7 +24,7 @@ uses
   App.LayoutConfigIntf,
   App.AsyncExecutor,
   App.DeviceDisplayTypes,
-  UI.DeviceDisplayItemBuilder;
+  App.DeviceDisplayItemBuilder;
 
 type
   /// <summary>
@@ -366,8 +366,8 @@ uses
   Bluetooth.WinAPI,
   Bluetooth.BatteryQuery,
   Bluetooth.ProfileQuery,
-  UI.DeviceFormatter,
-  UI.DeviceSorter;
+  App.DeviceFormatter,
+  App.DeviceSorter;
 
 const
   // Debounces rapid device list updates after connection state changes
