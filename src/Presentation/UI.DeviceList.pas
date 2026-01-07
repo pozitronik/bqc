@@ -15,6 +15,7 @@ interface
 uses
   Winapi.Windows,
   Winapi.Messages,
+  Winapi.ShellAPI,
   System.SysUtils,
   System.Classes,
   System.Types,
@@ -32,7 +33,8 @@ uses
   App.LayoutConfigIntf,
   App.AppearanceConfigIntf,
   App.ProfileConfigIntf,
-  App.DeviceDisplayTypes;
+  App.DeviceDisplayTypes,
+  App.WinRTSupport;
 
 type
   TDeviceClickEvent = procedure(Sender: TObject; const ADevice: TBluetoothDeviceInfo) of object;
@@ -102,6 +104,26 @@ type
     const AItem: TDeviceDisplayItem) of object;
 
   /// <summary>
+  /// System icon cache for Windows 7 compatibility.
+  /// Extracts and caches device icons from shell32.dll and imageres.dll.
+  /// On Win10+, icons are rendered using Segoe MDL2 Assets font instead.
+  /// </summary>
+  TSystemIconCache = class
+  private
+    FIconHandles: TDictionary<TBluetoothDeviceType, HICON>;
+    FIconSize: Integer;
+    function TryExtractIcon(const AFilename: string; AIndex: Integer): HICON;
+    function LoadIconForDeviceType(ADeviceType: TBluetoothDeviceType): HICON;
+  public
+    constructor Create(AIconSize: Integer);
+    destructor Destroy; override;
+    /// <summary>
+    /// Gets cached icon for device type. Returns 0 if not available.
+    /// </summary>
+    function GetIcon(ADeviceType: TBluetoothDeviceType): HICON;
+  end;
+
+  /// <summary>
   /// Custom device list control with owner-draw rendering.
   /// Displays pre-processed TDeviceDisplayItem records.
   /// </summary>
@@ -148,6 +170,9 @@ type
     FScrollbarDragStartY: Integer;
     FScrollbarDragStartScroll: Integer;
     FListHovered: Boolean;  // True when mouse is over the entire control
+
+    // Win7 system icon cache (nil on Win10+ where we use Segoe MDL2 Assets)
+    FSystemIconCache: TSystemIconCache;
 
     procedure HandleAnimationTimer(Sender: TObject);
 
@@ -288,7 +313,7 @@ const
   DEFAULT_PROFILE_FONT_SIZE = 7; // Fallback when config unavailable
   PROFILE_LINE_HEIGHT_FACTOR = 2; // LineHeight = FontSize * Factor
 
-  // Icon characters from Segoe MDL2 Assets
+  // Icon characters from Segoe MDL2 Assets (Win10+)
   ICON_PIN = #$E718;
   ICON_HEADPHONE = #$E7F6;
   ICON_MICROPHONE = #$E720;
@@ -303,6 +328,23 @@ const
   ICON_BATTERY_0 = #$E850;         // 0% (empty)
   ICON_BATTERY_100 = #$E83F;       // 100% (full)
 
+  // System icon indices for Win7 compatibility (extracted from DLL resources)
+  // Format: [File, Index] - Indices based on Windows 7 resource inspection
+  SYSICON_COMPUTER_FILE = 'shell32.dll';
+  SYSICON_COMPUTER_INDEX = 15;        // Desktop computer icon
+  SYSICON_PHONE_FILE = 'imageres.dll';
+  SYSICON_PHONE_INDEX = 41;           // Mobile phone icon
+  SYSICON_HEADPHONE_FILE = 'imageres.dll';
+  SYSICON_HEADPHONE_INDEX = 120;      // Headphones/audio icon
+  SYSICON_KEYBOARD_FILE = 'imageres.dll';
+  SYSICON_KEYBOARD_INDEX = 174;       // Keyboard icon
+  SYSICON_MOUSE_FILE = 'imageres.dll';
+  SYSICON_MOUSE_INDEX = 175;          // Mouse icon
+  SYSICON_GAMEPAD_FILE = 'imageres.dll';
+  SYSICON_GAMEPAD_INDEX = 74;         // Gaming controller icon (fallback: use generic)
+  SYSICON_GENERIC_FILE = 'shell32.dll';
+  SYSICON_GENERIC_INDEX = 13;         // Generic network/Bluetooth device
+
   // Layout spacing constants
   FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
   PIN_ICON_FONT_SIZE = 10;     // Font size for pin icon
@@ -314,6 +356,111 @@ const
   // Default control dimensions
   DEFAULT_CONTROL_WIDTH = 300;
   DEFAULT_CONTROL_HEIGHT = 400;
+
+{ TSystemIconCache }
+
+constructor TSystemIconCache.Create(AIconSize: Integer);
+begin
+  inherited Create;
+  FIconHandles := TDictionary<TBluetoothDeviceType, HICON>.Create;
+  FIconSize := AIconSize;
+end;
+
+destructor TSystemIconCache.Destroy;
+var
+  IconHandle: HICON;
+begin
+  // Free all cached icon handles
+  for IconHandle in FIconHandles.Values do
+  begin
+    if IconHandle <> 0 then
+      DestroyIcon(IconHandle);
+  end;
+  FIconHandles.Free;
+  inherited Destroy;
+end;
+
+function TSystemIconCache.TryExtractIcon(const AFilename: string; AIndex: Integer): HICON;
+var
+  SystemPath: string;
+  FullPath: string;
+  LargeIcon, SmallIcon: HICON;
+  ExtractedCount: UINT;
+begin
+  Result := 0;
+
+  // Build full path to system DLL
+  SetLength(SystemPath, MAX_PATH);
+  SetLength(SystemPath, GetSystemDirectory(PChar(SystemPath), MAX_PATH));
+  FullPath := IncludeTrailingPathDelimiter(SystemPath) + AFilename;
+
+  // Extract icon at specified size
+  // We request both large and small, but only use the one matching our size
+  LargeIcon := 0;
+  SmallIcon := 0;
+
+  // ExtractIconEx: negative index extracts count, non-negative extracts specific icon
+  ExtractedCount := ExtractIconEx(PChar(FullPath), AIndex, LargeIcon, SmallIcon, 1);
+
+  if ExtractedCount > 0 then
+  begin
+    // Choose icon based on requested size (use small icon for sizes <= 32)
+    if FIconSize <= 32 then
+    begin
+      Result := SmallIcon;
+      if LargeIcon <> 0 then
+        DestroyIcon(LargeIcon);
+    end
+    else
+    begin
+      Result := LargeIcon;
+      if SmallIcon <> 0 then
+        DestroyIcon(SmallIcon);
+    end;
+  end;
+end;
+
+function TSystemIconCache.LoadIconForDeviceType(ADeviceType: TBluetoothDeviceType): HICON;
+begin
+  // Try to extract appropriate system icon based on device type
+  case ADeviceType of
+    btHeadset,
+    btAudioOutput:
+      Result := TryExtractIcon(SYSICON_HEADPHONE_FILE, SYSICON_HEADPHONE_INDEX);
+    btAudioInput:
+      Result := TryExtractIcon(SYSICON_HEADPHONE_FILE, SYSICON_HEADPHONE_INDEX);
+    btKeyboard:
+      Result := TryExtractIcon(SYSICON_KEYBOARD_FILE, SYSICON_KEYBOARD_INDEX);
+    btMouse:
+      Result := TryExtractIcon(SYSICON_MOUSE_FILE, SYSICON_MOUSE_INDEX);
+    btGamepad:
+      Result := TryExtractIcon(SYSICON_GAMEPAD_FILE, SYSICON_GAMEPAD_INDEX);
+    btComputer:
+      Result := TryExtractIcon(SYSICON_COMPUTER_FILE, SYSICON_COMPUTER_INDEX);
+    btPhone:
+      Result := TryExtractIcon(SYSICON_PHONE_FILE, SYSICON_PHONE_INDEX);
+    btHID:
+      Result := TryExtractIcon(SYSICON_KEYBOARD_FILE, SYSICON_KEYBOARD_INDEX);
+  else
+    Result := TryExtractIcon(SYSICON_GENERIC_FILE, SYSICON_GENERIC_INDEX);
+  end;
+
+  // Fallback to generic icon if specific icon failed
+  if (Result = 0) and (ADeviceType <> btUnknown) then
+    Result := TryExtractIcon(SYSICON_GENERIC_FILE, SYSICON_GENERIC_INDEX);
+end;
+
+function TSystemIconCache.GetIcon(ADeviceType: TBluetoothDeviceType): HICON;
+begin
+  // Check cache first
+  if not FIconHandles.TryGetValue(ADeviceType, Result) then
+  begin
+    // Not in cache - load and cache it
+    Result := LoadIconForDeviceType(ADeviceType);
+    if Result <> 0 then
+      FIconHandles.Add(ADeviceType, Result);
+  end;
+end;
 
 { TDeviceListBox }
 
@@ -333,6 +480,12 @@ begin
   FScrollbarDragStartY := 0;
   FScrollbarDragStartScroll := 0;
   FListHovered := False;
+
+  // Initialize system icon cache on Win7 (nil on Win10+ where we use Segoe MDL2 Assets)
+  if not TWinRTSupport.IsAvailable then
+    FSystemIconCache := TSystemIconCache.Create(32)  // 32x32 icons for device list
+  else
+    FSystemIconCache := nil;
 
   ControlStyle := ControlStyle + [csOpaque];
   TabStop := True;
@@ -487,6 +640,7 @@ end;
 destructor TDeviceListBox.Destroy;
 begin
   FDisplayItemIndexMap.Free;
+  FSystemIconCache.Free;  // Safe to free nil
   inherited Destroy;
 end;
 
@@ -1601,8 +1755,31 @@ var
   TextSize: TSize;
   X, Y: Integer;
   Style: TCustomStyleServices;
+  IconHandle: HICON;
+  IconSize: Integer;
 begin
   Style := TStyleManager.ActiveStyle;
+
+  // Win7: Use system icons extracted from DLLs
+  if Assigned(FSystemIconCache) then
+  begin
+    IconHandle := FSystemIconCache.GetIcon(ADeviceType);
+    if IconHandle <> 0 then
+    begin
+      // Calculate centered position for icon
+      IconSize := ARect.Width;  // Assume square rect
+      X := ARect.Left;
+      Y := ARect.Top;
+
+      // Draw system icon
+      // Note: Icons are colored by the system, we can't apply custom colors
+      DrawIconEx(ACanvas.Handle, X, Y, IconHandle, IconSize, IconSize, 0, 0, DI_NORMAL);
+      Exit;
+    end;
+    // If icon extraction failed, fall through to font-based rendering
+  end;
+
+  // Win10+: Use Segoe MDL2 Assets font icons (current implementation)
   IconChar := GetDeviceIconChar(ADeviceType);
 
   // Use icon font for device icons
