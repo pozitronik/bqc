@@ -490,6 +490,13 @@ begin
       FDeviceListView.ClearDevices;
     end;
 
+    // Disable toggle if radio control is not supported (e.g., Win7 Classic mode)
+    if not FRadioStateManager.SupportsStateChange then
+    begin
+      FToggleView.SetToggleEnabled(False);
+      LogDebug('Initialize: Radio control not supported, toggle disabled', ClassName);
+    end;
+
     // Start watching for radio state changes
     FRadioStateManager.OnStateChanged := HandleRadioStateChanged;
     FRadioStateManager.StartWatching;

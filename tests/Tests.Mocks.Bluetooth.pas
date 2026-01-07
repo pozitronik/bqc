@@ -278,6 +278,7 @@ type
     function GetState(out AEnabled: Boolean): Boolean;
     function SetState(AEnable: Boolean): TRadioControlResult;
     function SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+    function SupportsStateChange: Boolean;
     procedure StartWatching;
     procedure StopWatching;
     function GetOnStateChanged: TRadioStateChangedEvent;
@@ -1058,6 +1059,12 @@ function TMockRadioStateManager.SetStateEx(AEnable: Boolean): TRadioControlResul
 begin
   Result.Result := SetState(AEnable);
   Result.ErrorCode := 0;
+end;
+
+function TMockRadioStateManager.SupportsStateChange: Boolean;
+begin
+  // Mock returns True by default (simulates WinRT behavior)
+  Result := True;
 end;
 
 procedure TMockRadioStateManager.StartWatching;

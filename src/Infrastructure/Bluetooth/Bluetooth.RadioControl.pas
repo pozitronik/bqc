@@ -71,6 +71,12 @@ type
     function SetStateEx(AEnable: Boolean): TRadioControlResultEx;
 
     /// <summary>
+    /// Indicates whether this radio state manager supports changing the radio state.
+    /// </summary>
+    /// <returns>True if SetState is supported, False if read-only (e.g., Win7 Classic mode).</returns>
+    function SupportsStateChange: Boolean;
+
+    /// <summary>
     /// Starts watching for radio state changes.
     /// </summary>
     procedure StartWatching;
@@ -146,6 +152,7 @@ type
     function GetState(out AEnabled: Boolean): Boolean;
     function SetState(AEnable: Boolean): TRadioControlResult;
     function SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+    function SupportsStateChange: Boolean;
     procedure StartWatching;
     procedure StopWatching;
     function GetOnStateChanged: TRadioStateChangedEvent;
@@ -170,6 +177,7 @@ type
     function GetState(out AEnabled: Boolean): Boolean;
     function SetState(AEnable: Boolean): TRadioControlResult;
     function SetStateEx(AEnable: Boolean): TRadioControlResultEx;
+    function SupportsStateChange: Boolean;
     procedure StartWatching;
     procedure StopWatching;
     function GetOnStateChanged: TRadioStateChangedEvent;
@@ -575,6 +583,12 @@ begin
   Result := SetBluetoothRadioStateEx(AEnable);
 end;
 
+function TWinRTRadioControl.SupportsStateChange: Boolean;
+begin
+  // WinRT API supports full radio control (Windows 8+)
+  Result := True;
+end;
+
 procedure TWinRTRadioControl.StartWatching;
 begin
   FWatcher.Start;
@@ -634,6 +648,12 @@ begin
   // Classic Bluetooth does not support radio control
   Result.Result := rcAccessDenied;
   Result.ErrorCode := ERROR_NOT_SUPPORTED;
+end;
+
+function TClassicRadioControl.SupportsStateChange: Boolean;
+begin
+  // Win32 Classic Bluetooth API does not support radio control without admin privileges
+  Result := False;
 end;
 
 procedure TClassicRadioControl.StartWatching;
