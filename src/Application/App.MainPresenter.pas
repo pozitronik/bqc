@@ -1888,6 +1888,7 @@ begin
   LogInfo('OnScanRequested: Starting async device scan', ClassName);
   FIsScanning := True;
   FStatusView.SetScanning(True);
+  RefreshDisplayItems;  // Update UI immediately to show progress line
   FStatusView.ShowStatus('Scanning for devices...');
 
   // Run scan in background thread
@@ -1904,6 +1905,7 @@ begin
           begin
             FIsScanning := False;
             FStatusView.SetScanning(False);
+            RefreshDisplayItems;  // Update UI to hide progress line
             FStatusView.ShowStatus('Scan complete');
             LogInfo('OnScanRequested: Scan complete', ClassName);
           end
