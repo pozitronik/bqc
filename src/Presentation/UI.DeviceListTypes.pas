@@ -110,8 +110,6 @@ type
     function GetPinIcon: HICON;
   end;
 
-implementation
-
 const
   // System icon indices for Win7 fallback (from ddores.dll and shell32.dll)
   SYSICON_HEADPHONE_FILE = 'ddores.dll';
@@ -130,6 +128,8 @@ const
   SYSICON_BLUETOOTH_INDEX = 274;
   SYSICON_PIN_FILE = 'imageres.dll';
   SYSICON_PIN_INDEX = 197;
+
+implementation
 
 { TSystemIconCache }
 
