@@ -2,8 +2,8 @@ object FormMain: TFormMain
   Left = 0
   Top = 0
   Caption = 'Bluetooth Quick Connect'
-  ClientHeight = 361
-  ClientWidth = 284
+  ClientHeight = 344
+  ClientWidth = 278
   Color = clBtnFace
   Constraints.MaxHeight = 1200
   Constraints.MaxWidth = 800
@@ -159,7 +159,7 @@ object FormMain: TFormMain
   object HeaderPanel: TPanel
     Left = 0
     Top = 0
-    Width = 284
+    Width = 278
     Height = 33
     Align = alTop
     BevelOuter = bvNone
@@ -185,7 +185,7 @@ object FormMain: TFormMain
       ExplicitHeight = 30
     end
     object BluetoothTogglePanel: TPanel
-      Left = 222
+      Left = 216
       Top = 0
       Width = 52
       Height = 33
@@ -216,8 +216,8 @@ object FormMain: TFormMain
   end
   object StatusPanel: TPanel
     Left = 0
-    Top = 331
-    Width = 284
+    Top = 314
+    Width = 278
     Height = 30
     Align = alBottom
     BevelOuter = bvNone
@@ -247,13 +247,12 @@ object FormMain: TFormMain
       ParentFont = False
       Layout = tlCenter
       OnClick = HandleWindowsSettingsClick
-      ExplicitLeft = 0
       ExplicitHeight = 15
     end
     object StatusLabel: TLabel
       Left = 101
       Top = 0
-      Width = 160
+      Width = 172
       Height = 30
       Cursor = crHandPoint
       Align = alClient
@@ -272,38 +271,12 @@ object FormMain: TFormMain
       ExplicitTop = -2
       ExplicitWidth = 170
     end
-    object SettingsLabel: TLabel
-      Left = 261
-      Top = 0
-      Width = 18
-      Height = 30
-      Cursor = crHandPoint
-      Hint = 'Settings'
-      Align = alRight
-      Alignment = taCenter
-      Caption = #55357#56615
-      Color = clDefault
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clWindowText
-      Font.Height = -13
-      Font.Name = 'Segoe UI Emoji'
-      Font.Style = []
-      ParentColor = False
-      ParentFont = False
-      ParentShowHint = False
-      ShowHint = True
-      Transparent = True
-      Layout = tlCenter
-      OnClick = HandleSettingsClick
-      ExplicitLeft = 260
-      ExplicitHeight = 17
-    end
   end
   object DevicesPanel: TPanel
     Left = 0
     Top = 33
-    Width = 284
-    Height = 298
+    Width = 278
+    Height = 281
     Align = alClient
     BevelOuter = bvNone
     Font.Charset = DEFAULT_CHARSET

@@ -77,7 +77,6 @@ type
     HeaderPanel: TPanel;
     TitleLabel: TLabel;
     StatusPanel: TPanel;
-    SettingsLabel: TLabel;
     StatusLabel: TLabel;
     WindowsSettingsLink: TLabel;
     DevicesPanel: TPanel;
