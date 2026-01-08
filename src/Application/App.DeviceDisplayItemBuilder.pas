@@ -21,7 +21,8 @@ uses
   App.DeviceConfigTypes,
   App.AppearanceConfigIntf,
   App.ProfileConfigIntf,
-  App.DeviceDisplayTypes;
+  App.DeviceDisplayTypes,
+  App.DeviceFormatter;
 
 type
   /// <summary>
@@ -148,7 +149,6 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   App.Logger,
-  App.DeviceFormatter,
   App.DeviceSorter;
 
 { TDeviceDisplayItemBuilder }
