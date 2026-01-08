@@ -14,8 +14,6 @@ Windows 11 removed the convenient quick-connect popup that existed in Windows 10
 - Connect/disconnect devices with a single click
 - Shows device connection status and battery level
 - Per-device configuration for auto-connect and notifications
-- Bluetooth radio on/off toggle
-- Remembers recently seen devices
 - Customizable themes
 - Portable - single executable, no installation required
 
