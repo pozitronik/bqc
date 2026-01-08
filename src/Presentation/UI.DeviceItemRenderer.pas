@@ -108,6 +108,19 @@ type
       ADeviceType: TBluetoothDeviceType; AIsDiscovered: Boolean);
   end;
 
+const
+  // Segoe MDL2 Assets icons (Unicode code points) - exposed for testing
+  ICON_BLUETOOTH = #$E702;
+  ICON_HEADPHONE = #$E7F6;
+  ICON_MICROPHONE = #$E720;
+  ICON_COMPUTER = #$E7F8;
+  ICON_PHONE = #$E8EA;
+  ICON_KEYBOARD = #$E765;
+  ICON_MOUSE = #$E962;
+  ICON_GAMEPAD = #$E7FC;
+  ICON_GENERIC = #$E702;
+  ICON_PIN = #$E840;
+
 implementation
 
 uses
@@ -117,19 +130,10 @@ uses
   App.WinRTSupport;
 
 const
-  // Segoe MDL2 Assets icons (Unicode code points)
-  ICON_BLUETOOTH = #$E702;
+  // Additional Segoe MDL2 Assets icons (main icons exposed in interface section for testing)
   ICON_AUDIO_HEADSET = #$E95B;
   ICON_AUDIO_HEADPHONES = #$E967;
-  ICON_HEADPHONE = #$E7F6;
-  ICON_MICROPHONE = #$E720;
-  ICON_COMPUTER = #$E7F8;
-  ICON_PHONE = #$E8EA;
-  ICON_KEYBOARD = #$E765;
-  ICON_MOUSE = #$E962;
-  ICON_GAMEPAD = #$E7FC;
   ICON_INPUT_DEVICE = #$E961;
-  ICON_GENERIC = #$E702;  // Generic Bluetooth device
   ICON_BATTERY_0 = #$E850;
   ICON_BATTERY_1 = #$E851;
   ICON_BATTERY_2 = #$E852;
@@ -143,7 +147,6 @@ const
   ICON_BATTERY_100 = #$E83F;
   ICON_BATTERY_UNKNOWN = #$E996;
   ICON_AWAITING_BATTERY = #$EBE8;  // Empty circle outline
-  ICON_PIN = #$E840;
 
   // Fonts
   FONT_UI = 'Segoe UI';
