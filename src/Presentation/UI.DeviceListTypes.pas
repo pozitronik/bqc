@@ -64,6 +64,7 @@ type
     ItemMargin: Integer;
     ItemPadding: Integer;
     IconSize: Integer;
+    IconFontSize: Integer;
     CornerRadius: Integer;
     DeviceNameFontSize: Integer;
     StatusFontSize: Integer;

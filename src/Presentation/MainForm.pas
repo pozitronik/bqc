@@ -896,6 +896,11 @@ begin
   if FDeviceList <> nil then
   begin
     FDeviceList.ShowAddresses := FAppearanceConfig.ShowAddresses;
+    // Re-assign config properties to trigger setters and refresh layout cache
+    FDeviceList.LayoutConfig := FLayoutConfig;
+    FDeviceList.AppearanceConfig := FAppearanceConfig;
+    FDeviceList.ProfileConfig := Bootstrap.ProfileConfig;
+    // Note: Setters call Invalidate internally, but keeping explicit call for clarity
     FDeviceList.Invalidate;
   end;
 end;

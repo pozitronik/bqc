@@ -114,6 +114,7 @@ type
     procedure SetShowAddresses(AValue: Boolean);
     procedure SetLayoutConfig(AValue: ILayoutConfig);
     procedure SetAppearanceConfig(AValue: IAppearanceConfig);
+    procedure SetProfileConfig(AValue: IProfileConfig);
     function GetDevice(AIndex: Integer): TBluetoothDeviceInfo;
     function GetDeviceCount: Integer;
     function GetItemCount: Integer;
@@ -172,7 +173,7 @@ type
     // Dependency injection properties (must be set before use)
     property LayoutConfig: ILayoutConfig read GetLayoutConfig write SetLayoutConfig;
     property AppearanceConfig: IAppearanceConfig read GetAppearanceConfig write SetAppearanceConfig;
-    property ProfileConfig: IProfileConfig read GetProfileConfig write FProfileConfig;
+    property ProfileConfig: IProfileConfig read GetProfileConfig write SetProfileConfig;
 
   published
     property Align;
@@ -268,6 +269,7 @@ begin
     FCachedLayout.ItemMargin := FLayoutConfig.ItemMargin;
     FCachedLayout.ItemPadding := FLayoutConfig.ItemPadding;
     FCachedLayout.IconSize := FLayoutConfig.IconSize;
+    FCachedLayout.IconFontSize := FLayoutConfig.IconFontSize;
     FCachedLayout.CornerRadius := FLayoutConfig.CornerRadius;
     FCachedLayout.DeviceNameFontSize := FLayoutConfig.DeviceNameFontSize;
     FCachedLayout.StatusFontSize := FLayoutConfig.StatusFontSize;
@@ -314,6 +316,15 @@ procedure TDeviceListBox.SetAppearanceConfig(AValue: IAppearanceConfig);
 begin
   FAppearanceConfig := AValue;
   RefreshLayoutCache;
+end;
+
+procedure TDeviceListBox.SetProfileConfig(AValue: IProfileConfig);
+begin
+  FProfileConfig := AValue;
+  // Notify data source to recalculate heights with new profile config
+  if Assigned(FDataSource) then
+    FDataSource.UpdateConfigs(FLayoutConfig, FProfileConfig);
+  Invalidate;
 end;
 
 destructor TDeviceListBox.Destroy;

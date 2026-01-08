@@ -850,7 +850,7 @@ begin
 
   // Use icon font for device icons
   ACanvas.Font.Name := FONT_ICONS;
-  ACanvas.Font.Size := FCachedLayout.IconSize;
+  ACanvas.Font.Size := FCachedLayout.IconFontSize;
   ACanvas.Font.Style := [];
 
   // Apply Main/Secondary color based on paired/unpaired state
