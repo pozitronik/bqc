@@ -30,6 +30,7 @@ uses
   Tests.DeviceSorter in 'Tests.DeviceSorter.pas',
   Tests.DeviceDisplayItemBuilder in 'Tests.DeviceDisplayItemBuilder.pas',
   Tests.ConnectionVerification in 'Tests.ConnectionVerification.pas',
+  Tests.DeviceWatcher in 'Tests.DeviceWatcher.pas',
   Tests.ListGeometry in 'Tests.ListGeometry.pas',
   Tests.BluetoothService in 'Tests.BluetoothService.pas',
   Tests.Logger in 'Tests.Logger.pas',
