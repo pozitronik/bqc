@@ -130,7 +130,6 @@ type
     procedure SyncPairedDeviceList;
 
     procedure ScheduleNextPairingSync;
-    procedure RemoveDeviceFromList(ADeviceAddress: UInt64);
 
     function GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
     procedure RefreshDisplayItems;
@@ -140,12 +139,6 @@ type
     /// Preserves custom status text across display list rebuilds.
     /// </summary>
     procedure ApplyStatusMessages;
-
-    /// <summary>
-    /// Returns devices as array, building from list if cache is invalid.
-    /// Used by BuildDisplayItems which requires array input.
-    /// </summary>
-    function GetDevicesArray: TBluetoothDeviceInfoArray;
 
     /// <summary>
     /// Invalidates the devices array cache.
@@ -202,6 +195,18 @@ type
     /// Exposed for testing to trigger battery query events.
     /// </summary>
     function GetBatteryCache: IBatteryCache;
+
+    /// <summary>
+    /// Removes a device from the internal list and updates index map.
+    /// Exposed for testing to verify O(n) vs O(n-k) optimization.
+    /// </summary>
+    procedure RemoveDeviceFromList(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Returns devices as array, building from list if cache is invalid.
+    /// Used by BuildDisplayItems which requires array input.
+    /// </summary>
+    function GetDevicesArray: TBluetoothDeviceInfoArray;
 
   public
     /// <summary>
@@ -1115,10 +1120,13 @@ begin
     // Remove from list
     FDeviceList.Delete(Index);
 
-    // Rebuild index map since all indices after removed item have shifted
-    FDeviceIndexMap.Clear;
-    for I := 0 to FDeviceList.Count - 1 do
-      FDeviceIndexMap.Add(FDeviceList[I].AddressInt, I);
+    // Remove from index map
+    FDeviceIndexMap.Remove(ADeviceAddress);
+
+    // Only update indices that shifted (O(n-Index) instead of O(n))
+    // Devices before Index keep their indices; devices at/after Index shift down by 1
+    for I := Index to FDeviceList.Count - 1 do
+      FDeviceIndexMap[FDeviceList[I].AddressInt] := I;
 
     // Invalidate cache
     InvalidateDevicesArrayCache;
@@ -1290,14 +1298,10 @@ begin
 end;
 
 function TMainPresenter.GetDevicesArray: TBluetoothDeviceInfoArray;
-var
-  I: Integer;
 begin
   if not FDevicesArrayValid then
   begin
-    SetLength(FDevicesArrayCache, FDeviceList.Count);
-    for I := 0 to FDeviceList.Count - 1 do
-      FDevicesArrayCache[I] := FDeviceList[I];
+    FDevicesArrayCache := FDeviceList.ToArray;
     FDevicesArrayValid := True;
   end;
   Result := FDevicesArrayCache;

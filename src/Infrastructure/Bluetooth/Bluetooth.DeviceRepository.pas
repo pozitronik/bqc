@@ -535,7 +535,7 @@ procedure TCompositeBluetoothDeviceQuery.LogComparison(
   const AWin32, AWinRT: TBluetoothDeviceInfoArray);
 var
   Win32Map, WinRTMap: TDictionary<UInt64, TBluetoothDeviceInfo>;
-  Device: TBluetoothDeviceInfo;
+  Device, ResolvedDevice: TBluetoothDeviceInfo;
   Address: UInt64;
   Win32EmptyNames, WinRTResolvedNames: Integer;
 begin
@@ -573,12 +573,13 @@ begin
       if Device.Name = '' then
       begin
         Inc(Win32EmptyNames);
-        if WinRTMap.ContainsKey(Device.AddressInt) and
-           (WinRTMap[Device.AddressInt].Name <> '') then
+        // Use TryGetValue for single lookup instead of ContainsKey + []
+        if WinRTMap.TryGetValue(Device.AddressInt, ResolvedDevice) and
+           (ResolvedDevice.Name <> '') then
         begin
           Inc(WinRTResolvedNames);
           LogInfo('*** WinRT resolved: $%.12X -> "%s"',
-            [Device.AddressInt, WinRTMap[Device.AddressInt].Name], ClassName);
+            [Device.AddressInt, ResolvedDevice.Name], ClassName);
         end;
       end;
     end;
@@ -587,11 +588,12 @@ begin
     LogInfo('--- Devices ONLY in WinRT ---', ClassName);
     for Address in WinRTMap.Keys do
     begin
+      // Use TryGetValue for single lookup instead of ContainsKey + []
       if not Win32Map.ContainsKey(Address) then
       begin
-        Device := WinRTMap[Address];
-        LogInfo('  $%.12X | Name="%s" (BLE device missed by Win32)',
-          [Device.AddressInt, Device.Name], ClassName);
+        if WinRTMap.TryGetValue(Address, ResolvedDevice) then
+          LogInfo('  $%.12X | Name="%s" (BLE device missed by Win32)',
+            [ResolvedDevice.AddressInt, ResolvedDevice.Name], ClassName);
       end;
     end;
 

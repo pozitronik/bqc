@@ -44,6 +44,14 @@ type
     /// Exposes HandleBatteryQueryCompleted for testing single-item update behavior.
     /// </summary>
     procedure SimulateBatteryQueryCompleted(ADeviceAddress: UInt64; const AStatus: TBatteryStatus);
+    /// <summary>
+    /// Exposes RemoveDeviceFromList for testing index map rebuild behavior.
+    /// </summary>
+    procedure RemoveDeviceFromList(ADeviceAddress: UInt64);
+    /// <summary>
+    /// Exposes GetDevicesArray for testing array caching behavior.
+    /// </summary>
+    function GetDevicesArray: TBluetoothDeviceInfoArray;
   end;
 
   [TestFixture]
@@ -313,6 +321,16 @@ begin
   BatteryCache := GetBatteryCache;
   if Assigned(BatteryCache) and Assigned(BatteryCache.OnQueryCompleted) then
     BatteryCache.OnQueryCompleted(nil, ADeviceAddress, AStatus);
+end;
+
+procedure TTestableMainPresenter.RemoveDeviceFromList(ADeviceAddress: UInt64);
+begin
+  inherited RemoveDeviceFromList(ADeviceAddress);
+end;
+
+function TTestableMainPresenter.GetDevicesArray: TBluetoothDeviceInfoArray;
+begin
+  Result := inherited GetDevicesArray;
 end;
 
 { TMainPresenterTests }
@@ -2028,6 +2046,469 @@ begin
     'ShowUnpairedDevices should be settable to False');
 end;
 
+{ TRemoveDeviceFromListTests }
+
+/// <summary>
+/// Tests for RemoveDeviceFromList behavior.
+/// Verifies that index map remains consistent after device removal.
+/// These tests document current behavior before optimization.
+/// </summary>
+type
+  [TestFixture]
+  TRemoveDeviceFromListTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
+    FPresenter: TTestableMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure RemoveDevice_SingleDevice_ListBecomesEmpty;
+
+    [Test]
+    procedure RemoveDevice_FromMiddle_OtherDevicesStillAccessible;
+
+    [Test]
+    procedure RemoveDevice_FromBeginning_OtherDevicesStillAccessible;
+
+    [Test]
+    procedure RemoveDevice_FromEnd_OtherDevicesStillAccessible;
+
+    [Test]
+    procedure RemoveDevice_NonExistent_NoChange;
+
+    [Test]
+    procedure RemoveDevice_AllDevices_ListBecomesEmpty;
+
+    [Test]
+    procedure RemoveDevice_IndexMapConsistency_AfterMultipleRemovals;
+  end;
+
+procedure TRemoveDeviceFromListTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  FBluetoothService := TMockBluetoothService.Create;
+  FPairingService := TMockBluetoothPairingService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
+  FPresenter := nil;
+end;
+
+procedure TRemoveDeviceFromListTests.TearDown;
+begin
+  FPresenter.Free;
+end;
+
+procedure TRemoveDeviceFromListTests.CreatePresenter;
+begin
+  FPresenter := TTestableMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
+    FRadioStateManager,
+    FAsyncExecutor,
+    FBluetoothService,
+    FPairingService,
+    FDisplayItemBuilder
+  );
+end;
+
+procedure TRemoveDeviceFromListTests.RemoveDevice_SingleDevice_ListBecomesEmpty;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  Assert.AreEqual(1, FPresenter.GetDeviceCount, 'Should have 1 device');
+
+  FPresenter.RemoveDeviceFromList($111111111111);
+
+  Assert.AreEqual(0, FPresenter.GetDeviceCount, 'List should be empty after removal');
+end;
+
+procedure TRemoveDeviceFromListTests.RemoveDevice_FromMiddle_OtherDevicesStillAccessible;
+var
+  Device1, Device2, Device3: TBluetoothDeviceInfo;
+  Found1, Found3: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  Device3 := CreateTestDevice($333333333333, 'Device 3', btMouse, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FPresenter.UpdateOrAddDevice(Device3);
+
+  // Remove middle device
+  FPresenter.RemoveDeviceFromList($222222222222);
+
+  Assert.AreEqual(2, FPresenter.GetDeviceCount, 'Should have 2 devices after removal');
+  Found1 := FPresenter.FindDeviceByAddress($111111111111);
+  Found3 := FPresenter.FindDeviceByAddress($333333333333);
+  Assert.AreEqual('Device 1', Found1.Name, 'Device 1 should still be accessible');
+  Assert.AreEqual('Device 3', Found3.Name, 'Device 3 should still be accessible');
+end;
+
+procedure TRemoveDeviceFromListTests.RemoveDevice_FromBeginning_OtherDevicesStillAccessible;
+var
+  Device1, Device2, Device3: TBluetoothDeviceInfo;
+  Found2, Found3: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  Device3 := CreateTestDevice($333333333333, 'Device 3', btMouse, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FPresenter.UpdateOrAddDevice(Device3);
+
+  // Remove first device - this is where the O(n) rebuild is most costly
+  FPresenter.RemoveDeviceFromList($111111111111);
+
+  Assert.AreEqual(2, FPresenter.GetDeviceCount, 'Should have 2 devices after removal');
+  Found2 := FPresenter.FindDeviceByAddress($222222222222);
+  Found3 := FPresenter.FindDeviceByAddress($333333333333);
+  Assert.AreEqual('Device 2', Found2.Name, 'Device 2 should still be accessible');
+  Assert.AreEqual('Device 3', Found3.Name, 'Device 3 should still be accessible');
+end;
+
+procedure TRemoveDeviceFromListTests.RemoveDevice_FromEnd_OtherDevicesStillAccessible;
+var
+  Device1, Device2, Device3: TBluetoothDeviceInfo;
+  Found1, Found2: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  Device3 := CreateTestDevice($333333333333, 'Device 3', btMouse, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FPresenter.UpdateOrAddDevice(Device3);
+
+  // Remove last device - this is where optimization matters least
+  FPresenter.RemoveDeviceFromList($333333333333);
+
+  Assert.AreEqual(2, FPresenter.GetDeviceCount, 'Should have 2 devices after removal');
+  Found1 := FPresenter.FindDeviceByAddress($111111111111);
+  Found2 := FPresenter.FindDeviceByAddress($222222222222);
+  Assert.AreEqual('Device 1', Found1.Name, 'Device 1 should still be accessible');
+  Assert.AreEqual('Device 2', Found2.Name, 'Device 2 should still be accessible');
+end;
+
+procedure TRemoveDeviceFromListTests.RemoveDevice_NonExistent_NoChange;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  // Try to remove non-existent device
+  FPresenter.RemoveDeviceFromList($999999999999);
+
+  Assert.AreEqual(1, FPresenter.GetDeviceCount, 'List should be unchanged');
+end;
+
+procedure TRemoveDeviceFromListTests.RemoveDevice_AllDevices_ListBecomesEmpty;
+var
+  Device1, Device2, Device3: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  Device3 := CreateTestDevice($333333333333, 'Device 3', btMouse, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FPresenter.UpdateOrAddDevice(Device3);
+
+  FPresenter.RemoveDeviceFromList($111111111111);
+  FPresenter.RemoveDeviceFromList($222222222222);
+  FPresenter.RemoveDeviceFromList($333333333333);
+
+  Assert.AreEqual(0, FPresenter.GetDeviceCount, 'List should be empty after removing all devices');
+end;
+
+procedure TRemoveDeviceFromListTests.RemoveDevice_IndexMapConsistency_AfterMultipleRemovals;
+var
+  Devices: array[0..4] of TBluetoothDeviceInfo;
+  I: Integer;
+  Found: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+
+  // Add 5 devices
+  for I := 0 to 4 do
+  begin
+    Devices[I] := CreateTestDevice(
+      UInt64(I + 1) * $111111111111,
+      'Device ' + IntToStr(I + 1),
+      btAudioOutput,
+      csDisconnected
+    );
+    FPresenter.UpdateOrAddDevice(Devices[I]);
+  end;
+  Assert.AreEqual(5, FPresenter.GetDeviceCount, 'Should have 5 devices');
+
+  // Remove devices in random order: 2nd, 4th, 1st
+  FPresenter.RemoveDeviceFromList(2 * $111111111111);  // Remove Device 2
+  FPresenter.RemoveDeviceFromList(4 * $111111111111);  // Remove Device 4
+  FPresenter.RemoveDeviceFromList(1 * $111111111111);  // Remove Device 1
+
+  // Verify remaining devices (3 and 5) are still accessible
+  Assert.AreEqual(2, FPresenter.GetDeviceCount, 'Should have 2 devices remaining');
+
+  Found := FPresenter.FindDeviceByAddress(3 * $111111111111);
+  Assert.AreEqual('Device 3', Found.Name, 'Device 3 should be accessible');
+
+  Found := FPresenter.FindDeviceByAddress(5 * $111111111111);
+  Assert.AreEqual('Device 5', Found.Name, 'Device 5 should be accessible');
+end;
+
+{ TGetDevicesArrayTests }
+
+/// <summary>
+/// Tests for GetDevicesArray behavior.
+/// Verifies that the array cache returns correct devices.
+/// These tests document current behavior before optimization.
+/// </summary>
+type
+  [TestFixture]
+  TGetDevicesArrayTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
+    FPresenter: TTestableMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test]
+    procedure GetDevicesArray_EmptyList_ReturnsEmptyArray;
+
+    [Test]
+    procedure GetDevicesArray_SingleDevice_ReturnsArrayWithOneElement;
+
+    [Test]
+    procedure GetDevicesArray_MultipleDevices_ReturnsAllDevices;
+
+    [Test]
+    procedure GetDevicesArray_AfterUpdate_ReturnsFreshData;
+
+    [Test]
+    procedure GetDevicesArray_AfterRemoval_ReturnsUpdatedArray;
+
+    [Test]
+    procedure GetDevicesArray_CalledTwice_ReturnsSameData;
+  end;
+
+procedure TGetDevicesArrayTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  FBluetoothService := TMockBluetoothService.Create;
+  FPairingService := TMockBluetoothPairingService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
+  FPresenter := nil;
+end;
+
+procedure TGetDevicesArrayTests.TearDown;
+begin
+  FPresenter.Free;
+end;
+
+procedure TGetDevicesArrayTests.CreatePresenter;
+begin
+  FPresenter := TTestableMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
+    FRadioStateManager,
+    FAsyncExecutor,
+    FBluetoothService,
+    FPairingService,
+    FDisplayItemBuilder
+  );
+end;
+
+procedure TGetDevicesArrayTests.GetDevicesArray_EmptyList_ReturnsEmptyArray;
+var
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  CreatePresenter;
+
+  Devices := FPresenter.GetDevicesArray;
+
+  Assert.AreEqual(0, Integer(Length(Devices)), 'Empty list should return empty array');
+end;
+
+procedure TGetDevicesArrayTests.GetDevicesArray_SingleDevice_ReturnsArrayWithOneElement;
+var
+  Device: TBluetoothDeviceInfo;
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  Devices := FPresenter.GetDevicesArray;
+
+  Assert.AreEqual(1, Integer(Length(Devices)), 'Should return array with 1 element');
+  Assert.AreEqual('Device 1', Devices[0].Name, 'Array should contain the device');
+end;
+
+procedure TGetDevicesArrayTests.GetDevicesArray_MultipleDevices_ReturnsAllDevices;
+var
+  Device1, Device2, Device3: TBluetoothDeviceInfo;
+  Devices: TBluetoothDeviceInfoArray;
+  FoundNames: string;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  Device3 := CreateTestDevice($333333333333, 'Device 3', btMouse, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FPresenter.UpdateOrAddDevice(Device3);
+
+  Devices := FPresenter.GetDevicesArray;
+
+  Assert.AreEqual(3, Integer(Length(Devices)), 'Should return array with 3 elements');
+
+  // Verify all devices present (order may vary)
+  FoundNames := Devices[0].Name + ',' + Devices[1].Name + ',' + Devices[2].Name;
+  Assert.IsTrue(Pos('Device 1', FoundNames) > 0, 'Device 1 should be in array');
+  Assert.IsTrue(Pos('Device 2', FoundNames) > 0, 'Device 2 should be in array');
+  Assert.IsTrue(Pos('Device 3', FoundNames) > 0, 'Device 3 should be in array');
+end;
+
+procedure TGetDevicesArrayTests.GetDevicesArray_AfterUpdate_ReturnsFreshData;
+var
+  Device, UpdatedDevice: TBluetoothDeviceInfo;
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  // Get first array
+  Devices := FPresenter.GetDevicesArray;
+  Assert.AreEqual('Device 1', Devices[0].Name);
+
+  // Update device
+  UpdatedDevice := CreateTestDevice($111111111111, 'Updated Device', btAudioOutput, csConnected);
+  FPresenter.UpdateOrAddDevice(UpdatedDevice);
+
+  // Get array again - should have updated data
+  Devices := FPresenter.GetDevicesArray;
+  Assert.AreEqual('Updated Device', Devices[0].Name, 'Array should reflect updated device');
+end;
+
+procedure TGetDevicesArrayTests.GetDevicesArray_AfterRemoval_ReturnsUpdatedArray;
+var
+  Device1, Device2: TBluetoothDeviceInfo;
+  Devices: TBluetoothDeviceInfoArray;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($222222222222, 'Device 2', btKeyboard, csConnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+
+  // Get array before removal
+  Devices := FPresenter.GetDevicesArray;
+  Assert.AreEqual(2, Integer(Length(Devices)), 'Should have 2 devices');
+
+  // Remove one device
+  FPresenter.RemoveDeviceFromList($111111111111);
+
+  // Get array after removal
+  Devices := FPresenter.GetDevicesArray;
+  Assert.AreEqual(1, Integer(Length(Devices)), 'Should have 1 device after removal');
+  Assert.AreEqual('Device 2', Devices[0].Name, 'Remaining device should be Device 2');
+end;
+
+procedure TGetDevicesArrayTests.GetDevicesArray_CalledTwice_ReturnsSameData;
+var
+  Device: TBluetoothDeviceInfo;
+  Devices1, Devices2: TBluetoothDeviceInfoArray;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($111111111111, 'Device 1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  // Get array twice without modifications
+  Devices1 := FPresenter.GetDevicesArray;
+  Devices2 := FPresenter.GetDevicesArray;
+
+  Assert.AreEqual(Integer(Length(Devices1)), Integer(Length(Devices2)), 'Both arrays should have same length');
+  Assert.AreEqual(Devices1[0].Name, Devices2[0].Name, 'Both arrays should have same data');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TMainPresenterTests);
   TDUnitX.RegisterTestFixture(TDelayedLoadTests);
@@ -2036,5 +2517,7 @@ initialization
   TDUnitX.RegisterTestFixture(TShutdownSafetyTests);
   TDUnitX.RegisterTestFixture(TConnectedAddressesCacheTests);
   TDUnitX.RegisterTestFixture(TUnpairedDeviceFilteringTests);
+  TDUnitX.RegisterTestFixture(TRemoveDeviceFromListTests);
+  TDUnitX.RegisterTestFixture(TGetDevicesArrayTests);
 
 end.
