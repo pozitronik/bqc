@@ -113,17 +113,19 @@ type
 implementation
 
 const
-  // System icon indices for Win7 fallback (from shell32.dll and imageres.dll)
-  SYSICON_HEADPHONE_FILE = 'imageres.dll';
-  SYSICON_HEADPHONE_INDEX = 106;
-  SYSICON_KEYBOARD_FILE = 'imageres.dll';
-  SYSICON_KEYBOARD_INDEX = 68;
-  SYSICON_MOUSE_FILE = 'imageres.dll';
-  SYSICON_MOUSE_INDEX = 69;
-  SYSICON_PHONE_FILE = 'imageres.dll';
-  SYSICON_PHONE_INDEX = 264;
-  SYSICON_COMPUTER_FILE = 'imageres.dll';
-  SYSICON_COMPUTER_INDEX = 104;
+  // System icon indices for Win7 fallback (from ddores.dll and shell32.dll)
+  SYSICON_HEADPHONE_FILE = 'ddores.dll';
+  SYSICON_HEADPHONE_INDEX = 2;
+  SYSICON_KEYBOARD_FILE = 'ddores.dll';
+  SYSICON_KEYBOARD_INDEX = 26;
+  SYSICON_MOUSE_FILE = 'ddores.dll';
+  SYSICON_MOUSE_INDEX = 27;
+  SYSICON_PHONE_FILE = 'ddores.dll';
+  SYSICON_PHONE_INDEX = 11;
+  SYSICON_COMPUTER_FILE = 'ddores.dll';
+  SYSICON_COMPUTER_INDEX = 12;
+  SYSICON_GAMEPAD_FILE = 'ddores.dll';
+  SYSICON_GAMEPAD_INDEX = 25;
   SYSICON_BLUETOOTH_FILE = 'shell32.dll';
   SYSICON_BLUETOOTH_INDEX = 274;
   SYSICON_PIN_FILE = 'imageres.dll';
@@ -197,6 +199,8 @@ begin
       Result := TryExtractIcon(SYSICON_PHONE_FILE, SYSICON_PHONE_INDEX);
     btComputer:
       Result := TryExtractIcon(SYSICON_COMPUTER_FILE, SYSICON_COMPUTER_INDEX);
+    btGamepad:
+      Result := TryExtractIcon(SYSICON_GAMEPAD_FILE, SYSICON_GAMEPAD_INDEX);
   end;
 
   if Result = 0 then
