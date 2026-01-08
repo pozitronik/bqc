@@ -69,6 +69,8 @@ uses
   Tests.WinRTAsyncHelpers in 'Tests.WinRTAsyncHelpers.pas',
   Tests.ProfileQuery in 'Tests.ProfileQuery.pas',
   Tests.DeviceList in 'Tests.DeviceList.pas',
+  Tests.DeviceListTypes in 'Tests.DeviceListTypes.pas',
+  Tests.DeviceItemRenderer in 'Tests.DeviceItemRenderer.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in '..\src\Application\Bluetooth.ConnectionStrategies.pas',

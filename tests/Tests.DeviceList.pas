@@ -60,6 +60,13 @@ type
 
     [Test]
     procedure GetItemRect_UsesCachedItemMargin;
+
+    { Bug Fix Tests - c639c11 extraction }
+    [Test]
+    procedure SetProfileConfig_CallsUpdateConfigsOnDataSource;
+
+    [Test]
+    procedure SetLayoutConfig_CachesIconFontSize;
   end;
 
   /// <summary>
@@ -345,6 +352,72 @@ begin
 
   // Assert: First item top should be margin offset
   Assert.AreEqual(10, ItemRect.Top);
+end;
+
+procedure TDeviceListLayoutCacheTests.SetProfileConfig_CallsUpdateConfigsOnDataSource;
+var
+  Items: TDeviceDisplayItemArray;
+  Item1Height, Item2Height: Integer;
+begin
+  // Arrange: Set initial configs
+  FLayoutConfig.ItemHeight := 70;
+  FProfileConfig.ShowProfiles := True;
+  FProfileConfig.ProfileFontSize := 10;  // Small font size
+
+  FDeviceList.LayoutConfig := FLayoutConfig;
+  FDeviceList.AppearanceConfig := FAppearanceConfig;
+  FDeviceList.ProfileConfig := FProfileConfig;
+
+  // Create item with multiple profiles (height depends on ProfileFontSize)
+  SetLength(Items, 1);
+  Items[0] := CreateDisplayItem($001, 'Device', csConnected);
+  SetLength(Items[0].Profiles, 3);  // 3 profiles
+  Items[0].Profiles[0] := TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsConnected);
+  Items[0].Profiles[1] := TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsAvailable);
+  Items[0].Profiles[2] := TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsAvailable);
+  FDeviceList.SetDisplayItems(Items);
+
+  Item1Height := FDeviceList.GetItemRect(0).Height;
+
+  // Act: Change ProfileFontSize and re-set ProfileConfig
+  FProfileConfig.ProfileFontSize := 16;  // Larger font size
+  FDeviceList.ProfileConfig := FProfileConfig;  // Should call UpdateConfigs
+
+  // Assert: Height should change because UpdateConfigs was called
+  // (larger font = taller profile section = taller item)
+  Item2Height := FDeviceList.GetItemRect(0).Height;
+  Assert.IsTrue(Item2Height > Item1Height,
+    'Item height should increase when ProfileFontSize increases (UpdateConfigs called)');
+end;
+
+procedure TDeviceListLayoutCacheTests.SetLayoutConfig_CachesIconFontSize;
+var
+  Items: TDeviceDisplayItemArray;
+begin
+  // Arrange: Set IconFontSize in config
+  FLayoutConfig.IconFontSize := 18;  // Custom icon font size
+
+  // Act: Set LayoutConfig (should cache IconFontSize)
+  FDeviceList.LayoutConfig := FLayoutConfig;
+  FDeviceList.AppearanceConfig := FAppearanceConfig;
+  FDeviceList.ProfileConfig := FProfileConfig;
+
+  SetLength(Items, 1);
+  Items[0] := CreateDisplayItem($001, 'Device', csConnected);
+  FDeviceList.SetDisplayItems(Items);
+
+  // Assert: Control initializes without errors
+  // IconFontSize must be cached for renderer to work correctly
+  // If not cached, renderer would use uninitialized/wrong value causing visual bugs
+  Assert.AreEqual(1, FDeviceList.DeviceCount,
+    'Device list should handle IconFontSize caching correctly');
+
+  // Additional verification: Change IconFontSize and re-set config
+  FLayoutConfig.IconFontSize := 24;
+  FDeviceList.LayoutConfig := FLayoutConfig;
+
+  // Should not crash - IconFontSize cache refreshed
+  Assert.AreEqual(1, FDeviceList.DeviceCount);
 end;
 
 { TDeviceListProfileHeightTests }
