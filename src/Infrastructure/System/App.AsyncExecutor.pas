@@ -145,22 +145,38 @@ procedure TThreadAsyncExecutor.RunAsyncWithErrorHandler(AWork: TProc; AOnError: 
 begin
   TThread.CreateAnonymousThread(
     procedure
+    var
+      ExceptionObj: Exception;
     begin
+      ExceptionObj := nil;
       try
         AWork();
       except
-        on E: Exception do
+        // Take ownership of exception before except block exits.
+        // Without AcquireExceptionObject, Delphi auto-frees the exception
+        // when the except block ends, causing use-after-free in TThread.Queue.
+        ExceptionObj := Exception(AcquireExceptionObject);
+      end;
+
+      if Assigned(ExceptionObj) then
+      begin
+        if Assigned(AOnError) then
         begin
-          if Assigned(AOnError) then
-          begin
-            TThread.Queue(nil,
-              procedure
-              begin
-                AOnError(E);
-              end
-            );
-          end;
-        end;
+          TThread.Queue(nil,
+            procedure
+            begin
+              try
+                AOnError(ExceptionObj);
+              finally
+                // We own the exception now, so we must free it
+                ExceptionObj.Free;
+              end;
+            end
+          );
+        end
+        else
+          // No error handler provided, clean up immediately
+          ExceptionObj.Free;
       end;
     end
   ).Start;
