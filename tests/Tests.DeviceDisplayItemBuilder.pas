@@ -21,7 +21,8 @@ uses
   App.DeviceConfigTypes,
   App.DeviceDisplayTypes,
   App.DeviceDisplayItemBuilder,
-  Tests.Mocks;
+  Tests.Mocks,
+  Tests.Mocks.Infrastructure;
 
 type
   /// <summary>
@@ -35,6 +36,7 @@ type
     FAppearanceConfig: TMockAppearanceConfig;
     FProfileConfig: TMockProfileConfig;
     FProfileQuery: TMockProfileQuery;
+    FMockClock: TMockSystemClock;
     FBuilder: TDeviceDisplayItemBuilder;
   public
     [Setup]
@@ -117,8 +119,9 @@ begin
   FAppearanceConfig := TMockAppearanceConfig.Create;
   FProfileConfig := TMockProfileConfig.Create;
   FProfileQuery := TMockProfileQuery.Create;
+  FMockClock := TMockSystemClock.Create;
   FBuilder := TDeviceDisplayItemBuilder.Create(
-    FConfigProvider, FAppearanceConfig, FProfileConfig, FProfileQuery);
+    FConfigProvider, FAppearanceConfig, FProfileConfig, FProfileQuery, FMockClock);
   // Set null battery cache to satisfy null object pattern requirement
   FBuilder.SetBatteryCache(CreateNullBatteryCache);
 end;
@@ -126,7 +129,8 @@ end;
 procedure TDeviceDisplayItemBuilderTests.TearDown;
 begin
   FBuilder.Free;
-  // Interfaces are reference-counted, no need to free
+  // Interfaces are reference-counted, no need to free.
+  // FMockClock is auto-freed when builder releases its interface reference.
 end;
 
 { IsVisible Tests }
@@ -306,8 +310,10 @@ var
 begin
   Device := CreateTestDevice($001, 'Device', btAudioOutput, csConnected);
 
+  // Use deterministic time: mock clock returns fixed "now", LastSeen is 5 min before
+  FMockClock.CurrentTime := EncodeDateTime(2024, 6, 15, 12, 0, 0, 0);
   Config := Default(TDeviceConfig);
-  Config.LastSeen := IncMinute(Now, -5);
+  Config.LastSeen := IncMinute(FMockClock.CurrentTime, -5);  // 5 min before mock "now"
   FConfigProvider.AddDeviceConfig($001, Config);
   FAppearanceConfig.LastSeenFormat := lsfRelative;
 

@@ -22,7 +22,8 @@ uses
   App.AppearanceConfigIntf,
   App.ProfileConfigIntf,
   App.DeviceDisplayTypes,
-  App.DeviceFormatter;
+  App.DeviceFormatter,
+  App.SystemClock;
 
 type
   /// <summary>
@@ -80,6 +81,7 @@ type
     FProfileConfig: IProfileConfig;
     FProfileQuery: IProfileQuery;
     FBatteryCache: IBatteryCache;
+    FClock: ISystemClock;
     /// <summary>
     /// Internal visibility check using pre-loaded config to avoid redundant lookups.
     /// </summary>
@@ -98,10 +100,12 @@ type
     /// <param name="AAppearanceConfig">Provider for appearance settings.</param>
     /// <param name="AProfileConfig">Provider for profile display settings.</param>
     /// <param name="AProfileQuery">Query for device Bluetooth profiles.</param>
+    /// <param name="AClock">Optional clock for deterministic time-based formatting in tests.</param>
     constructor Create(AConfigProvider: IDeviceConfigQuery;
       AAppearanceConfig: IAppearanceConfig;
       AProfileConfig: IProfileConfig;
-      AProfileQuery: IProfileQuery);
+      AProfileQuery: IProfileQuery;
+      AClock: ISystemClock = nil);
 
     /// <summary>
     /// Sets the battery cache for battery status lookup.
@@ -156,7 +160,8 @@ uses
 constructor TDeviceDisplayItemBuilder.Create(AConfigProvider: IDeviceConfigQuery;
   AAppearanceConfig: IAppearanceConfig;
   AProfileConfig: IProfileConfig;
-  AProfileQuery: IProfileQuery);
+  AProfileQuery: IProfileQuery;
+  AClock: ISystemClock);
 begin
   inherited Create;
   FConfigProvider := AConfigProvider;
@@ -164,6 +169,7 @@ begin
   FProfileConfig := AProfileConfig;
   FProfileQuery := AProfileQuery;
   FBatteryCache := nil;
+  FClock := AClock;
 end;
 
 procedure TDeviceDisplayItemBuilder.SetBatteryCache(ABatteryCache: IBatteryCache);
@@ -261,7 +267,7 @@ begin
     TDeviceFormatter.GetDisplayName(ADevice, AConfig),
     AConfig.Pinned,
     TDeviceFormatter.GetEffectiveDeviceType(ADevice, AConfig),
-    TDeviceFormatter.FormatLastSeen(AConfig.LastSeen, LastSeenFormat),
+    TDeviceFormatter.FormatLastSeen(AConfig.LastSeen, LastSeenFormat, FClock),
     AConfig.LastSeen,
     TDeviceFormatter.GetSortGroup(ADevice, AConfig),
     BatteryStatus,
@@ -310,7 +316,7 @@ begin
     DisplayName,         // Display name with fallback to address
     False,               // IsPinned = false (discovered devices can't be pinned)
     ADevice.DeviceType,  // Use auto-detected type (no override for discovered devices)
-    TDeviceFormatter.FormatLastSeen(ADevice.LastSeen, LastSeenFormat),
+    TDeviceFormatter.FormatLastSeen(ADevice.LastSeen, LastSeenFormat, FClock),
     ADevice.LastSeen,
     3,                   // SortGroup = 3 (discovered devices go last)
     TBatteryStatus.NotSupported,
