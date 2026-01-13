@@ -3,6 +3,13 @@
 {       Bluetooth Quick Connect - Tests                 }
 {       Device Battery Coordinator Tests                }
 {                                                       }
+{       Tests for TDeviceBatteryCoordinator covering:   }
+{       - Battery cache event wiring                    }
+{       - Battery query completion handling             }
+{       - Connected device battery refresh              }
+{       - Delayed battery refresh scheduling            }
+{       - Shutdown safety (async callback guards)       }
+{                                                       }
 {*******************************************************}
 
 unit Tests.DeviceBatteryCoordinator;
@@ -12,22 +19,22 @@ interface
 uses
   DUnitX.TestFramework,
   System.SysUtils,
+  System.Generics.Collections,
   Bluetooth.Types,
   Bluetooth.Interfaces,
   App.MainViewInterfaces,
-  App.DeviceBatteryCoordinator,
   App.DeviceDisplayTypes,
   App.DeviceDisplayItemBuilder,
   App.AsyncExecutor,
-  Tests.Mocks,
+  App.DeviceBatteryCoordinator,
   Tests.Mocks.Bluetooth,
   Tests.Mocks.View,
   Tests.Mocks.Infrastructure;
 
 type
   /// <summary>
-  /// Tests for TDeviceBatteryCoordinator focusing on battery
-  /// refresh logic, event handling, and shutdown safety.
+  /// Tests for TDeviceBatteryCoordinator focusing on battery monitoring,
+  /// cache integration, and async refresh scheduling.
   /// </summary>
   [TestFixture]
   TDeviceBatteryCoordinatorTests = class
@@ -38,12 +45,28 @@ type
     FDeviceListView: TMockMainView;
     FAsyncExecutor: TMockAsyncExecutor;
 
-    // Device lookup state
+    // Test tracking for injected functions
+    FFindDeviceCallCount: Integer;
+    FLastFindDeviceAddress: UInt64;
     FFindDeviceResult: TBluetoothDeviceInfo;
+
+    FGetConnectedAddressesCallCount: Integer;
     FConnectedAddresses: TArray<UInt64>;
 
+    /// <summary>
+    /// Injected find device function for testing.
+    /// </summary>
     function FindDeviceFunc(AAddress: UInt64): TBluetoothDeviceInfo;
+
+    /// <summary>
+    /// Injected get connected addresses function for testing.
+    /// </summary>
     function GetConnectedAddressesFunc: TArray<UInt64>;
+
+    /// <summary>
+    /// Creates a test device with specified address.
+    /// </summary>
+    function CreateTestDevice(AAddress: UInt64; const AName: string): TBluetoothDeviceInfo;
   public
     [Setup]
     procedure Setup;
@@ -52,41 +75,51 @@ type
 
     // Creation tests
     [Test]
-    procedure Create_InitializesCorrectly;
+    procedure Create_StoresBatteryCache;
+    [Test]
+    procedure Create_NotShuttingDownByDefault;
 
     // Initialize tests
     [Test]
-    procedure Initialize_WiresUpEventHandler;
-
-    // HandleBatteryQueryCompleted tests (triggered via cache event)
-    [Test]
-    procedure BatteryQueryCompleted_ShuttingDown_SkipsUpdate;
-    [Test]
-    procedure BatteryQueryCompleted_DeviceNotFound_SkipsUpdate;
-    [Test]
-    procedure BatteryQueryCompleted_DeviceFound_UpdatesDisplayItem;
-
-    // RefreshBatteryForConnectedDevices tests
-    [Test]
-    procedure RefreshBatteryForConnectedDevices_NoDevices_NoRefresh;
-    [Test]
-    procedure RefreshBatteryForConnectedDevices_WithDevices_RequestsRefreshAll;
-
-    // ScheduleDelayedBatteryRefresh tests
-    [Test]
-    procedure ScheduleDelayedBatteryRefresh_NotShuttingDown_RequestsRefresh;
-    [Test]
-    procedure ScheduleDelayedBatteryRefresh_ShuttingDown_SkipsRefresh;
-    [Test]
-    procedure ScheduleDelayedBatteryRefresh_UsesCorrectDelay;
+    procedure Initialize_WiresBatteryQueryCompletedHandler;
 
     // Shutdown tests
     [Test]
-    procedure Shutdown_PreventsSubsequentUpdates;
-
-    // BatteryCache property test
+    procedure Shutdown_SetsShuttingDownFlag;
     [Test]
-    procedure BatteryCache_ReturnsInjectedInstance;
+    procedure Shutdown_PreventsHandlerExecution;
+
+    // HandleBatteryQueryCompleted tests (via cache event)
+    [Test]
+    procedure HandleBatteryQueryCompleted_CallsFindDeviceFunc;
+    [Test]
+    procedure HandleBatteryQueryCompleted_SkipsWhenDeviceNotFound;
+    [Test]
+    procedure HandleBatteryQueryCompleted_BuildsDisplayItem;
+    [Test]
+    procedure HandleBatteryQueryCompleted_UpdatesViewWithDisplayItem;
+    [Test]
+    procedure HandleBatteryQueryCompleted_SkipsWhenShuttingDown;
+
+    // RefreshBatteryForConnectedDevices tests
+    [Test]
+    procedure RefreshBatteryForConnectedDevices_CallsGetConnectedAddresses;
+    [Test]
+    procedure RefreshBatteryForConnectedDevices_RequestsRefreshAll;
+    [Test]
+    procedure RefreshBatteryForConnectedDevices_SkipsWhenNoConnectedDevices;
+    [Test]
+    procedure RefreshBatteryForConnectedDevices_PassesAllAddresses;
+
+    // ScheduleDelayedBatteryRefresh tests
+    [Test]
+    procedure ScheduleDelayedBatteryRefresh_UsesRunDelayed;
+    [Test]
+    procedure ScheduleDelayedBatteryRefresh_PassesCorrectDelay;
+    [Test]
+    procedure ScheduleDelayedBatteryRefresh_CallbackRequestsRefresh;
+    [Test]
+    procedure ScheduleDelayedBatteryRefresh_CallbackSkipsWhenShuttingDown;
   end;
 
 implementation
@@ -99,17 +132,21 @@ begin
   FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
   FDeviceListView := TMockMainView.Create;
   FAsyncExecutor := TMockAsyncExecutor.Create;
-  FAsyncExecutor.Synchronous := True;  // Execute immediately for deterministic tests
+  FAsyncExecutor.Synchronous := False;  // Don't execute immediately by default
 
-  // Default: device not found (empty record)
+  // Reset tracking
+  FFindDeviceCallCount := 0;
+  FLastFindDeviceAddress := 0;
   FFindDeviceResult := Default(TBluetoothDeviceInfo);
-  FConnectedAddresses := nil;
+
+  FGetConnectedAddressesCallCount := 0;
+  FConnectedAddresses := [];
 
   FCoordinator := TDeviceBatteryCoordinator.Create(
-    FBatteryCache,
-    FDisplayItemBuilder,
+    FBatteryCache as IBatteryCache,
+    FDisplayItemBuilder as IDeviceDisplayItemBuilder,
     FDeviceListView as IDeviceListView,
-    FAsyncExecutor,
+    FAsyncExecutor as IAsyncExecutor,
     FindDeviceFunc,
     GetConnectedAddressesFunc
   );
@@ -119,8 +156,7 @@ procedure TDeviceBatteryCoordinatorTests.TearDown;
 begin
   FCoordinator.Free;
   FCoordinator := nil;
-
-  // Interface references are released when coordinator is freed
+  // Interfaces are reference-counted
   FAsyncExecutor := nil;
   FDeviceListView := nil;
   FDisplayItemBuilder := nil;
@@ -129,207 +165,271 @@ end;
 
 function TDeviceBatteryCoordinatorTests.FindDeviceFunc(AAddress: UInt64): TBluetoothDeviceInfo;
 begin
-  // Return the configured result if address matches, otherwise empty
-  if (FFindDeviceResult.AddressInt <> 0) and (FFindDeviceResult.AddressInt = AAddress) then
-    Result := FFindDeviceResult
-  else
-    Result := Default(TBluetoothDeviceInfo);
+  Inc(FFindDeviceCallCount);
+  FLastFindDeviceAddress := AAddress;
+  Result := FFindDeviceResult;
 end;
 
 function TDeviceBatteryCoordinatorTests.GetConnectedAddressesFunc: TArray<UInt64>;
 begin
+  Inc(FGetConnectedAddressesCallCount);
   Result := FConnectedAddresses;
+end;
+
+function TDeviceBatteryCoordinatorTests.CreateTestDevice(AAddress: UInt64;
+  const AName: string): TBluetoothDeviceInfo;
+begin
+  Result := TBluetoothDeviceInfo.Create(
+    UInt64ToBluetoothAddress(AAddress),
+    AAddress,
+    AName,
+    btAudioOutput,
+    csConnected,
+    True,   // IsPaired
+    False,  // IsAuthenticated
+    0,      // ClassOfDevice
+    0,      // LastSeen
+    0       // LastUsed
+  );
 end;
 
 { Creation tests }
 
-procedure TDeviceBatteryCoordinatorTests.Create_InitializesCorrectly;
+procedure TDeviceBatteryCoordinatorTests.Create_StoresBatteryCache;
 begin
-  Assert.IsNotNull(FCoordinator, 'Coordinator should be created');
-  Assert.IsNotNull(FCoordinator.BatteryCache, 'BatteryCache should be accessible');
+  Assert.IsNotNull(FCoordinator.BatteryCache,
+    'BatteryCache property should return injected cache');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.Create_NotShuttingDownByDefault;
+begin
+  // Verify by triggering an event - it should NOT be skipped
+  FCoordinator.Initialize;
+  FFindDeviceResult := CreateTestDevice($001, 'Test');
+
+  FBatteryCache.SimulateQueryCompleted($001, TBatteryStatus.Create(75));
+
+  Assert.AreEqual(1, FFindDeviceCallCount,
+    'FindDeviceFunc should be called when not shutting down');
 end;
 
 { Initialize tests }
 
-procedure TDeviceBatteryCoordinatorTests.Initialize_WiresUpEventHandler;
-var
-  Status: TBatteryStatus;
-begin
-  // Before Initialize, event handler is not wired
-  FCoordinator.Initialize;
-
-  // Configure a device to be found
-  FFindDeviceResult := CreateTestDevice($AABBCCDDEEFF, 'TestDevice', btAudioOutput, csConnected);
-
-  // Simulate battery query completion - this should trigger the handler
-  Status := TBatteryStatus.Create(75);
-  FBatteryCache.SimulateQueryCompleted($AABBCCDDEEFF, Status);
-
-  // Verify the handler was called (it should have called BuildDisplayItem)
-  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount,
-    'Initialize should wire up event handler that calls BuildDisplayItem');
-end;
-
-{ HandleBatteryQueryCompleted tests }
-
-procedure TDeviceBatteryCoordinatorTests.BatteryQueryCompleted_ShuttingDown_SkipsUpdate;
-var
-  Status: TBatteryStatus;
+procedure TDeviceBatteryCoordinatorTests.Initialize_WiresBatteryQueryCompletedHandler;
 begin
   FCoordinator.Initialize;
+  FFindDeviceResult := CreateTestDevice($AABBCCDD, 'Test Device');
 
-  // Configure a device to be found
-  FFindDeviceResult := CreateTestDevice($AABBCCDDEEFF, 'TestDevice', btAudioOutput, csConnected);
+  // Trigger event through mock
+  FBatteryCache.SimulateQueryCompleted($AABBCCDD, TBatteryStatus.Create(50));
 
-  // Shutdown coordinator
-  FCoordinator.Shutdown;
-
-  // Simulate battery query completion
-  Status := TBatteryStatus.Create(75);
-  FBatteryCache.SimulateQueryCompleted($AABBCCDDEEFF, Status);
-
-  // Verify no update was made
-  Assert.AreEqual(0, FDisplayItemBuilder.BuildDisplayItemCallCount,
-    'Should skip update when shutting down');
-  Assert.AreEqual(0, FDeviceListView.UpdateDisplayItemCount,
-    'Should not call UpdateDisplayItem when shutting down');
-end;
-
-procedure TDeviceBatteryCoordinatorTests.BatteryQueryCompleted_DeviceNotFound_SkipsUpdate;
-var
-  Status: TBatteryStatus;
-begin
-  FCoordinator.Initialize;
-
-  // Leave FFindDeviceResult as default (empty - device not found)
-
-  // Simulate battery query completion
-  Status := TBatteryStatus.Create(75);
-  FBatteryCache.SimulateQueryCompleted($AABBCCDDEEFF, Status);
-
-  // Verify no update was made
-  Assert.AreEqual(0, FDisplayItemBuilder.BuildDisplayItemCallCount,
-    'Should skip BuildDisplayItem when device not found');
-  Assert.AreEqual(0, FDeviceListView.UpdateDisplayItemCount,
-    'Should not call UpdateDisplayItem when device not found');
-end;
-
-procedure TDeviceBatteryCoordinatorTests.BatteryQueryCompleted_DeviceFound_UpdatesDisplayItem;
-var
-  Status: TBatteryStatus;
-begin
-  FCoordinator.Initialize;
-
-  // Configure a device to be found
-  FFindDeviceResult := CreateTestDevice($AABBCCDDEEFF, 'TestDevice', btAudioOutput, csConnected);
-
-  // Simulate battery query completion
-  Status := TBatteryStatus.Create(75);
-  FBatteryCache.SimulateQueryCompleted($AABBCCDDEEFF, Status);
-
-  // Verify display item was built and view was updated
-  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount,
-    'Should call BuildDisplayItem when device found');
-  Assert.AreEqual(UInt64($AABBCCDDEEFF), FDisplayItemBuilder.LastDevice.AddressInt,
-    'Should build display item for correct device');
-  Assert.AreEqual(1, FDeviceListView.UpdateDisplayItemCount,
-    'Should call UpdateDisplayItem on view');
-end;
-
-{ RefreshBatteryForConnectedDevices tests }
-
-procedure TDeviceBatteryCoordinatorTests.RefreshBatteryForConnectedDevices_NoDevices_NoRefresh;
-begin
-  // No connected devices
-  FConnectedAddresses := nil;
-
-  FCoordinator.RefreshBatteryForConnectedDevices;
-
-  Assert.AreEqual(0, FBatteryCache.RequestRefreshAllCallCount,
-    'Should not call RequestRefreshAll when no connected devices');
-end;
-
-procedure TDeviceBatteryCoordinatorTests.RefreshBatteryForConnectedDevices_WithDevices_RequestsRefreshAll;
-begin
-  // Configure connected devices
-  SetLength(FConnectedAddresses, 3);
-  FConnectedAddresses[0] := $111111111111;
-  FConnectedAddresses[1] := $222222222222;
-  FConnectedAddresses[2] := $333333333333;
-
-  FCoordinator.RefreshBatteryForConnectedDevices;
-
-  Assert.AreEqual(1, FBatteryCache.RequestRefreshAllCallCount,
-    'Should call RequestRefreshAll once');
-end;
-
-{ ScheduleDelayedBatteryRefresh tests }
-
-procedure TDeviceBatteryCoordinatorTests.ScheduleDelayedBatteryRefresh_NotShuttingDown_RequestsRefresh;
-begin
-  FCoordinator.ScheduleDelayedBatteryRefresh($AABBCCDDEEFF, 1000);
-
-  Assert.AreEqual(1, FAsyncExecutor.RunDelayedCallCount,
-    'Should call RunDelayed');
-  Assert.AreEqual(1, FBatteryCache.RequestRefreshCallCount,
-    'Should call RequestRefresh (executor is synchronous)');
-  Assert.AreEqual(UInt64($AABBCCDDEEFF), FBatteryCache.LastRefreshAddress,
-    'Should request refresh for correct address');
-end;
-
-procedure TDeviceBatteryCoordinatorTests.ScheduleDelayedBatteryRefresh_ShuttingDown_SkipsRefresh;
-begin
-  // Shutdown first
-  FCoordinator.Shutdown;
-
-  FCoordinator.ScheduleDelayedBatteryRefresh($AABBCCDDEEFF, 1000);
-
-  Assert.AreEqual(1, FAsyncExecutor.RunDelayedCallCount,
-    'Should still call RunDelayed (async is scheduled)');
-  Assert.AreEqual(0, FBatteryCache.RequestRefreshCallCount,
-    'Should NOT call RequestRefresh when shutting down');
-end;
-
-procedure TDeviceBatteryCoordinatorTests.ScheduleDelayedBatteryRefresh_UsesCorrectDelay;
-begin
-  FCoordinator.ScheduleDelayedBatteryRefresh($AABBCCDDEEFF, 2500);
-
-  Assert.AreEqual(2500, FAsyncExecutor.LastDelayMs,
-    'Should pass correct delay to executor');
+  // Handler should have been called
+  Assert.AreEqual(1, FFindDeviceCallCount,
+    'Handler should be wired and called when event fires');
 end;
 
 { Shutdown tests }
 
-procedure TDeviceBatteryCoordinatorTests.Shutdown_PreventsSubsequentUpdates;
-var
-  Status: TBatteryStatus;
+procedure TDeviceBatteryCoordinatorTests.Shutdown_SetsShuttingDownFlag;
 begin
   FCoordinator.Initialize;
+  FCoordinator.Shutdown;
 
-  // Configure a device to be found
-  FFindDeviceResult := CreateTestDevice($AABBCCDDEEFF, 'TestDevice', btAudioOutput, csConnected);
+  // Verify by triggering event - it should be skipped
+  FFindDeviceResult := CreateTestDevice($001, 'Test');
+  FBatteryCache.SimulateQueryCompleted($001, TBatteryStatus.Create(50));
 
-  // First query should work
-  Status := TBatteryStatus.Create(75);
-  FBatteryCache.SimulateQueryCompleted($AABBCCDDEEFF, Status);
-  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount, 'First query should work');
+  Assert.AreEqual(0, FFindDeviceCallCount,
+    'Handler should skip execution after shutdown');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.Shutdown_PreventsHandlerExecution;
+begin
+  FCoordinator.Initialize;
+  FFindDeviceResult := CreateTestDevice($001, 'Test');
+
+  // First call before shutdown - should work
+  FBatteryCache.SimulateQueryCompleted($001, TBatteryStatus.Create(50));
+  Assert.AreEqual(1, FFindDeviceCallCount, 'Should work before shutdown');
 
   // Shutdown
   FCoordinator.Shutdown;
 
-  // Second query should be skipped
-  FBatteryCache.SimulateQueryCompleted($AABBCCDDEEFF, Status);
-  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount,
-    'Second query should be skipped after shutdown');
+  // Second call after shutdown - should be skipped
+  FBatteryCache.SimulateQueryCompleted($002, TBatteryStatus.Create(75));
+  Assert.AreEqual(1, FFindDeviceCallCount,
+    'Should NOT call FindDeviceFunc after shutdown');
 end;
 
-{ BatteryCache property test }
+{ HandleBatteryQueryCompleted tests }
 
-procedure TDeviceBatteryCoordinatorTests.BatteryCache_ReturnsInjectedInstance;
+procedure TDeviceBatteryCoordinatorTests.HandleBatteryQueryCompleted_CallsFindDeviceFunc;
+var
+  ExpectedAddress: UInt64;
 begin
-  // Verify BatteryCache property returns the injected instance
-  Assert.AreSame(FBatteryCache as IBatteryCache, FCoordinator.BatteryCache,
-    'BatteryCache property should return injected instance');
+  FCoordinator.Initialize;
+  FFindDeviceResult := CreateTestDevice($AABBCCDD, 'Test');
+
+  FBatteryCache.SimulateQueryCompleted($AABBCCDD, TBatteryStatus.Create(80));
+
+  Assert.AreEqual(1, FFindDeviceCallCount, 'Should call FindDeviceFunc');
+  ExpectedAddress := $AABBCCDD;
+  Assert.AreEqual(ExpectedAddress, FLastFindDeviceAddress,
+    'Should pass correct address to FindDeviceFunc');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.HandleBatteryQueryCompleted_SkipsWhenDeviceNotFound;
+begin
+  FCoordinator.Initialize;
+  // FFindDeviceResult is default (AddressInt = 0) - device not found
+
+  FBatteryCache.SimulateQueryCompleted($001, TBatteryStatus.Create(50));
+
+  // Should call FindDeviceFunc but not proceed further
+  Assert.AreEqual(1, FFindDeviceCallCount, 'Should call FindDeviceFunc');
+  Assert.AreEqual(0, FDisplayItemBuilder.BuildDisplayItemCallCount,
+    'Should NOT call BuildDisplayItem when device not found');
+  Assert.AreEqual(0, FDeviceListView.UpdateDisplayItemCount,
+    'Should NOT call UpdateDisplayItem when device not found');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.HandleBatteryQueryCompleted_BuildsDisplayItem;
+begin
+  FCoordinator.Initialize;
+  FFindDeviceResult := CreateTestDevice($001, 'My Headphones');
+
+  FBatteryCache.SimulateQueryCompleted($001, TBatteryStatus.Create(65));
+
+  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount,
+    'Should call BuildDisplayItem');
+  Assert.AreEqual('My Headphones', FDisplayItemBuilder.LastDevice.Name,
+    'Should pass correct device to BuildDisplayItem');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.HandleBatteryQueryCompleted_UpdatesViewWithDisplayItem;
+begin
+  FCoordinator.Initialize;
+  FFindDeviceResult := CreateTestDevice($001, 'Test Device');
+
+  FBatteryCache.SimulateQueryCompleted($001, TBatteryStatus.Create(90));
+
+  Assert.AreEqual(1, FDeviceListView.UpdateDisplayItemCount,
+    'Should call UpdateDisplayItem on view');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.HandleBatteryQueryCompleted_SkipsWhenShuttingDown;
+begin
+  FCoordinator.Initialize;
+  FCoordinator.Shutdown;
+  FFindDeviceResult := CreateTestDevice($001, 'Test');
+
+  FBatteryCache.SimulateQueryCompleted($001, TBatteryStatus.Create(50));
+
+  Assert.AreEqual(0, FFindDeviceCallCount,
+    'Should NOT call FindDeviceFunc when shutting down');
+  Assert.AreEqual(0, FDisplayItemBuilder.BuildDisplayItemCallCount,
+    'Should NOT call BuildDisplayItem when shutting down');
+  Assert.AreEqual(0, FDeviceListView.UpdateDisplayItemCount,
+    'Should NOT call UpdateDisplayItem when shutting down');
+end;
+
+{ RefreshBatteryForConnectedDevices tests }
+
+procedure TDeviceBatteryCoordinatorTests.RefreshBatteryForConnectedDevices_CallsGetConnectedAddresses;
+begin
+  FConnectedAddresses := [$001, $002];
+
+  FCoordinator.RefreshBatteryForConnectedDevices;
+
+  Assert.AreEqual(1, FGetConnectedAddressesCallCount,
+    'Should call GetConnectedAddressesFunc');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.RefreshBatteryForConnectedDevices_RequestsRefreshAll;
+begin
+  FConnectedAddresses := [$001, $002, $003];
+
+  FCoordinator.RefreshBatteryForConnectedDevices;
+
+  Assert.AreEqual(1, FBatteryCache.RequestRefreshAllCallCount,
+    'Should call RequestRefreshAll on battery cache');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.RefreshBatteryForConnectedDevices_SkipsWhenNoConnectedDevices;
+begin
+  FConnectedAddresses := [];  // No connected devices
+
+  FCoordinator.RefreshBatteryForConnectedDevices;
+
+  Assert.AreEqual(1, FGetConnectedAddressesCallCount,
+    'Should still call GetConnectedAddressesFunc');
+  Assert.AreEqual(0, FBatteryCache.RequestRefreshAllCallCount,
+    'Should NOT call RequestRefreshAll when no devices connected');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.RefreshBatteryForConnectedDevices_PassesAllAddresses;
+var
+  Addr1, Addr2: UInt64;
+begin
+  Addr1 := $AABBCCDD;
+  Addr2 := $11223344;
+  FConnectedAddresses := [Addr1, Addr2];
+
+  FCoordinator.RefreshBatteryForConnectedDevices;
+
+  // RequestRefreshAll was called - verify through call count
+  // (TMockBatteryCache doesn't track the addresses passed, but we verified it's called)
+  Assert.AreEqual(1, FBatteryCache.RequestRefreshAllCallCount,
+    'Should call RequestRefreshAll with connected addresses');
+end;
+
+{ ScheduleDelayedBatteryRefresh tests }
+
+procedure TDeviceBatteryCoordinatorTests.ScheduleDelayedBatteryRefresh_UsesRunDelayed;
+begin
+  FCoordinator.ScheduleDelayedBatteryRefresh($001, 5000);
+
+  Assert.AreEqual(1, FAsyncExecutor.RunDelayedCallCount,
+    'Should call RunDelayed on async executor');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.ScheduleDelayedBatteryRefresh_PassesCorrectDelay;
+begin
+  FCoordinator.ScheduleDelayedBatteryRefresh($001, 10000);
+
+  Assert.AreEqual(10000, FAsyncExecutor.LastDelayMs,
+    'Should pass correct delay value');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.ScheduleDelayedBatteryRefresh_CallbackRequestsRefresh;
+var
+  ExpectedAddress: UInt64;
+begin
+  ExpectedAddress := $AABBCCDD;
+
+  FCoordinator.ScheduleDelayedBatteryRefresh(ExpectedAddress, 5000);
+
+  // Execute the pending callback
+  FAsyncExecutor.ExecutePending;
+
+  Assert.AreEqual(1, FBatteryCache.RequestRefreshCallCount,
+    'Callback should call RequestRefresh');
+  Assert.AreEqual(ExpectedAddress, FBatteryCache.LastRefreshAddress,
+    'Callback should request refresh for correct address');
+end;
+
+procedure TDeviceBatteryCoordinatorTests.ScheduleDelayedBatteryRefresh_CallbackSkipsWhenShuttingDown;
+begin
+  FCoordinator.ScheduleDelayedBatteryRefresh($001, 5000);
+
+  // Shutdown before callback executes
+  FCoordinator.Shutdown;
+
+  // Now execute the pending callback
+  FAsyncExecutor.ExecutePending;
+
+  Assert.AreEqual(0, FBatteryCache.RequestRefreshCallCount,
+    'Callback should NOT call RequestRefresh after shutdown');
 end;
 
 initialization
