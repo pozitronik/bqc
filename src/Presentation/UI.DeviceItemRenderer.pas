@@ -150,7 +150,6 @@ const
 
   // Fonts
   FONT_UI = 'Segoe UI';
-  FONT_ICON = 'Segoe MDL2 Assets';
 
   // Default values
   DEFAULT_PROFILE_FONT_SIZE = 7;
