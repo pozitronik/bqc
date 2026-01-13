@@ -73,6 +73,7 @@ uses
   Tests.DeviceList in 'Tests.DeviceList.pas',
   Tests.DeviceListTypes in 'Tests.DeviceListTypes.pas',
   Tests.DeviceItemRenderer in 'Tests.DeviceItemRenderer.pas',
+  Tests.DeviceNotificationCoordinator in 'Tests.DeviceNotificationCoordinator.pas',
   Tests.DeviceDiscoveryCoordinator in 'Tests.DeviceDiscoveryCoordinator.pas',
   Tests.DeviceBatteryCoordinator in 'Tests.DeviceBatteryCoordinator.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
@@ -144,7 +145,8 @@ uses
   App.WinRTSupport in '..\src\Infrastructure\App.WinRTSupport.pas',
   WinRT.AsyncHelpers in '..\src\Infrastructure\WinRT.AsyncHelpers.pas',
   App.ProfileConfigIntf in '..\src\Infrastructure\App.ProfileConfigIntf.pas',
-  App.ConfigSection.Profile in '..\src\Infrastructure\App.ConfigSection.Profile.pas';
+  App.ConfigSection.Profile in '..\src\Infrastructure\App.ConfigSection.Profile.pas',
+  App.DeviceNotificationCoordinator in '..\src\Application\App.DeviceNotificationCoordinator.pas';
 
 
 {$IFNDEF TESTINSIGHT}
