@@ -2274,7 +2274,7 @@ begin
   for I := 0 to 4 do
   begin
     Devices[I] := CreateTestDevice(
-      UInt64(I + 1) * $111111111111,
+      UInt64(I + 1) * UInt64($111111111111),
       'Device ' + IntToStr(I + 1),
       btAudioOutput,
       csDisconnected
