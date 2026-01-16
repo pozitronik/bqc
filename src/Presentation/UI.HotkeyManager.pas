@@ -236,7 +236,12 @@ begin
         begin
           // Post message to the corresponding window and consume the key
           // wParam contains InstanceId so the correct manager can identify its hotkey
-          PostMessage(HWND(Entry.WindowHandle), WM_HOTKEY_DETECTED, Entry.InstanceId, 0);
+          if PostMessage(HWND(Entry.WindowHandle), WM_HOTKEY_DETECTED, Entry.InstanceId, 0) then
+            LogDebug('LowLevelKeyboardProc: PostMessage succeeded, WindowHandle=$%x, InstanceId=%d',
+              [Entry.WindowHandle, Entry.InstanceId], 'LowLevelKeyboardProc')
+          else
+            LogWarning('LowLevelKeyboardProc: PostMessage FAILED, WindowHandle=$%x, InstanceId=%d, LastError=%d',
+              [Entry.WindowHandle, Entry.InstanceId, GetLastError], 'LowLevelKeyboardProc');
           Result := 1;  // Consume the key, don't pass to system
           Exit;
         end;
