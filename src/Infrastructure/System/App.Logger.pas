@@ -46,6 +46,7 @@ type
     FAppendMode: Boolean;
     FSessionStarted: Boolean;
     FMinLevel: TLogLevel;
+    FSourceFilter: TStringList;
 
     procedure WriteToFile(ALevel: TLogLevel; const AMessage: string;
       const ASource: string);
@@ -88,6 +89,12 @@ type
       const ASource: string = ''); overload;
     procedure Error(const AFormat: string; const AArgs: array of const;
       const ASource: string = ''); overload;
+
+    /// <summary>
+    /// Sets which sources are allowed to log (comma-separated class names).
+    /// Empty string means all sources are allowed.
+    /// </summary>
+    procedure SetSourceFilter(const AFilter: string);
 
     { Level check helpers for early-exit optimization }
     function IsDebugEnabled: Boolean;
@@ -149,6 +156,12 @@ procedure LogError(const AFormat: string; const AArgs: array of const;
 /// </summary>
 procedure SetLoggingEnabled(AEnabled: Boolean; const AFilename: string = 'bqc.log';
   AAppend: Boolean = False; AMinLevel: TLogLevel = llInfo);
+
+/// <summary>
+/// Sets the log source filter (comma-separated class names).
+/// Empty string means all sources are allowed.
+/// </summary>
+procedure SetLogSourceFilter(const AFilter: string);
 
 /// <summary>
 /// Returns true if logging is currently enabled.
@@ -274,6 +287,11 @@ begin
   GetLogger.Configure(AEnabled, AFilename, AAppend, AMinLevel);
 end;
 
+procedure SetLogSourceFilter(const AFilter: string);
+begin
+  GetLogger.SetSourceFilter(AFilter);
+end;
+
 function IsLoggingEnabled: Boolean;
 begin
   Result := GetLogger.IsEnabled;
@@ -287,6 +305,10 @@ var
 begin
   inherited Create;
   FLock := TCriticalSection.Create;
+  FSourceFilter := TStringList.Create;
+  FSourceFilter.CaseSensitive := False;
+  FSourceFilter.Sorted := True;
+  FSourceFilter.Duplicates := dupIgnore;
   FEnabled := True;  // Enabled by default for startup diagnostics
   FAppendMode := False;
   FSessionStarted := False;
@@ -299,6 +321,7 @@ end;
 
 destructor TLogger.Destroy;
 begin
+  FSourceFilter.Free;
   FLock.Free;
   inherited Destroy;
 end;
@@ -426,6 +449,26 @@ begin
   WriteToFile(llError, Format(AFormat, AArgs), ASource);
 end;
 
+procedure TLogger.SetSourceFilter(const AFilter: string);
+var
+  Parts: TArray<string>;
+  Part: string;
+begin
+  FLock.Enter;
+  try
+    FSourceFilter.Clear;
+    if AFilter <> '' then
+    begin
+      Parts := AFilter.Split([',']);
+      for Part in Parts do
+        if Trim(Part) <> '' then
+          FSourceFilter.Add(Trim(Part));
+    end;
+  finally
+    FLock.Leave;
+  end;
+end;
+
 procedure TLogger.WriteToFile(ALevel: TLogLevel; const AMessage: string;
   const ASource: string);
 var
@@ -438,6 +481,11 @@ begin
   // Check if logging is enabled and level meets threshold
   if (not FEnabled) or (ALevel < FMinLevel) then
     Exit;
+
+  // Source filter: skip if a filter is active, source is specified, and not in the whitelist
+  if (FSourceFilter.Count > 0) and (ASource <> '') then
+    if FSourceFilter.IndexOf(ASource) < 0 then
+      Exit;
 
   ThreadId := GetCurrentThreadId;
 

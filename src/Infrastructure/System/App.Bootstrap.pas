@@ -211,6 +211,7 @@ begin
   // Initialize logger with settings from config
   App.Logger.SetLoggingEnabled(LogCfg.LogEnabled, LogCfg.LogFilename, LogCfg.LogAppend,
     LogCfg.LogLevel);
+  App.Logger.SetLogSourceFilter(LogCfg.LogSourceFilter);
 
   // Ensure autostart registry matches config setting
   AutostartManager.Apply(GeneralCfg.Autostart);

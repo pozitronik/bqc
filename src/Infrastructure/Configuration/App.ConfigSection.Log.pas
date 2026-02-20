@@ -28,6 +28,7 @@ type
     FLogFilename: string;
     FLogAppend: Boolean;
     FLogLevel: TLogLevel;
+    FLogSourceFilter: string;
   public
     constructor Create(AOnModified: TModifiedNotifier);
 
@@ -35,11 +36,13 @@ type
     function GetLogFilename: string;
     function GetLogAppend: Boolean;
     function GetLogLevel: TLogLevel;
+    function GetLogSourceFilter: string;
 
     procedure SetLogEnabled(AValue: Boolean);
     procedure SetLogFilename(const AValue: string);
     procedure SetLogAppend(AValue: Boolean);
     procedure SetLogLevel(AValue: TLogLevel);
+    procedure SetLogSourceFilter(const AValue: string);
 
     procedure SetDefaults;
 
@@ -47,6 +50,7 @@ type
     property LogFilename: string read FLogFilename write SetLogFilename;
     property LogAppend: Boolean read FLogAppend write SetLogAppend;
     property LogLevel: TLogLevel read FLogLevel write SetLogLevel;
+    property LogSourceFilter: string read FLogSourceFilter write SetLogSourceFilter;
   end;
 
 implementation
@@ -68,6 +72,7 @@ begin
   FLogFilename := DEF_LOG_FILENAME;
   FLogAppend := DEF_LOG_APPEND;
   FLogLevel := DEF_LOG_LEVEL;
+  FLogSourceFilter := DEF_LOG_SOURCE_FILTER;
 end;
 
 function TLogConfigSection.GetLogEnabled: Boolean;
@@ -112,6 +117,16 @@ begin
     FLogLevel := AValue;
     NotifyModified;
   end;
+end;
+
+function TLogConfigSection.GetLogSourceFilter: string;
+begin
+  Result := FLogSourceFilter;
+end;
+
+procedure TLogConfigSection.SetLogSourceFilter(const AValue: string);
+begin
+  SetFieldString(FLogSourceFilter, AValue);
 end;
 
 end.

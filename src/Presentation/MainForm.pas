@@ -235,6 +235,7 @@ uses
   Bluetooth.BatteryQuery,
   Bluetooth.ProfileQuery,
   App.Logger,
+  App.LogConfigIntf,
   App.Bootstrap,
   App.SettingsPresenter,
   UI.WindowPositioner,
@@ -919,6 +920,8 @@ begin
 end;
 
 procedure TFormMain.ApplyAllSettings;
+var
+  LogCfg: ILogConfig;
 begin
   LogDebug('ApplyAllSettings: Applying configuration changes', ClassName);
 
@@ -929,6 +932,12 @@ begin
   ApplyOnTopSetting;
   ApplyDeviceListSettings;
   NotifyPresenterOfChanges;
+
+  // Reconfigure logger so settings take effect without restart
+  LogCfg := FAppConfig.AsLogConfig;
+  App.Logger.SetLoggingEnabled(LogCfg.LogEnabled, LogCfg.LogFilename,
+    LogCfg.LogAppend, LogCfg.LogLevel);
+  App.Logger.SetLogSourceFilter(LogCfg.LogSourceFilter);
 
   LogDebug('ApplyAllSettings: Complete', ClassName);
 end;

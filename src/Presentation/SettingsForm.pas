@@ -16,6 +16,7 @@ uses
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
   Vcl.ComCtrls,
+  Vcl.CheckLst,
   App.ConfigEnums,
   App.ConfigInterfaces,
   App.LogConfigIntf,
@@ -232,6 +233,10 @@ type
     ComboLogLevel: TComboBox;
     ButtonBrowseLogFile: TButton;
     ButtonOpenLogFile: TButton;
+    LabelLogSources: TLabel;
+    ButtonCheckAllSources: TButton;
+    ButtonUncheckAllSources: TButton;
+    CheckListLogSources: TCheckListBox;
     GroupActions: TGroupBox;
     ButtonOpenConfig: TButton;
     ButtonResetDefaults: TButton;
@@ -321,6 +326,8 @@ type
     procedure ButtonOpenConfigClick(Sender: TObject);
     procedure ButtonOpenLogFileClick(Sender: TObject);
     procedure ButtonResetDefaultsClick(Sender: TObject);
+    procedure ButtonCheckAllSourcesClick(Sender: TObject);
+    procedure ButtonUncheckAllSourcesClick(Sender: TObject);
 
     { Appearance tab events }
     procedure ButtonResetLayoutClick(Sender: TObject);
@@ -410,6 +417,7 @@ type
     procedure HandleSettingChanged(Sender: TObject);
     procedure ConnectChangeHandlers;
     procedure ConfigureWinRTDependentControls;
+    procedure PopulateLogSourcesList;
 
   public
     { Public declarations }
@@ -505,6 +513,7 @@ begin
   ButtonApply.Enabled := False;  // Disable early to prevent spurious enables
   InitUpDownLimits;
   InitDeviceTypeCombo;
+  PopulateLogSourcesList;
   ConfigureWinRTDependentControls;
   FPresenter.LoadSettings;
   UpdateWindowModeControls;
@@ -709,19 +718,70 @@ begin
 end;
 
 function TFormSettings.GetLoggingSettings: TLoggingViewSettings;
+var
+  I: Integer;
+  AllChecked: Boolean;
+  FilterParts: TStringList;
 begin
   Result.Enabled := CheckLogEnabled.Checked;
   Result.Filename := EditLogFilename.Text;
   Result.Append := CheckLogAppend.Checked;
   Result.LevelIndex := ComboLogLevel.ItemIndex;
+
+  // Build source filter: if all checked, store empty string (= no filter)
+  AllChecked := True;
+  for I := 0 to CheckListLogSources.Count - 1 do
+    if not CheckListLogSources.Checked[I] then
+    begin
+      AllChecked := False;
+      Break;
+    end;
+
+  if AllChecked then
+    Result.SourceFilter := ''
+  else
+  begin
+    FilterParts := TStringList.Create;
+    try
+      for I := 0 to CheckListLogSources.Count - 1 do
+        if CheckListLogSources.Checked[I] then
+          FilterParts.Add(CheckListLogSources.Items[I]);
+      Result.SourceFilter := FilterParts.CommaText;
+    finally
+      FilterParts.Free;
+    end;
+  end;
 end;
 
 procedure TFormSettings.SetLoggingSettings(const ASettings: TLoggingViewSettings);
+var
+  I: Integer;
+  FilterList: TStringList;
 begin
   CheckLogEnabled.Checked := ASettings.Enabled;
   EditLogFilename.Text := ASettings.Filename;
   CheckLogAppend.Checked := ASettings.Append;
   ComboLogLevel.ItemIndex := ASettings.LevelIndex;
+
+  // Empty filter means all sources enabled
+  if ASettings.SourceFilter = '' then
+  begin
+    for I := 0 to CheckListLogSources.Count - 1 do
+      CheckListLogSources.Checked[I] := True;
+  end
+  else
+  begin
+    FilterList := TStringList.Create;
+    try
+      FilterList.CommaText := ASettings.SourceFilter;
+      FilterList.CaseSensitive := False;
+      FilterList.Sorted := True;
+      for I := 0 to CheckListLogSources.Count - 1 do
+        CheckListLogSources.Checked[I] := FilterList.IndexOf(CheckListLogSources.Items[I]) >= 0;
+    finally
+      FilterList.Free;
+    end;
+  end;
 end;
 
 { IAppearanceSettingsView - Theme management }
@@ -1155,6 +1215,7 @@ begin
   EditLogFilename.OnChange := HandleSettingChanged;
   CheckLogAppend.OnClick := HandleSettingChanged;
   ComboLogLevel.OnChange := HandleSettingChanged;
+  CheckListLogSources.OnClickCheck := HandleSettingChanged;
 
   // Tab: Appearance
   CheckShowDeviceIcons.OnClick := HandleSettingChanged;
@@ -1376,6 +1437,38 @@ begin
     mtWarning, [mbYes, mbNo], 0) = mrYes then
   begin
     FPresenter.OnResetDefaultsClicked;
+  end;
+end;
+
+procedure TFormSettings.ButtonCheckAllSourcesClick(Sender: TObject);
+var
+  I: Integer;
+begin
+  for I := 0 to CheckListLogSources.Count - 1 do
+    CheckListLogSources.Checked[I] := True;
+  HandleSettingChanged(Sender);
+end;
+
+procedure TFormSettings.ButtonUncheckAllSourcesClick(Sender: TObject);
+var
+  I: Integer;
+begin
+  for I := 0 to CheckListLogSources.Count - 1 do
+    CheckListLogSources.Checked[I] := False;
+  HandleSettingChanged(Sender);
+end;
+
+procedure TFormSettings.PopulateLogSourcesList;
+var
+  I: Integer;
+begin
+  CheckListLogSources.Items.BeginUpdate;
+  try
+    CheckListLogSources.Items.Clear;
+    for I := Low(LOG_SOURCE_NAMES) to High(LOG_SOURCE_NAMES) do
+      CheckListLogSources.Items.Add(LOG_SOURCE_NAMES[I]);
+  finally
+    CheckListLogSources.Items.EndUpdate;
   end;
 end;
 

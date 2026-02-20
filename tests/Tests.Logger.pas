@@ -265,6 +265,28 @@ type
 
     [Test]
     procedure EarlyExit_BelowMinLevel_NoFileWrite;
+
+    { Source Filter Tests }
+    [Test]
+    procedure SourceFilter_EmptyFilter_LogsAllSources;
+
+    [Test]
+    procedure SourceFilter_WithFilter_OnlyLogsMatchingSources;
+
+    [Test]
+    procedure SourceFilter_EmptySource_AlwaysLogged;
+
+    [Test]
+    procedure SourceFilter_UnknownSource_Skipped;
+
+    [Test]
+    procedure SourceFilter_CommaSeparated_ParsesCorrectly;
+
+    [Test]
+    procedure SourceFilter_CaseInsensitive;
+
+    [Test]
+    procedure SourceFilter_ClearFilter_LogsAllAgain;
   end;
 
 implementation
@@ -1355,6 +1377,98 @@ begin
   // Verify warning appeared (logger is working)
   Assert.Contains(Content, 'Warning: 3',
     'Warning message should appear when at min level');
+end;
+
+{ Source Filter Tests }
+
+procedure TLoggerTests.SourceFilter_EmptyFilter_LogsAllSources;
+var
+  Content: string;
+begin
+  // Empty filter = no filtering, all sources logged
+  FLogger.SetSourceFilter('');
+  FLogger.Info('msg1', 'SourceA');
+  FLogger.Info('msg2', 'SourceB');
+  Content := ReadLogFile;
+  Assert.Contains(Content, 'msg1');
+  Assert.Contains(Content, 'msg2');
+end;
+
+procedure TLoggerTests.SourceFilter_WithFilter_OnlyLogsMatchingSources;
+var
+  Content: string;
+begin
+  FLogger.SetSourceFilter('SourceA');
+  FLogger.Info('allowed', 'SourceA');
+  FLogger.Info('blocked', 'SourceB');
+  Content := ReadLogFile;
+  Assert.Contains(Content, 'allowed');
+  Assert.DoesNotContain(Content, 'blocked');
+end;
+
+procedure TLoggerTests.SourceFilter_EmptySource_AlwaysLogged;
+var
+  Content: string;
+begin
+  // Sourceless calls must always be logged regardless of filter
+  FLogger.SetSourceFilter('SourceA');
+  FLogger.Info('no-source-msg');
+  Content := ReadLogFile;
+  Assert.Contains(Content, 'no-source-msg');
+end;
+
+procedure TLoggerTests.SourceFilter_UnknownSource_Skipped;
+var
+  Content: string;
+begin
+  FLogger.SetSourceFilter('SourceA');
+  FLogger.Info('unknown-msg', 'UnknownSource');
+  // After session header, only the header lines should exist
+  Content := ReadLogFile;
+  Assert.DoesNotContain(Content, 'unknown-msg');
+end;
+
+procedure TLoggerTests.SourceFilter_CommaSeparated_ParsesCorrectly;
+var
+  Content: string;
+begin
+  FLogger.SetSourceFilter('SourceA,SourceB,SourceC');
+  FLogger.Info('msgA', 'SourceA');
+  FLogger.Info('msgB', 'SourceB');
+  FLogger.Info('msgC', 'SourceC');
+  FLogger.Info('msgD', 'SourceD');
+  Content := ReadLogFile;
+  Assert.Contains(Content, 'msgA');
+  Assert.Contains(Content, 'msgB');
+  Assert.Contains(Content, 'msgC');
+  Assert.DoesNotContain(Content, 'msgD');
+end;
+
+procedure TLoggerTests.SourceFilter_CaseInsensitive;
+var
+  Content: string;
+begin
+  FLogger.SetSourceFilter('sourcea');
+  FLogger.Info('case-msg', 'SourceA');
+  Content := ReadLogFile;
+  Assert.Contains(Content, 'case-msg',
+    'Source filter should be case-insensitive');
+end;
+
+procedure TLoggerTests.SourceFilter_ClearFilter_LogsAllAgain;
+var
+  Content: string;
+begin
+  // Set filter, then clear it
+  FLogger.SetSourceFilter('SourceA');
+  FLogger.Info('filtered-only', 'SourceB');
+
+  FLogger.SetSourceFilter('');
+  FLogger.Info('after-clear', 'SourceB');
+
+  Content := ReadLogFile;
+  Assert.DoesNotContain(Content, 'filtered-only');
+  Assert.Contains(Content, 'after-clear');
 end;
 
 initialization
