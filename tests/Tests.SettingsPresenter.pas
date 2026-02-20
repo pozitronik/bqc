@@ -19,6 +19,7 @@ uses
   App.ConfigInterfaces,
   App.AppearanceConfigIntf,
   App.LogConfigIntf,
+  App.DeviceConfigTypes,
   Tests.Mocks;
 
 type
@@ -130,6 +131,99 @@ type
 
     [Test]
     procedure Test_SaveSettings_SavesSystemPanelHotkeys;
+  end;
+
+  /// <summary>
+  /// Tests for TDeviceSettingsPresenter.
+  /// Verifies device settings load/save/selection logic.
+  /// </summary>
+  [TestFixture]
+  TDeviceSettingsPresenterTests = class
+  private
+    FMockView: TMockSettingsView;
+    FMockDeviceConfigProvider: TMockDeviceConfigProvider;
+    FPresenter: TDeviceSettingsPresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    // LoadDeviceList
+    [Test]
+    procedure LoadDeviceList_NoDevices_PopulatesEmptyList;
+    [Test]
+    procedure LoadDeviceList_NoDevices_ClearsSettings;
+    [Test]
+    procedure LoadDeviceList_WithDevices_PopulatesList;
+    [Test]
+    procedure LoadDeviceList_WithDevices_SelectsFirst;
+    [Test]
+    procedure LoadDeviceList_WithNamedDevice_FormatsDisplayName;
+    [Test]
+    procedure LoadDeviceList_UnnamedDevice_ShowsAddressOnly;
+
+    // LoadDeviceSettings
+    [Test]
+    procedure LoadDeviceSettings_LoadsAlias;
+    [Test]
+    procedure LoadDeviceSettings_AppliesUIOffset_DeviceType;
+    [Test]
+    procedure LoadDeviceSettings_LoadsBooleanFlags;
+    [Test]
+    procedure LoadDeviceSettings_LoadsConnectionSettings;
+    [Test]
+    procedure LoadDeviceSettings_LoadsNotificationOverrides;
+    [Test]
+    procedure LoadDeviceSettings_LoadsBatteryTraySettings;
+    [Test]
+    procedure LoadDeviceSettings_LoadsShowProfiles;
+    [Test]
+    procedure LoadDeviceSettings_InvalidIndex_NoAction;
+
+    // SaveDeviceSettings
+    [Test]
+    procedure SaveDeviceSettings_SavesAlias;
+    [Test]
+    procedure SaveDeviceSettings_RevertsUIOffset;
+    [Test]
+    procedure SaveDeviceSettings_SavesBooleanFlags;
+    [Test]
+    procedure SaveDeviceSettings_SavesNotificationOverrides;
+    [Test]
+    procedure SaveDeviceSettings_SavesBatteryTraySettings;
+    [Test]
+    procedure SaveDeviceSettings_InvalidIndex_NoAction;
+
+    // SaveCurrentDevice
+    [Test]
+    procedure SaveCurrentDevice_WithSelection_Saves;
+    [Test]
+    procedure SaveCurrentDevice_NoSelection_NoAction;
+
+    // OnDeviceSelected
+    [Test]
+    procedure OnDeviceSelected_LoadsNewDevice;
+
+    // OnForgetDeviceClicked
+    [Test]
+    procedure OnForgetDeviceClicked_ValidIndex_RemovesDevice;
+    [Test]
+    procedure OnForgetDeviceClicked_InvalidIndex_NoAction;
+
+    // OnRefreshDevicesClicked
+    [Test]
+    procedure OnRefreshDevicesClicked_ReloadsDeviceList;
+
+    // SelectDeviceByAddress
+    [Test]
+    procedure SelectDeviceByAddress_Existing_SelectsDevice;
+    [Test]
+    procedure SelectDeviceByAddress_NonExisting_NoSelection;
+
+    // Round-trip: Load -> Modify -> Save
+    [Test]
+    procedure RoundTrip_ModifyAndSave_PersistsChanges;
   end;
 
   /// <summary>
@@ -1127,9 +1221,560 @@ begin
   Assert.AreEqual(1, FMockView.ClearDeviceCount);
 end;
 
+{ TDeviceSettingsPresenterTests }
+
+procedure TDeviceSettingsPresenterTests.Setup;
+begin
+  FMockView := TMockSettingsView.Create;
+  FMockDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FPresenter := TDeviceSettingsPresenter.Create(
+    FMockView as IDeviceSettingsView,
+    FMockDeviceConfigProvider
+  );
+end;
+
+procedure TDeviceSettingsPresenterTests.TearDown;
+begin
+  FPresenter.Free;
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceList_NoDevices_PopulatesEmptyList;
+begin
+  FPresenter.LoadDeviceList;
+  Assert.AreEqual(Integer(0), Integer(Length(FMockView.DeviceListItems)));
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceList_NoDevices_ClearsSettings;
+begin
+  FPresenter.LoadDeviceList;
+  Assert.AreEqual(1, FMockView.ClearDeviceCount, 'ClearDeviceSettings should be called');
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceList_WithDevices_PopulatesList;
+var
+  Config: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'WH-1000XM4';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  Config := TDeviceConfig.Default($112233445566);
+  Config.Name := 'AirPods Pro';
+  FMockDeviceConfigProvider.AddDeviceConfig($112233445566, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Assert.AreEqual(Integer(2), Integer(Length(FMockView.DeviceListItems)));
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceList_WithDevices_SelectsFirst;
+var
+  Config: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Assert.AreEqual(0, FMockView.GetSelectedDeviceIndex);
+  Assert.IsTrue(FMockView.SetDeviceCount > 0, 'SetDeviceSettings should be called');
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceList_WithNamedDevice_FormatsDisplayName;
+var
+  Config: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'WH-1000XM4';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  // Expected format: "Name (XX:XX:XX:XX:XX:XX)"
+  Assert.IsTrue(Pos('WH-1000XM4', FMockView.DeviceListItems[0]) > 0,
+    'Display name should contain device name');
+  Assert.IsTrue(Pos('AA:BB:CC:DD:EE:FF', FMockView.DeviceListItems[0]) > 0,
+    'Display name should contain MAC address');
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceList_UnnamedDevice_ShowsAddressOnly;
+var
+  Config: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := '';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Assert.AreEqual('AA:BB:CC:DD:EE:FF', FMockView.DeviceListItems[0]);
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceSettings_LoadsAlias;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  Config.Alias := 'My Headphones';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Assert.AreEqual('My Headphones', Settings.Alias);
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceSettings_AppliesUIOffset_DeviceType;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  Config.DeviceTypeOverride := 3; // Config value
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  // UI index = config value + 1 (UI_DEFAULT_ITEM_OFFSET)
+  Assert.AreEqual(4, Settings.DeviceTypeIndex,
+    'UI index should be config value + 1');
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceSettings_LoadsBooleanFlags;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  Config.Pinned := True;
+  Config.Hidden := True;
+  Config.AutoConnect := True;
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Assert.IsTrue(Settings.Pinned);
+  Assert.IsTrue(Settings.Hidden);
+  Assert.IsTrue(Settings.AutoConnect);
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceSettings_LoadsConnectionSettings;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  Config.ConnectionTimeout := 5000;
+  Config.ConnectionRetryCount := 3;
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Assert.AreEqual(5000, Settings.Timeout);
+  Assert.AreEqual(3, Settings.RetryCount);
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceSettings_LoadsNotificationOverrides;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  Config.Notifications.OnConnect := 1;
+  Config.Notifications.OnDisconnect := 0;
+  Config.Notifications.OnConnectFailed := 1;
+  Config.Notifications.OnAutoConnect := -1;
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  // UI index = config value + 1
+  Assert.AreEqual(2, Settings.NotifyConnectIndex);     // 1 + 1
+  Assert.AreEqual(1, Settings.NotifyDisconnectIndex);   // 0 + 1
+  Assert.AreEqual(2, Settings.NotifyFailedIndex);       // 1 + 1
+  Assert.AreEqual(0, Settings.NotifyAutoIndex);          // -1 + 1
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceSettings_LoadsBatteryTraySettings;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  Config.BatteryTray.ShowTrayIcon := 1;
+  Config.BatteryTray.IconColor := $00FF00;
+  Config.BatteryTray.BackgroundColor := -2;
+  Config.BatteryTray.ShowNumericValue := 0;
+  Config.BatteryTray.LowBatteryThreshold := 20;
+  Config.BatteryTray.NotifyLowBattery := 1;
+  Config.BatteryTray.NotifyFullyCharged := 0;
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Assert.AreEqual(2, Settings.BatteryTrayIconIndex);     // 1 + 1
+  Assert.AreEqual($00FF00, Settings.BatteryIconColor);
+  Assert.AreEqual(-2, Settings.BatteryBackgroundColor);
+  Assert.AreEqual(1, Settings.BatteryShowNumericIndex);  // 0 + 1
+  Assert.AreEqual(20, Settings.BatteryThreshold);
+  Assert.AreEqual(2, Settings.BatteryNotifyLowIndex);    // 1 + 1
+  Assert.AreEqual(1, Settings.BatteryNotifyFullIndex);   // 0 + 1
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceSettings_LoadsShowProfiles;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  Config.ShowProfiles := 1;
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Assert.AreEqual(2, Settings.ShowProfilesIndex); // 1 + 1
+end;
+
+procedure TDeviceSettingsPresenterTests.LoadDeviceSettings_InvalidIndex_NoAction;
+var
+  Config: TDeviceConfig;
+  InitialCount: Integer;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+  InitialCount := FMockView.SetDeviceCount;
+
+  // Invalid index should not crash or update view
+  FPresenter.OnDeviceSelected(99);
+  Assert.AreEqual(InitialCount, FMockView.SetDeviceCount,
+    'SetDeviceSettings should not be called for invalid index');
+end;
+
+procedure TDeviceSettingsPresenterTests.SaveDeviceSettings_SavesAlias;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+  Saved: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+  FPresenter.LoadDeviceList;
+
+  // Modify settings in the view
+  Settings := FMockView.GetDeviceSettings;
+  Settings.Alias := 'My Custom Name';
+  FMockView.SetDeviceSettings(Settings);
+
+  FPresenter.SaveCurrentDevice;
+
+  Saved := FMockDeviceConfigProvider.GetDeviceConfig($AABBCCDDEEFF);
+  Assert.AreEqual('My Custom Name', Saved.Alias);
+end;
+
+procedure TDeviceSettingsPresenterTests.SaveDeviceSettings_RevertsUIOffset;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+  Saved: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Settings.DeviceTypeIndex := 4; // UI index
+  FMockView.SetDeviceSettings(Settings);
+
+  FPresenter.SaveCurrentDevice;
+
+  Saved := FMockDeviceConfigProvider.GetDeviceConfig($AABBCCDDEEFF);
+  // Config value = UI index - 1
+  Assert.AreEqual(3, Saved.DeviceTypeOverride);
+end;
+
+procedure TDeviceSettingsPresenterTests.SaveDeviceSettings_SavesBooleanFlags;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+  Saved: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Settings.Pinned := True;
+  Settings.Hidden := True;
+  Settings.AutoConnect := True;
+  FMockView.SetDeviceSettings(Settings);
+
+  FPresenter.SaveCurrentDevice;
+
+  Saved := FMockDeviceConfigProvider.GetDeviceConfig($AABBCCDDEEFF);
+  Assert.IsTrue(Saved.Pinned);
+  Assert.IsTrue(Saved.Hidden);
+  Assert.IsTrue(Saved.AutoConnect);
+end;
+
+procedure TDeviceSettingsPresenterTests.SaveDeviceSettings_SavesNotificationOverrides;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+  Saved: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Settings.NotifyConnectIndex := 2;     // UI index -> config = 1
+  Settings.NotifyDisconnectIndex := 0;  // UI index -> config = -1
+  FMockView.SetDeviceSettings(Settings);
+
+  FPresenter.SaveCurrentDevice;
+
+  Saved := FMockDeviceConfigProvider.GetDeviceConfig($AABBCCDDEEFF);
+  Assert.AreEqual(1, Saved.Notifications.OnConnect);
+  Assert.AreEqual(-1, Saved.Notifications.OnDisconnect);
+end;
+
+procedure TDeviceSettingsPresenterTests.SaveDeviceSettings_SavesBatteryTraySettings;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+  Saved: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Settings.BatteryTrayIconIndex := 2;     // -> 1
+  Settings.BatteryIconColor := $FF0000;
+  Settings.BatteryBackgroundColor := -2;
+  Settings.BatteryShowNumericIndex := 1;  // -> 0
+  Settings.BatteryThreshold := 15;
+  Settings.BatteryNotifyLowIndex := 2;    // -> 1
+  Settings.BatteryNotifyFullIndex := 1;   // -> 0
+  FMockView.SetDeviceSettings(Settings);
+
+  FPresenter.SaveCurrentDevice;
+
+  Saved := FMockDeviceConfigProvider.GetDeviceConfig($AABBCCDDEEFF);
+  Assert.AreEqual(1, Saved.BatteryTray.ShowTrayIcon);
+  Assert.AreEqual($FF0000, Saved.BatteryTray.IconColor);
+  Assert.AreEqual(-2, Saved.BatteryTray.BackgroundColor);
+  Assert.AreEqual(0, Saved.BatteryTray.ShowNumericValue);
+  Assert.AreEqual(15, Saved.BatteryTray.LowBatteryThreshold);
+  Assert.AreEqual(1, Saved.BatteryTray.NotifyLowBattery);
+  Assert.AreEqual(0, Saved.BatteryTray.NotifyFullyCharged);
+end;
+
+procedure TDeviceSettingsPresenterTests.SaveDeviceSettings_InvalidIndex_NoAction;
+begin
+  // No devices loaded, saving should not crash
+  FPresenter.SaveCurrentDevice;
+  Assert.Pass('SaveCurrentDevice with no selection should not crash');
+end;
+
+procedure TDeviceSettingsPresenterTests.SaveCurrentDevice_WithSelection_Saves;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+  Saved: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+  FPresenter.LoadDeviceList;
+
+  Settings := FMockView.GetDeviceSettings;
+  Settings.Alias := 'Saved Alias';
+  FMockView.SetDeviceSettings(Settings);
+
+  FPresenter.SaveCurrentDevice;
+
+  Saved := FMockDeviceConfigProvider.GetDeviceConfig($AABBCCDDEEFF);
+  Assert.AreEqual('Saved Alias', Saved.Alias);
+end;
+
+procedure TDeviceSettingsPresenterTests.SaveCurrentDevice_NoSelection_NoAction;
+begin
+  // No devices, no selection
+  FPresenter.SaveCurrentDevice;
+  Assert.Pass('Should not crash with no selection');
+end;
+
+procedure TDeviceSettingsPresenterTests.OnDeviceSelected_LoadsNewDevice;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device 1';
+  Config.Alias := 'Alias 1';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  Config := TDeviceConfig.Default($112233445566);
+  Config.Name := 'Device 2';
+  Config.Alias := 'Alias 2';
+  FMockDeviceConfigProvider.AddDeviceConfig($112233445566, Config);
+
+  FPresenter.LoadDeviceList;
+
+  // Select second device
+  FPresenter.OnDeviceSelected(1);
+
+  Settings := FMockView.GetDeviceSettings;
+  Assert.AreEqual('Alias 2', Settings.Alias);
+end;
+
+procedure TDeviceSettingsPresenterTests.OnForgetDeviceClicked_ValidIndex_RemovesDevice;
+var
+  Config: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+  Assert.AreEqual(Integer(1), Integer(Length(FMockView.DeviceListItems)));
+
+  FPresenter.OnForgetDeviceClicked(0);
+
+  // After forget, device list should be refreshed and empty
+  Assert.AreEqual(Integer(0), Integer(Length(FMockView.DeviceListItems)));
+end;
+
+procedure TDeviceSettingsPresenterTests.OnForgetDeviceClicked_InvalidIndex_NoAction;
+var
+  Config: TDeviceConfig;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.LoadDeviceList;
+
+  // Invalid index should not crash or remove anything
+  FPresenter.OnForgetDeviceClicked(99);
+  Assert.AreEqual(Integer(1), Integer(Length(FMockView.DeviceListItems)));
+end;
+
+procedure TDeviceSettingsPresenterTests.OnRefreshDevicesClicked_ReloadsDeviceList;
+var
+  Config: TDeviceConfig;
+begin
+  // Initially no devices
+  FPresenter.LoadDeviceList;
+  Assert.AreEqual(Integer(0), Integer(Length(FMockView.DeviceListItems)));
+
+  // Add a device after initial load
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'New Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  FPresenter.OnRefreshDevicesClicked;
+
+  Assert.AreEqual(Integer(1), Integer(Length(FMockView.DeviceListItems)));
+end;
+
+procedure TDeviceSettingsPresenterTests.SelectDeviceByAddress_Existing_SelectsDevice;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+begin
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Device 1';
+  Config.Alias := 'Alias 1';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  Config := TDeviceConfig.Default($112233445566);
+  Config.Name := 'Device 2';
+  Config.Alias := 'Target Alias';
+  FMockDeviceConfigProvider.AddDeviceConfig($112233445566, Config);
+
+  FPresenter.SelectDeviceByAddress($112233445566);
+
+  Settings := FMockView.GetDeviceSettings;
+  Assert.AreEqual('Target Alias', Settings.Alias);
+end;
+
+procedure TDeviceSettingsPresenterTests.SelectDeviceByAddress_NonExisting_NoSelection;
+begin
+  FPresenter.SelectDeviceByAddress($FFFFFFFFFFFF);
+  // Should not crash, device list remains empty
+  Assert.AreEqual(Integer(0), Integer(Length(FMockView.DeviceListItems)));
+end;
+
+procedure TDeviceSettingsPresenterTests.RoundTrip_ModifyAndSave_PersistsChanges;
+var
+  Config: TDeviceConfig;
+  Settings: TDeviceViewSettings;
+  Saved: TDeviceConfig;
+begin
+  // Setup: create device with defaults
+  Config := TDeviceConfig.Default($AABBCCDDEEFF);
+  Config.Name := 'Test Device';
+  FMockDeviceConfigProvider.AddDeviceConfig($AABBCCDDEEFF, Config);
+
+  // Load
+  FPresenter.LoadDeviceList;
+
+  // Modify via view
+  Settings := FMockView.GetDeviceSettings;
+  Settings.Alias := 'Custom Alias';
+  Settings.Pinned := True;
+  Settings.AutoConnect := True;
+  Settings.Timeout := 10000;
+  Settings.RetryCount := 5;
+  Settings.DeviceTypeIndex := 3;  // UI -> config = 2
+  Settings.NotifyConnectIndex := 2; // UI -> config = 1
+  Settings.ShowProfilesIndex := 2;  // UI -> config = 1
+  FMockView.SetDeviceSettings(Settings);
+
+  // Save
+  FPresenter.SaveCurrentDevice;
+
+  // Verify persisted values
+  Saved := FMockDeviceConfigProvider.GetDeviceConfig($AABBCCDDEEFF);
+  Assert.AreEqual('Custom Alias', Saved.Alias);
+  Assert.IsTrue(Saved.Pinned);
+  Assert.IsTrue(Saved.AutoConnect);
+  Assert.AreEqual(10000, Saved.ConnectionTimeout);
+  Assert.AreEqual(5, Saved.ConnectionRetryCount);
+  Assert.AreEqual(2, Saved.DeviceTypeOverride);
+  Assert.AreEqual(1, Saved.Notifications.OnConnect);
+  Assert.AreEqual(1, Saved.ShowProfiles);
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TSettingsPresenterTests);
   TDUnitX.RegisterTestFixture(TSettingsRecordTests);
   TDUnitX.RegisterTestFixture(TMockSettingsViewTests);
+  TDUnitX.RegisterTestFixture(TDeviceSettingsPresenterTests);
 
 end.

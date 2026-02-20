@@ -61,6 +61,7 @@ type
   TMockBluetoothService = Tests.Mocks.Bluetooth.TMockBluetoothService;
   TMockProfileQuery = Tests.Mocks.Bluetooth.TMockProfileQuery;
   TMockBluetoothPairingService = Tests.Mocks.Bluetooth.TMockBluetoothPairingService;
+  TMockConnectionVerificationStrategy = Tests.Mocks.Bluetooth.TMockConnectionVerificationStrategy;
 
 // Re-export types from Tests.Mocks.Infrastructure
 type

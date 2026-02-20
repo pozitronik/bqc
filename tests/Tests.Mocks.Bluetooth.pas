@@ -23,7 +23,8 @@ uses
   Bluetooth.Types,
   Bluetooth.Interfaces,
   Bluetooth.EventDebouncer,
-  Bluetooth.RadioControl;
+  Bluetooth.RadioControl,
+  Bluetooth.ConnectionVerification;
 
 type
   /// <summary>
@@ -563,6 +564,30 @@ type
     property LastUnpairAddress: UInt64 read FLastUnpairAddress;
     property LastIsDevicePairedAddress: UInt64 read FLastIsDevicePairedAddress;
     property LastProgressCallback: TPairingProgressCallback read FLastProgressCallback;
+  end;
+
+  /// <summary>
+  /// Mock implementation of IConnectionVerificationStrategy for testing.
+  /// Controls whether connection verification succeeds or fails.
+  /// </summary>
+  TMockConnectionVerificationStrategy = class(TInterfacedObject, IConnectionVerificationStrategy)
+  private
+    FVerifyResult: Boolean;
+    FStrategyName: string;
+    FVerifyCallCount: Integer;
+    FLastVerifyAddress: UInt64;
+  public
+    constructor Create;
+
+    // IConnectionVerificationStrategy
+    function VerifyConnection(AAddress: UInt64): Boolean;
+    function GetStrategyName: string;
+
+    // Test configuration
+    property VerifyResult: Boolean read FVerifyResult write FVerifyResult;
+    property StrategyName: string read FStrategyName write FStrategyName;
+    property VerifyCallCount: Integer read FVerifyCallCount;
+    property LastVerifyAddress: UInt64 read FLastVerifyAddress;
   end;
 
   /// <summary>
@@ -1532,6 +1557,29 @@ function TMockBluetoothPairingService.GetPairedDeviceAddresses: TArray<UInt64>;
 begin
   Inc(FGetPairedDeviceAddressesCallCount);
   Result := FPairedDeviceAddresses;
+end;
+
+{ TMockConnectionVerificationStrategy }
+
+constructor TMockConnectionVerificationStrategy.Create;
+begin
+  inherited Create;
+  FVerifyResult := True;
+  FStrategyName := 'Mock';
+  FVerifyCallCount := 0;
+  FLastVerifyAddress := 0;
+end;
+
+function TMockConnectionVerificationStrategy.VerifyConnection(AAddress: UInt64): Boolean;
+begin
+  Inc(FVerifyCallCount);
+  FLastVerifyAddress := AAddress;
+  Result := FVerifyResult;
+end;
+
+function TMockConnectionVerificationStrategy.GetStrategyName: string;
+begin
+  Result := FStrategyName;
 end;
 
 end.

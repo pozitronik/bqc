@@ -27,6 +27,7 @@ uses
   Bluetooth.RadioControl,
   UI.DeviceList,
   App.DeviceDisplayItemBuilder,
+  App.DeviceConfigTypes,
   Tests.Mocks;
 
 type
@@ -52,6 +53,23 @@ type
     /// Exposes GetDevicesArray for testing array caching behavior.
     /// </summary>
     function GetDevicesArray: TBluetoothDeviceInfoArray;
+    /// <summary>
+    /// Exposes HandlePairingResult for testing pairing result handling.
+    /// </summary>
+    procedure TestHandlePairingResult(const ADevice: TBluetoothDeviceInfo;
+      const AResult: TPairingResult);
+    /// <summary>
+    /// Exposes SyncPairedDeviceList for testing external unpair detection.
+    /// </summary>
+    procedure TestSyncPairedDeviceList;
+    /// <summary>
+    /// Exposes AutoConnectDevices for testing auto-connect logic.
+    /// </summary>
+    procedure TestAutoConnectDevices;
+    /// <summary>
+    /// Exposes SetDeviceStatus for testing status message persistence.
+    /// </summary>
+    procedure TestSetDeviceStatus(ADeviceAddress: UInt64; const AMessage: string);
   end;
 
   [TestFixture]
@@ -282,6 +300,78 @@ type
     procedure FindDeviceByAddress_NonExistentAddress_ReturnsEmptyRecord;
   end;
 
+  /// <summary>
+  /// Tests for pairing result handling, external unpair sync,
+  /// auto-connect, and device status message management.
+  /// </summary>
+  [TestFixture]
+  TMainPresenterBehaviorTests = class
+  private
+    FView: TMockMainView;
+    FAppConfig: TMockAppConfig;
+    FDeviceConfigProvider: TMockDeviceConfigProvider;
+    FGeneralConfig: TMockGeneralConfig;
+    FWindowConfig: TMockWindowConfig;
+    FAppearanceConfig: TMockAppearanceConfig;
+    FLayoutConfig: TMockLayoutConfig;
+    FConnectionConfig: TMockConnectionConfig;
+    FRadioStateManager: TMockRadioStateManager;
+    FAsyncExecutor: TMockAsyncExecutor;
+    FBluetoothService: TMockBluetoothService;
+    FPairingService: TMockBluetoothPairingService;
+    FDisplayItemBuilder: TMockDeviceDisplayItemBuilder;
+    FPresenter: TTestableMainPresenter;
+
+    procedure CreatePresenter;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    { HandlePairingResult tests }
+    [Test]
+    procedure PairingResult_Cancelled_SetsStatus;
+    [Test]
+    procedure PairingResult_AlreadyPaired_RefreshesDevices;
+    [Test]
+    procedure PairingResult_Timeout_SetsStatus;
+    [Test]
+    procedure PairingResult_NotSupported_ShowsErrorMessage;
+    [Test]
+    procedure PairingResult_Failed_ShowsErrorWithCode;
+    [Test]
+    procedure PairingResult_Success_RefreshesDevices;
+
+    { SyncPairedDeviceList tests }
+    [Test]
+    procedure SyncPairedDeviceList_RemovesUnpairedDevice;
+    [Test]
+    procedure SyncPairedDeviceList_KeepsPairedDevices;
+    [Test]
+    procedure SyncPairedDeviceList_DisconnectsBeforeRemoval;
+    [Test]
+    procedure SyncPairedDeviceList_EmptyPairedList_RemovesAll;
+    [Test]
+    procedure SyncPairedDeviceList_NoChanges_NoAction;
+
+    { AutoConnectDevices tests }
+    [Test]
+    procedure AutoConnect_SkipsAlreadyConnected;
+    [Test]
+    procedure AutoConnect_SkipsNonAutoConnect;
+    [Test]
+    procedure AutoConnect_ConnectsAutoConnectDevice;
+
+    { SetDeviceStatus tests }
+    [Test]
+    procedure SetDeviceStatus_StoresMessage;
+    [Test]
+    procedure SetDeviceStatus_ClearMessage_RemovesEntry;
+    [Test]
+    procedure SetDeviceStatus_DeviceNotFound_StoresWithoutCrash;
+  end;
+
 implementation
 
 { TTestableMainPresenter }
@@ -331,6 +421,28 @@ end;
 function TTestableMainPresenter.GetDevicesArray: TBluetoothDeviceInfoArray;
 begin
   Result := inherited GetDevicesArray;
+end;
+
+procedure TTestableMainPresenter.TestHandlePairingResult(
+  const ADevice: TBluetoothDeviceInfo; const AResult: TPairingResult);
+begin
+  inherited HandlePairingResult(ADevice, AResult);
+end;
+
+procedure TTestableMainPresenter.TestSyncPairedDeviceList;
+begin
+  inherited SyncPairedDeviceList;
+end;
+
+procedure TTestableMainPresenter.TestAutoConnectDevices;
+begin
+  inherited AutoConnectDevices;
+end;
+
+procedure TTestableMainPresenter.TestSetDeviceStatus(ADeviceAddress: UInt64;
+  const AMessage: string);
+begin
+  inherited SetDeviceStatus(ADeviceAddress, AMessage);
 end;
 
 { TMainPresenterTests }
@@ -2509,6 +2621,358 @@ begin
   Assert.AreEqual(Devices1[0].Name, Devices2[0].Name, 'Both arrays should have same data');
 end;
 
+{ TMainPresenterBehaviorTests }
+
+procedure TMainPresenterBehaviorTests.Setup;
+begin
+  FView := TMockMainView.Create;
+  FAppConfig := TMockAppConfig.Create;
+  FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
+  FGeneralConfig := TMockGeneralConfig.Create;
+  FWindowConfig := TMockWindowConfig.Create;
+  FAppearanceConfig := TMockAppearanceConfig.Create;
+  FLayoutConfig := TMockLayoutConfig.Create;
+  FConnectionConfig := TMockConnectionConfig.Create;
+  FRadioStateManager := TMockRadioStateManager.Create;
+  FAsyncExecutor := TMockAsyncExecutor.Create;
+  FBluetoothService := TMockBluetoothService.Create;
+  FPairingService := TMockBluetoothPairingService.Create;
+  FDisplayItemBuilder := TMockDeviceDisplayItemBuilder.Create;
+  FPresenter := nil;
+end;
+
+procedure TMainPresenterBehaviorTests.TearDown;
+var
+  I: Integer;
+begin
+  // Some tests call Initialize which may queue async operations
+  for I := 1 to 3 do
+  begin
+    Sleep(10);
+    CheckSynchronize(0);
+  end;
+  Application.ProcessMessages;
+  CheckSynchronize(0);
+  FPresenter.Free;
+end;
+
+procedure TMainPresenterBehaviorTests.CreatePresenter;
+begin
+  FPresenter := TTestableMainPresenter.Create(
+    FView as IDeviceListView,
+    FView as IToggleView,
+    FView as IStatusView,
+    FView as IVisibilityView,
+    FAppConfig,
+    FDeviceConfigProvider,
+    FGeneralConfig,
+    FWindowConfig,
+    FAppearanceConfig,
+    FLayoutConfig,
+    FConnectionConfig,
+    FRadioStateManager,
+    FAsyncExecutor,
+    FBluetoothService,
+    FPairingService,
+    FDisplayItemBuilder
+  );
+end;
+
+{ HandlePairingResult tests }
+
+procedure TMainPresenterBehaviorTests.PairingResult_Cancelled_SetsStatus;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  FPresenter.TestHandlePairingResult(Device, TPairingResult.Cancelled);
+
+  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount,
+    'Should build display item for status update');
+end;
+
+procedure TMainPresenterBehaviorTests.PairingResult_AlreadyPaired_RefreshesDevices;
+var
+  Device: TBluetoothDeviceInfo;
+  InitialRefreshCount: Integer;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  InitialRefreshCount := FBluetoothService.RefreshAllDevicesCallCount;
+
+  FPresenter.TestHandlePairingResult(Device, TPairingResult.AlreadyPaired);
+
+  Assert.AreEqual(InitialRefreshCount + 1, FBluetoothService.RefreshAllDevicesCallCount,
+    'AlreadyPaired should refresh device list');
+end;
+
+procedure TMainPresenterBehaviorTests.PairingResult_Timeout_SetsStatus;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  FPresenter.TestHandlePairingResult(Device, TPairingResult.Timeout);
+
+  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount,
+    'Should build display item for timeout status');
+end;
+
+procedure TMainPresenterBehaviorTests.PairingResult_NotSupported_ShowsErrorMessage;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  FPresenter.TestHandlePairingResult(Device,
+    TPairingResult.NotSupported('Bluetooth not available'));
+
+  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount,
+    'Should build display item for not-supported message');
+end;
+
+procedure TMainPresenterBehaviorTests.PairingResult_Failed_ShowsErrorWithCode;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  FPresenter.TestHandlePairingResult(Device,
+    TPairingResult.Failed(42, 'Authentication failed'));
+
+  Assert.AreEqual(1, FDisplayItemBuilder.BuildDisplayItemCallCount,
+    'Should build display item for failure status');
+end;
+
+procedure TMainPresenterBehaviorTests.PairingResult_Success_RefreshesDevices;
+var
+  Device: TBluetoothDeviceInfo;
+  InitialRefreshCount: Integer;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  InitialRefreshCount := FBluetoothService.RefreshAllDevicesCallCount;
+
+  FPresenter.TestHandlePairingResult(Device, TPairingResult.Success);
+
+  Assert.AreEqual(InitialRefreshCount + 1, FBluetoothService.RefreshAllDevicesCallCount,
+    'Success should refresh device list');
+  Assert.AreEqual(1, FAsyncExecutor.RunAsyncCallCount,
+    'Success should queue async auto-connect');
+end;
+
+{ SyncPairedDeviceList tests }
+
+procedure TMainPresenterBehaviorTests.SyncPairedDeviceList_RemovesUnpairedDevice;
+var
+  Device1, Device2: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($AABBCCDDEEFF, 'Device2', btKeyboard, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  // Only Device1 is still paired in Windows
+  FPairingService.PairedDeviceAddresses := [UInt64($112233445566)];
+
+  FPresenter.TestSyncPairedDeviceList;
+
+  Assert.AreEqual(1, FPresenter.GetDeviceCount,
+    'Should have removed the unpaired device');
+  Assert.AreEqual(UInt64($112233445566), FPresenter.FindDeviceByAddress($112233445566).AddressInt,
+    'Device1 should remain');
+  Assert.AreEqual(UInt64(0), FPresenter.FindDeviceByAddress($AABBCCDDEEFF).AddressInt,
+    'Device2 should be removed');
+end;
+
+procedure TMainPresenterBehaviorTests.SyncPairedDeviceList_KeepsPairedDevices;
+var
+  Device1, Device2: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($AABBCCDDEEFF, 'Device2', btKeyboard, csConnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  // Both still paired
+  FPairingService.PairedDeviceAddresses := [UInt64($112233445566), UInt64($AABBCCDDEEFF)];
+
+  FPresenter.TestSyncPairedDeviceList;
+
+  Assert.AreEqual(2, FPresenter.GetDeviceCount,
+    'Both devices should remain when both are still paired');
+end;
+
+procedure TMainPresenterBehaviorTests.SyncPairedDeviceList_DisconnectsBeforeRemoval;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  // Device is connected but was unpaired externally
+  Device := CreateTestDevice($112233445566, 'ConnectedDevice', btAudioOutput, csConnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  FPairingService.PairedDeviceAddresses := [];  // No devices paired in Windows
+
+  FPresenter.TestSyncPairedDeviceList;
+
+  Assert.AreEqual(1, FBluetoothService.DisconnectCallCount,
+    'Should disconnect device before removal');
+  Assert.AreEqual(0, FPresenter.GetDeviceCount,
+    'Device should be removed after disconnect');
+end;
+
+procedure TMainPresenterBehaviorTests.SyncPairedDeviceList_EmptyPairedList_RemovesAll;
+var
+  Device1, Device2: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device1 := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
+  Device2 := CreateTestDevice($AABBCCDDEEFF, 'Device2', btKeyboard, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device1);
+  FPresenter.UpdateOrAddDevice(Device2);
+  FPairingService.PairedDeviceAddresses := [];  // Nothing paired
+
+  FPresenter.TestSyncPairedDeviceList;
+
+  Assert.AreEqual(0, FPresenter.GetDeviceCount,
+    'All devices should be removed when nothing paired');
+end;
+
+procedure TMainPresenterBehaviorTests.SyncPairedDeviceList_NoChanges_NoAction;
+var
+  Device: TBluetoothDeviceInfo;
+  InitialShowStatusCount: Integer;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  FPairingService.PairedDeviceAddresses := [UInt64($112233445566)];
+  InitialShowStatusCount := FView.ShowStatusCount;
+
+  FPresenter.TestSyncPairedDeviceList;
+
+  Assert.AreEqual(1, FPresenter.GetDeviceCount,
+    'Device should remain');
+  // No "removed" status message should appear
+  Assert.AreEqual(InitialShowStatusCount, FView.ShowStatusCount,
+    'No status message when nothing changed');
+end;
+
+{ AutoConnectDevices tests }
+
+procedure TMainPresenterBehaviorTests.AutoConnect_SkipsAlreadyConnected;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csConnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  Config := TDeviceConfig.Default($112233445566);
+  Config.AutoConnect := True;
+  FDeviceConfigProvider.AddDeviceConfig($112233445566, Config);
+
+  FPresenter.TestAutoConnectDevices;
+
+  Assert.AreEqual(0, FBluetoothService.ConnectCallCount,
+    'Should not connect already-connected device');
+end;
+
+procedure TMainPresenterBehaviorTests.AutoConnect_SkipsNonAutoConnect;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  // Default config has AutoConnect = False
+
+  FPresenter.TestAutoConnectDevices;
+
+  Assert.AreEqual(0, FBluetoothService.ConnectCallCount,
+    'Should not connect device without AutoConnect flag');
+end;
+
+procedure TMainPresenterBehaviorTests.AutoConnect_ConnectsAutoConnectDevice;
+var
+  Device: TBluetoothDeviceInfo;
+  Config: TDeviceConfig;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  Config := TDeviceConfig.Default($112233445566);
+  Config.AutoConnect := True;
+  FDeviceConfigProvider.AddDeviceConfig($112233445566, Config);
+
+  FPresenter.TestAutoConnectDevices;
+
+  // AutoConnect calls ConnectDeviceAsync which uses RunAsyncWithErrorHandler
+  Assert.IsTrue(FAsyncExecutor.RunAsyncCallCount > 0,
+    'Should initiate async connect for auto-connect device');
+end;
+
+{ SetDeviceStatus tests }
+
+procedure TMainPresenterBehaviorTests.SetDeviceStatus_StoresMessage;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  FPresenter.TestSetDeviceStatus($112233445566, 'Pairing...');
+
+  Assert.AreEqual(1, FView.UpdateDisplayItemCount,
+    'Should update display item in view');
+end;
+
+procedure TMainPresenterBehaviorTests.SetDeviceStatus_ClearMessage_RemovesEntry;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+
+  // Set then clear
+  FPresenter.TestSetDeviceStatus($112233445566, 'Pairing...');
+  FPresenter.TestSetDeviceStatus($112233445566, '');
+
+  // Both calls should trigger display updates
+  Assert.AreEqual(2, FView.UpdateDisplayItemCount,
+    'Both set and clear should update display');
+end;
+
+procedure TMainPresenterBehaviorTests.SetDeviceStatus_DeviceNotFound_StoresWithoutCrash;
+begin
+  // Initialize needed because SetDeviceStatus uses FDiscoveryCoordinator
+  // for unpaired device lookup when device not in paired list
+  CreatePresenter;
+  FPresenter.Initialize;
+
+  // No device added - address not in any list
+
+  // Act - should not raise exception
+  FPresenter.TestSetDeviceStatus($FFFFFFFFFFFF, 'Some status');
+
+  // Status stored but no display update since device not found
+  Assert.AreEqual(0, FView.UpdateDisplayItemCount,
+    'Should not update display when device not found');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TMainPresenterTests);
   TDUnitX.RegisterTestFixture(TDelayedLoadTests);
@@ -2519,5 +2983,6 @@ initialization
   TDUnitX.RegisterTestFixture(TUnpairedDeviceFilteringTests);
   TDUnitX.RegisterTestFixture(TRemoveDeviceFromListTests);
   TDUnitX.RegisterTestFixture(TGetDevicesArrayTests);
+  TDUnitX.RegisterTestFixture(TMainPresenterBehaviorTests);
 
 end.
