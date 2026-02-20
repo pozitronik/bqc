@@ -175,6 +175,7 @@ type
     procedure HideView;
     procedure IVisibilityView.ForceClose = DoForceClose;
     procedure DoForceClose;
+    procedure ShowSettingsDialog(ADeviceAddress: UInt64 = 0);
     procedure ShowSettingsDialogForDevice(ADeviceAddress: UInt64);
 
     { Settings application helpers (extracted from ApplyAllSettings for SRP) }
@@ -988,64 +989,31 @@ begin
 end;
 
 procedure TFormMain.HandleSettingsClick(Sender: TObject);
-var
-  SettingsDialog: TFormSettings;
-  WasMenuModeVisible: Boolean;
 begin
-  LogInfo('HandleSettingsClick: Opening settings dialog', ClassName);
-
-  // Remember if menu was visible in menu mode - we'll hide it during Settings
-  // This avoids focus tracking issues with modal dialogs
-  WasMenuModeVisible := Visible and (FGeneralConfig.WindowMode = wmMenu);
-
-  // Hide menu before opening Settings to avoid focus tracking issues
-  // The menu is a transient UI - user can re-open with hotkey after Settings closes
-  if WasMenuModeVisible then
-  begin
-    LogDebug('HandleSettingsClick: Hiding menu before modal dialog', ClassName);
-    HideView;
-  end;
-
-  SettingsDialog := TFormSettings.Create(Self);
-  try
-    // Inject dependencies from MainForm (not Bootstrap)
-    SettingsDialog.Setup(
-      FAppConfig,
-      FAppConfig.AsLogConfig,
-      FDeviceConfigProvider,
-      FBatteryTrayConfig,
-      Bootstrap.ProfileConfig,
-      FThemeManager
-    );
-    SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
-    SettingsDialog.ShowModal;
-  finally
-    SettingsDialog.Free;
-    // Re-apply hotkey settings in case they were changed
-    ApplyHotkeySettings;
-  end;
+  ShowSettingsDialog;
 end;
 
 procedure TFormMain.ShowSettingsDialogForDevice(ADeviceAddress: UInt64);
+begin
+  ShowSettingsDialog(ADeviceAddress);
+end;
+
+procedure TFormMain.ShowSettingsDialog(ADeviceAddress: UInt64);
 var
   SettingsDialog: TFormSettings;
-  WasMenuModeVisible: Boolean;
 begin
-  LogInfo('ShowSettingsDialogForDevice: Opening settings for device Address=$%.12X', [ADeviceAddress], ClassName);
+  LogInfo('ShowSettingsDialog: Opening settings (DeviceAddress=$%.12X)', [ADeviceAddress], ClassName);
 
-  // Remember if menu was visible in menu mode
-  WasMenuModeVisible := Visible and (FGeneralConfig.WindowMode = wmMenu);
-
-  // Hide menu before opening Settings
-  if WasMenuModeVisible then
+  // Hide menu before opening Settings to avoid focus tracking issues
+  // The menu is a transient UI - user can re-open with hotkey after Settings closes
+  if Visible and (FGeneralConfig.WindowMode = wmMenu) then
   begin
-    LogDebug('ShowSettingsDialogForDevice: Hiding menu before modal dialog', ClassName);
+    LogDebug('ShowSettingsDialog: Hiding menu before modal dialog', ClassName);
     HideView;
   end;
 
   SettingsDialog := TFormSettings.Create(Self);
   try
-    // Inject dependencies
     SettingsDialog.Setup(
       FAppConfig,
       FAppConfig.AsLogConfig,
@@ -1054,20 +1022,19 @@ begin
       Bootstrap.ProfileConfig,
       FThemeManager
     );
+    // HandleSettingsApplied calls ApplyAllSettings which includes ApplyHotkeySettings
     SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
 
-    // Select the device in the settings dialog
-    SettingsDialog.PageControl.ActivePageIndex := 6;  // Devices tab
-
-    // Call SelectDeviceByAddress BEFORE ShowModal
-    // FormShow will load all settings and select index 0, but we'll override it immediately after
-    SettingsDialog.SelectDeviceByAddress(ADeviceAddress);
+    // Navigate to specific device if requested
+    if ADeviceAddress <> 0 then
+    begin
+      SettingsDialog.PageControl.ActivePageIndex := 6;  // Devices tab
+      SettingsDialog.SelectDeviceByAddress(ADeviceAddress);
+    end;
 
     SettingsDialog.ShowModal;
   finally
     SettingsDialog.Free;
-    // Re-apply hotkey settings in case they were changed
-    ApplyHotkeySettings;
   end;
 end;
 
