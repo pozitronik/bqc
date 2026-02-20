@@ -1749,8 +1749,23 @@ begin
 end;
 
 procedure TMainPresenter.OnVisibilityToggleRequested;
+var
+  WasVisible, WasMinimized: Boolean;
+  Action: string;
 begin
-  if FVisibilityView.IsVisible and (not FVisibilityView.IsMinimized) then
+  WasVisible := FVisibilityView.IsVisible;
+  WasMinimized := FVisibilityView.IsMinimized;
+
+  if WasVisible and (not WasMinimized) then
+    Action := 'HideView'
+  else
+    Action := 'ShowView';
+
+  LogDebug('OnVisibilityToggleRequested: IsVisible=%s, IsMinimized=%s, Action=%s', [
+    BoolToStr(WasVisible, True), BoolToStr(WasMinimized, True), Action
+  ], ClassName);
+
+  if WasVisible and (not WasMinimized) then
     FVisibilityView.HideView
   else
     FVisibilityView.ShowView;

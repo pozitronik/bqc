@@ -625,11 +625,20 @@ begin
     // Check if this message is for our instance
     if Integer(AWParam) = FInstanceId then
     begin
-      LogDebug('HandleHotkeyDetected: Hotkey triggered via low-level hook', ClassName);
+      LogDebug('HandleHotkeyDetected: Hotkey triggered via low-level hook, InstanceId=%d', [FInstanceId], ClassName);
       DoHotkeyTriggered;
       Result := True;
-    end;
-  end;
+    end
+    else
+      LogDebug('HandleHotkeyDetected: InstanceId mismatch, expected=%d, got=%d', [
+        FInstanceId, Integer(AWParam)
+      ], ClassName);
+  end
+  else
+    LogDebug('HandleHotkeyDetected: Skipped, Registered=%s, UsingLLHook=%s, InstanceId=%d, wParam=%d', [
+      BoolToStr(FHotkeyRegistered, True), BoolToStr(FUsingLowLevelHook, True),
+      FInstanceId, Integer(AWParam)
+    ], ClassName);
 end;
 
 initialization

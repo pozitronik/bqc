@@ -101,6 +101,7 @@ type
     FBluetoothPanelHotkeyManager: THotkeyManager;
     FForceClose: Boolean;
     FForegroundHook: HWINEVENTHOOK;
+    FLastShowViewTick: Cardinal;
 
     { Injected dependencies (set via Setup method) }
     FAppConfig: IAppConfig;
@@ -1109,6 +1110,9 @@ end;
 
 procedure TFormMain.HandleHotkeyTriggered(Sender: TObject);
 begin
+  LogDebug('HandleHotkeyTriggered: Visible=%s, IsMinimized=%s', [
+    BoolToStr(Visible, True), BoolToStr(IsMinimized, True)
+  ], ClassName);
   FPresenter.OnVisibilityToggleRequested;
 end;
 
@@ -1337,6 +1341,7 @@ procedure TFormMain.ShowView;
 var
   ActiveWndBefore, ActiveWndAfter: HWND;
 begin
+  FLastShowViewTick := GetTickCount;
   LogInfo('ShowView', ClassName);
 
   // Position window based on PositionMode
@@ -1344,6 +1349,10 @@ begin
   // In Window mode with mode 0 (coordinates), use saved position
   if (FGeneralConfig.WindowMode = wmMenu) or (FPositionConfig.PositionMode <> pmCoordinates) then
     ApplyWindowPosition;
+
+  LogDebug('ShowView: Position after layout: Left=%d, Top=%d, Width=%d, Height=%d, Monitor=%d, MonitorDPI=%d', [
+    Left, Top, Width, Height, Monitor.MonitorNum, Monitor.PixelsPerInch
+  ], ClassName);
 
   ActiveWndBefore := GetActiveWindow;
   LogDebug('ShowView: Before Show, ActiveWindow=$%x, OurHandle=$%x', [ActiveWndBefore, Handle], ClassName);
@@ -1376,11 +1385,15 @@ begin
   // Notify presenter that view is now visible (triggers battery refresh)
   if FPresenter <> nil then
     FPresenter.OnViewShown;
+
+  LogDebug('ShowView: Complete, Final: Left=%d, Top=%d, Width=%d, Height=%d, Visible=%s, ElapsedMs=%d', [
+    Left, Top, Width, Height, BoolToStr(Visible, True), GetTickCount - FLastShowViewTick
+  ], ClassName);
 end;
 
 procedure TFormMain.HideView;
 begin
-  LogInfo('HideView', ClassName);
+  LogInfo('HideView: MsSinceShowView=%d', [GetTickCount - FLastShowViewTick], ClassName);
 
   // Uninstall foreground hook before hiding
   UninstallForegroundHook;
@@ -1441,13 +1454,16 @@ end;
 procedure TFormMain.WMForegroundLost(var Msg: TMessage);
 var
   NewForegroundWnd: HWND;
+  ElapsedSinceShow: Cardinal;
 begin
   NewForegroundWnd := HWND(Msg.LParam);
-  LogDebug('WMForegroundLost: NewForegroundWnd=$%x, Visible=%s, WindowMode=%d, HideOnFocusLoss=%s', [
+  ElapsedSinceShow := GetTickCount - FLastShowViewTick;
+  LogDebug('WMForegroundLost: NewForegroundWnd=$%x, Visible=%s, WindowMode=%d, HideOnFocusLoss=%s, MsSinceShowView=%d', [
     NewForegroundWnd,
     BoolToStr(Visible, True),
     Ord(FGeneralConfig.WindowMode),
-    BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True)
+    BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True),
+    ElapsedSinceShow
   ], ClassName);
 
   // Hide if we're visible in menu mode with hide-on-focus-loss enabled
@@ -1536,13 +1552,19 @@ end;
 
 procedure TFormMain.WMHotkeyDetected(var Msg: TMessage);
 begin
+  LogDebug('WMHotkeyDetected: Received, wParam=%d, Visible=%s', [
+    Msg.WParam, BoolToStr(Visible, True)
+  ], ClassName);
+
   // Check all hotkey managers - wParam contains InstanceId of the triggered hotkey
   if FHotkeyManager.HandleHotkeyDetected(Msg.WParam) then
     Exit;
   if Assigned(FCastPanelHotkeyManager) and FCastPanelHotkeyManager.HandleHotkeyDetected(Msg.WParam) then
     Exit;
-  if Assigned(FBluetoothPanelHotkeyManager) then
-    FBluetoothPanelHotkeyManager.HandleHotkeyDetected(Msg.WParam);
+  if Assigned(FBluetoothPanelHotkeyManager) and FBluetoothPanelHotkeyManager.HandleHotkeyDetected(Msg.WParam) then
+    Exit;
+
+  LogWarning('WMHotkeyDetected: No manager matched wParam=%d', [Msg.WParam], ClassName);
 end;
 
 procedure TFormMain.WMDpiChanged(var Msg: TMessage);
