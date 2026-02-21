@@ -13,6 +13,7 @@ uses
   DUnitX.TestFramework,
   System.SysUtils,
   System.JSON,
+  System.Generics.Collections,
   Bluetooth.Types,
   App.DeviceDisplayTypes,
   App.RestApiSnapshot;
