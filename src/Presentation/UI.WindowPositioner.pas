@@ -437,8 +437,11 @@ begin
 
   LogDebug('Final position: Left=%d, Top=%d', [NewLeft, NewTop], ClassName);
 
-  AForm.Left := NewLeft;
-  AForm.Top := NewTop;
+  // Atomic move: setting Left and Top separately causes an intermediate DPI
+  // context change when crossing monitor boundaries with different DPI scales.
+  // The first assignment moves the window, Windows updates CurrentPPI, and
+  // WM_DPICHANGED fires with OldPPI=NewPPI making VCL's ScaleForPPI a no-op.
+  AForm.SetBounds(NewLeft, NewTop, AForm.Width, AForm.Height);
 end;
 
 class procedure TWindowPositioner.EnsureOnScreen(AForm: TForm);

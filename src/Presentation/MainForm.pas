@@ -103,6 +103,7 @@ type
     FForegroundHook: HWINEVENTHOOK;
     FLastShowViewTick: Cardinal;
     FShowInProgress: Boolean;  // Guard: suppresses HideOnFocusLoss during ShowView
+    FDpiChanging: Boolean;     // Guard: prevents recursive WM_DPICHANGED handling
 
     { Injected dependencies (set via Setup method) }
     FAppConfig: IAppConfig;
@@ -1538,13 +1539,70 @@ begin
 end;
 
 procedure TFormMain.WMDpiChanged(var Msg: TMessage);
+var
+  NewPPI: Word;
+  SuggestedRect: PRect;
+  SuggestedWidth, SuggestedHeight: Integer;
+  PreWidth, PreHeight: Integer;
 begin
-  inherited;
-
-  if (FGeneralConfig.WindowMode = wmMenu) and Visible then
+  // ApplyWindowPosition -> SetBounds may trigger another WM_DPICHANGED;
+  // let VCL handle it without our extra logic to avoid infinite recursion
+  if FDpiChanging then
   begin
-    LogDebug('WMDpiChanged: Repositioning window', ClassName);
-    ApplyWindowPosition;
+    LogDebug('WMDpiChanged: Recursion guard, delegating to inherited only', ClassName);
+    inherited;
+    Exit;
+  end;
+
+  FDpiChanging := True;
+  try
+    NewPPI := LOWORD(Msg.WParam);
+    SuggestedRect := PRect(Msg.LParam);
+    SuggestedWidth := SuggestedRect^.Right - SuggestedRect^.Left;
+    SuggestedHeight := SuggestedRect^.Bottom - SuggestedRect^.Top;
+    PreWidth := Width;
+    PreHeight := Height;
+
+    LogDebug('WMDpiChanged: BEFORE inherited: CurrentPPI=%d, NewPPI=%d, Bounds=(%d,%d,%dx%d), SuggestedSize=%dx%d, Visible=%s', [
+      CurrentPPI, NewPPI, Left, Top, Width, Height,
+      SuggestedWidth, SuggestedHeight,
+      BoolToStr(Visible, True)
+    ], ClassName);
+
+    inherited;
+
+    LogDebug('WMDpiChanged: AFTER inherited: CurrentPPI=%d, Bounds=(%d,%d,%dx%d)', [
+      CurrentPPI, Left, Top, Width, Height
+    ], ClassName);
+
+    // VCL may skip scaling when CurrentPPI was already updated before the
+    // handler ran (happens when PositionWindow moves the form across DPI
+    // boundaries via SetBounds -- Windows updates the DPI context before
+    // delivering WM_DPICHANGED, so ScaleForPPI sees OldPPI = NewPPI).
+    // Detect this by comparing dimensions before/after inherited: if they
+    // didn't change but the suggested rect has different dimensions, apply it.
+    if (Width = PreWidth) and (Height = PreHeight) and
+       ((SuggestedWidth <> PreWidth) or (SuggestedHeight <> PreHeight)) then
+    begin
+      LogDebug('WMDpiChanged: VCL did not scale, applying suggested size %dx%d', [
+        SuggestedWidth, SuggestedHeight
+      ], ClassName);
+      SetBounds(Left, Top, SuggestedWidth, SuggestedHeight);
+    end;
+
+    // Reposition for menu mode regardless of Visible state -- PositionWindow
+    // triggers WM_DPICHANGED before Show makes the window visible, so the
+    // Visible check caused repositioning to be skipped entirely
+    if FGeneralConfig.WindowMode = wmMenu then
+    begin
+      LogDebug('WMDpiChanged: Repositioning window', ClassName);
+      ApplyWindowPosition;
+      LogDebug('WMDpiChanged: AFTER reposition: Bounds=(%d,%d,%dx%d)', [
+        Left, Top, Width, Height
+      ], ClassName);
+    end;
+  finally
+    FDpiChanging := False;
   end;
 end;
 
