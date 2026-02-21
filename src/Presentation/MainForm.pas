@@ -102,6 +102,7 @@ type
     FForceClose: Boolean;
     FForegroundHook: HWINEVENTHOOK;
     FLastShowViewTick: Cardinal;
+    FShowInProgress: Boolean;  // Guard: suppresses HideOnFocusLoss during ShowView
 
     { Injected dependencies (set via Setup method) }
     FAppConfig: IAppConfig;
@@ -1136,6 +1137,12 @@ begin
     BoolToStr(Visible, True)
   ], ClassName);
 
+  if FShowInProgress then
+  begin
+    LogDebug('HandleApplicationDeactivate: Suppressed (ShowView in progress)', ClassName);
+    Exit;
+  end;
+
   if (FGeneralConfig.WindowMode = wmMenu) and FWindowConfig.MenuHideOnFocusLoss and Visible then
   begin
     // Check if cursor is over the notification area (tray icons)
@@ -1302,13 +1309,23 @@ begin
   ActiveWndBefore := GetActiveWindow;
   LogDebug('ShowView: Before Show, ActiveWindow=$%x, OurHandle=$%x', [ActiveWndBefore, Handle], ClassName);
 
-  Show;
-  WindowState := wsNormal;
+  // Guard: prevent WMActivate(WA_INACTIVE) from hiding the window during
+  // Show+ForceForeground sequence. Without this, a background process
+  // (e.g. started minimized to tray) triggers WA_ACTIVE then immediate
+  // WA_INACTIVE inside Show, and HideOnFocusLoss fires before
+  // ForceForegroundWindow has a chance to claim the foreground.
+  FShowInProgress := True;
+  try
+    Show;
+    WindowState := wsNormal;
 
-  // Force foreground activation even from background context (e.g., hotkey)
-  // Windows restricts SetForegroundWindow for background processes, so we
-  // temporarily attach to the foreground thread to bypass this restriction
-  ForceForegroundWindow(Handle);
+    // Force foreground activation even from background context (e.g., hotkey)
+    // Windows restricts SetForegroundWindow for background processes, so we
+    // temporarily attach to the foreground thread to bypass this restriction
+    ForceForegroundWindow(Handle);
+  finally
+    FShowInProgress := False;
+  end;
 
   ActiveWndAfter := GetActiveWindow;
   LogDebug('ShowView: After ForceForeground, ActiveWindow=$%x, GetForegroundWindow=$%x', [
@@ -1456,6 +1473,14 @@ begin
   // This is more reliable than Application.OnDeactivate for WS_EX_TOOLWINDOW windows
   if (Msg.Active = WA_INACTIVE) then
   begin
+    // Suppress hide during ShowView - Windows foreground lockout can cause
+    // a spurious WA_INACTIVE between Show and ForceForegroundWindow
+    if FShowInProgress then
+    begin
+      LogDebug('WMActivate: WA_INACTIVE suppressed (ShowView in progress)', ClassName);
+      Exit;
+    end;
+
     if (FGeneralConfig.WindowMode = wmMenu) and
        FWindowConfig.MenuHideOnFocusLoss and
        Visible then
