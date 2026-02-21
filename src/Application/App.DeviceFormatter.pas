@@ -18,21 +18,26 @@ uses
   App.ConfigEnums,
   App.ConfigInterfaces,
   App.AppearanceConfigIntf,
-  App.DeviceConfigTypes;
+  App.DeviceConfigTypes,
+  App.SystemClock;
 
 type
   /// <summary>
-  /// Static class providing formatting helpers for device display.
-  /// All methods are pure functions with no side effects.
+  /// Provides formatting helpers for device display.
+  /// Time-based methods accept optional ISystemClock for testability.
+  /// Other methods are pure functions with no side effects.
   /// </summary>
   TDeviceFormatter = class
   public
     /// <summary>
     /// Formats last seen timestamp in relative format ("2 hours ago", "Yesterday").
+    /// Optionally accepts a clock for deterministic testing.
     /// </summary>
     /// <param name="ALastSeen">The DateTime value to format. Zero or negative returns empty string.</param>
+    /// <param name="AClock">Optional clock for testing. If nil, uses real system time.</param>
     /// <returns>Human-readable relative time string, or empty if never seen.</returns>
-    class function FormatLastSeenRelative(ALastSeen: TDateTime): string; static;
+    class function FormatLastSeenRelative(ALastSeen: TDateTime;
+      AClock: ISystemClock = nil): string; static;
 
     /// <summary>
     /// Formats last seen timestamp in absolute format ("2024-12-22 15:30").
@@ -43,12 +48,14 @@ type
 
     /// <summary>
     /// Formats last seen timestamp based on the specified format setting.
+    /// Optionally accepts a clock for deterministic testing.
     /// </summary>
     /// <param name="ALastSeen">The DateTime value to format.</param>
     /// <param name="AFormat">The format to use (relative or absolute).</param>
+    /// <param name="AClock">Optional clock for testing. If nil, uses real system time.</param>
     /// <returns>Formatted string according to the specified format.</returns>
     class function FormatLastSeen(ALastSeen: TDateTime;
-      AFormat: TLastSeenFormat): string; static;
+      AFormat: TLastSeenFormat; AClock: ISystemClock = nil): string; static;
 
     /// <summary>
     /// Gets the display name for a device.
@@ -122,18 +129,26 @@ uses
 
 { TDeviceFormatter }
 
-class function TDeviceFormatter.FormatLastSeenRelative(ALastSeen: TDateTime): string;
+class function TDeviceFormatter.FormatLastSeenRelative(ALastSeen: TDateTime;
+  AClock: ISystemClock): string;
 var
+  CurrentTime: TDateTime;
   Diff: TDateTime;
   Days, Hours, Minutes: Integer;
 begin
   if ALastSeen <= 0 then
     Exit('');  // Empty string for never-seen devices (UI will hide last seen)
 
-  Diff := Now - ALastSeen;
+  // Use provided clock or default to real system time
+  if Assigned(AClock) then
+    CurrentTime := AClock.Now
+  else
+    CurrentTime := System.SysUtils.Now;
+
+  Diff := CurrentTime - ALastSeen;
   Days := Trunc(Diff);
-  Hours := HoursBetween(Now, ALastSeen);
-  Minutes := MinutesBetween(Now, ALastSeen);
+  Hours := HoursBetween(CurrentTime, ALastSeen);
+  Minutes := MinutesBetween(CurrentTime, ALastSeen);
 
   if Minutes < 1 then
     Result := 'Just now'
@@ -162,15 +177,15 @@ begin
 end;
 
 class function TDeviceFormatter.FormatLastSeen(ALastSeen: TDateTime;
-  AFormat: TLastSeenFormat): string;
+  AFormat: TLastSeenFormat; AClock: ISystemClock): string;
 begin
   case AFormat of
     lsfRelative:
-      Result := FormatLastSeenRelative(ALastSeen);
+      Result := FormatLastSeenRelative(ALastSeen, AClock);
     lsfAbsolute:
       Result := FormatLastSeenAbsolute(ALastSeen);
   else
-    Result := FormatLastSeenRelative(ALastSeen);
+    Result := FormatLastSeenRelative(ALastSeen, AClock);
   end;
 end;
 

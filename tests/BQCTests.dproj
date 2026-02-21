@@ -103,7 +103,6 @@
         <DCCReference Include="Tests.App.Config.pas"/>
         <DCCReference Include="Tests.ConnectionStrategies.pas"/>
         <DCCReference Include="Tests.PairingStrategies.pas"/>
-        <DCCReference Include="Tests.WinRTPairingInterfaces.pas"/>
         <DCCReference Include="Tests.DeviceMonitors.pas"/>
         <DCCReference Include="Tests.DeviceRepository.pas"/>
         <DCCReference Include="Tests.ConnectionExecutor.pas"/>
@@ -113,6 +112,8 @@
         <DCCReference Include="Tests.DeviceFormatter.pas"/>
         <DCCReference Include="Tests.DeviceSorter.pas"/>
         <DCCReference Include="Tests.DeviceDisplayItemBuilder.pas"/>
+        <DCCReference Include="Tests.ConnectionVerification.pas"/>
+        <DCCReference Include="Tests.DeviceWatcher.pas"/>
         <DCCReference Include="Tests.ListGeometry.pas"/>
         <DCCReference Include="Tests.BluetoothService.pas"/>
         <DCCReference Include="Tests.Logger.pas"/>
@@ -120,23 +121,64 @@
         <DCCReference Include="Tests.MainPresenter.pas"/>
         <DCCReference Include="Tests.WinAPI.pas"/>
         <DCCReference Include="Tests.DeviceConverter.pas"/>
+        <DCCReference Include="Tests.RadioStateManager.pas"/>
+        <DCCReference Include="Tests.AutostartManager.pas"/>
+        <DCCReference Include="Tests.EventDebouncer.pas"/>
+        <DCCReference Include="Tests.DeviceConfigProvider.pas"/>
+        <DCCReference Include="Tests.WindowPositioner.pas"/>
+        <DCCReference Include="Tests.BatteryIconRenderer.pas"/>
+        <DCCReference Include="Tests.BatteryTrayManager.pas"/>
+        <DCCReference Include="Tests.ConfigSection.BatteryTray.pas"/>
+        <DCCReference Include="Tests.ConfigSection.General.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Window.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Position.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Hotkey.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Polling.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Log.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Appearance.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Layout.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Connection.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Notification.pas"/>
+        <DCCReference Include="Tests.ConfigSection.Profile.pas"/>
+        <DCCReference Include="Tests.ConfigSectionTypes.pas"/>
+        <DCCReference Include="Tests.SystemThemeDetector.pas"/>
+        <DCCReference Include="Tests.HotkeyManager.pas"/>
+        <DCCReference Include="Tests.BatteryQuery.pas"/>
         <DCCReference Include="Tests.Mocks.pas"/>
+        <DCCReference Include="Tests.Mocks.Config.pas"/>
+        <DCCReference Include="Tests.Mocks.View.pas"/>
+        <DCCReference Include="Tests.Mocks.Bluetooth.pas"/>
+        <DCCReference Include="Tests.Mocks.Infrastructure.pas"/>
+        <DCCReference Include="Tests.AsyncExecutor.pas"/>
         <DCCReference Include="Tests.WinRTDeviceQuery.pas"/>
+        <DCCReference Include="Tests.WinRTAsyncHelpers.pas"/>
+        <DCCReference Include="Tests.ProfileQuery.pas"/>
+        <DCCReference Include="Tests.DeviceList.pas"/>
+        <DCCReference Include="Tests.DeviceListTypes.pas"/>
+        <DCCReference Include="Tests.DeviceItemRenderer.pas"/>
+        <DCCReference Include="Tests.DeviceNotificationCoordinator.pas"/>
+        <DCCReference Include="Tests.DeviceDiscoveryCoordinator.pas"/>
+        <DCCReference Include="Tests.DeviceBatteryCoordinator.pas"/>
+        <DCCReference Include="Tests.PairingService.pas"/>
         <DCCReference Include="..\src\Domain\Bluetooth.Types.pas"/>
         <DCCReference Include="..\src\Domain\Bluetooth.Interfaces.pas"/>
         <DCCReference Include="..\src\Application\Bluetooth.ConnectionStrategies.pas"/>
+        <DCCReference Include="..\src\Application\Bluetooth.PairingStrategies.pas"/>
+        <DCCReference Include="..\src\Application\Bluetooth.PairingService.pas"/>
         <DCCReference Include="..\src\Application\Bluetooth.EventDebouncer.pas"/>
         <DCCReference Include="..\src\Application\Bluetooth.Service.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.WinAPI.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.DeviceMonitors.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.WinRTDeviceQuery.pas"/>
-        <DCCReference Include="..\src\Infrastructure\Bluetooth.WinRTPairingInterfaces.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.DeviceRepository.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.ConnectionExecutor.pas"/>
+        <DCCReference Include="..\src\Infrastructure\Bluetooth.ConnectionVerification.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.AdapterQuery.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.DeviceConverter.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.DeviceWatcher.pas"/>
         <DCCReference Include="..\src\Infrastructure\Bluetooth.RadioControl.pas"/>
+        <DCCReference Include="..\src\Infrastructure\Bluetooth.BatteryQuery.pas"/>
+        <DCCReference Include="..\src\Infrastructure\Bluetooth.ProfileQuery.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.ConfigEnums.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.DeviceConfigTypes.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.LayoutConfigIntf.pas"/>
@@ -145,24 +187,52 @@
         <DCCReference Include="..\src\Infrastructure\App.NotificationConfigIntf.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.LogConfigIntf.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.ConfigInterfaces.pas"/>
-        <DCCReference Include="..\src\Infrastructure\App.ConfigSections.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSectionTypes.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.General.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Window.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Position.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Hotkey.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Polling.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Log.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Appearance.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Layout.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Connection.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Notification.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.Config.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.SettingsRepository.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.DeviceConfigRepository.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.DeviceConfigProvider.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.Bootstrap.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.Logger.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.AsyncExecutor.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.SystemClock.pas"/>
         <DCCReference Include="..\src\Application\App.SettingsPresenter.pas"/>
         <DCCReference Include="..\src\Application\App.MainPresenter.pas"/>
         <DCCReference Include="..\src\Application\App.MainViewInterfaces.pas"/>
+        <DCCReference Include="..\src\Application\App.DeviceDisplayTypes.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.Autostart.pas">
             <Form>$IFNDEF TESTINSIGHT</Form>
         </DCCReference>
         <DCCReference Include="..\src\Presentation\UI.DeviceList.pas"/>
         <DCCReference Include="..\src\Presentation\UI.ListGeometry.pas"/>
-        <DCCReference Include="..\src\Presentation\UI.DeviceFormatter.pas"/>
-        <DCCReference Include="..\src\Presentation\UI.DeviceSorter.pas"/>
-        <DCCReference Include="..\src\Presentation\UI.DeviceDisplayItemBuilder.pas"/>
+        <DCCReference Include="..\src\Application\App.DeviceFormatter.pas"/>
+        <DCCReference Include="..\src\Application\App.DeviceSorter.pas"/>
+        <DCCReference Include="..\src\Application\App.DeviceDisplayItemBuilder.pas"/>
+        <DCCReference Include="..\src\Application\App.DeviceDiscoveryCoordinator.pas"/>
+        <DCCReference Include="..\src\Application\App.DeviceBatteryCoordinator.pas"/>
         <DCCReference Include="..\src\Presentation\UI.Theme.pas"/>
+        <DCCReference Include="..\src\Presentation\UI.WindowPositioner.pas"/>
+        <DCCReference Include="..\src\Presentation\UI.BatteryIconRenderer.pas"/>
+        <DCCReference Include="..\src\Presentation\UI.BatteryTrayManager.pas"/>
+        <DCCReference Include="..\src\Presentation\UI.HotkeyManager.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.BatteryTrayConfigIntf.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.BatteryTray.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.SystemThemeDetector.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.WinRTSupport.pas"/>
+        <DCCReference Include="..\src\Infrastructure\WinRT.AsyncHelpers.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ProfileConfigIntf.pas"/>
+        <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Profile.pas"/>
+        <DCCReference Include="..\src\Application\App.DeviceNotificationCoordinator.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -188,7 +258,7 @@
                 <Platform value="Win32">True</Platform>
                 <Platform value="Win64">True</Platform>
             </Platforms>
-            <Deployment Version="5">
+            <Deployment Version="3">
                 <DeployFile LocalName="$(BDS)\Redist\iossimulator\libcgunwind.1.0.dylib" Class="DependencyModule">
                     <Platform Name="iOSSimulator">
                         <Overwrite>true</Overwrite>
@@ -222,6 +292,16 @@
                         <Operation>0</Operation>
                     </Platform>
                 </DeployClass>
+                <DeployClass Name="AndroidClasses">
+                    <Platform Name="Android">
+                        <RemoteDir>classes</RemoteDir>
+                        <Operation>64</Operation>
+                    </Platform>
+                    <Platform Name="Android64">
+                        <RemoteDir>classes</RemoteDir>
+                        <Operation>64</Operation>
+                    </Platform>
+                </DeployClass>
                 <DeployClass Name="AndroidFileProvider">
                     <Platform Name="Android">
                         <RemoteDir>res\xml</RemoteDir>
@@ -229,6 +309,12 @@
                     </Platform>
                     <Platform Name="Android64">
                         <RemoteDir>res\xml</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="AndroidGDBServer">
+                    <Platform Name="Android">
+                        <RemoteDir>library\lib\armeabi-v7a</RemoteDir>
                         <Operation>1</Operation>
                     </Platform>
                 </DeployClass>
@@ -665,7 +751,7 @@
                         <Operation>1</Operation>
                         <Extensions>.dylib</Extensions>
                     </Platform>
-                    <Platform Name="iOSSimARM64">
+                    <Platform Name="iOSSimulator">
                         <Operation>1</Operation>
                         <Extensions>.dylib</Extensions>
                     </Platform>
@@ -698,7 +784,7 @@
                         <Operation>1</Operation>
                         <Extensions>.dylib</Extensions>
                     </Platform>
-                    <Platform Name="iOSSimARM64">
+                    <Platform Name="iOSSimulator">
                         <Operation>1</Operation>
                         <Extensions>.dylib</Extensions>
                     </Platform>
@@ -735,7 +821,7 @@
                     <Platform Name="iOSDevice64">
                         <Operation>0</Operation>
                     </Platform>
-                    <Platform Name="iOSSimARM64">
+                    <Platform Name="iOSSimulator">
                         <Operation>0</Operation>
                     </Platform>
                     <Platform Name="OSX32">
@@ -754,11 +840,259 @@
                         <Operation>0</Operation>
                     </Platform>
                 </DeployClass>
+                <DeployClass Name="iOS_AppStore1024">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPad_AppIcon152">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPad_AppIcon167">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPad_Launch2x">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPad_LaunchDark2x">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPad_Notification40">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPad_Setting58">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPad_SpotLight80">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_AppIcon120">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_AppIcon180">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_Launch2x">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_Launch3x">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_LaunchDark2x">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_LaunchDark3x">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_Notification40">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_Notification60">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_Setting58">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_Setting87">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_Spotlight120">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="iPhone_Spotlight80">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
                 <DeployClass Name="ProjectAndroidManifest">
                     <Platform Name="Android">
                         <Operation>1</Operation>
                     </Platform>
                     <Platform Name="Android64">
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="ProjectiOSDeviceDebug">
+                    <Platform Name="iOSDevice32">
+                        <RemoteDir>..\$(PROJECTNAME).app.dSYM\Contents\Resources\DWARF</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).app.dSYM\Contents\Resources\DWARF</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="ProjectiOSEntitlements">
+                    <Platform Name="iOSDevice32">
+                        <RemoteDir>..\</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\</RemoteDir>
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="ProjectiOSInfoPList">
+                    <Platform Name="iOSDevice32">
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSDevice64">
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <Operation>1</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="ProjectiOSLaunchScreen">
+                    <Platform Name="iOSDevice64">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen</RemoteDir>
+                        <Operation>64</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
+                        <RemoteDir>..\$(PROJECTNAME).launchscreen</RemoteDir>
+                        <Operation>64</Operation>
+                    </Platform>
+                </DeployClass>
+                <DeployClass Name="ProjectiOSResource">
+                    <Platform Name="iOSDevice32">
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSDevice64">
+                        <Operation>1</Operation>
+                    </Platform>
+                    <Platform Name="iOSSimulator">
                         <Operation>1</Operation>
                     </Platform>
                 </DeployClass>
@@ -829,7 +1163,7 @@
                     <Platform Name="iOSDevice64">
                         <Operation>1</Operation>
                     </Platform>
-                    <Platform Name="iOSSimARM64">
+                    <Platform Name="iOSSimulator">
                         <Operation>1</Operation>
                     </Platform>
                     <Platform Name="Linux64">
@@ -864,69 +1198,6 @@
                     <Platform Name="Win64">
                         <Operation>1</Operation>
                     </Platform>
-                    <Platform Name="Win64x">
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="ProjectiOSDeviceDebug">
-                    <Platform Name="iOSDevice32">
-                        <RemoteDir>..\$(PROJECTNAME).app.dSYM\Contents\Resources\DWARF</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).app.dSYM\Contents\Resources\DWARF</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).app.dSYM\Contents\Resources\DWARF</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="ProjectiOSEntitlements">
-                    <Platform Name="iOSDevice32">
-                        <RemoteDir>..\</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="ProjectiOSInfoPList">
-                    <Platform Name="iOSDevice32">
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSDevice64">
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="ProjectiOSLaunchScreen">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen</RemoteDir>
-                        <Operation>64</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen</RemoteDir>
-                        <Operation>64</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="ProjectiOSResource">
-                    <Platform Name="iOSDevice32">
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSDevice64">
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <Operation>1</Operation>
-                    </Platform>
                 </DeployClass>
                 <DeployClass Name="UWP_DelphiLogo150">
                     <Platform Name="Win32">
@@ -948,211 +1219,12 @@
                         <Operation>1</Operation>
                     </Platform>
                 </DeployClass>
-                <DeployClass Name="iOS_AppStore1024">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPad_AppIcon152">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPad_AppIcon167">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPad_Launch2x">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPad_LaunchDark2x">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPad_Notification40">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPad_Setting58">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPad_SpotLight80">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_AppIcon120">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_AppIcon180">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_Launch2x">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_Launch3x">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_LaunchDark2x">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_LaunchDark3x">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\LaunchScreenImage.imageset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_Notification40">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_Notification60">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_Setting58">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_Setting87">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_Spotlight120">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
-                <DeployClass Name="iPhone_Spotlight80">
-                    <Platform Name="iOSDevice64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="iOSSimARM64">
-                        <RemoteDir>..\$(PROJECTNAME).launchscreen\Assets\AppIcon.appiconset</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                </DeployClass>
                 <ProjectRoot Platform="Android" Name="$(PROJECTNAME)"/>
                 <ProjectRoot Platform="Android64" Name="$(PROJECTNAME)"/>
                 <ProjectRoot Platform="iOSDevice32" Name="$(PROJECTNAME).app"/>
                 <ProjectRoot Platform="iOSDevice64" Name="$(PROJECTNAME).app"/>
                 <ProjectRoot Platform="iOSSimARM64" Name="$(PROJECTNAME).app"/>
+                <ProjectRoot Platform="iOSSimulator" Name="$(PROJECTNAME).app"/>
                 <ProjectRoot Platform="Linux64" Name="$(PROJECTNAME)"/>
                 <ProjectRoot Platform="OSX32" Name="$(PROJECTNAME).app"/>
                 <ProjectRoot Platform="OSX64" Name="$(PROJECTNAME).app"/>

@@ -93,7 +93,6 @@ type
     procedure LoadDevices;
     procedure LoadDevicesDelayed;
     procedure CancelDelayedLoad;
-    procedure AutoConnectDevices;
     procedure ConnectDeviceAsync(const ADevice: TBluetoothDeviceInfo);
     procedure ToggleConnectionAsync(const ADevice: TBluetoothDeviceInfo);
     procedure SetRadioStateAsync(AEnable: Boolean);
@@ -107,30 +106,13 @@ type
     /// <param name="ADevice">Device to pair with.</param>
     procedure PairDeviceAsync(const ADevice: TBluetoothDeviceInfo);
 
-    procedure HandlePairingResult(const ADevice: TBluetoothDeviceInfo; const AResult: TPairingResult);
-
     /// <summary>
     /// Clears custom status text for a device and refreshes its display.
     /// Used to remove pairing progress messages after completion.
     /// </summary>
     procedure ClearDeviceStatus(ADeviceAddress: UInt64);
 
-    /// <summary>
-    /// Sets custom status text for a device and refreshes its display.
-    /// Used to show persistent error/info messages in device status line.
-    /// </summary>
-    procedure SetDeviceStatus(ADeviceAddress: UInt64; const AMessage: string);
-
-    /// <summary>
-    /// Synchronizes paired device list with Windows Bluetooth state.
-    /// Removes devices from FDeviceList that were unpaired externally via Windows Settings.
-    /// Runs periodically based on PairingStateSyncInterval config.
-    /// Optimized with O(1) dictionary lookup instead of linear search.
-    /// </summary>
-    procedure SyncPairedDeviceList;
-
     procedure ScheduleNextPairingSync;
-    procedure RemoveDeviceFromList(ADeviceAddress: UInt64);
 
     function GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
     procedure RefreshDisplayItems;
@@ -140,12 +122,6 @@ type
     /// Preserves custom status text across display list rebuilds.
     /// </summary>
     procedure ApplyStatusMessages;
-
-    /// <summary>
-    /// Returns devices as array, building from list if cache is invalid.
-    /// Used by BuildDisplayItems which requires array input.
-    /// </summary>
-    function GetDevicesArray: TBluetoothDeviceInfoArray;
 
     /// <summary>
     /// Invalidates the devices array cache.
@@ -202,6 +178,42 @@ type
     /// Exposed for testing to trigger battery query events.
     /// </summary>
     function GetBatteryCache: IBatteryCache;
+
+    /// <summary>
+    /// Removes a device from the internal list and updates index map.
+    /// Exposed for testing to verify O(n) vs O(n-k) optimization.
+    /// </summary>
+    procedure RemoveDeviceFromList(ADeviceAddress: UInt64);
+
+    /// <summary>
+    /// Returns devices as array, building from list if cache is invalid.
+    /// Used by BuildDisplayItems which requires array input.
+    /// </summary>
+    function GetDevicesArray: TBluetoothDeviceInfoArray;
+
+    /// <summary>
+    /// Handles the result of a pairing operation.
+    /// Exposed for testing to verify all 6 result status branches.
+    /// </summary>
+    procedure HandlePairingResult(const ADevice: TBluetoothDeviceInfo; const AResult: TPairingResult);
+
+    /// <summary>
+    /// Sets custom status text for a device and refreshes its display.
+    /// Exposed for testing to verify status message persistence and lookup.
+    /// </summary>
+    procedure SetDeviceStatus(ADeviceAddress: UInt64; const AMessage: string);
+
+    /// <summary>
+    /// Synchronizes paired device list with Windows Bluetooth state.
+    /// Exposed for testing to verify external unpair detection.
+    /// </summary>
+    procedure SyncPairedDeviceList;
+
+    /// <summary>
+    /// Auto-connects devices marked with AutoConnect flag.
+    /// Exposed for testing to verify device config integration.
+    /// </summary>
+    procedure AutoConnectDevices;
 
   public
     /// <summary>
@@ -1115,10 +1127,13 @@ begin
     // Remove from list
     FDeviceList.Delete(Index);
 
-    // Rebuild index map since all indices after removed item have shifted
-    FDeviceIndexMap.Clear;
-    for I := 0 to FDeviceList.Count - 1 do
-      FDeviceIndexMap.Add(FDeviceList[I].AddressInt, I);
+    // Remove from index map
+    FDeviceIndexMap.Remove(ADeviceAddress);
+
+    // Only update indices that shifted (O(n-Index) instead of O(n))
+    // Devices before Index keep their indices; devices at/after Index shift down by 1
+    for I := Index to FDeviceList.Count - 1 do
+      FDeviceIndexMap[FDeviceList[I].AddressInt] := I;
 
     // Invalidate cache
     InvalidateDevicesArrayCache;
@@ -1290,14 +1305,10 @@ begin
 end;
 
 function TMainPresenter.GetDevicesArray: TBluetoothDeviceInfoArray;
-var
-  I: Integer;
 begin
   if not FDevicesArrayValid then
   begin
-    SetLength(FDevicesArrayCache, FDeviceList.Count);
-    for I := 0 to FDeviceList.Count - 1 do
-      FDevicesArrayCache[I] := FDeviceList[I];
+    FDevicesArrayCache := FDeviceList.ToArray;
     FDevicesArrayValid := True;
   end;
   Result := FDevicesArrayCache;
@@ -1745,8 +1756,23 @@ begin
 end;
 
 procedure TMainPresenter.OnVisibilityToggleRequested;
+var
+  WasVisible, WasMinimized: Boolean;
+  Action: string;
 begin
-  if FVisibilityView.IsVisible and (not FVisibilityView.IsMinimized) then
+  WasVisible := FVisibilityView.IsVisible;
+  WasMinimized := FVisibilityView.IsMinimized;
+
+  if WasVisible and (not WasMinimized) then
+    Action := 'HideView'
+  else
+    Action := 'ShowView';
+
+  LogDebug('OnVisibilityToggleRequested: IsVisible=%s, IsMinimized=%s, Action=%s', [
+    BoolToStr(WasVisible, True), BoolToStr(WasMinimized, True), Action
+  ], ClassName);
+
+  if WasVisible and (not WasMinimized) then
     FVisibilityView.HideView
   else
     FVisibilityView.ShowView;

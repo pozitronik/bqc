@@ -31,11 +31,14 @@ type
     procedure SetLogFilename(const AValue: string);
     procedure SetLogAppend(AValue: Boolean);
     procedure SetLogLevel(AValue: TLogLevel);
+    function GetLogSourceFilter: string;
+    procedure SetLogSourceFilter(const AValue: string);
 
     property LogEnabled: Boolean read GetLogEnabled write SetLogEnabled;
     property LogFilename: string read GetLogFilename write SetLogFilename;
     property LogAppend: Boolean read GetLogAppend write SetLogAppend;
     property LogLevel: TLogLevel read GetLogLevel write SetLogLevel;
+    property LogSourceFilter: string read GetLogSourceFilter write SetLogSourceFilter;
   end;
 
   /// <summary>
@@ -75,6 +78,24 @@ type
     /// </summary>
     function GetMinLevel: TLogLevel;
   end;
+
+const
+  /// <summary>
+  /// Known log source class names, used to populate the source filter UI.
+  /// </summary>
+  LOG_SOURCE_NAMES: array[0..30] of string = (
+    'TAutostartManager', 'TBatteryTrayManager', 'TBLEBatteryQueryStrategy',
+    'TBluetoothConnectionExecutor', 'TBluetoothDeviceWatcher',
+    'TBluetoothPairingService', 'TBluetoothService', 'TCoordinatesPositioner',
+    'TDeviceBatteryCoordinator', 'TDeviceConfigProvider', 'TDeviceConfigRepository',
+    'TDeviceDiscoveryCoordinator', 'TDeviceDisplayItemBuilder',
+    'TDeviceEventDebouncer', 'TDeviceListBox', 'TDeviceSettingsPresenter',
+    'TFormHotkeyPicker', 'TFormMain', 'TFormSettings', 'THotkeyManager',
+    'TIniSettingsRepository', 'TLogger', 'TMainPresenter',
+    'TNullVerificationStrategy', 'TPollingMonitor', 'TProfileQuery',
+    'TRegistryNameCache', 'TSystemThemeDetector', 'TThemeManager',
+    'TTrayManager', 'TWindowsPairingStrategy'
+  );
 
 implementation
 

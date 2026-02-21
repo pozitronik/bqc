@@ -353,6 +353,322 @@ type
     procedure DetermineDeviceType_MinorClassBoundary;
   end;
 
+  /// <summary>
+  /// Test fixture for TBluetoothProfile record.
+  /// Tests factory method, immutable copy, display names, and state queries.
+  /// </summary>
+  [TestFixture]
+  TBluetoothProfileTests = class
+  public
+    // Create tests
+    [Test]
+    procedure Create_SetsAllFields;
+    [Test]
+    procedure Create_WithUnknownType_Succeeds;
+
+    // WithConnectionState tests
+    [Test]
+    procedure WithConnectionState_ReturnsCopyWithNewState;
+    [Test]
+    procedure WithConnectionState_PreservesOtherFields;
+
+    // IsConnected tests
+    [Test]
+    procedure IsConnected_Connected_ReturnsTrue;
+    [Test]
+    procedure IsConnected_Available_ReturnsFalse;
+    [Test]
+    procedure IsConnected_Unknown_ReturnsFalse;
+
+    // DisplayName tests - all profile types
+    [Test]
+    procedure DisplayName_A2DPSink_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_A2DPSource_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_HFP_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_HSP_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_AVRCP_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_HID_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_SPP_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_PAN_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_OBEX_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_PBAP_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_MAP_ReturnsCorrectName;
+    [Test]
+    procedure DisplayName_Unknown_ReturnsUnknown;
+
+    // ShortName tests - all profile types
+    [Test]
+    procedure ShortName_A2DPSink_ReturnsA2DP;
+    [Test]
+    procedure ShortName_A2DPSource_ReturnsA2DPSrc;
+    [Test]
+    procedure ShortName_HFP_ReturnsHFP;
+    [Test]
+    procedure ShortName_HSP_ReturnsHSP;
+    [Test]
+    procedure ShortName_AVRCP_ReturnsAVRCP;
+    [Test]
+    procedure ShortName_HID_ReturnsHID;
+    [Test]
+    procedure ShortName_SPP_ReturnsSPP;
+    [Test]
+    procedure ShortName_PAN_ReturnsPAN;
+    [Test]
+    procedure ShortName_OBEX_ReturnsOBEX;
+    [Test]
+    procedure ShortName_PBAP_ReturnsPBAP;
+    [Test]
+    procedure ShortName_MAP_ReturnsMAP;
+    [Test]
+    procedure ShortName_Unknown_ReturnsQuestionMark;
+  end;
+
+  /// <summary>
+  /// Test fixture for TDeviceProfileInfo record.
+  /// Tests profile collection queries: count, filtering, lookup.
+  /// </summary>
+  [TestFixture]
+  TDeviceProfileInfoTests = class
+  private
+    function CreateProfile(AType: TBluetoothProfileType;
+      AState: TProfileConnectionState): TBluetoothProfile;
+  public
+    // Factory tests
+    [Test]
+    procedure Create_SetsAllFields;
+    [Test]
+    procedure Empty_HasZeroProfiles;
+    [Test]
+    procedure Empty_SetsAddress;
+    [Test]
+    procedure Empty_HasZeroLastUpdated;
+
+    // Count tests
+    [Test]
+    procedure Count_EmptyProfiles_ReturnsZero;
+    [Test]
+    procedure Count_ThreeProfiles_ReturnsThree;
+
+    // ConnectedCount tests
+    [Test]
+    procedure ConnectedCount_NoneConnected_ReturnsZero;
+    [Test]
+    procedure ConnectedCount_AllConnected_ReturnsAll;
+    [Test]
+    procedure ConnectedCount_SomeConnected_ReturnsCorrect;
+
+    // GetConnectedProfiles tests
+    [Test]
+    procedure GetConnectedProfiles_NoneConnected_ReturnsEmpty;
+    [Test]
+    procedure GetConnectedProfiles_AllConnected_ReturnsAll;
+    [Test]
+    procedure GetConnectedProfiles_Mixed_ReturnsOnlyConnected;
+
+    // HasProfile tests
+    [Test]
+    procedure HasProfile_Exists_ReturnsTrue;
+    [Test]
+    procedure HasProfile_NotExists_ReturnsFalse;
+    [Test]
+    procedure HasProfile_EmptyProfiles_ReturnsFalse;
+
+    // GetProfileState tests
+    [Test]
+    procedure GetProfileState_Exists_ReturnsState;
+    [Test]
+    procedure GetProfileState_NotExists_ReturnsUnknown;
+
+    // HasProfiles tests
+    [Test]
+    procedure HasProfiles_WithProfiles_ReturnsTrue;
+    [Test]
+    procedure HasProfiles_Empty_ReturnsFalse;
+  end;
+
+  /// <summary>
+  /// Test fixture for TPairingResult record.
+  /// Tests all factory methods and IsSuccess logic.
+  /// </summary>
+  [TestFixture]
+  TPairingResultTests = class
+  public
+    // Success
+    [Test]
+    procedure Success_StatusIsSuccess;
+    [Test]
+    procedure Success_ErrorCodeIsZero;
+    [Test]
+    procedure Success_IsSuccessReturnsTrue;
+    [Test]
+    procedure Success_HasMessage;
+
+    // Failed
+    [Test]
+    procedure Failed_StatusIsFailed;
+    [Test]
+    procedure Failed_PreservesErrorCode;
+    [Test]
+    procedure Failed_PreservesMessage;
+    [Test]
+    procedure Failed_IsSuccessReturnsFalse;
+
+    // Cancelled
+    [Test]
+    procedure Cancelled_StatusIsCancelled;
+    [Test]
+    procedure Cancelled_ErrorCodeIsZero;
+    [Test]
+    procedure Cancelled_IsSuccessReturnsFalse;
+
+    // AlreadyPaired
+    [Test]
+    procedure AlreadyPaired_StatusIsAlreadyPaired;
+    [Test]
+    procedure AlreadyPaired_IsSuccessReturnsTrue;
+
+    // Timeout
+    [Test]
+    procedure Timeout_StatusIsTimeout;
+    [Test]
+    procedure Timeout_IsSuccessReturnsFalse;
+
+    // NotSupported
+    [Test]
+    procedure NotSupported_StatusIsNotSupported;
+    [Test]
+    procedure NotSupported_IsSuccessReturnsFalse;
+    [Test]
+    procedure NotSupported_DefaultMessage_NoPrefixedReason;
+    [Test]
+    procedure NotSupported_WithReason_IncludesReason;
+  end;
+
+  /// <summary>
+  /// Test fixture for GuidToProfileType function.
+  /// Verifies GUID-to-profile-type mapping for all known Bluetooth service UUIDs.
+  /// </summary>
+  [TestFixture]
+  TGuidToProfileTypeTests = class
+  private
+    /// <summary>
+    /// Creates a Bluetooth base UUID with the given short UUID.
+    /// Format: 0000xxxx-0000-1000-8000-00805F9B34FB
+    /// </summary>
+    function MakeBluetoothGuid(AShortUUID: Word): TGUID;
+  public
+    // Audio profiles
+    [Test]
+    procedure AudioSource_110A_ReturnsSink;
+    [Test]
+    procedure AudioSink_110B_ReturnsSink;
+    [Test]
+    procedure AVRCPTarget_110C_ReturnsAVRCP;
+    [Test]
+    procedure AVRCPController_110E_ReturnsAVRCP;
+
+    // Voice profiles
+    [Test]
+    procedure Headset_1108_ReturnsHSP;
+    [Test]
+    procedure HeadsetAG_1112_ReturnsHSP;
+    [Test]
+    procedure HandsFree_111E_ReturnsHFP;
+    [Test]
+    procedure HandsFreeAG_111F_ReturnsHFP;
+
+    // HID
+    [Test]
+    procedure HID_1124_ReturnsHID;
+
+    // Serial
+    [Test]
+    procedure SerialPort_1101_ReturnsSPP;
+
+    // Network
+    [Test]
+    procedure PANU_1115_ReturnsPAN;
+    [Test]
+    procedure NAP_1116_ReturnsPAN;
+    [Test]
+    procedure GN_1117_ReturnsPAN;
+
+    // Object transfer
+    [Test]
+    procedure OBEXPush_1105_ReturnsOBEX;
+    [Test]
+    procedure OBEXFileTransfer_1106_ReturnsOBEX;
+
+    // Phone profiles
+    [Test]
+    procedure PBAP_PSE_112F_ReturnsPBAP;
+    [Test]
+    procedure PBAP_PCE_1130_ReturnsPBAP;
+    [Test]
+    procedure MAP_Server_1132_ReturnsMAP;
+    [Test]
+    procedure MAP_Notification_1133_ReturnsMAP;
+    [Test]
+    procedure MAP_Profile_1134_ReturnsMAP;
+
+    // Unknown
+    [Test]
+    procedure UnknownGuid_ReturnsUnknown;
+    [Test]
+    procedure EmptyGuid_ReturnsUnknown;
+  end;
+
+  /// <summary>
+  /// Test fixture for PsmToProfileType function.
+  /// Verifies L2CAP PSM-to-profile-type mapping.
+  /// </summary>
+  [TestFixture]
+  TPsmToProfileTypeTests = class
+  public
+    [Test]
+    procedure SDP_0001_ReturnsUnknown;
+    [Test]
+    procedure RFCOMM_0003_ReturnsSPP;
+    [Test]
+    procedure BNEP_000F_ReturnsPAN;
+    [Test]
+    procedure HIDControl_0011_ReturnsHID;
+    [Test]
+    procedure HIDInterrupt_0013_ReturnsHID;
+    [Test]
+    procedure AVCTP_0017_ReturnsAVRCP;
+    [Test]
+    procedure AVDTP_0019_ReturnsA2DPSink;
+    [Test]
+    procedure AVCTPBrowsing_001B_ReturnsAVRCP;
+    [Test]
+    procedure ATT_001F_ReturnsUnknown;
+    [Test]
+    procedure UnknownPSM_ReturnsUnknown;
+  end;
+
+  /// <summary>
+  /// Test fixture for GetShortUUID function.
+  /// </summary>
+  [TestFixture]
+  TGetShortUUIDTests = class
+  public
+    [Test]
+    procedure GetShortUUID_BluetoothBaseUUID_ReturnsShortValue;
+    [Test]
+    procedure GetShortUUID_ZeroGuid_ReturnsZero;
+  end;
+
 implementation
 
 uses
@@ -1559,6 +1875,808 @@ begin
   Assert.AreEqual(Cardinal(0), Result.ErrorCode);
 end;
 
+{ TBluetoothProfileTests }
+
+procedure TBluetoothProfileTests.Create_SetsAllFields;
+var
+  Profile: TBluetoothProfile;
+  Guid: TGUID;
+begin
+  Guid := StringToGUID('{0000110B-0000-1000-8000-00805F9B34FB}');
+  Profile := TBluetoothProfile.Create(bptA2DPSink, Guid, pcsConnected);
+
+  Assert.AreEqual(bptA2DPSink, Profile.ProfileType);
+  Assert.IsTrue(IsEqualGUID(Guid, Profile.ServiceGuid));
+  Assert.AreEqual(pcsConnected, Profile.ConnectionState);
+end;
+
+procedure TBluetoothProfileTests.Create_WithUnknownType_Succeeds;
+var
+  Profile: TBluetoothProfile;
+begin
+  Profile := TBluetoothProfile.Create(bptUnknown, TGUID.Empty, pcsUnknown);
+
+  Assert.AreEqual(bptUnknown, Profile.ProfileType);
+  Assert.AreEqual(pcsUnknown, Profile.ConnectionState);
+end;
+
+procedure TBluetoothProfileTests.WithConnectionState_ReturnsCopyWithNewState;
+var
+  Original, Updated: TBluetoothProfile;
+begin
+  Original := TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsAvailable);
+  Updated := Original.WithConnectionState(pcsConnected);
+
+  Assert.AreEqual(pcsConnected, Updated.ConnectionState);
+  Assert.AreEqual(pcsAvailable, Original.ConnectionState);
+end;
+
+procedure TBluetoothProfileTests.WithConnectionState_PreservesOtherFields;
+var
+  Original, Updated: TBluetoothProfile;
+  Guid: TGUID;
+begin
+  Guid := StringToGUID('{0000110B-0000-1000-8000-00805F9B34FB}');
+  Original := TBluetoothProfile.Create(bptHFP, Guid, pcsAvailable);
+  Updated := Original.WithConnectionState(pcsConnected);
+
+  Assert.AreEqual(bptHFP, Updated.ProfileType);
+  Assert.IsTrue(IsEqualGUID(Guid, Updated.ServiceGuid));
+end;
+
+procedure TBluetoothProfileTests.IsConnected_Connected_ReturnsTrue;
+var
+  Profile: TBluetoothProfile;
+begin
+  Profile := TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsConnected);
+  Assert.IsTrue(Profile.IsConnected);
+end;
+
+procedure TBluetoothProfileTests.IsConnected_Available_ReturnsFalse;
+var
+  Profile: TBluetoothProfile;
+begin
+  Profile := TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsAvailable);
+  Assert.IsFalse(Profile.IsConnected);
+end;
+
+procedure TBluetoothProfileTests.IsConnected_Unknown_ReturnsFalse;
+var
+  Profile: TBluetoothProfile;
+begin
+  Profile := TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsUnknown);
+  Assert.IsFalse(Profile.IsConnected);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_A2DPSink_ReturnsCorrectName;
+begin
+  Assert.AreEqual('A2DP (Audio Sink)',
+    TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_A2DPSource_ReturnsCorrectName;
+begin
+  Assert.AreEqual('A2DP (Audio Source)',
+    TBluetoothProfile.Create(bptA2DPSource, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_HFP_ReturnsCorrectName;
+begin
+  Assert.AreEqual('Hands-Free',
+    TBluetoothProfile.Create(bptHFP, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_HSP_ReturnsCorrectName;
+begin
+  Assert.AreEqual('Headset',
+    TBluetoothProfile.Create(bptHSP, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_AVRCP_ReturnsCorrectName;
+begin
+  Assert.AreEqual('Remote Control',
+    TBluetoothProfile.Create(bptAVRCP, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_HID_ReturnsCorrectName;
+begin
+  Assert.AreEqual('HID',
+    TBluetoothProfile.Create(bptHID, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_SPP_ReturnsCorrectName;
+begin
+  Assert.AreEqual('Serial Port',
+    TBluetoothProfile.Create(bptSPP, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_PAN_ReturnsCorrectName;
+begin
+  Assert.AreEqual('Network',
+    TBluetoothProfile.Create(bptPAN, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_OBEX_ReturnsCorrectName;
+begin
+  Assert.AreEqual('Object Exchange',
+    TBluetoothProfile.Create(bptOBEX, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_PBAP_ReturnsCorrectName;
+begin
+  Assert.AreEqual('Phonebook',
+    TBluetoothProfile.Create(bptPBAP, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_MAP_ReturnsCorrectName;
+begin
+  Assert.AreEqual('Messages',
+    TBluetoothProfile.Create(bptMAP, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.DisplayName_Unknown_ReturnsUnknown;
+begin
+  Assert.AreEqual('Unknown',
+    TBluetoothProfile.Create(bptUnknown, TGUID.Empty, pcsUnknown).DisplayName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_A2DPSink_ReturnsA2DP;
+begin
+  Assert.AreEqual('A2DP',
+    TBluetoothProfile.Create(bptA2DPSink, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_A2DPSource_ReturnsA2DPSrc;
+begin
+  Assert.AreEqual('A2DP-Src',
+    TBluetoothProfile.Create(bptA2DPSource, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_HFP_ReturnsHFP;
+begin
+  Assert.AreEqual('HFP',
+    TBluetoothProfile.Create(bptHFP, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_HSP_ReturnsHSP;
+begin
+  Assert.AreEqual('HSP',
+    TBluetoothProfile.Create(bptHSP, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_AVRCP_ReturnsAVRCP;
+begin
+  Assert.AreEqual('AVRCP',
+    TBluetoothProfile.Create(bptAVRCP, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_HID_ReturnsHID;
+begin
+  Assert.AreEqual('HID',
+    TBluetoothProfile.Create(bptHID, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_SPP_ReturnsSPP;
+begin
+  Assert.AreEqual('SPP',
+    TBluetoothProfile.Create(bptSPP, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_PAN_ReturnsPAN;
+begin
+  Assert.AreEqual('PAN',
+    TBluetoothProfile.Create(bptPAN, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_OBEX_ReturnsOBEX;
+begin
+  Assert.AreEqual('OBEX',
+    TBluetoothProfile.Create(bptOBEX, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_PBAP_ReturnsPBAP;
+begin
+  Assert.AreEqual('PBAP',
+    TBluetoothProfile.Create(bptPBAP, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_MAP_ReturnsMAP;
+begin
+  Assert.AreEqual('MAP',
+    TBluetoothProfile.Create(bptMAP, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+procedure TBluetoothProfileTests.ShortName_Unknown_ReturnsQuestionMark;
+begin
+  Assert.AreEqual('?',
+    TBluetoothProfile.Create(bptUnknown, TGUID.Empty, pcsUnknown).ShortName);
+end;
+
+{ TDeviceProfileInfoTests }
+
+function TDeviceProfileInfoTests.CreateProfile(
+  AType: TBluetoothProfileType;
+  AState: TProfileConnectionState): TBluetoothProfile;
+begin
+  Result := TBluetoothProfile.Create(AType, TGUID.Empty, AState);
+end;
+
+procedure TDeviceProfileInfoTests.Create_SetsAllFields;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+  TestDate: TDateTime;
+begin
+  TestDate := Now;
+  SetLength(Profiles, 2);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+  Profiles[1] := CreateProfile(bptHFP, pcsAvailable);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, TestDate);
+
+  Assert.AreEqual(UInt64($AABBCCDDEEFF), Info.DeviceAddress);
+  Assert.AreEqual(2, Info.Count);
+  Assert.AreEqual(Double(TestDate), Double(Info.LastUpdated), 0.0001);
+end;
+
+procedure TDeviceProfileInfoTests.Empty_HasZeroProfiles;
+var
+  Info: TDeviceProfileInfo;
+begin
+  Info := TDeviceProfileInfo.Empty($123456789ABC);
+  Assert.AreEqual(0, Info.Count);
+end;
+
+procedure TDeviceProfileInfoTests.Empty_SetsAddress;
+var
+  Info: TDeviceProfileInfo;
+begin
+  Info := TDeviceProfileInfo.Empty($AABBCCDDEEFF);
+  Assert.AreEqual(UInt64($AABBCCDDEEFF), Info.DeviceAddress);
+end;
+
+procedure TDeviceProfileInfoTests.Empty_HasZeroLastUpdated;
+var
+  Info: TDeviceProfileInfo;
+begin
+  Info := TDeviceProfileInfo.Empty($123456789ABC);
+  Assert.AreEqual(Double(0), Double(Info.LastUpdated), 0.0001);
+end;
+
+procedure TDeviceProfileInfoTests.Count_EmptyProfiles_ReturnsZero;
+var
+  Info: TDeviceProfileInfo;
+begin
+  Info := TDeviceProfileInfo.Empty($123456789ABC);
+  Assert.AreEqual(0, Info.Count);
+end;
+
+procedure TDeviceProfileInfoTests.Count_ThreeProfiles_ReturnsThree;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 3);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+  Profiles[1] := CreateProfile(bptHFP, pcsAvailable);
+  Profiles[2] := CreateProfile(bptAVRCP, pcsConnected);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.AreEqual(3, Info.Count);
+end;
+
+procedure TDeviceProfileInfoTests.ConnectedCount_NoneConnected_ReturnsZero;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 2);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsAvailable);
+  Profiles[1] := CreateProfile(bptHFP, pcsUnknown);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.AreEqual(0, Info.ConnectedCount);
+end;
+
+procedure TDeviceProfileInfoTests.ConnectedCount_AllConnected_ReturnsAll;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 3);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+  Profiles[1] := CreateProfile(bptHFP, pcsConnected);
+  Profiles[2] := CreateProfile(bptAVRCP, pcsConnected);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.AreEqual(3, Info.ConnectedCount);
+end;
+
+procedure TDeviceProfileInfoTests.ConnectedCount_SomeConnected_ReturnsCorrect;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 4);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+  Profiles[1] := CreateProfile(bptHFP, pcsAvailable);
+  Profiles[2] := CreateProfile(bptAVRCP, pcsConnected);
+  Profiles[3] := CreateProfile(bptHSP, pcsUnknown);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.AreEqual(2, Info.ConnectedCount);
+end;
+
+procedure TDeviceProfileInfoTests.GetConnectedProfiles_NoneConnected_ReturnsEmpty;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+  Connected: TBluetoothProfileArray;
+begin
+  SetLength(Profiles, 2);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsAvailable);
+  Profiles[1] := CreateProfile(bptHFP, pcsUnknown);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Connected := Info.GetConnectedProfiles;
+  Assert.AreEqual(Integer(0), Integer(Length(Connected)));
+end;
+
+procedure TDeviceProfileInfoTests.GetConnectedProfiles_AllConnected_ReturnsAll;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+  Connected: TBluetoothProfileArray;
+begin
+  SetLength(Profiles, 2);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+  Profiles[1] := CreateProfile(bptHFP, pcsConnected);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Connected := Info.GetConnectedProfiles;
+  Assert.AreEqual(Integer(2), Integer(Length(Connected)));
+end;
+
+procedure TDeviceProfileInfoTests.GetConnectedProfiles_Mixed_ReturnsOnlyConnected;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+  Connected: TBluetoothProfileArray;
+begin
+  SetLength(Profiles, 3);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsAvailable);
+  Profiles[1] := CreateProfile(bptHFP, pcsConnected);
+  Profiles[2] := CreateProfile(bptAVRCP, pcsUnknown);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Connected := Info.GetConnectedProfiles;
+  Assert.AreEqual(Integer(1), Integer(Length(Connected)));
+  Assert.AreEqual(bptHFP, Connected[0].ProfileType);
+end;
+
+procedure TDeviceProfileInfoTests.HasProfile_Exists_ReturnsTrue;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 2);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+  Profiles[1] := CreateProfile(bptHFP, pcsAvailable);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.IsTrue(Info.HasProfile(bptA2DPSink));
+  Assert.IsTrue(Info.HasProfile(bptHFP));
+end;
+
+procedure TDeviceProfileInfoTests.HasProfile_NotExists_ReturnsFalse;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 1);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.IsFalse(Info.HasProfile(bptHFP));
+  Assert.IsFalse(Info.HasProfile(bptSPP));
+end;
+
+procedure TDeviceProfileInfoTests.HasProfile_EmptyProfiles_ReturnsFalse;
+var
+  Info: TDeviceProfileInfo;
+begin
+  Info := TDeviceProfileInfo.Empty($AABBCCDDEEFF);
+  Assert.IsFalse(Info.HasProfile(bptA2DPSink));
+end;
+
+procedure TDeviceProfileInfoTests.GetProfileState_Exists_ReturnsState;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 2);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+  Profiles[1] := CreateProfile(bptHFP, pcsAvailable);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.AreEqual(pcsConnected, Info.GetProfileState(bptA2DPSink));
+  Assert.AreEqual(pcsAvailable, Info.GetProfileState(bptHFP));
+end;
+
+procedure TDeviceProfileInfoTests.GetProfileState_NotExists_ReturnsUnknown;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 1);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.AreEqual(pcsUnknown, Info.GetProfileState(bptSPP));
+end;
+
+procedure TDeviceProfileInfoTests.HasProfiles_WithProfiles_ReturnsTrue;
+var
+  Profiles: TBluetoothProfileArray;
+  Info: TDeviceProfileInfo;
+begin
+  SetLength(Profiles, 1);
+  Profiles[0] := CreateProfile(bptA2DPSink, pcsConnected);
+
+  Info := TDeviceProfileInfo.Create($AABBCCDDEEFF, Profiles, Now);
+  Assert.IsTrue(Info.HasProfiles);
+end;
+
+procedure TDeviceProfileInfoTests.HasProfiles_Empty_ReturnsFalse;
+var
+  Info: TDeviceProfileInfo;
+begin
+  Info := TDeviceProfileInfo.Empty($AABBCCDDEEFF);
+  Assert.IsFalse(Info.HasProfiles);
+end;
+
+{ TPairingResultTests }
+
+procedure TPairingResultTests.Success_StatusIsSuccess;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Success;
+  Assert.AreEqual(prsSuccess, R.Status);
+end;
+
+procedure TPairingResultTests.Success_ErrorCodeIsZero;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Success;
+  Assert.AreEqual(Cardinal(0), R.ErrorCode);
+end;
+
+procedure TPairingResultTests.Success_IsSuccessReturnsTrue;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Success;
+  Assert.IsTrue(R.IsSuccess);
+end;
+
+procedure TPairingResultTests.Success_HasMessage;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Success;
+  Assert.IsTrue(R.ErrorMessage <> '', 'Success should have a descriptive message');
+end;
+
+procedure TPairingResultTests.Failed_StatusIsFailed;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Failed(42, 'Connection refused');
+  Assert.AreEqual(prsFailed, R.Status);
+end;
+
+procedure TPairingResultTests.Failed_PreservesErrorCode;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Failed(12345, 'Error');
+  Assert.AreEqual(Cardinal(12345), R.ErrorCode);
+end;
+
+procedure TPairingResultTests.Failed_PreservesMessage;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Failed(0, 'Connection refused');
+  Assert.AreEqual('Connection refused', R.ErrorMessage);
+end;
+
+procedure TPairingResultTests.Failed_IsSuccessReturnsFalse;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Failed(1, 'Error');
+  Assert.IsFalse(R.IsSuccess);
+end;
+
+procedure TPairingResultTests.Cancelled_StatusIsCancelled;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Cancelled;
+  Assert.AreEqual(prsCancelled, R.Status);
+end;
+
+procedure TPairingResultTests.Cancelled_ErrorCodeIsZero;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Cancelled;
+  Assert.AreEqual(Cardinal(0), R.ErrorCode);
+end;
+
+procedure TPairingResultTests.Cancelled_IsSuccessReturnsFalse;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Cancelled;
+  Assert.IsFalse(R.IsSuccess);
+end;
+
+procedure TPairingResultTests.AlreadyPaired_StatusIsAlreadyPaired;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.AlreadyPaired;
+  Assert.AreEqual(prsAlreadyPaired, R.Status);
+end;
+
+procedure TPairingResultTests.AlreadyPaired_IsSuccessReturnsTrue;
+var
+  R: TPairingResult;
+begin
+  // AlreadyPaired is considered a success (device is paired, which is the goal)
+  R := TPairingResult.AlreadyPaired;
+  Assert.IsTrue(R.IsSuccess);
+end;
+
+procedure TPairingResultTests.Timeout_StatusIsTimeout;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Timeout;
+  Assert.AreEqual(prsTimeout, R.Status);
+end;
+
+procedure TPairingResultTests.Timeout_IsSuccessReturnsFalse;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.Timeout;
+  Assert.IsFalse(R.IsSuccess);
+end;
+
+procedure TPairingResultTests.NotSupported_StatusIsNotSupported;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.NotSupported;
+  Assert.AreEqual(prsNotSupported, R.Status);
+end;
+
+procedure TPairingResultTests.NotSupported_IsSuccessReturnsFalse;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.NotSupported;
+  Assert.IsFalse(R.IsSuccess);
+end;
+
+procedure TPairingResultTests.NotSupported_DefaultMessage_NoPrefixedReason;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.NotSupported;
+  Assert.AreEqual('Pairing not supported', R.ErrorMessage);
+end;
+
+procedure TPairingResultTests.NotSupported_WithReason_IncludesReason;
+var
+  R: TPairingResult;
+begin
+  R := TPairingResult.NotSupported('Windows 7 not supported');
+  Assert.AreEqual('Pairing not supported: Windows 7 not supported', R.ErrorMessage);
+end;
+
+{ TGuidToProfileTypeTests }
+
+function TGuidToProfileTypeTests.MakeBluetoothGuid(AShortUUID: Word): TGUID;
+begin
+  // Bluetooth base UUID: 0000xxxx-0000-1000-8000-00805F9B34FB
+  Result := StringToGUID(Format('{0000%.4X-0000-1000-8000-00805F9B34FB}', [AShortUUID]));
+end;
+
+procedure TGuidToProfileTypeTests.AudioSource_110A_ReturnsSink;
+begin
+  Assert.AreEqual(bptA2DPSource, GuidToProfileType(MakeBluetoothGuid($110A)));
+end;
+
+procedure TGuidToProfileTypeTests.AudioSink_110B_ReturnsSink;
+begin
+  Assert.AreEqual(bptA2DPSink, GuidToProfileType(MakeBluetoothGuid($110B)));
+end;
+
+procedure TGuidToProfileTypeTests.AVRCPTarget_110C_ReturnsAVRCP;
+begin
+  Assert.AreEqual(bptAVRCP, GuidToProfileType(MakeBluetoothGuid($110C)));
+end;
+
+procedure TGuidToProfileTypeTests.AVRCPController_110E_ReturnsAVRCP;
+begin
+  Assert.AreEqual(bptAVRCP, GuidToProfileType(MakeBluetoothGuid($110E)));
+end;
+
+procedure TGuidToProfileTypeTests.Headset_1108_ReturnsHSP;
+begin
+  Assert.AreEqual(bptHSP, GuidToProfileType(MakeBluetoothGuid($1108)));
+end;
+
+procedure TGuidToProfileTypeTests.HeadsetAG_1112_ReturnsHSP;
+begin
+  Assert.AreEqual(bptHSP, GuidToProfileType(MakeBluetoothGuid($1112)));
+end;
+
+procedure TGuidToProfileTypeTests.HandsFree_111E_ReturnsHFP;
+begin
+  Assert.AreEqual(bptHFP, GuidToProfileType(MakeBluetoothGuid($111E)));
+end;
+
+procedure TGuidToProfileTypeTests.HandsFreeAG_111F_ReturnsHFP;
+begin
+  Assert.AreEqual(bptHFP, GuidToProfileType(MakeBluetoothGuid($111F)));
+end;
+
+procedure TGuidToProfileTypeTests.HID_1124_ReturnsHID;
+begin
+  Assert.AreEqual(bptHID, GuidToProfileType(MakeBluetoothGuid($1124)));
+end;
+
+procedure TGuidToProfileTypeTests.SerialPort_1101_ReturnsSPP;
+begin
+  Assert.AreEqual(bptSPP, GuidToProfileType(MakeBluetoothGuid($1101)));
+end;
+
+procedure TGuidToProfileTypeTests.PANU_1115_ReturnsPAN;
+begin
+  Assert.AreEqual(bptPAN, GuidToProfileType(MakeBluetoothGuid($1115)));
+end;
+
+procedure TGuidToProfileTypeTests.NAP_1116_ReturnsPAN;
+begin
+  Assert.AreEqual(bptPAN, GuidToProfileType(MakeBluetoothGuid($1116)));
+end;
+
+procedure TGuidToProfileTypeTests.GN_1117_ReturnsPAN;
+begin
+  Assert.AreEqual(bptPAN, GuidToProfileType(MakeBluetoothGuid($1117)));
+end;
+
+procedure TGuidToProfileTypeTests.OBEXPush_1105_ReturnsOBEX;
+begin
+  Assert.AreEqual(bptOBEX, GuidToProfileType(MakeBluetoothGuid($1105)));
+end;
+
+procedure TGuidToProfileTypeTests.OBEXFileTransfer_1106_ReturnsOBEX;
+begin
+  Assert.AreEqual(bptOBEX, GuidToProfileType(MakeBluetoothGuid($1106)));
+end;
+
+procedure TGuidToProfileTypeTests.PBAP_PSE_112F_ReturnsPBAP;
+begin
+  Assert.AreEqual(bptPBAP, GuidToProfileType(MakeBluetoothGuid($112F)));
+end;
+
+procedure TGuidToProfileTypeTests.PBAP_PCE_1130_ReturnsPBAP;
+begin
+  Assert.AreEqual(bptPBAP, GuidToProfileType(MakeBluetoothGuid($1130)));
+end;
+
+procedure TGuidToProfileTypeTests.MAP_Server_1132_ReturnsMAP;
+begin
+  Assert.AreEqual(bptMAP, GuidToProfileType(MakeBluetoothGuid($1132)));
+end;
+
+procedure TGuidToProfileTypeTests.MAP_Notification_1133_ReturnsMAP;
+begin
+  Assert.AreEqual(bptMAP, GuidToProfileType(MakeBluetoothGuid($1133)));
+end;
+
+procedure TGuidToProfileTypeTests.MAP_Profile_1134_ReturnsMAP;
+begin
+  Assert.AreEqual(bptMAP, GuidToProfileType(MakeBluetoothGuid($1134)));
+end;
+
+procedure TGuidToProfileTypeTests.UnknownGuid_ReturnsUnknown;
+begin
+  // Non-Bluetooth UUID should return unknown
+  Assert.AreEqual(bptUnknown, GuidToProfileType(MakeBluetoothGuid($FFFF)));
+end;
+
+procedure TGuidToProfileTypeTests.EmptyGuid_ReturnsUnknown;
+begin
+  Assert.AreEqual(bptUnknown, GuidToProfileType(TGUID.Empty));
+end;
+
+{ TPsmToProfileTypeTests }
+
+procedure TPsmToProfileTypeTests.SDP_0001_ReturnsUnknown;
+begin
+  Assert.AreEqual(bptUnknown, PsmToProfileType($0001));
+end;
+
+procedure TPsmToProfileTypeTests.RFCOMM_0003_ReturnsSPP;
+begin
+  Assert.AreEqual(bptSPP, PsmToProfileType($0003));
+end;
+
+procedure TPsmToProfileTypeTests.BNEP_000F_ReturnsPAN;
+begin
+  Assert.AreEqual(bptPAN, PsmToProfileType($000F));
+end;
+
+procedure TPsmToProfileTypeTests.HIDControl_0011_ReturnsHID;
+begin
+  Assert.AreEqual(bptHID, PsmToProfileType($0011));
+end;
+
+procedure TPsmToProfileTypeTests.HIDInterrupt_0013_ReturnsHID;
+begin
+  Assert.AreEqual(bptHID, PsmToProfileType($0013));
+end;
+
+procedure TPsmToProfileTypeTests.AVCTP_0017_ReturnsAVRCP;
+begin
+  Assert.AreEqual(bptAVRCP, PsmToProfileType($0017));
+end;
+
+procedure TPsmToProfileTypeTests.AVDTP_0019_ReturnsA2DPSink;
+begin
+  Assert.AreEqual(bptA2DPSink, PsmToProfileType($0019));
+end;
+
+procedure TPsmToProfileTypeTests.AVCTPBrowsing_001B_ReturnsAVRCP;
+begin
+  Assert.AreEqual(bptAVRCP, PsmToProfileType($001B));
+end;
+
+procedure TPsmToProfileTypeTests.ATT_001F_ReturnsUnknown;
+begin
+  Assert.AreEqual(bptUnknown, PsmToProfileType($001F));
+end;
+
+procedure TPsmToProfileTypeTests.UnknownPSM_ReturnsUnknown;
+begin
+  Assert.AreEqual(bptUnknown, PsmToProfileType($FFFF));
+end;
+
+{ TGetShortUUIDTests }
+
+procedure TGetShortUUIDTests.GetShortUUID_BluetoothBaseUUID_ReturnsShortValue;
+var
+  Guid: TGUID;
+begin
+  // Bluetooth A2DP Sink: 0000110B-0000-1000-8000-00805F9B34FB
+  Guid := StringToGUID('{0000110B-0000-1000-8000-00805F9B34FB}');
+  Assert.AreEqual(Word($110B), GetShortUUID(Guid));
+end;
+
+procedure TGetShortUUIDTests.GetShortUUID_ZeroGuid_ReturnsZero;
+begin
+  Assert.AreEqual(Word(0), GetShortUUID(TGUID.Empty));
+end;
+
 { TDetermineDeviceTypeEdgeCaseTests }
 
 procedure TDetermineDeviceTypeEdgeCaseTests.DetermineDeviceType_AllBitsSet_FFFFFFFF;
@@ -1596,5 +2714,11 @@ initialization
   TDUnitX.RegisterTestFixture(TBatteryStatusTests);
   TDUnitX.RegisterTestFixture(TAddressConversionTests);
   TDUnitX.RegisterTestFixture(TConnectionResultTests);
+  TDUnitX.RegisterTestFixture(TBluetoothProfileTests);
+  TDUnitX.RegisterTestFixture(TDeviceProfileInfoTests);
+  TDUnitX.RegisterTestFixture(TPairingResultTests);
+  TDUnitX.RegisterTestFixture(TGuidToProfileTypeTests);
+  TDUnitX.RegisterTestFixture(TPsmToProfileTypeTests);
+  TDUnitX.RegisterTestFixture(TGetShortUUIDTests);
 
 end.

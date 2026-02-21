@@ -17,8 +17,10 @@ uses
   App.ConfigEnums,
   App.ConfigInterfaces,
   App.DeviceConfigTypes,
+  App.SystemClock,
   App.DeviceFormatter,
-  Tests.Mocks;
+  Tests.Mocks,
+  Tests.Mocks.Infrastructure;
 
 type
   /// <summary>
@@ -27,7 +29,15 @@ type
   /// </summary>
   [TestFixture]
   TDeviceFormatterTests = class
+  private
+    FMockClock: ISystemClock;
   public
+    [Setup]
+    procedure Setup;
+
+    [TearDown]
+    procedure TearDown;
+
     { FormatLastSeenRelative Tests }
     [Test]
     procedure FormatLastSeenRelative_ZeroDateTime_ReturnsEmpty;
@@ -231,6 +241,25 @@ type
 
 implementation
 
+{ TDeviceFormatterTests - Setup/TearDown }
+
+procedure TDeviceFormatterTests.Setup;
+var
+  MockClock: TMockSystemClock;
+begin
+  // Create mock clock and set fixed time, then assign to interface field
+  MockClock := TMockSystemClock.Create;
+  MockClock.CurrentTime := EncodeDateTime(2024, 6, 15, 12, 0, 0, 0);
+  FMockClock := MockClock;  // Interface reference takes ownership
+end;
+
+procedure TDeviceFormatterTests.TearDown;
+begin
+  // No explicit cleanup needed - TMockSystemClock implements ISystemClock
+  // which uses reference counting, so it will be freed automatically
+  FMockClock := nil;
+end;
+
 { TDeviceFormatterTests - FormatLastSeenRelative }
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_ZeroDateTime_ReturnsEmpty;
@@ -248,63 +277,71 @@ end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_JustNow_ReturnsJustNow;
 begin
-  Assert.AreEqual('Just now', TDeviceFormatter.FormatLastSeenRelative(Now));
+  // Test with "current time" from mock clock
+  Assert.AreEqual('Just now', TDeviceFormatter.FormatLastSeenRelative(FMockClock.Now, FMockClock));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_FiveMinutesAgo_ReturnsMinutesAgo;
 var
   TestTime: TDateTime;
 begin
-  TestTime := IncMinute(Now, -5);
-  Assert.AreEqual('5 min ago', TDeviceFormatter.FormatLastSeenRelative(TestTime));
+  // 5 minutes before the mock "current time"
+  TestTime := IncMinute(FMockClock.Now, -5);
+  Assert.AreEqual('5 min ago', TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_TwoHoursAgo_ReturnsHoursAgo;
 var
   TestTime: TDateTime;
 begin
-  TestTime := IncHour(Now, -2);
-  Assert.AreEqual('2 hr ago', TDeviceFormatter.FormatLastSeenRelative(TestTime));
+  // 2 hours before the mock "current time"
+  TestTime := IncHour(FMockClock.Now, -2);
+  Assert.AreEqual('2 hr ago', TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_Yesterday_ReturnsYesterday;
 var
   TestTime: TDateTime;
 begin
-  TestTime := IncDay(Now, -1);
-  Assert.AreEqual('Yesterday', TDeviceFormatter.FormatLastSeenRelative(TestTime));
+  // 1 day before the mock "current time"
+  TestTime := IncDay(FMockClock.Now, -1);
+  Assert.AreEqual('Yesterday', TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_ThreeDaysAgo_ReturnsDaysAgo;
 var
   TestTime: TDateTime;
 begin
-  TestTime := IncDay(Now, -3);
-  Assert.AreEqual('3 days ago', TDeviceFormatter.FormatLastSeenRelative(TestTime));
+  // 3 days before the mock "current time"
+  TestTime := IncDay(FMockClock.Now, -3);
+  Assert.AreEqual('3 days ago', TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_TwoWeeksAgo_ReturnsWeeksAgo;
 var
   TestTime: TDateTime;
 begin
-  TestTime := IncDay(Now, -14);
-  Assert.AreEqual('2 weeks ago', TDeviceFormatter.FormatLastSeenRelative(TestTime));
+  // 14 days before the mock "current time"
+  TestTime := IncDay(FMockClock.Now, -14);
+  Assert.AreEqual('2 weeks ago', TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_TwoMonthsAgo_ReturnsMonthsAgo;
 var
   TestTime: TDateTime;
 begin
-  TestTime := IncDay(Now, -60);
-  Assert.AreEqual('2 months ago', TDeviceFormatter.FormatLastSeenRelative(TestTime));
+  // 60 days before the mock "current time"
+  TestTime := IncDay(FMockClock.Now, -60);
+  Assert.AreEqual('2 months ago', TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeenRelative_TwoYearsAgo_ReturnsYearsAgo;
 var
   TestTime: TDateTime;
 begin
-  TestTime := IncDay(Now, -730);
-  Assert.AreEqual('2 years ago', TDeviceFormatter.FormatLastSeenRelative(TestTime));
+  // 730 days (2 years) before the mock "current time"
+  TestTime := IncDay(FMockClock.Now, -730);
+  Assert.AreEqual('2 years ago', TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock));
 end;
 
 { TDeviceFormatterTests - FormatLastSeenAbsolute }
@@ -335,8 +372,9 @@ procedure TDeviceFormatterTests.FormatLastSeen_RelativeFormat_UsesRelativeFormat
 var
   TestTime: TDateTime;
 begin
-  TestTime := IncMinute(Now, -5);
-  Assert.AreEqual('5 min ago', TDeviceFormatter.FormatLastSeen(TestTime, lsfRelative));
+  // 5 minutes before the mock "current time"
+  TestTime := IncMinute(FMockClock.Now, -5);
+  Assert.AreEqual('5 min ago', TDeviceFormatter.FormatLastSeen(TestTime, lsfRelative, FMockClock));
 end;
 
 procedure TDeviceFormatterTests.FormatLastSeen_AbsoluteFormat_UsesAbsoluteFormatter;
@@ -344,7 +382,8 @@ var
   TestTime: TDateTime;
 begin
   TestTime := EncodeDateTime(2024, 12, 22, 15, 30, 0, 0);
-  Assert.AreEqual('2024-12-22 15:30', TDeviceFormatter.FormatLastSeen(TestTime, lsfAbsolute));
+  // Absolute format doesn't use clock, but pass it anyway for consistency
+  Assert.AreEqual('2024-12-22 15:30', TDeviceFormatter.FormatLastSeen(TestTime, lsfAbsolute, FMockClock));
 end;
 
 { TDeviceFormatterTests - GetDisplayName }
@@ -781,8 +820,8 @@ var
   Result: string;
 begin
   // Exactly 24 hours ago is the boundary between "X hr ago" and "Yesterday"
-  TestTime := IncHour(Now, -24);
-  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime);
+  TestTime := IncHour(FMockClock.Now, -24);
+  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock);
 
   // At exactly 24 hours, Days = 1, so should show "Yesterday"
   Assert.AreEqual('Yesterday', Result);
@@ -794,8 +833,8 @@ var
   Result: string;
 begin
   // Exactly 7 days ago is the boundary between "X days ago" and "1 weeks ago"
-  TestTime := IncDay(Now, -7);
-  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime);
+  TestTime := IncDay(FMockClock.Now, -7);
+  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock);
 
   // At exactly 7 days, Days = 7, so should show "1 weeks ago" (7 div 7 = 1)
   Assert.AreEqual('1 weeks ago', Result);
@@ -807,8 +846,8 @@ var
   Result: string;
 begin
   // Future dates should still be handled (edge case - system clock issues)
-  TestTime := IncHour(Now, 5);  // 5 hours in the future
-  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime);
+  TestTime := IncHour(FMockClock.Now, 5);  // 5 hours in the future
+  Result := TDeviceFormatter.FormatLastSeenRelative(TestTime, FMockClock);
 
   // Diff will be negative, so should show "Just now" (Minutes < 1 check fails,
   // but the implementation may handle it differently)

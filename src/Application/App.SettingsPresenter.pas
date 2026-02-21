@@ -117,6 +117,7 @@ type
     Filename: string;
     Append: Boolean;
     LevelIndex: Integer;  // Index in log level ComboBox
+    SourceFilter: string; // Comma-separated list of enabled source class names
   end;
 
   /// <summary>
@@ -782,6 +783,7 @@ begin
   Logging.Filename := FLogConfig.LogFilename;
   Logging.Append := FLogConfig.LogAppend;
   Logging.LevelIndex := Ord(FLogConfig.LogLevel);
+  Logging.SourceFilter := FLogConfig.LogSourceFilter;
   FLoggingSettingsView.SetLoggingSettings(Logging);
 
   // Battery tray settings
@@ -925,6 +927,7 @@ begin
     FLogConfig.LogFilename := Logging.Filename;
     FLogConfig.LogAppend := Logging.Append;
     FLogConfig.LogLevel := TLogLevel(Logging.LevelIndex);
+    FLogConfig.LogSourceFilter := Logging.SourceFilter;
 
     // Battery tray settings
     if Assigned(FBatteryTrayConfig) then

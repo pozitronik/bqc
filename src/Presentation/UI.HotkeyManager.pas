@@ -236,7 +236,12 @@ begin
         begin
           // Post message to the corresponding window and consume the key
           // wParam contains InstanceId so the correct manager can identify its hotkey
-          PostMessage(HWND(Entry.WindowHandle), WM_HOTKEY_DETECTED, Entry.InstanceId, 0);
+          if PostMessage(HWND(Entry.WindowHandle), WM_HOTKEY_DETECTED, Entry.InstanceId, 0) then
+            LogDebug('LowLevelKeyboardProc: PostMessage succeeded, WindowHandle=$%x, InstanceId=%d',
+              [Entry.WindowHandle, Entry.InstanceId], 'LowLevelKeyboardProc')
+          else
+            LogWarning('LowLevelKeyboardProc: PostMessage FAILED, WindowHandle=$%x, InstanceId=%d, LastError=%d',
+              [Entry.WindowHandle, Entry.InstanceId, GetLastError], 'LowLevelKeyboardProc');
           Result := 1;  // Consume the key, don't pass to system
           Exit;
         end;
@@ -620,11 +625,20 @@ begin
     // Check if this message is for our instance
     if Integer(AWParam) = FInstanceId then
     begin
-      LogDebug('HandleHotkeyDetected: Hotkey triggered via low-level hook', ClassName);
+      LogDebug('HandleHotkeyDetected: Hotkey triggered via low-level hook, InstanceId=%d', [FInstanceId], ClassName);
       DoHotkeyTriggered;
       Result := True;
-    end;
-  end;
+    end
+    else
+      LogDebug('HandleHotkeyDetected: InstanceId mismatch, expected=%d, got=%d', [
+        FInstanceId, Integer(AWParam)
+      ], ClassName);
+  end
+  else
+    LogDebug('HandleHotkeyDetected: Skipped, Registered=%s, UsingLLHook=%s, InstanceId=%d, wParam=%d', [
+      BoolToStr(FHotkeyRegistered, True), BoolToStr(FUsingLowLevelHook, True),
+      FInstanceId, Integer(AWParam)
+    ], ClassName);
 end;
 
 initialization

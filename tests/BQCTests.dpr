@@ -29,6 +29,8 @@ uses
   Tests.DeviceFormatter in 'Tests.DeviceFormatter.pas',
   Tests.DeviceSorter in 'Tests.DeviceSorter.pas',
   Tests.DeviceDisplayItemBuilder in 'Tests.DeviceDisplayItemBuilder.pas',
+  Tests.ConnectionVerification in 'Tests.ConnectionVerification.pas',
+  Tests.DeviceWatcher in 'Tests.DeviceWatcher.pas',
   Tests.ListGeometry in 'Tests.ListGeometry.pas',
   Tests.BluetoothService in 'Tests.BluetoothService.pas',
   Tests.Logger in 'Tests.Logger.pas',
@@ -87,6 +89,7 @@ uses
   Bluetooth.WinRTDeviceQuery in '..\src\Infrastructure\Bluetooth.WinRTDeviceQuery.pas',
   Bluetooth.DeviceRepository in '..\src\Infrastructure\Bluetooth.DeviceRepository.pas',
   Bluetooth.ConnectionExecutor in '..\src\Infrastructure\Bluetooth.ConnectionExecutor.pas',
+  Bluetooth.ConnectionVerification in '..\src\Infrastructure\Bluetooth.ConnectionVerification.pas',
   Bluetooth.AdapterQuery in '..\src\Infrastructure\Bluetooth.AdapterQuery.pas',
   Bluetooth.DeviceConverter in '..\src\Infrastructure\Bluetooth.DeviceConverter.pas',
   Bluetooth.DeviceWatcher in '..\src\Infrastructure\Bluetooth.DeviceWatcher.pas',
@@ -130,6 +133,8 @@ uses
   App.DeviceFormatter in '..\src\Application\App.DeviceFormatter.pas',
   App.DeviceSorter in '..\src\Application\App.DeviceSorter.pas',
   App.DeviceDisplayItemBuilder in '..\src\Application\App.DeviceDisplayItemBuilder.pas',
+  App.DeviceDiscoveryCoordinator in '..\src\Application\App.DeviceDiscoveryCoordinator.pas',
+  App.DeviceBatteryCoordinator in '..\src\Application\App.DeviceBatteryCoordinator.pas',
   UI.Theme in '..\src\Presentation\UI.Theme.pas',
   UI.WindowPositioner in '..\src\Presentation\UI.WindowPositioner.pas',
   UI.BatteryIconRenderer in '..\src\Presentation\UI.BatteryIconRenderer.pas',
@@ -142,9 +147,7 @@ uses
   WinRT.AsyncHelpers in '..\src\Infrastructure\WinRT.AsyncHelpers.pas',
   App.ProfileConfigIntf in '..\src\Infrastructure\App.ProfileConfigIntf.pas',
   App.ConfigSection.Profile in '..\src\Infrastructure\App.ConfigSection.Profile.pas',
-  App.DeviceNotificationCoordinator in '..\src\Application\App.DeviceNotificationCoordinator.pas',
-  App.DeviceDiscoveryCoordinator in '..\src\Application\App.DeviceDiscoveryCoordinator.pas',
-  App.DeviceBatteryCoordinator in '..\src\Application\App.DeviceBatteryCoordinator.pas';
+  App.DeviceNotificationCoordinator in '..\src\Application\App.DeviceNotificationCoordinator.pas';
 
 
 {$IFNDEF TESTINSIGHT}

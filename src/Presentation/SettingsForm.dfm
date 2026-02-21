@@ -1122,7 +1122,6 @@ object FormSettings: TFormSettings
         Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
-        ExplicitTop = 255
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24
@@ -1805,7 +1804,7 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 0
         Width = 536
-        Height = 125
+        Height = 330
         Align = alTop
         Caption = 'Logging'
         TabOrder = 0
@@ -1822,6 +1821,13 @@ object FormSettings: TFormSettings
           Width = 30
           Height = 15
           Caption = 'Level:'
+        end
+        object LabelLogSources: TLabel
+          Left = 12
+          Top = 122
+          Width = 66
+          Height = 15
+          Caption = 'Log sources:'
         end
         object CheckLogEnabled: TCheckBox
           Left = 12
@@ -1877,10 +1883,37 @@ object FormSettings: TFormSettings
           TabOrder = 5
           OnClick = ButtonOpenLogFileClick
         end
+        object ButtonCheckAllSources: TButton
+          Left = 364
+          Top = 119
+          Width = 80
+          Height = 23
+          Caption = 'Check all'
+          TabOrder = 6
+          OnClick = ButtonCheckAllSourcesClick
+        end
+        object ButtonUncheckAllSources: TButton
+          Left = 450
+          Top = 119
+          Width = 80
+          Height = 23
+          Caption = 'Uncheck all'
+          TabOrder = 7
+          OnClick = ButtonUncheckAllSourcesClick
+        end
+        object CheckListLogSources: TCheckListBox
+          Left = 12
+          Top = 145
+          Width = 518
+          Height = 175
+          Columns = 2
+          ItemHeight = 17
+          TabOrder = 8
+        end
       end
       object GroupActions: TGroupBox
         Left = 0
-        Top = 125
+        Top = 330
         Width = 536
         Height = 59
         Align = alTop

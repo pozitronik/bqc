@@ -222,10 +222,9 @@ begin
         FUnpairedDevicesInRange.Delete(Index);
         FUnpairedDeviceIndexMap.Remove(ADeviceAddress);
 
-        // Rebuild index map since indices shifted after deletion
-        FUnpairedDeviceIndexMap.Clear;
-        for I := 0 to FUnpairedDevicesInRange.Count - 1 do
-          FUnpairedDeviceIndexMap.Add(FUnpairedDevicesInRange[I].AddressInt, I);
+        // Only update indices >= removed position: O(n-k) instead of O(2n)
+        for I := Index to FUnpairedDevicesInRange.Count - 1 do
+          FUnpairedDeviceIndexMap.AddOrSetValue(FUnpairedDevicesInRange[I].AddressInt, I);
 
         LogDebug('HandleDeviceOutOfRange: Removed unpaired device from cache', ClassName);
 

@@ -511,6 +511,7 @@ type
     FLogFilename: string;
     FLogAppend: Boolean;
     FLogLevel: TLogLevel;
+    FLogSourceFilter: string;
   public
     constructor Create;
 
@@ -519,15 +520,18 @@ type
     function GetLogFilename: string;
     function GetLogAppend: Boolean;
     function GetLogLevel: TLogLevel;
+    function GetLogSourceFilter: string;
     procedure SetLogEnabled(AValue: Boolean);
     procedure SetLogFilename(const AValue: string);
     procedure SetLogAppend(AValue: Boolean);
     procedure SetLogLevel(AValue: TLogLevel);
+    procedure SetLogSourceFilter(const AValue: string);
 
     property LogEnabled: Boolean read FLogEnabled write FLogEnabled;
     property LogFilename: string read FLogFilename write FLogFilename;
     property LogAppend: Boolean read FLogAppend write FLogAppend;
     property LogLevel: TLogLevel read FLogLevel write FLogLevel;
+    property LogSourceFilter: string read FLogSourceFilter write FLogSourceFilter;
   end;
 
   /// <summary>
@@ -1465,6 +1469,7 @@ begin
   FLogFilename := 'bqc.log';
   FLogAppend := True;
   FLogLevel := llInfo;
+  FLogSourceFilter := '';
 end;
 
 function TMockLogConfig.GetLogEnabled: Boolean;
@@ -1505,6 +1510,16 @@ end;
 procedure TMockLogConfig.SetLogLevel(AValue: TLogLevel);
 begin
   FLogLevel := AValue;
+end;
+
+function TMockLogConfig.GetLogSourceFilter: string;
+begin
+  Result := FLogSourceFilter;
+end;
+
+procedure TMockLogConfig.SetLogSourceFilter(const AValue: string);
+begin
+  FLogSourceFilter := AValue;
 end;
 
 { TMockBatteryTrayConfig }

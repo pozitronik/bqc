@@ -261,15 +261,17 @@ begin
 
   ElapsedMs := GetTickCount - StartTime;
 
-  // Connection is verified if profile query succeeded (Count > 0) and completed within timeout
-  Result := (ProfileInfo.Count > 0) and (ElapsedMs < VERIFICATION_TIMEOUT_MS);
+  // Connection is verified if profile query completed within timeout
+  // Number of profiles doesn't matter - some devices legitimately have 0 profiles
+  // or don't expose profiles via Windows API (permission issues, hidden profiles, etc.)
+  Result := (ElapsedMs < VERIFICATION_TIMEOUT_MS);
 
   if Result then
     LogInfo('VerifyConnection: Strategy=ProfileQuery, Address=$%.12X - VERIFIED (elapsed=%dms, profiles=%d)',
       [AAddress, ElapsedMs, ProfileInfo.Count], ClassName)
   else
-    LogWarning('VerifyConnection: Strategy=ProfileQuery, Address=$%.12X - FAILED (elapsed=%dms, profiles=%d)',
-      [AAddress, ElapsedMs, ProfileInfo.Count], ClassName);
+    LogWarning('VerifyConnection: Strategy=ProfileQuery, Address=$%.12X - FAILED (elapsed=%dms, timeout exceeded)',
+      [AAddress, ElapsedMs], ClassName);
 end;
 
 function TProfileQueryVerificationStrategy.GetStrategyName: string;

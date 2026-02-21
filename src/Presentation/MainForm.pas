@@ -101,6 +101,9 @@ type
     FBluetoothPanelHotkeyManager: THotkeyManager;
     FForceClose: Boolean;
     FForegroundHook: HWINEVENTHOOK;
+    FLastShowViewTick: Cardinal;
+    FShowInProgress: Boolean;  // Guard: suppresses HideOnFocusLoss during ShowView
+    FDpiChanging: Boolean;     // Guard: prevents recursive WM_DPICHANGED handling
 
     { Injected dependencies (set via Setup method) }
     FAppConfig: IAppConfig;
@@ -154,6 +157,9 @@ type
     procedure HandleBatteryNotification(Sender: TObject; AAddress: UInt64;
       const ADeviceName: string; ALevel: Integer; AIsLowBattery: Boolean);
 
+    { Battery tray helpers }
+    procedure UpdateBatteryTrayForItem(const AItem: TDeviceDisplayItem);
+
     { View interfaces implementation }
     procedure ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
     procedure UpdateDisplayItem(const AItem: TDeviceDisplayItem);
@@ -171,6 +177,7 @@ type
     procedure HideView;
     procedure IVisibilityView.ForceClose = DoForceClose;
     procedure DoForceClose;
+    procedure ShowSettingsDialog(ADeviceAddress: UInt64 = 0);
     procedure ShowSettingsDialogForDevice(ADeviceAddress: UInt64);
 
     { Settings application helpers (extracted from ApplyAllSettings for SRP) }
@@ -230,6 +237,7 @@ uses
   Bluetooth.BatteryQuery,
   Bluetooth.ProfileQuery,
   App.Logger,
+  App.LogConfigIntf,
   App.Bootstrap,
   App.SettingsPresenter,
   UI.WindowPositioner,
@@ -914,6 +922,8 @@ begin
 end;
 
 procedure TFormMain.ApplyAllSettings;
+var
+  LogCfg: ILogConfig;
 begin
   LogDebug('ApplyAllSettings: Applying configuration changes', ClassName);
 
@@ -924,6 +934,12 @@ begin
   ApplyOnTopSetting;
   ApplyDeviceListSettings;
   NotifyPresenterOfChanges;
+
+  // Reconfigure logger so settings take effect without restart
+  LogCfg := FAppConfig.AsLogConfig;
+  App.Logger.SetLoggingEnabled(LogCfg.LogEnabled, LogCfg.LogFilename,
+    LogCfg.LogAppend, LogCfg.LogLevel);
+  App.Logger.SetLogSourceFilter(LogCfg.LogSourceFilter);
 
   LogDebug('ApplyAllSettings: Complete', ClassName);
 end;
@@ -984,64 +1000,31 @@ begin
 end;
 
 procedure TFormMain.HandleSettingsClick(Sender: TObject);
-var
-  SettingsDialog: TFormSettings;
-  WasMenuModeVisible: Boolean;
 begin
-  LogInfo('HandleSettingsClick: Opening settings dialog', ClassName);
-
-  // Remember if menu was visible in menu mode - we'll hide it during Settings
-  // This avoids focus tracking issues with modal dialogs
-  WasMenuModeVisible := Visible and (FGeneralConfig.WindowMode = wmMenu);
-
-  // Hide menu before opening Settings to avoid focus tracking issues
-  // The menu is a transient UI - user can re-open with hotkey after Settings closes
-  if WasMenuModeVisible then
-  begin
-    LogDebug('HandleSettingsClick: Hiding menu before modal dialog', ClassName);
-    HideView;
-  end;
-
-  SettingsDialog := TFormSettings.Create(Self);
-  try
-    // Inject dependencies from MainForm (not Bootstrap)
-    SettingsDialog.Setup(
-      FAppConfig,
-      FAppConfig.AsLogConfig,
-      FDeviceConfigProvider,
-      FBatteryTrayConfig,
-      Bootstrap.ProfileConfig,
-      FThemeManager
-    );
-    SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
-    SettingsDialog.ShowModal;
-  finally
-    SettingsDialog.Free;
-    // Re-apply hotkey settings in case they were changed
-    ApplyHotkeySettings;
-  end;
+  ShowSettingsDialog;
 end;
 
 procedure TFormMain.ShowSettingsDialogForDevice(ADeviceAddress: UInt64);
+begin
+  ShowSettingsDialog(ADeviceAddress);
+end;
+
+procedure TFormMain.ShowSettingsDialog(ADeviceAddress: UInt64);
 var
   SettingsDialog: TFormSettings;
-  WasMenuModeVisible: Boolean;
 begin
-  LogInfo('ShowSettingsDialogForDevice: Opening settings for device Address=$%.12X', [ADeviceAddress], ClassName);
+  LogInfo('ShowSettingsDialog: Opening settings (DeviceAddress=$%.12X)', [ADeviceAddress], ClassName);
 
-  // Remember if menu was visible in menu mode
-  WasMenuModeVisible := Visible and (FGeneralConfig.WindowMode = wmMenu);
-
-  // Hide menu before opening Settings
-  if WasMenuModeVisible then
+  // Hide menu before opening Settings to avoid focus tracking issues
+  // The menu is a transient UI - user can re-open with hotkey after Settings closes
+  if Visible and (FGeneralConfig.WindowMode = wmMenu) then
   begin
-    LogDebug('ShowSettingsDialogForDevice: Hiding menu before modal dialog', ClassName);
+    LogDebug('ShowSettingsDialog: Hiding menu before modal dialog', ClassName);
     HideView;
   end;
 
   SettingsDialog := TFormSettings.Create(Self);
   try
-    // Inject dependencies
     SettingsDialog.Setup(
       FAppConfig,
       FAppConfig.AsLogConfig,
@@ -1050,20 +1033,19 @@ begin
       Bootstrap.ProfileConfig,
       FThemeManager
     );
+    // HandleSettingsApplied calls ApplyAllSettings which includes ApplyHotkeySettings
     SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
 
-    // Select the device in the settings dialog
-    SettingsDialog.PageControl.ActivePageIndex := 6;  // Devices tab
-
-    // Call SelectDeviceByAddress BEFORE ShowModal
-    // FormShow will load all settings and select index 0, but we'll override it immediately after
-    SettingsDialog.SelectDeviceByAddress(ADeviceAddress);
+    // Navigate to specific device if requested
+    if ADeviceAddress <> 0 then
+    begin
+      SettingsDialog.PageControl.ActivePageIndex := 6;  // Devices tab
+      SettingsDialog.SelectDeviceByAddress(ADeviceAddress);
+    end;
 
     SettingsDialog.ShowModal;
   finally
     SettingsDialog.Free;
-    // Re-apply hotkey settings in case they were changed
-    ApplyHotkeySettings;
   end;
 end;
 
@@ -1109,6 +1091,9 @@ end;
 
 procedure TFormMain.HandleHotkeyTriggered(Sender: TObject);
 begin
+  LogDebug('HandleHotkeyTriggered: Visible=%s, IsMinimized=%s', [
+    BoolToStr(Visible, True), BoolToStr(IsMinimized, True)
+  ], ClassName);
   FPresenter.OnVisibilityToggleRequested;
 end;
 
@@ -1153,6 +1138,12 @@ begin
     BoolToStr(Visible, True)
   ], ClassName);
 
+  if FShowInProgress then
+  begin
+    LogDebug('HandleApplicationDeactivate: Suppressed (ShowView in progress)', ClassName);
+    Exit;
+  end;
+
   if (FGeneralConfig.WindowMode = wmMenu) and FWindowConfig.MenuHideOnFocusLoss and Visible then
   begin
     // Check if cursor is over the notification area (tray icons)
@@ -1187,80 +1178,46 @@ end;
 
 { View interfaces implementation }
 
+procedure TFormMain.UpdateBatteryTrayForItem(const AItem: TDeviceDisplayItem);
+begin
+  if not Assigned(FBatteryTrayManager) then
+    Exit;
+
+  if AItem.Device.IsConnected then
+  begin
+    if AItem.BatteryStatus.IsPending then
+      FBatteryTrayManager.UpdateDevicePending(
+        AItem.Device.AddressInt,
+        AItem.DisplayName
+      )
+    else if AItem.BatteryStatus.Level >= 0 then
+      FBatteryTrayManager.UpdateDevice(
+        AItem.Device.AddressInt,
+        AItem.DisplayName,
+        AItem.BatteryStatus.Level,
+        True
+      )
+    else
+      FBatteryTrayManager.RemoveDevice(AItem.Device.AddressInt);
+  end
+  else
+    FBatteryTrayManager.RemoveDevice(AItem.Device.AddressInt);
+end;
+
 procedure TFormMain.ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
 var
   I: Integer;
-  Item: TDeviceDisplayItem;
 begin
   FDeviceList.SetDisplayItems(AItems);
 
-  // Update battery tray icons for devices with battery info
-  if Assigned(FBatteryTrayManager) then
-  begin
-    for I := 0 to High(AItems) do
-    begin
-      Item := AItems[I];
-      if Item.Device.IsConnected then
-      begin
-        if Item.BatteryStatus.IsPending then
-          // Show pending icon while battery is being refreshed
-          FBatteryTrayManager.UpdateDevicePending(
-            Item.Device.AddressInt,
-            Item.DisplayName
-          )
-        else if Item.BatteryStatus.Level >= 0 then
-          // Show battery level icon
-          FBatteryTrayManager.UpdateDevice(
-            Item.Device.AddressInt,
-            Item.DisplayName,
-            Item.BatteryStatus.Level,
-            True
-          )
-        else
-          // Battery not supported or unknown - remove icon
-          FBatteryTrayManager.RemoveDevice(Item.Device.AddressInt);
-      end
-      else
-        // Remove tray icon for disconnected devices
-        FBatteryTrayManager.RemoveDevice(Item.Device.AddressInt);
-    end;
-  end;
+  for I := 0 to High(AItems) do
+    UpdateBatteryTrayForItem(AItems[I]);
 end;
 
 procedure TFormMain.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
 begin
   FDeviceList.UpdateDisplayItem(AItem);
-
-  // Update battery tray icon for this device (same logic as ShowDisplayItems)
-  if Assigned(FBatteryTrayManager) then
-  begin
-    LogDebug('UpdateDisplayItem: Address=$%.12X, IsConnected=%s, IsPending=%s, Level=%d',
-      [AItem.Device.AddressInt, BoolToStr(AItem.Device.IsConnected, True),
-       BoolToStr(AItem.BatteryStatus.IsPending, True), AItem.BatteryStatus.Level], ClassName);
-    if AItem.Device.IsConnected then
-    begin
-      if AItem.BatteryStatus.IsPending then
-        // Show pending icon while battery is being refreshed
-        FBatteryTrayManager.UpdateDevicePending(
-          AItem.Device.AddressInt,
-          AItem.DisplayName
-        )
-      else if AItem.BatteryStatus.Level >= 0 then
-        // Show battery level icon
-        FBatteryTrayManager.UpdateDevice(
-          AItem.Device.AddressInt,
-          AItem.DisplayName,
-          AItem.BatteryStatus.Level,
-          True
-        )
-      else
-        // Battery not supported or unknown - remove icon
-        FBatteryTrayManager.RemoveDevice(AItem.Device.AddressInt);
-    end
-    else
-      // Remove tray icon for disconnected devices
-      FBatteryTrayManager.RemoveDevice(AItem.Device.AddressInt);
-  end;
+  UpdateBatteryTrayForItem(AItem);
 end;
 
 procedure TFormMain.ClearDevices;
@@ -1337,6 +1294,7 @@ procedure TFormMain.ShowView;
 var
   ActiveWndBefore, ActiveWndAfter: HWND;
 begin
+  FLastShowViewTick := GetTickCount;
   LogInfo('ShowView', ClassName);
 
   // Position window based on PositionMode
@@ -1345,16 +1303,30 @@ begin
   if (FGeneralConfig.WindowMode = wmMenu) or (FPositionConfig.PositionMode <> pmCoordinates) then
     ApplyWindowPosition;
 
+  LogDebug('ShowView: Position after layout: Left=%d, Top=%d, Width=%d, Height=%d, Monitor=%d, MonitorDPI=%d', [
+    Left, Top, Width, Height, Monitor.MonitorNum, Monitor.PixelsPerInch
+  ], ClassName);
+
   ActiveWndBefore := GetActiveWindow;
   LogDebug('ShowView: Before Show, ActiveWindow=$%x, OurHandle=$%x', [ActiveWndBefore, Handle], ClassName);
 
-  Show;
-  WindowState := wsNormal;
+  // Guard: prevent WMActivate(WA_INACTIVE) from hiding the window during
+  // Show+ForceForeground sequence. Without this, a background process
+  // (e.g. started minimized to tray) triggers WA_ACTIVE then immediate
+  // WA_INACTIVE inside Show, and HideOnFocusLoss fires before
+  // ForceForegroundWindow has a chance to claim the foreground.
+  FShowInProgress := True;
+  try
+    Show;
+    WindowState := wsNormal;
 
-  // Force foreground activation even from background context (e.g., hotkey)
-  // Windows restricts SetForegroundWindow for background processes, so we
-  // temporarily attach to the foreground thread to bypass this restriction
-  ForceForegroundWindow(Handle);
+    // Force foreground activation even from background context (e.g., hotkey)
+    // Windows restricts SetForegroundWindow for background processes, so we
+    // temporarily attach to the foreground thread to bypass this restriction
+    ForceForegroundWindow(Handle);
+  finally
+    FShowInProgress := False;
+  end;
 
   ActiveWndAfter := GetActiveWindow;
   LogDebug('ShowView: After ForceForeground, ActiveWindow=$%x, GetForegroundWindow=$%x', [
@@ -1376,11 +1348,15 @@ begin
   // Notify presenter that view is now visible (triggers battery refresh)
   if FPresenter <> nil then
     FPresenter.OnViewShown;
+
+  LogDebug('ShowView: Complete, Final: Left=%d, Top=%d, Width=%d, Height=%d, Visible=%s, ElapsedMs=%d', [
+    Left, Top, Width, Height, BoolToStr(Visible, True), GetTickCount - FLastShowViewTick
+  ], ClassName);
 end;
 
 procedure TFormMain.HideView;
 begin
-  LogInfo('HideView', ClassName);
+  LogInfo('HideView: MsSinceShowView=%d', [GetTickCount - FLastShowViewTick], ClassName);
 
   // Uninstall foreground hook before hiding
   UninstallForegroundHook;
@@ -1441,13 +1417,16 @@ end;
 procedure TFormMain.WMForegroundLost(var Msg: TMessage);
 var
   NewForegroundWnd: HWND;
+  ElapsedSinceShow: Cardinal;
 begin
   NewForegroundWnd := HWND(Msg.LParam);
-  LogDebug('WMForegroundLost: NewForegroundWnd=$%x, Visible=%s, WindowMode=%d, HideOnFocusLoss=%s', [
+  ElapsedSinceShow := GetTickCount - FLastShowViewTick;
+  LogDebug('WMForegroundLost: NewForegroundWnd=$%x, Visible=%s, WindowMode=%d, HideOnFocusLoss=%s, MsSinceShowView=%d', [
     NewForegroundWnd,
     BoolToStr(Visible, True),
     Ord(FGeneralConfig.WindowMode),
-    BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True)
+    BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True),
+    ElapsedSinceShow
   ], ClassName);
 
   // Hide if we're visible in menu mode with hide-on-focus-loss enabled
@@ -1495,6 +1474,14 @@ begin
   // This is more reliable than Application.OnDeactivate for WS_EX_TOOLWINDOW windows
   if (Msg.Active = WA_INACTIVE) then
   begin
+    // Suppress hide during ShowView - Windows foreground lockout can cause
+    // a spurious WA_INACTIVE between Show and ForceForegroundWindow
+    if FShowInProgress then
+    begin
+      LogDebug('WMActivate: WA_INACTIVE suppressed (ShowView in progress)', ClassName);
+      Exit;
+    end;
+
     if (FGeneralConfig.WindowMode = wmMenu) and
        FWindowConfig.MenuHideOnFocusLoss and
        Visible then
@@ -1536,23 +1523,86 @@ end;
 
 procedure TFormMain.WMHotkeyDetected(var Msg: TMessage);
 begin
+  LogDebug('WMHotkeyDetected: Received, wParam=%d, Visible=%s', [
+    Msg.WParam, BoolToStr(Visible, True)
+  ], ClassName);
+
   // Check all hotkey managers - wParam contains InstanceId of the triggered hotkey
   if FHotkeyManager.HandleHotkeyDetected(Msg.WParam) then
     Exit;
   if Assigned(FCastPanelHotkeyManager) and FCastPanelHotkeyManager.HandleHotkeyDetected(Msg.WParam) then
     Exit;
-  if Assigned(FBluetoothPanelHotkeyManager) then
-    FBluetoothPanelHotkeyManager.HandleHotkeyDetected(Msg.WParam);
+  if Assigned(FBluetoothPanelHotkeyManager) and FBluetoothPanelHotkeyManager.HandleHotkeyDetected(Msg.WParam) then
+    Exit;
+
+  LogWarning('WMHotkeyDetected: No manager matched wParam=%d', [Msg.WParam], ClassName);
 end;
 
 procedure TFormMain.WMDpiChanged(var Msg: TMessage);
+var
+  NewPPI: Word;
+  SuggestedRect: PRect;
+  SuggestedWidth, SuggestedHeight: Integer;
+  PreWidth, PreHeight: Integer;
 begin
-  inherited;
-
-  if (FGeneralConfig.WindowMode = wmMenu) and Visible then
+  // ApplyWindowPosition -> SetBounds may trigger another WM_DPICHANGED;
+  // let VCL handle it without our extra logic to avoid infinite recursion
+  if FDpiChanging then
   begin
-    LogDebug('WMDpiChanged: Repositioning window', ClassName);
-    ApplyWindowPosition;
+    LogDebug('WMDpiChanged: Recursion guard, delegating to inherited only', ClassName);
+    inherited;
+    Exit;
+  end;
+
+  FDpiChanging := True;
+  try
+    NewPPI := LOWORD(Msg.WParam);
+    SuggestedRect := PRect(Msg.LParam);
+    SuggestedWidth := SuggestedRect^.Right - SuggestedRect^.Left;
+    SuggestedHeight := SuggestedRect^.Bottom - SuggestedRect^.Top;
+    PreWidth := Width;
+    PreHeight := Height;
+
+    LogDebug('WMDpiChanged: BEFORE inherited: CurrentPPI=%d, NewPPI=%d, Bounds=(%d,%d,%dx%d), SuggestedSize=%dx%d, Visible=%s', [
+      CurrentPPI, NewPPI, Left, Top, Width, Height,
+      SuggestedWidth, SuggestedHeight,
+      BoolToStr(Visible, True)
+    ], ClassName);
+
+    inherited;
+
+    LogDebug('WMDpiChanged: AFTER inherited: CurrentPPI=%d, Bounds=(%d,%d,%dx%d)', [
+      CurrentPPI, Left, Top, Width, Height
+    ], ClassName);
+
+    // VCL may skip scaling when CurrentPPI was already updated before the
+    // handler ran (happens when PositionWindow moves the form across DPI
+    // boundaries via SetBounds -- Windows updates the DPI context before
+    // delivering WM_DPICHANGED, so ScaleForPPI sees OldPPI = NewPPI).
+    // Detect this by comparing dimensions before/after inherited: if they
+    // didn't change but the suggested rect has different dimensions, apply it.
+    if (Width = PreWidth) and (Height = PreHeight) and
+       ((SuggestedWidth <> PreWidth) or (SuggestedHeight <> PreHeight)) then
+    begin
+      LogDebug('WMDpiChanged: VCL did not scale, applying suggested size %dx%d', [
+        SuggestedWidth, SuggestedHeight
+      ], ClassName);
+      SetBounds(Left, Top, SuggestedWidth, SuggestedHeight);
+    end;
+
+    // Reposition for menu mode regardless of Visible state -- PositionWindow
+    // triggers WM_DPICHANGED before Show makes the window visible, so the
+    // Visible check caused repositioning to be skipped entirely
+    if FGeneralConfig.WindowMode = wmMenu then
+    begin
+      LogDebug('WMDpiChanged: Repositioning window', ClassName);
+      ApplyWindowPosition;
+      LogDebug('WMDpiChanged: AFTER reposition: Bounds=(%d,%d,%dx%d)', [
+        Left, Top, Width, Height
+      ], ClassName);
+    end;
+  finally
+    FDpiChanging := False;
   end;
 end;
 

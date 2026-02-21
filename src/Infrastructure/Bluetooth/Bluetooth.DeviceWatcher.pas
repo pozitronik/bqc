@@ -17,6 +17,7 @@ uses
   Winapi.Messages,
   System.SysUtils,
   System.Classes,
+  System.SyncObjs,
   System.Generics.Collections,
   Bluetooth.Types,
   Bluetooth.WinAPI,
@@ -24,6 +25,24 @@ uses
   App.Logger;
 
 type
+  /// <summary>
+  /// Interface for querying device connection state.
+  /// Extracted for testability - allows mocking device state in tests.
+  /// </summary>
+  IDeviceStateQuery = interface
+    ['{7F8B2A3C-9D4E-4F6B-A1C5-8E3D2F7A6B9C}']
+    /// <summary>
+    /// Queries the actual connection state of a device.
+    /// </summary>
+    /// <param name="AAddress">Bluetooth device address.</param>
+    /// <returns>
+    /// csConnected if device is connected,
+    /// csDisconnected if device is disconnected,
+    /// csUnknown if query failed or state cannot be determined.
+    /// </returns>
+    function QueryConnectionState(AAddress: UInt64): TBluetoothConnectionState;
+  end;
+
   /// <summary>
   /// Handler procedure for processing Bluetooth custom events.
   /// </summary>
@@ -83,6 +102,7 @@ type
     FRadioHandle: THandle;
     FNotifyHandle: THandle;  // HDEVNOTIFY - handle from RegisterDeviceNotification
     FIsRunning: Boolean;
+    FStateQuery: IDeviceStateQuery;  // Injected dependency for testing
 
     // GUID-to-handler registry for extensible event processing (OCP)
     FEventHandlers: TDictionary<TGUID, TBluetoothEventHandler>;
@@ -97,12 +117,6 @@ type
     procedure RegisterEventHandlers;
     procedure WndProc(var Msg: TMessage);
     procedure HandleDeviceChange(wParam: WPARAM; lParam: LPARAM);
-    procedure ProcessCustomEvent(ABroadcast: Pointer);
-    procedure ProcessHciEvent(AEventInfo: Pointer);
-    procedure ProcessL2CapEvent(AEventInfo: Pointer);
-    procedure ProcessRadioInRange(AEventInfo: Pointer);
-    procedure ProcessRadioOutOfRange(AAddress: Pointer);
-    function QueryDeviceConnectionState(AAddress: UInt64): TBluetoothConnectionState;
 
     function OpenBluetoothRadio: Boolean;
     procedure CloseBluetoothRadio;
@@ -116,8 +130,46 @@ type
     procedure DoDeviceOutOfRange(const ADeviceAddress: UInt64);
     procedure DoError(const AMessage: string; AErrorCode: DWORD);
 
+  protected
+    /// <summary>
+    /// Protected for testing - processes custom Bluetooth events by dispatching to appropriate handler.
+    /// </summary>
+    procedure ProcessCustomEvent(ABroadcast: Pointer);
+
+    /// <summary>
+    /// Protected for testing - processes HCI (Host Controller Interface) events.
+    /// </summary>
+    procedure ProcessHciEvent(AEventInfo: Pointer);
+
+    /// <summary>
+    /// Protected for testing - processes L2CAP (Logical Link Control and Adaptation Protocol) events.
+    /// </summary>
+    procedure ProcessL2CapEvent(AEventInfo: Pointer);
+
+    /// <summary>
+    /// Protected for testing - processes radio in range (discovery) events.
+    /// </summary>
+    procedure ProcessRadioInRange(AEventInfo: Pointer);
+
+    /// <summary>
+    /// Protected for testing - processes radio out of range events.
+    /// </summary>
+    procedure ProcessRadioOutOfRange(AAddress: Pointer);
+
+    /// <summary>
+    /// Protected for testing - queries actual device connection state via Windows API.
+    /// Returns csConnected, csDisconnected, or csUnknown (if query fails).
+    /// </summary>
+    function QueryDeviceConnectionState(AAddress: UInt64): TBluetoothConnectionState;
+
   public
-    constructor Create;
+    /// <summary>
+    /// Creates device watcher with optional state query dependency injection.
+    /// </summary>
+    /// <param name="AStateQuery">
+    /// Device state query implementation. If nil, uses default Windows API implementation.
+    /// </param>
+    constructor Create(AStateQuery: IDeviceStateQuery = nil);
     destructor Destroy; override;
 
     /// <summary>
@@ -178,15 +230,58 @@ implementation
 uses
   Vcl.Forms;
 
+type
+  /// <summary>
+  /// Default implementation of IDeviceStateQuery using Windows Bluetooth API.
+  /// </summary>
+  TDefaultDeviceStateQuery = class(TInterfacedObject, IDeviceStateQuery)
+  public
+    function QueryConnectionState(AAddress: UInt64): TBluetoothConnectionState;
+  end;
+
+{ TDefaultDeviceStateQuery }
+
+function TDefaultDeviceStateQuery.QueryConnectionState(
+  AAddress: UInt64): TBluetoothConnectionState;
+var
+  DeviceInfo: BLUETOOTH_DEVICE_INFO;
+  ErrorCode: DWORD;
+begin
+  // Query actual device state via Windows API
+  InitDeviceInfo(DeviceInfo);
+  DeviceInfo.Address.ullLong := AAddress;
+
+  ErrorCode := BluetoothGetDeviceInfo(0, DeviceInfo);
+  if ErrorCode = ERROR_SUCCESS then
+  begin
+    if DeviceInfo.fConnected then
+      Result := csConnected
+    else
+      Result := csDisconnected;
+  end
+  else
+  begin
+    LogDebug('QueryConnectionState: BluetoothGetDeviceInfo failed, error=%d',
+      [ErrorCode], 'TDefaultDeviceStateQuery');
+    Result := csUnknown;
+  end;
+end;
+
 { TBluetoothDeviceWatcher }
 
-constructor TBluetoothDeviceWatcher.Create;
+constructor TBluetoothDeviceWatcher.Create(AStateQuery: IDeviceStateQuery);
 begin
   inherited Create;
   FWindowHandle := 0;
   FRadioHandle := 0;
   FNotifyHandle := 0;
   FIsRunning := False;
+
+  // Use injected state query or create default
+  if Assigned(AStateQuery) then
+    FStateQuery := AStateQuery
+  else
+    FStateQuery := TDefaultDeviceStateQuery.Create;
 
   // Initialize event handlers registry
   FEventHandlers := TDictionary<TGUID, TBluetoothEventHandler>.Create;
@@ -393,11 +488,22 @@ procedure TBluetoothDeviceWatcher.ProcessCustomEvent(ABroadcast: Pointer);
 var
   Broadcast: PDEV_BROADCAST_HANDLE;
   Handler: TBluetoothEventHandler;
+  Found: Boolean;
 begin
   Broadcast := PDEV_BROADCAST_HANDLE(ABroadcast);
 
-  // Look up handler in registry (OCP - extensible without modification)
-  if FEventHandlers.TryGetValue(Broadcast^.dbch_eventguid, Handler) then
+  // BUG FIX: Synchronize dictionary access (TDictionary is not thread-safe)
+  // WndProc can be called from any thread per Windows documentation
+  System.TMonitor.Enter(FEventHandlers);
+  try
+    // Look up handler in registry (OCP - extensible without modification)
+    Found := FEventHandlers.TryGetValue(Broadcast^.dbch_eventguid, Handler);
+  finally
+    System.TMonitor.Exit(FEventHandlers);
+  end;
+
+  // Call handler outside lock to avoid deadlocks
+  if Found then
   begin
     LogDebug('ProcessCustomEvent: Found handler for GUID', ClassName);
     Handler(@Broadcast^.dbch_data[0]);
@@ -422,28 +528,9 @@ end;
 
 function TBluetoothDeviceWatcher.QueryDeviceConnectionState(
   AAddress: UInt64): TBluetoothConnectionState;
-var
-  DeviceInfo: BLUETOOTH_DEVICE_INFO;
-  ErrorCode: DWORD;
 begin
-  // Query actual device state via Windows API
-  InitDeviceInfo(DeviceInfo);
-  DeviceInfo.Address.ullLong := AAddress;
-
-  ErrorCode := BluetoothGetDeviceInfo(0, DeviceInfo);
-  if ErrorCode = ERROR_SUCCESS then
-  begin
-    if DeviceInfo.fConnected then
-      Result := csConnected
-    else
-      Result := csDisconnected;
-  end
-  else
-  begin
-    LogDebug('QueryDeviceConnectionState: BluetoothGetDeviceInfo failed, error=%d',
-      [ErrorCode], ClassName);
-    Result := csUnknown;
-  end;
+  // Delegate to injected state query (allows mocking in tests)
+  Result := FStateQuery.QueryConnectionState(AAddress);
 end;
 
 procedure TBluetoothDeviceWatcher.ProcessHciEvent(AEventInfo: Pointer);
@@ -452,6 +539,13 @@ var
   DeviceAddress: UInt64;
   ActualState: TBluetoothConnectionState;
 begin
+  // BUG FIX: Validate pointer before dereferencing
+  if AEventInfo = nil then
+  begin
+    DoError('ProcessHciEvent: Nil event data received', 0);
+    Exit;
+  end;
+
   EventInfo := PBTH_HCI_EVENT_INFO(AEventInfo);
   // bthAddress is UInt64 (BTH_ADDR), not BLUETOOTH_ADDRESS record
   DeviceAddress := EventInfo^.bthAddress;
@@ -474,25 +568,31 @@ begin
 
     if EventInfo^.connected <> 0 then
     begin
-      // SCO connect - only fire if device wasn't already connected
-      if ActualState <> csConnected then
+      // SCO connect - only fire if device state is KNOWN and was disconnected
+      // BUG FIX: Check for csDisconnected explicitly, ignore csUnknown (query failure)
+      if ActualState = csDisconnected then
       begin
         LogDebug('ProcessHciEvent: SCO connect on new device, firing OnDeviceConnected', ClassName);
         DoDeviceConnected(DeviceAddress);
       end
+      else if ActualState = csConnected then
+        LogDebug('ProcessHciEvent: Device already connected, ignoring SCO connect (profile switch)', ClassName)
       else
-        LogDebug('ProcessHciEvent: Device already connected, ignoring SCO connect (profile switch)', ClassName);
+        LogDebug('ProcessHciEvent: Device state unknown, ignoring SCO connect (cannot determine if new connection)', ClassName);
     end
     else
     begin
-      // SCO disconnect - only fire if device is actually disconnected
-      if ActualState <> csConnected then
+      // SCO disconnect - only fire if device state is KNOWN and actually disconnected
+      // BUG FIX: Check for csDisconnected explicitly, ignore csUnknown (query failure)
+      if ActualState = csDisconnected then
       begin
         LogDebug('ProcessHciEvent: SCO disconnect, device not connected, firing OnDeviceDisconnected', ClassName);
         DoDeviceDisconnected(DeviceAddress);
       end
+      else if ActualState = csConnected then
+        LogDebug('ProcessHciEvent: Device still connected (A2DP active), ignoring SCO disconnect', ClassName)
       else
-        LogDebug('ProcessHciEvent: Device still connected (A2DP active), ignoring SCO disconnect', ClassName);
+        LogDebug('ProcessHciEvent: Device state unknown, ignoring SCO disconnect (cannot determine if fully disconnected)', ClassName);
     end;
     Exit;
   end;
@@ -517,6 +617,13 @@ var
   ProfileName: string;
   Profile: TBluetoothProfile;
 begin
+  // BUG FIX: Validate pointer before dereferencing
+  if AEventInfo = nil then
+  begin
+    DoError('ProcessL2CapEvent: Nil event data received', 0);
+    Exit;
+  end;
+
   EventInfo := PBTH_L2CAP_EVENT_INFO(AEventInfo);
 
   // Map PSM to profile type for better logging
@@ -549,6 +656,13 @@ var
   DeviceInfo: TBluetoothDeviceInfo;
   IsConnected, IsPaired: Boolean;
 begin
+  // BUG FIX: Validate pointer before dereferencing
+  if AEventInfo = nil then
+  begin
+    DoError('ProcessRadioInRange: Nil event data received', 0);
+    Exit;
+  end;
+
   EventInfo := PBTH_RADIO_IN_RANGE(AEventInfo);
 
   // BTH_DEVICE_INFO uses flags field, not bool fields like BLUETOOTH_DEVICE_INFO
@@ -582,6 +696,13 @@ procedure TBluetoothDeviceWatcher.ProcessRadioOutOfRange(AAddress: Pointer);
 var
   Address: PBLUETOOTH_ADDRESS;
 begin
+  // BUG FIX: Validate pointer before dereferencing
+  if AAddress = nil then
+  begin
+    DoError('ProcessRadioOutOfRange: Nil address data received', 0);
+    Exit;
+  end;
+
   Address := PBLUETOOTH_ADDRESS(AAddress);
   LogDebug('ProcessRadioOutOfRange: Address=$%.12X', [Address^.ullLong], ClassName);
   DoDeviceOutOfRange(Address^.ullLong);
