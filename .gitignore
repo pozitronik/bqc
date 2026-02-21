@@ -10,3 +10,13 @@ build_temp/
 bqc_*.zip
 /tests/*.res
 /tests/FastMM5
+/bqc.delphilsp.json
+/CLAUDE.md
+.claude/
+.idea/
+coverage/
+resources/
+themes/
+tools/
+docs/
+/tests/BQCTests.identcache
