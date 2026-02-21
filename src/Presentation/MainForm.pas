@@ -38,7 +38,9 @@ uses
   UI.DeviceList,
   UI.TrayManager,
   UI.HotkeyManager,
-  UI.BatteryTrayManager;
+  UI.BatteryTrayManager,
+  App.RestApiConfigIntf,
+  App.RestApiServer;
 
 const
   WM_DPICHANGED = $02E0;
@@ -96,6 +98,7 @@ type
     FDeviceList: TDeviceListBox;
     FTrayManager: TTrayManager;
     FBatteryTrayManager: TBatteryTrayManager;
+    FRestApiServer: TRestApiServer;
     FHotkeyManager: THotkeyManager;
     FCastPanelHotkeyManager: THotkeyManager;
     FBluetoothPanelHotkeyManager: THotkeyManager;
@@ -159,6 +162,10 @@ type
 
     { Battery tray helpers }
     procedure UpdateBatteryTrayForItem(const AItem: TDeviceDisplayItem);
+
+    { REST API helpers }
+    procedure StartRestApiServer;
+    procedure StopRestApiServer;
 
     { View interfaces implementation }
     procedure ShowDisplayItems(const AItems: TDeviceDisplayItemArray);
@@ -474,6 +481,9 @@ begin
   InitializeHotkey;
   FinalizeMenuMode;
 
+  // Start REST API server if enabled
+  StartRestApiServer;
+
   LogDebug('FormCreate: Complete', ClassName);
 end;
 
@@ -492,6 +502,10 @@ begin
     LogDebug('FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d',
       [Left, Top, Width, Height], ClassName);
   end;
+
+  // Stop and free REST API server
+  StopRestApiServer;
+  FreeAndNil(FRestApiServer);
 
   // Shutdown presenter
   if FPresenter <> nil then
@@ -941,6 +955,10 @@ begin
     LogCfg.LogAppend, LogCfg.LogLevel);
   App.Logger.SetLogSourceFilter(LogCfg.LogSourceFilter);
 
+  // Reconfigure REST API server (stop and restart if settings changed)
+  StopRestApiServer;
+  StartRestApiServer;
+
   LogDebug('ApplyAllSettings: Complete', ClassName);
 end;
 
@@ -1031,6 +1049,7 @@ begin
       FDeviceConfigProvider,
       FBatteryTrayConfig,
       Bootstrap.ProfileConfig,
+      Bootstrap.RestApiConfig,
       FThemeManager
     );
     // HandleSettingsApplied calls ApplyAllSettings which includes ApplyHotkeySettings
@@ -1212,6 +1231,10 @@ begin
 
   for I := 0 to High(AItems) do
     UpdateBatteryTrayForItem(AItems[I]);
+
+  // Update REST API snapshot
+  if Assigned(FRestApiServer) then
+    FRestApiServer.UpdateDeviceSnapshot(AItems);
 end;
 
 procedure TFormMain.UpdateDisplayItem(const AItem: TDeviceDisplayItem);
@@ -1234,11 +1257,19 @@ begin
     BluetoothToggle.State := tssOn
   else
     BluetoothToggle.State := tssOff;
+
+  // Update REST API adapter state
+  if Assigned(FRestApiServer) then
+    FRestApiServer.UpdateAdapterState(BluetoothToggle.Enabled, AEnabled);
 end;
 
 procedure TFormMain.SetToggleEnabled(AEnabled: Boolean);
 begin
   BluetoothToggle.Enabled := AEnabled;
+
+  // Update REST API adapter availability
+  if Assigned(FRestApiServer) then
+    FRestApiServer.UpdateAdapterState(AEnabled, BluetoothToggle.State = tssOn);
 end;
 
 procedure TFormMain.ShowStatus(const AMessage: string);
@@ -1635,6 +1666,40 @@ begin
   end;
 
   inherited;
+end;
+
+{ REST API server lifecycle }
+
+procedure TFormMain.StartRestApiServer;
+var
+  ApiConfig: IRestApiConfig;
+begin
+  ApiConfig := FAppConfig.AsRestApiConfig;
+  if not ApiConfig.Enabled then
+    Exit;
+  try
+    if FRestApiServer = nil then
+      FRestApiServer := TRestApiServer.Create;
+    FRestApiServer.Start(ApiConfig.Port, ApiConfig.BindAddress);
+    // Push current adapter state (presenter may have set it before server existed)
+    FRestApiServer.UpdateAdapterState(
+      BluetoothToggle.Enabled,
+      BluetoothToggle.State = tssOn);
+  except
+    on E: Exception do
+    begin
+      LogError('REST API server failed to start: %s', [E.Message], ClassName);
+      FTrayManager.ShowNotification('REST API Error',
+        Format('Could not start API server on port %d: %s', [ApiConfig.Port, E.Message]),
+        bfWarning);
+    end;
+  end;
+end;
+
+procedure TFormMain.StopRestApiServer;
+begin
+  if Assigned(FRestApiServer) then
+    FRestApiServer.Stop;
 end;
 
 end.

@@ -26,6 +26,7 @@ uses
   App.NotificationConfigIntf,
   App.BatteryTrayConfigIntf,
   App.ProfileConfigIntf,
+  App.RestApiConfigIntf,
   App.ConfigSectionTypes,
   App.ConfigSection.General,
   App.ConfigSection.Window,
@@ -38,7 +39,8 @@ uses
   App.ConfigSection.Connection,
   App.ConfigSection.Notification,
   App.ConfigSection.BatteryTray,
-  App.ConfigSection.Profile;
+  App.ConfigSection.Profile,
+  App.ConfigSection.RestApi;
 
 type
   /// <summary>
@@ -78,6 +80,7 @@ type
     FNotificationSection: INotificationConfig;
     FBatteryTraySection: IBatteryTrayConfig;
     FProfileSection: IProfileConfig;
+    FRestApiSection: IRestApiConfig;
 
     procedure MarkModified;
     procedure CreateSections;
@@ -143,6 +146,7 @@ type
     function AsBatteryTrayConfig: IBatteryTrayConfig;
     function AsProfileConfig: IProfileConfig;
     function AsDeviceConfigProvider: IDeviceConfigProvider;
+    function AsRestApiConfig: IRestApiConfig;
   end;
 
 const
@@ -270,6 +274,7 @@ begin
   FNotificationSection := TNotificationConfigSection.Create(Notifier);
   FBatteryTraySection := TBatteryTrayConfigSection.Create(Notifier);
   FProfileSection := TProfileConfigSection.Create(Notifier);
+  FRestApiSection := TRestApiConfigSection.Create(Notifier);
 end;
 
 destructor TAppConfig.Destroy;
@@ -298,6 +303,7 @@ begin
     FNotificationSection := nil;
     FBatteryTraySection := nil;
     FProfileSection := nil;
+    FRestApiSection := nil;
   end;
   inherited Destroy;
 end;
@@ -454,6 +460,11 @@ end;
 function TAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
 begin
   Result := FDeviceConfigProvider;
+end;
+
+function TAppConfig.AsRestApiConfig: IRestApiConfig;
+begin
+  Result := FRestApiSection;
 end;
 
 end.

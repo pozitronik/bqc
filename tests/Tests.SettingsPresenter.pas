@@ -329,11 +329,13 @@ begin
     FMockView as ILoggingSettingsView,
     FMockView as IBatteryTraySettingsView,
     FMockView as IProfileSettingsView,
+    FMockView as IRestApiSettingsView,
     FMockView as IDeviceSettingsView,
     FMockAppConfig,
     FMockDeviceConfigProvider,
     FMockAppConfig.AsBatteryTrayConfig,
-    FMockAppConfig.AsProfileConfig
+    FMockAppConfig.AsProfileConfig,
+    FMockAppConfig.AsRestApiConfig
   );
 end;
 

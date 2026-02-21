@@ -1939,6 +1939,80 @@ object FormSettings: TFormSettings
         end
       end
     end
+    object TabApi: TTabSheet
+      Caption = 'API'
+      ImageIndex = 10
+      object GroupRestApi: TGroupBox
+        Left = 0
+        Top = 0
+        Width = 536
+        Height = 200
+        Align = alTop
+        Caption = 'REST API Server'
+        TabOrder = 0
+        object CheckApiEnabled: TCheckBox
+          Left = 12
+          Top = 24
+          Width = 200
+          Height = 17
+          Caption = 'Enable REST API server'
+          TabOrder = 0
+        end
+        object LabelApiPort: TLabel
+          Left = 12
+          Top = 56
+          Width = 24
+          Height = 15
+          Caption = 'Port'
+        end
+        object EditApiPort: TEdit
+          Left = 112
+          Top = 53
+          Width = 80
+          Height = 23
+          TabOrder = 1
+        end
+        object UpDownApiPort: TUpDown
+          Left = 192
+          Top = 53
+          Width = 17
+          Height = 23
+          Associate = EditApiPort
+          Min = 1024
+          Max = 65535
+          Position = 8765
+          TabOrder = 2
+        end
+        object LabelApiBindAddress: TLabel
+          Left = 12
+          Top = 88
+          Width = 70
+          Height = 15
+          Caption = 'Bind address'
+        end
+        object EditApiBindAddress: TEdit
+          Left = 112
+          Top = 85
+          Width = 180
+          Height = 23
+          TabOrder = 3
+          Text = '127.0.0.1'
+        end
+        object LabelApiHint: TLabel
+          Left = 12
+          Top = 124
+          Width = 500
+          Height = 60
+          AutoSize = False
+          Caption =
+            'When enabled, provides read-only device status at http://{addre' +
+            'ss}:{port}/api/devices. Use 127.0.0.1 for local access only, or' +
+            ' 0.0.0.0 to allow network access. Changes take effect after Appl' +
+            'y/OK.'
+          WordWrap = True
+        end
+      end
+    end
   end
   object SaveDialogLog: TSaveDialog
     DefaultExt = 'log'

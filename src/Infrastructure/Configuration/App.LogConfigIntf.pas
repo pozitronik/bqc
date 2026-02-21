@@ -83,7 +83,7 @@ const
   /// <summary>
   /// Known log source class names, used to populate the source filter UI.
   /// </summary>
-  LOG_SOURCE_NAMES: array[0..30] of string = (
+  LOG_SOURCE_NAMES: array[0..31] of string = (
     'TAutostartManager', 'TBatteryTrayManager', 'TBLEBatteryQueryStrategy',
     'TBluetoothConnectionExecutor', 'TBluetoothDeviceWatcher',
     'TBluetoothPairingService', 'TBluetoothService', 'TCoordinatesPositioner',
@@ -93,8 +93,8 @@ const
     'TFormHotkeyPicker', 'TFormMain', 'TFormSettings', 'THotkeyManager',
     'TIniSettingsRepository', 'TLogger', 'TMainPresenter',
     'TNullVerificationStrategy', 'TPollingMonitor', 'TProfileQuery',
-    'TRegistryNameCache', 'TSystemThemeDetector', 'TThemeManager',
-    'TTrayManager', 'TWindowsPairingStrategy'
+    'TRegistryNameCache', 'TRestApiServer', 'TSystemThemeDetector',
+    'TThemeManager', 'TTrayManager', 'TWindowsPairingStrategy'
   );
 
 implementation

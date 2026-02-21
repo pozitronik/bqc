@@ -40,7 +40,8 @@ type
     ILoggingSettingsView,
     IDeviceSettingsView,
     IBatteryTraySettingsView,
-    IProfileSettingsView)
+    IProfileSettingsView,
+    IRestApiSettingsView)
   private
     FCloseWithOKCalled: Boolean;
     FCloseWithCancelCalled: Boolean;
@@ -80,6 +81,10 @@ type
     // Profile settings
     FProfileSettings: TProfileViewSettings;
     FSetProfileCount: Integer;
+
+    // REST API settings
+    FRestApiSettings: TRestApiViewSettings;
+    FSetRestApiCount: Integer;
 
     // Device settings
     FDeviceListItems: TArray<string>;
@@ -130,6 +135,10 @@ type
     function GetProfileSettings: TProfileViewSettings;
     procedure SetProfileSettings(const ASettings: TProfileViewSettings);
 
+    // IRestApiSettingsView
+    function GetRestApiSettings: TRestApiViewSettings;
+    procedure SetRestApiSettings(const ASettings: TRestApiViewSettings);
+
     // IDeviceSettingsView
     procedure PopulateDeviceList(const AItems: TArray<string>);
     function GetSelectedDeviceIndex: Integer;
@@ -177,6 +186,10 @@ type
     // Profile
     property ProfileSettings: TProfileViewSettings read FProfileSettings write FProfileSettings;
     property SetProfileCount: Integer read FSetProfileCount;
+
+    // REST API
+    property RestApiSettings: TRestApiViewSettings read FRestApiSettings write FRestApiSettings;
+    property SetRestApiCount: Integer read FSetRestApiCount;
 
     // Device
     property DeviceListItems: TArray<string> read FDeviceListItems;
@@ -294,6 +307,7 @@ begin
   FSetLayoutCount := 0;
   FSetConnectionCount := 0;
   FSetLoggingCount := 0;
+  FSetRestApiCount := 0;
   FSetDeviceCount := 0;
   FClearDeviceCount := 0;
 end;
@@ -409,6 +423,17 @@ procedure TMockSettingsView.SetProfileSettings(const ASettings: TProfileViewSett
 begin
   FProfileSettings := ASettings;
   Inc(FSetProfileCount);
+end;
+
+function TMockSettingsView.GetRestApiSettings: TRestApiViewSettings;
+begin
+  Result := FRestApiSettings;
+end;
+
+procedure TMockSettingsView.SetRestApiSettings(const ASettings: TRestApiViewSettings);
+begin
+  FRestApiSettings := ASettings;
+  Inc(FSetRestApiCount);
 end;
 
 procedure TMockSettingsView.PopulateThemeList(const ACurrentTheme: string);

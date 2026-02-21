@@ -28,7 +28,8 @@ uses
   App.LayoutConfigIntf,
   App.NotificationConfigIntf,
   App.BatteryTrayConfigIntf,
-  App.ProfileConfigIntf;
+  App.ProfileConfigIntf,
+  App.RestApiConfigIntf;
 
 type
   /// <summary>
@@ -68,6 +69,7 @@ const
   SEC_DEVICE_PREFIX = 'Device.';
   SEC_BATTERY_TRAY = 'BatteryTray';
   SEC_PROFILE = 'Profile';
+  SEC_API = 'API';
 
   // INI key names - [General]
   KEY_WINDOW = 'Window';
@@ -166,6 +168,11 @@ const
   KEY_SHOW_PROFILES = 'ShowProfiles';
   KEY_PROFILE_FONT_SIZE = 'ProfileFontSize';
 
+  // INI key names - [API]
+  KEY_API_ENABLED = 'Enabled';
+  KEY_API_PORT = 'Port';
+  KEY_API_BIND_ADDRESS = 'BindAddress';
+
   // Default values
   DEF_WINDOW_MODE = wmWindow;
   DEF_ON_TOP = False;
@@ -205,6 +212,13 @@ const
   DEF_SHOW_PROFILES = False;      // Disabled by default, user opt-in
   DEF_PROFILE_FONT_SIZE = 7;      // Small font for profile tree
   DEF_SHOW_UNIDENTIFIED_DEVICES = True;  // Show all devices by default (non-breaking)
+
+  // [API] defaults
+  DEF_API_ENABLED = False;
+  DEF_API_PORT = 8765;
+  DEF_API_BIND_ADDRESS = '127.0.0.1';
+  MIN_API_PORT = 1024;
+  MAX_API_PORT = 65535;
 
 implementation
 
@@ -409,6 +423,13 @@ begin
   // [Profile] section
   ProfileCfg.ShowProfiles := AIni.ReadBool(SEC_PROFILE, KEY_SHOW_PROFILES, DEF_SHOW_PROFILES);
   ProfileCfg.ProfileFontSize := AIni.ReadInteger(SEC_PROFILE, KEY_PROFILE_FONT_SIZE, DEF_PROFILE_FONT_SIZE);
+
+  // [API] section
+  var ApiCfg: IRestApiConfig;
+  ApiCfg := AConfig.AsRestApiConfig;
+  ApiCfg.Enabled := AIni.ReadBool(SEC_API, KEY_API_ENABLED, DEF_API_ENABLED);
+  ApiCfg.Port := AIni.ReadInteger(SEC_API, KEY_API_PORT, DEF_API_PORT);
+  ApiCfg.BindAddress := AIni.ReadString(SEC_API, KEY_API_BIND_ADDRESS, DEF_API_BIND_ADDRESS);
 end;
 
 procedure TIniSettingsRepository.ValidateRanges(AConfig: IAppConfig);
@@ -435,6 +456,11 @@ begin
   LayoutCfg.IconFontSize := EnsureRange(LayoutCfg.IconFontSize, MIN_ICON_FONT_SIZE, MAX_ICON_FONT_SIZE);
   ConnectionCfg.ConnectionTimeout := EnsureRange(ConnectionCfg.ConnectionTimeout, MIN_CONNECTION_TIMEOUT, MAX_CONNECTION_TIMEOUT);
   ConnectionCfg.ConnectionRetryCount := EnsureRange(ConnectionCfg.ConnectionRetryCount, MIN_CONNECTION_RETRY_COUNT, MAX_CONNECTION_RETRY_COUNT);
+
+  // API port range
+  var ApiCfg: IRestApiConfig;
+  ApiCfg := AConfig.AsRestApiConfig;
+  ApiCfg.Port := EnsureRange(ApiCfg.Port, MIN_API_PORT, MAX_API_PORT);
 end;
 
 procedure TIniSettingsRepository.SaveSettings(AConfig: IAppConfig);
@@ -580,6 +606,13 @@ begin
   // [Profile] - profile display settings
   AIni.WriteBool(SEC_PROFILE, KEY_SHOW_PROFILES, ProfileCfg.ShowProfiles);
   AIni.WriteInteger(SEC_PROFILE, KEY_PROFILE_FONT_SIZE, ProfileCfg.ProfileFontSize);
+
+  // [API] - REST API settings
+  var ApiCfg: IRestApiConfig;
+  ApiCfg := AConfig.AsRestApiConfig;
+  AIni.WriteBool(SEC_API, KEY_API_ENABLED, ApiCfg.Enabled);
+  AIni.WriteInteger(SEC_API, KEY_API_PORT, ApiCfg.Port);
+  AIni.WriteString(SEC_API, KEY_API_BIND_ADDRESS, ApiCfg.BindAddress);
 end;
 
 end.

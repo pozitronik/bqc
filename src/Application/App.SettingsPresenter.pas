@@ -22,7 +22,8 @@ uses
   App.LayoutConfigIntf,
   App.NotificationConfigIntf,
   App.BatteryTrayConfigIntf,
-  App.ProfileConfigIntf;
+  App.ProfileConfigIntf,
+  App.RestApiConfigIntf;
 
 type
   //----------------------------------------------------------------------------
@@ -170,6 +171,15 @@ type
     ProfileFontSize: Integer;
   end;
 
+  /// <summary>
+  /// REST API server settings.
+  /// </summary>
+  TRestApiViewSettings = record
+    Enabled: Boolean;
+    Port: Integer;
+    BindAddress: string;
+  end;
+
   //----------------------------------------------------------------------------
   // Focused Settings View Interfaces (ISP-compliant)
   //----------------------------------------------------------------------------
@@ -272,6 +282,15 @@ type
     procedure SetProfileSettings(const ASettings: TProfileViewSettings);
   end;
 
+  /// <summary>
+  /// REST API settings view operations.
+  /// </summary>
+  IRestApiSettingsView = interface
+    ['{A3B4C5D6-E7F8-9012-CDEF-012345678901}']
+    function GetRestApiSettings: TRestApiViewSettings;
+    procedure SetRestApiSettings(const ASettings: TRestApiViewSettings);
+  end;
+
   //----------------------------------------------------------------------------
   // TDeviceSettingsPresenter - Device settings presenter (SRP-compliant)
   //----------------------------------------------------------------------------
@@ -356,6 +375,7 @@ type
     FLoggingSettingsView: ILoggingSettingsView;
     FBatteryTraySettingsView: IBatteryTraySettingsView;
     FProfileSettingsView: IProfileSettingsView;
+    FRestApiSettingsView: IRestApiSettingsView;
 
     FDevicePresenter: TDeviceSettingsPresenter;
     FAppConfig: IAppConfig;
@@ -375,6 +395,7 @@ type
     FLogConfig: ILogConfig;
     FBatteryTrayConfig: IBatteryTrayConfig;
     FProfileConfig: IProfileConfig;
+    FRestApiConfig: IRestApiConfig;
 
     function ValidateHotkeys(const AHotkey: THotkeyViewSettings): Boolean;
   public
@@ -388,11 +409,13 @@ type
       ALoggingSettingsView: ILoggingSettingsView;
       ABatteryTraySettingsView: IBatteryTraySettingsView;
       AProfileSettingsView: IProfileSettingsView;
+      ARestApiSettingsView: IRestApiSettingsView;
       ADeviceSettingsView: IDeviceSettingsView;
       AAppConfig: IAppConfig;
       ADeviceConfigProvider: IDeviceConfigProvider;
       ABatteryTrayConfig: IBatteryTrayConfig;
-      AProfileConfig: IProfileConfig
+      AProfileConfig: IProfileConfig;
+      ARestApiConfig: IRestApiConfig
     );
     destructor Destroy; override;
 
@@ -649,11 +672,13 @@ constructor TSettingsPresenter.Create(
   ALoggingSettingsView: ILoggingSettingsView;
   ABatteryTraySettingsView: IBatteryTraySettingsView;
   AProfileSettingsView: IProfileSettingsView;
+  ARestApiSettingsView: IRestApiSettingsView;
   ADeviceSettingsView: IDeviceSettingsView;
   AAppConfig: IAppConfig;
   ADeviceConfigProvider: IDeviceConfigProvider;
   ABatteryTrayConfig: IBatteryTrayConfig;
-  AProfileConfig: IProfileConfig
+  AProfileConfig: IProfileConfig;
+  ARestApiConfig: IRestApiConfig
 );
 begin
   inherited Create;
@@ -668,6 +693,7 @@ begin
   FLoggingSettingsView := ALoggingSettingsView;
   FBatteryTraySettingsView := ABatteryTraySettingsView;
   FProfileSettingsView := AProfileSettingsView;
+  FRestApiSettingsView := ARestApiSettingsView;
 
   FAppConfig := AAppConfig;
   FModified := False;
@@ -685,6 +711,7 @@ begin
   FLogConfig := AAppConfig.AsLogConfig;
   FBatteryTrayConfig := ABatteryTrayConfig;
   FProfileConfig := AProfileConfig;
+  FRestApiConfig := ARestApiConfig;
 
   // Create device settings presenter with delegation
   FDevicePresenter := TDeviceSettingsPresenter.Create(ADeviceSettingsView, ADeviceConfigProvider);
@@ -809,6 +836,16 @@ begin
     Profile.ShowProfiles := FProfileConfig.ShowProfiles;
     Profile.ProfileFontSize := FProfileConfig.ProfileFontSize;
     FProfileSettingsView.SetProfileSettings(Profile);
+  end;
+
+  // REST API settings
+  if Assigned(FRestApiConfig) then
+  begin
+    var RestApi: TRestApiViewSettings;
+    RestApi.Enabled := FRestApiConfig.Enabled;
+    RestApi.Port := FRestApiConfig.Port;
+    RestApi.BindAddress := FRestApiConfig.BindAddress;
+    FRestApiSettingsView.SetRestApiSettings(RestApi);
   end;
 
   // Device list (delegated to device presenter)
@@ -951,6 +988,16 @@ begin
       Profile := FProfileSettingsView.GetProfileSettings;
       FProfileConfig.ShowProfiles := Profile.ShowProfiles;
       FProfileConfig.ProfileFontSize := Profile.ProfileFontSize;
+    end;
+
+    // REST API settings
+    if Assigned(FRestApiConfig) then
+    begin
+      var RestApi: TRestApiViewSettings;
+      RestApi := FRestApiSettingsView.GetRestApiSettings;
+      FRestApiConfig.Enabled := RestApi.Enabled;
+      FRestApiConfig.Port := RestApi.Port;
+      FRestApiConfig.BindAddress := RestApi.BindAddress;
     end;
 
     // Save configuration to file

@@ -77,6 +77,7 @@ uses
   Tests.DeviceDiscoveryCoordinator in 'Tests.DeviceDiscoveryCoordinator.pas',
   Tests.DeviceBatteryCoordinator in 'Tests.DeviceBatteryCoordinator.pas',
   Tests.PairingService in 'Tests.PairingService.pas',
+  Tests.RestApiSnapshot in 'Tests.RestApiSnapshot.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in '..\src\Application\Bluetooth.ConnectionStrategies.pas',
@@ -147,7 +148,10 @@ uses
   WinRT.AsyncHelpers in '..\src\Infrastructure\WinRT.AsyncHelpers.pas',
   App.ProfileConfigIntf in '..\src\Infrastructure\App.ProfileConfigIntf.pas',
   App.ConfigSection.Profile in '..\src\Infrastructure\App.ConfigSection.Profile.pas',
-  App.DeviceNotificationCoordinator in '..\src\Application\App.DeviceNotificationCoordinator.pas';
+  App.DeviceNotificationCoordinator in '..\src\Application\App.DeviceNotificationCoordinator.pas',
+  App.RestApiConfigIntf in '..\src\Infrastructure\Configuration\App.RestApiConfigIntf.pas',
+  App.ConfigSection.RestApi in '..\src\Infrastructure\Configuration\App.ConfigSection.RestApi.pas',
+  App.RestApiSnapshot in '..\src\Infrastructure\System\App.RestApiSnapshot.pas';
 
 
 {$IFNDEF TESTINSIGHT}

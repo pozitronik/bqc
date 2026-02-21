@@ -23,6 +23,7 @@ uses
   App.BatteryTrayConfigIntf,
   App.ProfileConfigIntf,
   App.SettingsPresenter,
+  App.RestApiConfigIntf,
   App.WinRTSupport,
   UI.Theme,
   HotkeyPickerForm;
@@ -42,7 +43,8 @@ type
     ILoggingSettingsView,
     IDeviceSettingsView,
     IBatteryTraySettingsView,
-    IProfileSettingsView)
+    IProfileSettingsView,
+    IRestApiSettingsView)
     PanelBottom: TPanel;
     ButtonOK: TButton;
     ButtonCancel: TButton;
@@ -241,6 +243,17 @@ type
     ButtonOpenConfig: TButton;
     ButtonResetDefaults: TButton;
 
+    { Tab: API }
+    TabApi: TTabSheet;
+    GroupRestApi: TGroupBox;
+    CheckApiEnabled: TCheckBox;
+    LabelApiPort: TLabel;
+    EditApiPort: TEdit;
+    UpDownApiPort: TUpDown;
+    LabelApiBindAddress: TLabel;
+    EditApiBindAddress: TEdit;
+    LabelApiHint: TLabel;
+
     { Common dialogs }
     ColorDialogConnected: TColorDialog;
     GroupDeviceGeneral: TGroupBox;
@@ -356,6 +369,7 @@ type
     FDeviceConfigProvider: IDeviceConfigProvider;
     FBatteryTrayConfig: IBatteryTrayConfig;
     FProfileConfig: IProfileConfig;
+    FRestApiConfig: IRestApiConfig;
     FThemeManager: IThemeManager;
 
     { ISettingsDialogView implementation }
@@ -406,6 +420,10 @@ type
     function GetProfileSettings: TProfileViewSettings;
     procedure SetProfileSettings(const ASettings: TProfileViewSettings);
 
+    { IRestApiSettingsView implementation }
+    function GetRestApiSettings: TRestApiViewSettings;
+    procedure SetRestApiSettings(const ASettings: TRestApiViewSettings);
+
     { UI helpers }
     procedure InitUpDownLimits;
     procedure InitDeviceTypeCombo;
@@ -427,6 +445,7 @@ type
       ADeviceConfigProvider: IDeviceConfigProvider;
       ABatteryTrayConfig: IBatteryTrayConfig;
       AProfileConfig: IProfileConfig;
+      ARestApiConfig: IRestApiConfig;
       AThemeManager: IThemeManager
     );
     function GetOnSettingsApplied: TNotifyEvent;
@@ -452,6 +471,7 @@ uses
   Vcl.FileCtrl,
   App.Logger,
   App.Config,
+  App.SettingsRepository,
   Bluetooth.Types,
   UI.HotkeyManager;
 
@@ -472,6 +492,7 @@ procedure TFormSettings.Setup(
   ADeviceConfigProvider: IDeviceConfigProvider;
   ABatteryTrayConfig: IBatteryTrayConfig;
   AProfileConfig: IProfileConfig;
+  ARestApiConfig: IRestApiConfig;
   AThemeManager: IThemeManager
 );
 begin
@@ -480,6 +501,7 @@ begin
   FDeviceConfigProvider := ADeviceConfigProvider;
   FBatteryTrayConfig := ABatteryTrayConfig;
   FProfileConfig := AProfileConfig;
+  FRestApiConfig := ARestApiConfig;
   FThemeManager := AThemeManager;
 
   // Create presenter with injected dependencies
@@ -493,11 +515,13 @@ begin
     Self as ILoggingSettingsView,
     Self as IBatteryTraySettingsView,
     Self as IProfileSettingsView,
+    Self as IRestApiSettingsView,
     Self as IDeviceSettingsView,
     FAppConfig,
     FDeviceConfigProvider,
     FBatteryTrayConfig,
-    FProfileConfig
+    FProfileConfig,
+    FRestApiConfig
   );
 end;
 
@@ -1033,6 +1057,22 @@ begin
   UpDownProfileFontSize.Position := ASettings.ProfileFontSize;
 end;
 
+{ IRestApiSettingsView }
+
+function TFormSettings.GetRestApiSettings: TRestApiViewSettings;
+begin
+  Result.Enabled := CheckApiEnabled.Checked;
+  Result.Port := UpDownApiPort.Position;
+  Result.BindAddress := EditApiBindAddress.Text;
+end;
+
+procedure TFormSettings.SetRestApiSettings(const ASettings: TRestApiViewSettings);
+begin
+  CheckApiEnabled.Checked := ASettings.Enabled;
+  UpDownApiPort.Position := ASettings.Port;
+  EditApiBindAddress.Text := ASettings.BindAddress;
+end;
+
 { UI helpers - Initialization }
 
 procedure TFormSettings.InitUpDownLimits;
@@ -1074,6 +1114,10 @@ begin
   UpDownDeviceTimeout.Max := MAX_CONNECTION_TIMEOUT;
   UpDownDeviceRetryCount.Min := -1;
   UpDownDeviceRetryCount.Max := MAX_CONNECTION_RETRY_COUNT;
+
+  // API port limits
+  UpDownApiPort.Min := MIN_API_PORT;
+  UpDownApiPort.Max := MAX_API_PORT;
 end;
 
 procedure TFormSettings.InitDeviceTypeCombo;
@@ -1249,6 +1293,11 @@ begin
   // Profile settings
   CheckShowProfiles.OnClick := HandleSettingChanged;
   EditProfileFontSize.OnChange := HandleSettingChanged;
+
+  // Tab: API
+  CheckApiEnabled.OnClick := HandleSettingChanged;
+  EditApiPort.OnChange := HandleSettingChanged;
+  EditApiBindAddress.OnChange := HandleSettingChanged;
 end;
 
 procedure TFormSettings.ConfigureWinRTDependentControls;

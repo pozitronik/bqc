@@ -33,7 +33,8 @@ uses
   App.NotificationConfigIntf,
   App.DeviceConfigTypes,
   App.BatteryTrayConfigIntf,
-  App.ProfileConfigIntf;
+  App.ProfileConfigIntf,
+  App.RestApiConfigIntf;
 
 type
   /// <summary>
@@ -535,6 +536,29 @@ type
   end;
 
   /// <summary>
+  /// Mock implementation of IRestApiConfig for testing.
+  /// </summary>
+  TMockRestApiConfig = class(TInterfacedObject, IRestApiConfig)
+  private
+    FEnabled: Boolean;
+    FPort: Integer;
+    FBindAddress: string;
+  public
+    constructor Create;
+
+    function GetEnabled: Boolean;
+    function GetPort: Integer;
+    function GetBindAddress: string;
+    procedure SetEnabled(AValue: Boolean);
+    procedure SetPort(AValue: Integer);
+    procedure SetBindAddress(const AValue: string);
+
+    property Enabled: Boolean read FEnabled write FEnabled;
+    property Port: Integer read FPort write FPort;
+    property BindAddress: string read FBindAddress write FBindAddress;
+  end;
+
+  /// <summary>
   /// Mock implementation of IAppConfig for testing.
   /// Provides sub-interface mocks for testability.
   /// </summary>
@@ -559,6 +583,7 @@ type
     FNotificationConfig: INotificationConfig;
     FBatteryTrayConfig: IBatteryTrayConfig;
     FProfileConfig: IProfileConfig;
+    FRestApiConfig: IRestApiConfig;
     FDeviceConfigProvider: IDeviceConfigProvider;
   public
     constructor Create;
@@ -583,6 +608,7 @@ type
     function AsBatteryTrayConfig: IBatteryTrayConfig;
     function AsProfileConfig: IProfileConfig;
     function AsDeviceConfigProvider: IDeviceConfigProvider;
+    function AsRestApiConfig: IRestApiConfig;
 
     // Test verification
     property Modified: Boolean read FModified write FModified;
@@ -604,6 +630,7 @@ type
     property NotificationConfig: INotificationConfig read FNotificationConfig;
     property BatteryTrayConfig: IBatteryTrayConfig read FBatteryTrayConfig;
     property ProfileConfig: IProfileConfig read FProfileConfig;
+    property RestApiConfig: IRestApiConfig read FRestApiConfig;
   end;
 
 implementation
@@ -1628,6 +1655,46 @@ begin
   FDefaultCustomOutlineColor := AValue;
 end;
 
+{ TMockRestApiConfig }
+
+constructor TMockRestApiConfig.Create;
+begin
+  inherited Create;
+  FEnabled := False;
+  FPort := 8765;
+  FBindAddress := '127.0.0.1';
+end;
+
+function TMockRestApiConfig.GetEnabled: Boolean;
+begin
+  Result := FEnabled;
+end;
+
+function TMockRestApiConfig.GetPort: Integer;
+begin
+  Result := FPort;
+end;
+
+function TMockRestApiConfig.GetBindAddress: string;
+begin
+  Result := FBindAddress;
+end;
+
+procedure TMockRestApiConfig.SetEnabled(AValue: Boolean);
+begin
+  FEnabled := AValue;
+end;
+
+procedure TMockRestApiConfig.SetPort(AValue: Integer);
+begin
+  FPort := AValue;
+end;
+
+procedure TMockRestApiConfig.SetBindAddress(const AValue: string);
+begin
+  FBindAddress := AValue;
+end;
+
 { TMockAppConfig }
 
 constructor TMockAppConfig.Create;
@@ -1652,6 +1719,7 @@ begin
   FNotificationConfig := TMockNotificationConfig.Create;
   FBatteryTrayConfig := TMockBatteryTrayConfig.Create;
   FProfileConfig := TMockProfileConfig.Create;
+  FRestApiConfig := TMockRestApiConfig.Create;
   FDeviceConfigProvider := TMockDeviceConfigProvider.Create;
 end;
 
@@ -1752,6 +1820,11 @@ end;
 function TMockAppConfig.AsDeviceConfigProvider: IDeviceConfigProvider;
 begin
   Result := FDeviceConfigProvider;
+end;
+
+function TMockAppConfig.AsRestApiConfig: IRestApiConfig;
+begin
+  Result := FRestApiConfig;
 end;
 
 end.
