@@ -4,7 +4,7 @@ object FormSettings: TFormSettings
   BorderStyle = bsDialog
   Caption = 'Settings'
   ClientHeight = 576
-  ClientWidth = 544
+  ClientWidth = 621
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -19,38 +19,44 @@ object FormSettings: TFormSettings
   object PanelBottom: TPanel
     Left = 0
     Top = 535
-    Width = 544
+    Width = 621
     Height = 41
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
     ExplicitTop = 518
     ExplicitWidth = 538
+    DesignSize = (
+      621
+      41)
     object ButtonOK: TButton
-      Left = 282
+      Left = 369
       Top = 8
       Width = 80
       Height = 25
+      Anchors = [akTop, akRight]
       Caption = 'OK'
       Default = True
       TabOrder = 0
       OnClick = ButtonOKClick
     end
     object ButtonCancel: TButton
-      Left = 368
+      Left = 455
       Top = 8
       Width = 80
       Height = 25
+      Anchors = [akTop, akRight]
       Cancel = True
       Caption = 'Cancel'
       TabOrder = 1
       OnClick = ButtonCancelClick
     end
     object ButtonApply: TButton
-      Left = 454
+      Left = 541
       Top = 8
       Width = 80
       Height = 25
+      Anchors = [akTop, akRight]
       Caption = 'Apply'
       TabOrder = 2
       OnClick = ButtonApplyClick
@@ -59,19 +65,18 @@ object FormSettings: TFormSettings
   object PageControl: TPageControl
     Left = 0
     Top = 0
-    Width = 544
+    Width = 621
     Height = 535
     ActivePage = TabGeneral
     Align = alClient
     TabOrder = 1
-    ExplicitWidth = 538
-    ExplicitHeight = 518
+    ExplicitWidth = 544
     object TabGeneral: TTabSheet
       Caption = 'Program'
       object GroupWindowMode: TGroupBox
         Left = 0
         Top = 0
-        Width = 536
+        Width = 613
         Height = 165
         Align = alTop
         Caption = 'How to display?'
@@ -99,7 +104,7 @@ object FormSettings: TFormSettings
         object GroupWindowOptions: TGroupBox
           Left = 2
           Top = 53
-          Width = 532
+          Width = 609
           Height = 55
           Align = alBottom
           Caption = 'When it'#39's window:'
@@ -133,7 +138,7 @@ object FormSettings: TFormSettings
         object GroupMenuOptions: TGroupBox
           Left = 2
           Top = 108
-          Width = 532
+          Width = 609
           Height = 55
           Align = alBottom
           Caption = 'When it'#39's menu:'
@@ -152,7 +157,7 @@ object FormSettings: TFormSettings
       object GroupPosition: TGroupBox
         Left = 0
         Top = 165
-        Width = 536
+        Width = 613
         Height = 95
         Align = alTop
         Caption = 'Positioning:'
@@ -220,11 +225,12 @@ object FormSettings: TFormSettings
       object GroupDisplayOptions: TGroupBox
         Left = 0
         Top = 0
-        Width = 536
+        Width = 613
         Height = 95
         Align = alTop
         Caption = 'Display Options'
         TabOrder = 0
+        ExplicitWidth = 536
         object CheckShowDeviceIcons: TCheckBox
           Left = 12
           Top = 24
@@ -285,11 +291,12 @@ object FormSettings: TFormSettings
       object GroupLayout: TGroupBox
         Left = 0
         Top = 95
-        Width = 536
+        Width = 613
         Height = 120
         Align = alTop
         Caption = 'Layout'
         TabOrder = 1
+        ExplicitWidth = 536
         object LabelItemHeight: TLabel
           Left = 12
           Top = 24
@@ -496,11 +503,12 @@ object FormSettings: TFormSettings
       object GroupDiscovery: TGroupBox
         Left = 0
         Top = 215
-        Width = 536
+        Width = 613
         Height = 80
         Align = alTop
         Caption = 'New devices && discovery'
         TabOrder = 2
+        ExplicitWidth = 536
         object CheckShowUnpairedDevices: TCheckBox
           Left = 12
           Top = 24
@@ -521,11 +529,12 @@ object FormSettings: TFormSettings
       object GroupFontSizes: TGroupBox
         Left = 0
         Top = 295
-        Width = 536
+        Width = 613
         Height = 86
         Align = alTop
         Caption = 'Font Sizes (pt)'
         TabOrder = 3
+        ExplicitWidth = 536
         object LabelDeviceNameSize: TLabel
           Left = 12
           Top = 24
@@ -664,11 +673,15 @@ object FormSettings: TFormSettings
       object GroupHotkey: TGroupBox
         Left = 0
         Top = 0
-        Width = 536
+        Width = 613
         Height = 122
         Align = alTop
         Caption = 'Global Hotkeys'
         TabOrder = 0
+        ExplicitWidth = 536
+        DesignSize = (
+          613
+          122)
         object LabelHotkey: TLabel
           Left = 12
           Top = 27
@@ -693,25 +706,28 @@ object FormSettings: TFormSettings
         object EditHotkey: TEdit
           Left = 118
           Top = 24
-          Width = 230
+          Width = 313
           Height = 23
+          Anchors = [akLeft, akTop, akRight]
           ReadOnly = True
           TabOrder = 0
         end
         object ButtonRecordHotkey: TButton
-          Left = 359
+          Left = 441
           Top = 24
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Record...'
           TabOrder = 1
           OnClick = ButtonRecordHotkeyClick
         end
         object ButtonClearHotkey: TButton
-          Left = 445
+          Left = 527
           Top = 24
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Clear'
           TabOrder = 2
           OnClick = ButtonClearHotkeyClick
@@ -719,25 +735,28 @@ object FormSettings: TFormSettings
         object EditCastPanelHotkey: TEdit
           Left = 118
           Top = 56
-          Width = 230
+          Width = 313
           Height = 23
+          Anchors = [akLeft, akTop, akRight]
           ReadOnly = True
           TabOrder = 3
         end
         object ButtonRecordCastHotkey: TButton
-          Left = 359
+          Left = 441
           Top = 56
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Record...'
           TabOrder = 4
           OnClick = ButtonRecordCastHotkeyClick
         end
         object ButtonClearCastHotkey: TButton
-          Left = 445
+          Left = 527
           Top = 56
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Clear'
           TabOrder = 5
           OnClick = ButtonClearCastHotkeyClick
@@ -745,25 +764,28 @@ object FormSettings: TFormSettings
         object EditBluetoothPanelHotkey: TEdit
           Left = 118
           Top = 89
-          Width = 230
+          Width = 313
           Height = 23
+          Anchors = [akLeft, akTop, akRight]
           ReadOnly = True
           TabOrder = 6
         end
         object ButtonRecordBluetoothHotkey: TButton
-          Left = 359
+          Left = 441
           Top = 89
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Record...'
           TabOrder = 7
           OnClick = ButtonRecordBluetoothHotkeyClick
         end
         object ButtonClearBluetoothHotkey: TButton
-          Left = 445
+          Left = 527
           Top = 89
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Clear'
           TabOrder = 8
           OnClick = ButtonClearBluetoothHotkeyClick
@@ -784,11 +806,15 @@ object FormSettings: TFormSettings
       object GroupTheme: TGroupBox
         Left = 0
         Top = 0
-        Width = 536
+        Width = 613
         Height = 95
         Align = alTop
         Caption = 'Theme'
         TabOrder = 0
+        ExplicitWidth = 536
+        DesignSize = (
+          613
+          95)
         object LabelTheme: TLabel
           Left = 12
           Top = 27
@@ -806,23 +832,26 @@ object FormSettings: TFormSettings
         object ComboTheme: TComboBox
           Left = 94
           Top = 24
-          Width = 250
+          Width = 426
           Height = 23
           Style = csDropDownList
+          Anchors = [akLeft, akTop, akRight]
           TabOrder = 0
         end
         object EditVsfDir: TEdit
           Left = 94
           Top = 56
-          Width = 346
+          Width = 426
           Height = 23
+          Anchors = [akLeft, akTop, akRight]
           TabOrder = 1
         end
         object ButtonBrowseVsfDir: TButton
-          Left = 446
+          Left = 526
           Top = 56
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Browse...'
           TabOrder = 2
           OnClick = ButtonBrowseVsfDirClick
@@ -831,11 +860,15 @@ object FormSettings: TFormSettings
       object GroupColors: TGroupBox
         Left = 0
         Top = 95
-        Width = 536
+        Width = 613
         Height = 187
         Align = alTop
         Caption = 'Colors'
         TabOrder = 1
+        ExplicitWidth = 536
+        DesignSize = (
+          613
+          187)
         object LabelConnectedColor: TLabel
           Left = 12
           Top = 24
@@ -846,7 +879,7 @@ object FormSettings: TFormSettings
         object ShapeConnectedColor: TShape
           Left = 121
           Top = 21
-          Width = 70
+          Width = 80
           Height = 23
           Cursor = crHandPoint
         end
@@ -858,11 +891,12 @@ object FormSettings: TFormSettings
           Caption = 'Primary color:'
         end
         object ShapeMainCustomColor: TShape
-          Left = 446
+          Left = 526
           Top = 54
-          Width = 70
+          Width = 80
           Height = 23
           Cursor = crHandPoint
+          Anchors = [akTop, akRight]
         end
         object LabelSecondaryColorSource: TLabel
           Left = 12
@@ -872,11 +906,12 @@ object FormSettings: TFormSettings
           Caption = 'Secondary color:'
         end
         object ShapeSecondaryCustomColor: TShape
-          Left = 446
+          Left = 526
           Top = 83
-          Width = 70
+          Width = 80
           Height = 23
           Cursor = crHandPoint
+          Anchors = [akTop, akRight]
         end
         object LabelBackgroundSource: TLabel
           Left = 12
@@ -886,11 +921,12 @@ object FormSettings: TFormSettings
           Caption = 'Background color:'
         end
         object ShapeCustomBackgroundColor: TShape
-          Left = 446
+          Left = 526
           Top = 115
-          Width = 70
+          Width = 80
           Height = 23
           Cursor = crHandPoint
+          Anchors = [akTop, akRight]
         end
         object LabelHoverColorSource: TLabel
           Left = 12
@@ -900,23 +936,24 @@ object FormSettings: TFormSettings
           Caption = 'Hover color:'
         end
         object ShapeHoverCustomColor: TShape
-          Left = 446
+          Left = 526
           Top = 147
-          Width = 70
+          Width = 80
           Height = 23
           Cursor = crHandPoint
+          Anchors = [akTop, akRight]
         end
         object LabelBorderColor: TLabel
-          Left = 203
+          Left = 216
           Top = 24
           Width = 68
           Height = 15
           Caption = 'Border color:'
         end
         object ShapeBorderColor: TShape
-          Left = 284
+          Left = 296
           Top = 21
-          Width = 70
+          Width = 79
           Height = 23
           Cursor = crHandPoint
           Brush.Color = clGray
@@ -924,9 +961,10 @@ object FormSettings: TFormSettings
         object ComboMainColorSource: TComboBox
           Left = 121
           Top = 54
-          Width = 319
+          Width = 399
           Height = 23
           Style = csDropDownList
+          Anchors = [akLeft, akTop, akRight]
           TabOrder = 0
           Items.Strings = (
             'Theme text color'
@@ -935,9 +973,10 @@ object FormSettings: TFormSettings
         object ComboSecondaryColorSource: TComboBox
           Left = 121
           Top = 83
-          Width = 319
+          Width = 399
           Height = 23
           Style = csDropDownList
+          Anchors = [akLeft, akTop, akRight]
           TabOrder = 1
           Items.Strings = (
             'Theme text color'
@@ -947,9 +986,10 @@ object FormSettings: TFormSettings
         object ComboBackgroundSource: TComboBox
           Left = 121
           Top = 115
-          Width = 319
+          Width = 399
           Height = 23
           Style = csDropDownList
+          Anchors = [akLeft, akTop, akRight]
           TabOrder = 2
           Items.Strings = (
             'Theme window color'
@@ -959,9 +999,10 @@ object FormSettings: TFormSettings
         object ComboHoverColorSource: TComboBox
           Left = 121
           Top = 147
-          Width = 319
+          Width = 399
           Height = 23
           Style = csDropDownList
+          Anchors = [akLeft, akTop, akRight]
           TabOrder = 3
           Items.Strings = (
             'Theme window color'
@@ -976,11 +1017,12 @@ object FormSettings: TFormSettings
       object GroupConnectionDefaults: TGroupBox
         Left = 0
         Top = 0
-        Width = 536
+        Width = 613
         Height = 95
         Align = alTop
         Caption = 'Default Connection Settings'
         TabOrder = 0
+        ExplicitWidth = 536
         object LabelTimeout: TLabel
           Left = 12
           Top = 27
@@ -1041,11 +1083,12 @@ object FormSettings: TFormSettings
       object GroupPolling: TGroupBox
         Left = 0
         Top = 95
-        Width = 536
+        Width = 613
         Height = 90
         Align = alTop
         Caption = 'Device Monitoring'
         TabOrder = 1
+        ExplicitWidth = 536
         object LabelPollingMode: TLabel
           Left = 12
           Top = 27
@@ -1117,11 +1160,12 @@ object FormSettings: TFormSettings
       object GroupNotifications: TGroupBox
         Left = 0
         Top = 185
-        Width = 536
+        Width = 613
         Height = 123
         Align = alTop
         Caption = 'Notifications'
         TabOrder = 2
+        ExplicitWidth = 536
         object CheckNotifyOnConnect: TCheckBox
           Left = 12
           Top = 24
@@ -1162,11 +1206,12 @@ object FormSettings: TFormSettings
       object GroupBatteryTrayGlobal: TGroupBox
         Left = 0
         Top = 0
-        Width = 536
+        Width = 613
         Height = 195
         Align = alTop
         Caption = 'Battery Tray Icons'
         TabOrder = 0
+        ExplicitWidth = 536
         object LabelDefaultBatteryColor: TLabel
           Left = 12
           Top = 54
@@ -1177,22 +1222,22 @@ object FormSettings: TFormSettings
         object ShapeDefaultBatteryColor: TShape
           Left = 120
           Top = 52
-          Width = 70
+          Width = 80
           Height = 23
           Cursor = crHandPoint
           OnMouseDown = HandleShapeColorMouseDown
         end
         object LabelDefaultBackgroundColor: TLabel
-          Left = 210
+          Left = 236
           Top = 54
           Width = 97
           Height = 15
           Caption = 'Background color:'
         end
         object ShapeDefaultBackgroundColor: TShape
-          Left = 320
+          Left = 349
           Top = 51
-          Width = 70
+          Width = 80
           Height = 23
           Cursor = crHandPoint
           OnMouseDown = HandleShapeColorMouseDown
@@ -1219,7 +1264,7 @@ object FormSettings: TFormSettings
           Caption = 'Icon outline:'
         end
         object LabelCustomOutlineColor: TLabel
-          Left = 320
+          Left = 441
           Top = 82
           Width = 75
           Height = 15
@@ -1227,9 +1272,9 @@ object FormSettings: TFormSettings
           Visible = False
         end
         object ShapeCustomOutlineColor: TShape
-          Left = 401
-          Top = 77
-          Width = 70
+          Left = 527
+          Top = 80
+          Width = 80
           Height = 23
           Cursor = crHandPoint
           Brush.Color = clBlack
@@ -1237,7 +1282,7 @@ object FormSettings: TFormSettings
           OnMouseDown = HandleShapeColorMouseDown
         end
         object CheckTransparentBackground: TCheckBox
-          Left = 401
+          Left = 441
           Top = 54
           Width = 100
           Height = 17
@@ -1289,9 +1334,9 @@ object FormSettings: TFormSettings
           TabOrder = 6
         end
         object ComboOutlineColorMode: TComboBox
-          Left = 120
-          Top = 81
-          Width = 187
+          Left = 121
+          Top = 80
+          Width = 308
           Height = 23
           Style = csDropDownList
           TabOrder = 2
@@ -1305,11 +1350,12 @@ object FormSettings: TFormSettings
       object GroupBatteryNotifications: TGroupBox
         Left = 0
         Top = 195
-        Width = 536
+        Width = 613
         Height = 80
         Align = alTop
         Caption = 'Default Notifications'
         TabOrder = 1
+        ExplicitWidth = 536
         object CheckDefaultNotifyLowBattery: TCheckBox
           Left = 12
           Top = 24
@@ -1334,42 +1380,45 @@ object FormSettings: TFormSettings
       object PanelDeviceList: TPanel
         Left = 0
         Top = 0
-        Width = 200
+        Width = 276
         Height = 505
         Align = alLeft
+        Anchors = [akLeft, akTop, akRight, akBottom]
         BevelOuter = bvNone
         TabOrder = 0
         object ListDevices: TListBox
           Left = 0
           Top = 0
-          Width = 200
+          Width = 276
           Height = 473
           Align = alClient
           ItemHeight = 15
           TabOrder = 0
           OnClick = ListDevicesClick
+          ExplicitWidth = 208
         end
         object PanelDeviceButtons: TPanel
           Left = 0
           Top = 473
-          Width = 200
+          Width = 276
           Height = 32
           Align = alBottom
           BevelOuter = bvNone
           TabOrder = 1
+          ExplicitWidth = 200
           object ButtonForgetDevice: TButton
             Left = 0
-            Top = 4
-            Width = 95
+            Top = 5
+            Width = 132
             Height = 23
             Caption = 'Forget'
             TabOrder = 0
             OnClick = ButtonForgetDeviceClick
           end
           object ButtonRefreshDevices: TButton
-            Left = 104
-            Top = 4
-            Width = 95
+            Left = 143
+            Top = 5
+            Width = 132
             Height = 23
             Caption = 'Refresh'
             TabOrder = 1
@@ -1378,29 +1427,33 @@ object FormSettings: TFormSettings
         end
       end
       object PanelDeviceSettings: TPanel
-        Left = 200
+        Left = 276
         Top = 0
-        Width = 336
+        Width = 337
         Height = 505
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 1
+        ExplicitLeft = 200
+        ExplicitWidth = 336
         object GroupDeviceInfo: TGroupBox
           Left = 0
           Top = 0
-          Width = 336
+          Width = 337
           Height = 505
           Align = alClient
           Caption = 'Device Settings'
           TabOrder = 0
+          ExplicitWidth = 413
           object GroupDeviceConnection: TGroupBox
             Left = 2
             Top = 151
-            Width = 332
+            Width = 333
             Height = 89
             Align = alTop
             Caption = 'Connection (overrides global parameters)'
             TabOrder = 1
+            ExplicitWidth = 332
             object LabelDeviceTimeout: TLabel
               Left = 12
               Top = 25
@@ -1465,11 +1518,12 @@ object FormSettings: TFormSettings
           object GroupDeviceNotifications: TGroupBox
             Left = 2
             Top = 240
-            Width = 332
+            Width = 333
             Height = 90
             Align = alTop
             Caption = 'Notifications (overrides global parameters)'
             TabOrder = 2
+            ExplicitWidth = 332
             object LabelDeviceNotifyConnect: TLabel
               Left = 12
               Top = 27
@@ -1550,8 +1604,8 @@ object FormSettings: TFormSettings
           object GroupDeviceBatteryTray: TGroupBox
             Left = 2
             Top = 330
-            Width = 332
-            Height = 170
+            Width = 333
+            Height = 165
             Align = alTop
             Caption = 'Battery Tray Icon (overrides global parameters)'
             TabOrder = 3
@@ -1716,11 +1770,12 @@ object FormSettings: TFormSettings
           object GroupDeviceGeneral: TGroupBox
             Left = 2
             Top = 17
-            Width = 332
+            Width = 333
             Height = 134
             Align = alTop
             Caption = 'General'
             TabOrder = 0
+            ExplicitWidth = 332
             object LabelDeviceAlias: TLabel
               Left = 12
               Top = 25
@@ -1797,17 +1852,105 @@ object FormSettings: TFormSettings
         end
       end
     end
+    object TabApi: TTabSheet
+      Caption = 'API'
+      ImageIndex = 10
+      object GroupRestApi: TGroupBox
+        Left = 0
+        Top = 0
+        Width = 613
+        Height = 132
+        Align = alTop
+        Caption = 'REST API Server'
+        TabOrder = 0
+        DesignSize = (
+          613
+          132)
+        object LabelApiPort: TLabel
+          Left = 467
+          Top = 57
+          Width = 35
+          Height = 15
+          Caption = 'Port'
+        end
+        object LabelApiBindAddress: TLabel
+          Left = 12
+          Top = 57
+          Width = 67
+          Height = 15
+          Caption = 'Bind address'
+        end
+        object LabelApiHint: TLabel
+          Left = 12
+          Top = 87
+          Width = 593
+          Height = 60
+          Anchors = [akLeft, akTop, akRight]
+          AutoSize = False
+          Caption = 
+            'When enabled, provides read-only device status at http://{addres' +
+            's}:{port}/api/devices. Use 127.0.0.1 for local access only, or 0' +
+            '.0.0.0 to allow network access. Changes take effect after Apply/' +
+            'OK.'
+          WordWrap = True
+        end
+        object CheckApiEnabled: TCheckBox
+          Left = 12
+          Top = 24
+          Width = 200
+          Height = 17
+          Caption = 'Enable REST API server'
+          TabOrder = 0
+        end
+        object EditApiPort: TEdit
+          Left = 508
+          Top = 54
+          Width = 80
+          Height = 23
+          Anchors = [akLeft, akTop, akRight]
+          NumbersOnly = True
+          TabOrder = 1
+          Text = '8765'
+        end
+        object UpDownApiPort: TUpDown
+          Left = 588
+          Top = 54
+          Width = 17
+          Height = 23
+          Anchors = [akTop, akRight]
+          Associate = EditApiPort
+          Min = 1024
+          Max = 65535
+          Position = 8765
+          TabOrder = 2
+        end
+        object EditApiBindAddress: TEdit
+          Left = 112
+          Top = 54
+          Width = 333
+          Height = 23
+          Anchors = [akLeft, akTop, akRight]
+          TabOrder = 3
+          Text = '127.0.0.1'
+        end
+      end
+    end
     object TabAdvanced: TTabSheet
       Caption = 'Logging'
       ImageIndex = 7
       object GroupLogging: TGroupBox
         Left = 0
         Top = 0
-        Width = 536
-        Height = 330
-        Align = alTop
+        Width = 613
+        Height = 446
+        Align = alClient
         Caption = 'Logging'
         TabOrder = 0
+        ExplicitWidth = 536
+        ExplicitHeight = 330
+        DesignSize = (
+          613
+          446)
         object LabelLogFilename: TLabel
           Left = 12
           Top = 90
@@ -1848,7 +1991,7 @@ object FormSettings: TFormSettings
         object ComboLogLevel: TComboBox
           Left = 70
           Top = 54
-          Width = 120
+          Width = 161
           Height = 23
           Style = csDropDownList
           TabOrder = 2
@@ -1861,42 +2004,47 @@ object FormSettings: TFormSettings
         object EditLogFilename: TEdit
           Left = 70
           Top = 87
-          Width = 288
+          Width = 364
           Height = 23
+          Anchors = [akLeft, akTop, akRight]
           TabOrder = 3
         end
         object ButtonBrowseLogFile: TButton
-          Left = 364
+          Left = 440
           Top = 87
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Browse...'
           TabOrder = 4
           OnClick = ButtonBrowseLogFileClick
         end
         object ButtonOpenLogFile: TButton
-          Left = 450
+          Left = 526
           Top = 87
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Open log file'
           TabOrder = 5
           OnClick = ButtonOpenLogFileClick
         end
         object ButtonCheckAllSources: TButton
-          Left = 364
+          Left = 440
           Top = 119
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Check all'
           TabOrder = 6
           OnClick = ButtonCheckAllSourcesClick
         end
         object ButtonUncheckAllSources: TButton
-          Left = 450
+          Left = 526
           Top = 119
           Width = 80
           Height = 23
+          Anchors = [akTop, akRight]
           Caption = 'Uncheck all'
           TabOrder = 7
           OnClick = ButtonUncheckAllSourcesClick
@@ -1904,8 +2052,9 @@ object FormSettings: TFormSettings
         object CheckListLogSources: TCheckListBox
           Left = 12
           Top = 145
-          Width = 518
-          Height = 175
+          Width = 594
+          Height = 295
+          Anchors = [akLeft, akTop, akRight, akBottom]
           Columns = 2
           ItemHeight = 17
           TabOrder = 8
@@ -1913,12 +2062,14 @@ object FormSettings: TFormSettings
       end
       object GroupActions: TGroupBox
         Left = 0
-        Top = 330
-        Width = 536
+        Top = 446
+        Width = 613
         Height = 59
-        Align = alTop
+        Align = alBottom
         Caption = 'Actions'
         TabOrder = 1
+        ExplicitTop = 330
+        ExplicitWidth = 536
         object ButtonOpenConfig: TButton
           Left = 12
           Top = 24
@@ -1936,80 +2087,6 @@ object FormSettings: TFormSettings
           Caption = 'Reset to defaults'
           TabOrder = 1
           OnClick = ButtonResetDefaultsClick
-        end
-      end
-    end
-    object TabApi: TTabSheet
-      Caption = 'API'
-      ImageIndex = 10
-      object GroupRestApi: TGroupBox
-        Left = 0
-        Top = 0
-        Width = 536
-        Height = 200
-        Align = alTop
-        Caption = 'REST API Server'
-        TabOrder = 0
-        object CheckApiEnabled: TCheckBox
-          Left = 12
-          Top = 24
-          Width = 200
-          Height = 17
-          Caption = 'Enable REST API server'
-          TabOrder = 0
-        end
-        object LabelApiPort: TLabel
-          Left = 12
-          Top = 56
-          Width = 24
-          Height = 15
-          Caption = 'Port'
-        end
-        object EditApiPort: TEdit
-          Left = 112
-          Top = 53
-          Width = 80
-          Height = 23
-          TabOrder = 1
-        end
-        object UpDownApiPort: TUpDown
-          Left = 192
-          Top = 53
-          Width = 17
-          Height = 23
-          Associate = EditApiPort
-          Min = 1024
-          Max = 65535
-          Position = 8765
-          TabOrder = 2
-        end
-        object LabelApiBindAddress: TLabel
-          Left = 12
-          Top = 88
-          Width = 70
-          Height = 15
-          Caption = 'Bind address'
-        end
-        object EditApiBindAddress: TEdit
-          Left = 112
-          Top = 85
-          Width = 180
-          Height = 23
-          TabOrder = 3
-          Text = '127.0.0.1'
-        end
-        object LabelApiHint: TLabel
-          Left = 12
-          Top = 124
-          Width = 500
-          Height = 60
-          AutoSize = False
-          Caption =
-            'When enabled, provides read-only device status at http://{addre' +
-            'ss}:{port}/api/devices. Use 127.0.0.1 for local access only, or' +
-            ' 0.0.0.0 to allow network access. Changes take effect after Appl' +
-            'y/OK.'
-          WordWrap = True
         end
       end
     end
