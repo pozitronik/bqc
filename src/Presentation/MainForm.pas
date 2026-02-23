@@ -1150,16 +1150,25 @@ begin
 end;
 
 procedure TFormMain.HandleApplicationDeactivate(Sender: TObject);
+const
+  // ForceForegroundWindow via AttachThreadInput can briefly lose focus
+  // as the previous foreground app reclaims it; ignore deactivation
+  // that occurs within this settling window after ShowView
+  SHOW_SETTLE_MS = 150;
+var
+  ElapsedSinceShow: Cardinal;
 begin
-  LogDebug('HandleApplicationDeactivate: Called (WindowMode=%d, HideOnFocusLoss=%s, Visible=%s)', [
+  ElapsedSinceShow := GetTickCount - FLastShowViewTick;
+  LogDebug('HandleApplicationDeactivate: Called (WindowMode=%d, HideOnFocusLoss=%s, Visible=%s, MsSinceShowView=%d)', [
     Ord(FGeneralConfig.WindowMode),
     BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True),
-    BoolToStr(Visible, True)
+    BoolToStr(Visible, True),
+    ElapsedSinceShow
   ], ClassName);
 
-  if FShowInProgress then
+  if FShowInProgress or (ElapsedSinceShow < SHOW_SETTLE_MS) then
   begin
-    LogDebug('HandleApplicationDeactivate: Suppressed (ShowView in progress)', ClassName);
+    LogDebug('HandleApplicationDeactivate: Suppressed (ShowView in progress or settling, elapsed=%d)', [ElapsedSinceShow], ClassName);
     Exit;
   end;
 
@@ -1446,6 +1455,8 @@ end;
 { Windows message handlers }
 
 procedure TFormMain.WMForegroundLost(var Msg: TMessage);
+const
+  SHOW_SETTLE_MS = 150;
 var
   NewForegroundWnd: HWND;
   ElapsedSinceShow: Cardinal;
@@ -1459,6 +1470,13 @@ begin
     BoolToStr(FWindowConfig.MenuHideOnFocusLoss, True),
     ElapsedSinceShow
   ], ClassName);
+
+  // Suppress spurious deactivation during ForceForegroundWindow settling
+  if ElapsedSinceShow < SHOW_SETTLE_MS then
+  begin
+    LogDebug('WMForegroundLost: Suppressed (ShowView settling, elapsed=%d)', [ElapsedSinceShow], ClassName);
+    Exit;
+  end;
 
   // Hide if we're visible in menu mode with hide-on-focus-loss enabled
   if Visible and
