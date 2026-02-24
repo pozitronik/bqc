@@ -90,6 +90,14 @@ type
     procedure SaveAndLoad_PreservesConnectionSettings;
     [Test]
     procedure SaveAndLoad_PreservesNotificationSettings;
+
+    // REST API persistence tests
+    [Test]
+    procedure SaveSettings_WritesRestApiSection;
+    [Test]
+    procedure SaveAndLoad_PreservesRestApiSettings;
+    [Test]
+    procedure LoadSettings_ValidatesApiPortRange;
   end;
 
 implementation
@@ -770,6 +778,118 @@ begin
     Assert.AreEqual(Ord(nmBalloon), Ord(ConfigObj2.AsNotificationConfig.NotifyOnAutoConnect));
   finally
     Config2 := nil;
+  end;
+end;
+
+procedure TIniSettingsRepositoryTests.SaveSettings_WritesRestApiSection;
+var
+  Repo: ISettingsRepository;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
+  Ini: TMemIniFile;
+begin
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
+  try
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj.AsRestApiConfig.Enabled := True;
+    ConfigObj.AsRestApiConfig.Port := 9999;
+    ConfigObj.AsRestApiConfig.BindAddress := '0.0.0.0';
+    Repo.SaveSettings(Config);
+
+    Ini := TMemIniFile.Create(FConfigPath);
+    try
+      Assert.IsTrue(Ini.ReadBool('API', 'Enabled', False));
+      Assert.AreEqual(9999, Ini.ReadInteger('API', 'Port', 0));
+      Assert.AreEqual('0.0.0.0', Ini.ReadString('API', 'BindAddress', ''));
+    finally
+      Ini.Free;
+    end;
+  finally
+    Config := nil;
+  end;
+end;
+
+procedure TIniSettingsRepositoryTests.SaveAndLoad_PreservesRestApiSettings;
+var
+  Repo: ISettingsRepository;
+  ConfigObj1, ConfigObj2: TAppConfig;
+  Config1, Config2: IAppConfig;
+begin
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
+
+  ConfigObj1 := TAppConfig.Create;
+  Config1 := ConfigObj1;
+  try
+    ConfigObj1.SetRepositories(Repo, FDeviceRepository);
+    ConfigObj1.AsRestApiConfig.Enabled := True;
+    ConfigObj1.AsRestApiConfig.Port := 8080;
+    ConfigObj1.AsRestApiConfig.BindAddress := '192.168.1.100';
+    Repo.SaveSettings(Config1);
+  finally
+    Config1 := nil;
+  end;
+
+  ConfigObj2 := TAppConfig.Create;
+  Config2 := ConfigObj2;
+  try
+    ConfigObj2.SetRepositories(Repo, FDeviceRepository);
+    Repo.LoadSettings(Config2);
+    Assert.IsTrue(ConfigObj2.AsRestApiConfig.Enabled);
+    Assert.AreEqual(8080, ConfigObj2.AsRestApiConfig.Port);
+    Assert.AreEqual('192.168.1.100', ConfigObj2.AsRestApiConfig.BindAddress);
+  finally
+    Config2 := nil;
+  end;
+end;
+
+procedure TIniSettingsRepositoryTests.LoadSettings_ValidatesApiPortRange;
+var
+  Ini: TMemIniFile;
+  Repo: ISettingsRepository;
+  ConfigObj: TAppConfig;
+  Config: IAppConfig;
+begin
+  // Write port below minimum (1024)
+  Ini := TMemIniFile.Create(FConfigPath);
+  try
+    Ini.WriteInteger('API', 'Port', 80);
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
+
+  Repo := TIniSettingsRepository.Create(FConfigPath, FDevicePersistence);
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
+  try
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    Repo.LoadSettings(Config);
+    Assert.AreEqual(MIN_API_PORT, ConfigObj.AsRestApiConfig.Port,
+      'Port below minimum should be clamped to MIN_API_PORT');
+  finally
+    Config := nil;
+  end;
+
+  // Write port above maximum (65535)
+  Ini := TMemIniFile.Create(FConfigPath);
+  try
+    Ini.WriteInteger('API', 'Port', 99999);
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
+
+  ConfigObj := TAppConfig.Create;
+  Config := ConfigObj;
+  try
+    ConfigObj.SetRepositories(Repo, FDeviceRepository);
+    Repo.LoadSettings(Config);
+    Assert.AreEqual(MAX_API_PORT, ConfigObj.AsRestApiConfig.Port,
+      'Port above maximum should be clamped to MAX_API_PORT');
+  finally
+    Config := nil;
   end;
 end;
 
