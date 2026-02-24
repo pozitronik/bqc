@@ -114,7 +114,6 @@ type
 
     procedure ScheduleNextPairingSync;
 
-    function GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
     procedure RefreshDisplayItems;
 
     /// <summary>
@@ -822,7 +821,7 @@ begin
     Exit;
   end;
 
-  DeviceName := GetDeviceDisplayName(ADevice);
+  DeviceName := TDeviceFormatter.GetDisplayName(ADevice, FDeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt));
   LDevice := ADevice;
   LPairingService := FPairingService;
   LStatusView := FStatusView;
@@ -895,7 +894,7 @@ begin
   // Clear pairing flag to allow new pairing attempts
   FIsPairing := False;
 
-  DeviceName := GetDeviceDisplayName(ADevice);
+  DeviceName := TDeviceFormatter.GetDisplayName(ADevice, FDeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt));
 
   case AResult.Status of
     prsSuccess:
@@ -1144,12 +1143,6 @@ begin
     LogWarning('RemoveDeviceFromList: Device $%.12X not found in index map', [ADeviceAddress], ClassName);
 end;
 
-function TMainPresenter.GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
-begin
-  Result := FDeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt).Alias;
-  if Result = '' then
-    Result := ADevice.Name;
-end;
 
 function TMainPresenter.CreateScanActionItem: TDeviceDisplayItem;
 var

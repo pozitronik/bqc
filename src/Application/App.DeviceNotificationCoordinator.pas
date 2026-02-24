@@ -29,11 +29,6 @@ type
     FStatusView: IStatusView;
     FDeviceConfigProvider: IDeviceConfigProvider;
 
-    /// <summary>
-    /// Gets display name for device (alias from config or device name fallback).
-    /// </summary>
-    function GetDeviceDisplayName(const ADevice: TBluetoothDeviceInfo): string;
-
   public
     constructor Create(AStatusView: IStatusView; ADeviceConfigProvider: IDeviceConfigProvider);
 
@@ -59,21 +54,14 @@ begin
   FDeviceConfigProvider := ADeviceConfigProvider;
 end;
 
-function TDeviceNotificationCoordinator.GetDeviceDisplayName(
-  const ADevice: TBluetoothDeviceInfo): string;
-begin
-  Result := FDeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt).Alias;
-  if Result = '' then
-    Result := ADevice.Name;
-end;
-
 procedure TDeviceNotificationCoordinator.ShowNotification(
   const ADevice: TBluetoothDeviceInfo);
 var
   NotifyMode: TNotificationMode;
   DeviceName: string;
 begin
-  DeviceName := GetDeviceDisplayName(ADevice);
+  DeviceName := TDeviceFormatter.GetDisplayName(ADevice,
+    FDeviceConfigProvider.GetDeviceConfig(ADevice.AddressInt));
 
   case ADevice.ConnectionState of
     csConnected:
