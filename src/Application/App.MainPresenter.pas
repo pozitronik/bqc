@@ -1031,6 +1031,7 @@ var
   I: Integer;
   RemovedCount: Integer;
   DeviceToRemove: TBluetoothDeviceInfo;
+  LService: IBluetoothService;
 begin
   if FIsShutdown then
     Exit;
@@ -1047,6 +1048,7 @@ begin
       PairedAddressSet.Add(PairedAddr, True);
 
     RemovedCount := 0;
+    LService := FBluetoothService;
 
     // Check each device in our list against Windows paired devices
     I := FDeviceList.Count - 1;
@@ -1062,11 +1064,16 @@ begin
         LogInfo('SyncPairedDeviceList: Device $%.12X ("%s") was unpaired externally, removing from list',
           [DeviceAddress, DeviceToRemove.Name], ClassName);
 
-        // Disconnect if connected
+        // Disconnect asynchronously (blocking Windows API, must not freeze main thread)
         if DeviceToRemove.IsConnected then
         begin
-          LogInfo('SyncPairedDeviceList: Disconnecting device before removal', ClassName);
-          FBluetoothService.Disconnect(DeviceToRemove);
+          LogInfo('SyncPairedDeviceList: Scheduling async disconnect before removal', ClassName);
+          FAsyncExecutor.RunAsync(
+            procedure
+            begin
+              LService.Disconnect(DeviceToRemove);
+            end
+          );
         end;
 
         RemoveDeviceFromList(DeviceAddress);
@@ -1674,49 +1681,69 @@ end;
 
 procedure TMainPresenter.OnUnpairDevice(ADeviceAddress: UInt64);
 var
-  Device: TBluetoothDeviceInfo;
-  PairingResult: TPairingResult;
+  LDevice: TBluetoothDeviceInfo;
+  LPairingService: IBluetoothPairingService;
+  LService: IBluetoothService;
 begin
   LogInfo('OnUnpairDevice: Address=$%.12X', [ADeviceAddress], ClassName);
 
-  Device := FindDeviceByAddress(ADeviceAddress);
-  if Device.AddressInt = 0 then
+  LDevice := FindDeviceByAddress(ADeviceAddress);
+  if LDevice.AddressInt = 0 then
   begin
     LogWarning('OnUnpairDevice: Device not found', ClassName);
     Exit;
   end;
 
-  FStatusView.ShowStatus(Format('Unpairing %s...', [Device.Name]));
+  FStatusView.ShowStatus(Format('Unpairing %s...', [LDevice.Name]));
 
-  // Call unpair synchronously
-  PairingResult := FPairingService.UnpairDevice(ADeviceAddress);
+  // Capture interface references for async thread
+  LPairingService := FPairingService;
+  LService := FBluetoothService;
 
-  if PairingResult.IsSuccess then
-  begin
-    LogInfo('OnUnpairDevice: Successfully unpaired', ClassName);
-    FStatusView.ShowStatus(Format('Unpaired %s', [Device.Name]));
-
-    // Disconnect if connected
-    if Device.IsConnected then
+  FAsyncExecutor.RunAsync(
+    procedure
+    var
+      PairingResult: TPairingResult;
     begin
-      LogInfo('OnUnpairDevice: Disconnecting device before removal', ClassName);
-      FBluetoothService.Disconnect(Device);
-    end;
+      PairingResult := LPairingService.UnpairDevice(ADeviceAddress);
 
-    // Remove device from repository to prevent re-adding when Windows cache still has it
-    FBluetoothService.RemoveDevice(ADeviceAddress);
+      if PairingResult.IsSuccess then
+      begin
+        LogInfo('OnUnpairDevice: Successfully unpaired', ClassName);
 
-    // Remove device from presenter's list immediately (Windows cache may not reflect unpair yet)
-    RemoveDeviceFromList(ADeviceAddress);
+        // Disconnect if connected (blocking Windows API call)
+        if LDevice.IsConnected then
+        begin
+          LogInfo('OnUnpairDevice: Disconnecting device before removal', ClassName);
+          LService.Disconnect(LDevice);
+        end;
 
-    // Refresh display
-    RefreshDisplayItems;
-  end
-  else
-  begin
-    LogError('OnUnpairDevice: Failed - %s', [PairingResult.ErrorMessage], ClassName);
-    FStatusView.ShowStatus(Format('Failed to unpair %s: %s', [Device.Name, PairingResult.ErrorMessage]));
-  end;
+        // Remove device from repository
+        LService.RemoveDevice(ADeviceAddress);
+
+        // UI updates on main thread
+        QueueIfNotShutdown(
+          procedure
+          begin
+            FStatusView.ShowStatus(Format('Unpaired %s', [LDevice.Name]));
+            RemoveDeviceFromList(ADeviceAddress);
+            RefreshDisplayItems;
+          end
+        );
+      end
+      else
+      begin
+        LogError('OnUnpairDevice: Failed - %s', [PairingResult.ErrorMessage], ClassName);
+        QueueIfNotShutdown(
+          procedure
+          begin
+            FStatusView.ShowStatus(Format('Failed to unpair %s: %s',
+              [LDevice.Name, PairingResult.ErrorMessage]));
+          end
+        );
+      end;
+    end
+  );
 end;
 
 procedure TMainPresenter.OnToggleChanged(AEnabled: Boolean);

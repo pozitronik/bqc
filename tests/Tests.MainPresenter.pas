@@ -355,6 +355,18 @@ type
     [Test]
     procedure SyncPairedDeviceList_NoChanges_NoAction;
 
+    { OnUnpairDevice tests }
+    [Test]
+    procedure OnUnpairDevice_Success_RunsAsync;
+    [Test]
+    procedure OnUnpairDevice_Success_DisconnectsIfConnected;
+    [Test]
+    procedure OnUnpairDevice_Success_RemovesDeviceFromList;
+    [Test]
+    procedure OnUnpairDevice_Failure_ShowsErrorStatus;
+    [Test]
+    procedure OnUnpairDevice_DeviceNotFound_ExitsEarly;
+
     { AutoConnectDevices tests }
     [Test]
     procedure AutoConnect_SkipsAlreadyConnected;
@@ -2826,10 +2838,14 @@ begin
 
   FPresenter.TestSyncPairedDeviceList;
 
+  // Disconnect is now async -- execute pending to verify it was scheduled
+  Assert.AreEqual(1, FAsyncExecutor.RunAsyncCallCount,
+    'Should schedule async disconnect');
+  FAsyncExecutor.ExecutePending;
   Assert.AreEqual(1, FBluetoothService.DisconnectCallCount,
-    'Should disconnect device before removal');
+    'Should disconnect device after async execution');
   Assert.AreEqual(0, FPresenter.GetDeviceCount,
-    'Device should be removed after disconnect');
+    'Device should be removed from list immediately');
 end;
 
 procedure TMainPresenterBehaviorTests.SyncPairedDeviceList_EmptyPairedList_RemovesAll;
@@ -2867,6 +2883,101 @@ begin
   // No "removed" status message should appear
   Assert.AreEqual(InitialShowStatusCount, FView.ShowStatusCount,
     'No status message when nothing changed');
+end;
+
+{ OnUnpairDevice tests }
+
+procedure TMainPresenterBehaviorTests.OnUnpairDevice_Success_RunsAsync;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  FPairingService.UnpairResult := TPairingResult.Success;
+
+  FPresenter.OnUnpairDevice($112233445566);
+
+  // Unpair+cleanup runs asynchronously (not yet executed)
+  Assert.AreEqual(1, FAsyncExecutor.RunAsyncCallCount,
+    'OnUnpairDevice should use async executor');
+  Assert.AreEqual(0, FPairingService.UnpairCallCount,
+    'UnpairDevice should not be called until async proc executes');
+
+  // Execute the async proc
+  FAsyncExecutor.ExecutePending;
+  Assert.AreEqual(1, FPairingService.UnpairCallCount,
+    'UnpairDevice should be called after async execution');
+end;
+
+procedure TMainPresenterBehaviorTests.OnUnpairDevice_Success_DisconnectsIfConnected;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'ConnectedDevice', btAudioOutput, csConnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  FPairingService.UnpairResult := TPairingResult.Success;
+  FAsyncExecutor.Synchronous := True;
+
+  FPresenter.OnUnpairDevice($112233445566);
+
+  Assert.AreEqual(1, FBluetoothService.DisconnectCallCount,
+    'Should disconnect connected device during unpair');
+end;
+
+procedure TMainPresenterBehaviorTests.OnUnpairDevice_Success_RemovesDeviceFromList;
+var
+  Device: TBluetoothDeviceInfo;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  FPairingService.UnpairResult := TPairingResult.Success;
+  FAsyncExecutor.Synchronous := True;
+
+  FPresenter.OnUnpairDevice($112233445566);
+  // QueueIfNotShutdown uses TThread.Queue -- process it
+  CheckSynchronize(0);
+
+  Assert.AreEqual(0, FPresenter.GetDeviceCount,
+    'Device should be removed from list after successful unpair');
+end;
+
+procedure TMainPresenterBehaviorTests.OnUnpairDevice_Failure_ShowsErrorStatus;
+var
+  Device: TBluetoothDeviceInfo;
+  InitialStatusCount: Integer;
+begin
+  CreatePresenter;
+  Device := CreateTestDevice($112233445566, 'TestDevice', btAudioOutput, csDisconnected);
+  FPresenter.UpdateOrAddDevice(Device);
+  FPairingService.UnpairResult := TPairingResult.Failed(5, 'Access denied');
+  FAsyncExecutor.Synchronous := True;
+  InitialStatusCount := FView.ShowStatusCount;
+
+  FPresenter.OnUnpairDevice($112233445566);
+  CheckSynchronize(0);
+
+  Assert.AreEqual(0, FBluetoothService.DisconnectCallCount,
+    'Should not disconnect on failed unpair');
+  Assert.AreEqual(1, FPresenter.GetDeviceCount,
+    'Device should remain in list on failed unpair');
+  Assert.IsTrue(FView.ShowStatusCount > InitialStatusCount,
+    'Should show error status on failed unpair');
+end;
+
+procedure TMainPresenterBehaviorTests.OnUnpairDevice_DeviceNotFound_ExitsEarly;
+begin
+  CreatePresenter;
+  FPairingService.UnpairResult := TPairingResult.Success;
+
+  FPresenter.OnUnpairDevice($112233445566);
+
+  Assert.AreEqual(0, FPairingService.UnpairCallCount,
+    'Should not call UnpairDevice when device not found');
+  Assert.AreEqual(0, FAsyncExecutor.RunAsyncCallCount,
+    'Should not schedule async work when device not found');
 end;
 
 { AutoConnectDevices tests }
