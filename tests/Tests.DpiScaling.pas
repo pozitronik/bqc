@@ -74,6 +74,18 @@ type
 
     [Test]
     procedure UpdateDPI_At96_ScrollbarWidthIs12;
+
+    [Test]
+    procedure MouseWheel_At96DPI_ScrollsBy60Pixels;
+
+    [Test]
+    procedure MouseWheel_At240DPI_ScalesScrollSpeed;
+
+    [Test]
+    procedure MouseWheel_NoScrollableContent_ReturnsFalse;
+
+    [Test]
+    procedure MouseWheel_WithScrollableContent_ReturnsTrue;
   end;
 
 implementation
@@ -261,6 +273,54 @@ begin
   FScrollbar.HandleMouseUp(290, 200);
   Assert.IsFalse(FScrollbar.HandleMouseDown(285, 200),
     'At 96 DPI, click at x=285 should miss scrollbar (starts at 288)');
+end;
+
+procedure TScrollbarDpiTests.MouseWheel_At96DPI_ScrollsBy60Pixels;
+begin
+  FScrollbar.UpdateDPI(96);
+  FScrollbar.UpdateClientSize(300, 400);
+  FScrollbar.UpdateScrollRange(500);
+  FScrollbar.ScrollTo(250);
+
+  // WHEEL_DELTA=120, scroll amount = MulDiv(120, 96, 96) div 2 = 60
+  FScrollbar.HandleMouseWheel(120);
+
+  // Scrolled up by 60: 250 - 60 = 190
+  Assert.AreEqual(190, FScrollbar.ScrollPos,
+    'At 96 DPI, wheel delta 120 should scroll 60px (250 -> 190)');
+end;
+
+procedure TScrollbarDpiTests.MouseWheel_At240DPI_ScalesScrollSpeed;
+begin
+  FScrollbar.UpdateDPI(240);
+  FScrollbar.UpdateClientSize(300, 400);
+  FScrollbar.UpdateScrollRange(500);
+  FScrollbar.ScrollTo(250);
+
+  // WHEEL_DELTA=120, scroll amount = MulDiv(120, 240, 96) div 2 = 300 div 2 = 150
+  FScrollbar.HandleMouseWheel(120);
+
+  // Scrolled up by 150: 250 - 150 = 100
+  Assert.AreEqual(100, FScrollbar.ScrollPos,
+    'At 240 DPI, wheel delta 120 should scroll 150px (250 -> 100)');
+end;
+
+procedure TScrollbarDpiTests.MouseWheel_NoScrollableContent_ReturnsFalse;
+begin
+  FScrollbar.UpdateClientSize(300, 400);
+  FScrollbar.UpdateScrollRange(0);
+
+  Assert.IsFalse(FScrollbar.HandleMouseWheel(120),
+    'Wheel event should not be consumed when no scrollable content');
+end;
+
+procedure TScrollbarDpiTests.MouseWheel_WithScrollableContent_ReturnsTrue;
+begin
+  FScrollbar.UpdateClientSize(300, 400);
+  FScrollbar.UpdateScrollRange(100);
+
+  Assert.IsTrue(FScrollbar.HandleMouseWheel(120),
+    'Wheel event should be consumed when scrollable content exists');
 end;
 
 end.

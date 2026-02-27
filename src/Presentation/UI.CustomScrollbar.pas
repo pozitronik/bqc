@@ -341,8 +341,10 @@ end;
 
 function TCustomScrollbar.HandleMouseWheel(AWheelDelta: Integer): Boolean;
 begin
+  if FMaxScroll <= 0 then
+    Exit(False);
   Result := True;
-  ScrollTo(FScrollPos - (AWheelDelta div 2));
+  ScrollTo(FScrollPos - MulDiv(AWheelDelta, FCurrentPPI, DEFAULT_DPI) div 2);
 end;
 
 procedure TCustomScrollbar.HandleMouseEnter;
