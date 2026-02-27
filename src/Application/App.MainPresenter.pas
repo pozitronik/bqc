@@ -368,7 +368,6 @@ uses
   Winapi.ShellAPI,
   Vcl.Clipbrd,
   App.Logger,
-  App.ConfigEnums,
   App.DeviceConfigTypes,
   App.WinRTSupport,
   Bluetooth.WinAPI,

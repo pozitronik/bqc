@@ -80,7 +80,7 @@ begin
         end;
       except
         on E: Exception do
-          LogWarning('Failed to read system theme: %s', [E.Message], 'SystemThemeDetector');
+          LogWarning('Failed to read system theme: %s', [E.Message], ClassName);
       end;
       Reg.CloseKey;
     end;

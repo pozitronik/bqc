@@ -21,7 +21,6 @@ uses
   Bluetooth.Interfaces,
   Bluetooth.WinAPI,
   Bluetooth.PairingStrategies,
-  App.ConfigEnums,
   App.ConnectionConfigIntf;
 
 type

@@ -23,7 +23,6 @@ uses
   Bluetooth.WinAPI,
   Bluetooth.DeviceConverter,
   Bluetooth.WinRTDeviceQuery,
-  App.ConfigEnums,
   App.SystemClock;
 
 type
@@ -205,7 +204,7 @@ begin
             AName := AName.TrimRight([#0]);
             Result := AName <> '';
             if Result then
-              LogDebug('TryGetNameFromBthport: Found name "%s" for $%.12X', [AName, AAddress], 'DeviceRepository');
+              LogDebug('TryGetNameFromBthport: Found name "%s" for $%.12X', [AName, AAddress], 'TryGetNameFromBthport');
           end;
         end;
       finally
