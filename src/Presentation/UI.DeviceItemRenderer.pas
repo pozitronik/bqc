@@ -45,6 +45,8 @@ type
 
     function GetBatteryIconChar(ALevel: Integer): Char;
     function GetDeviceIconChar(ADeviceType: TBluetoothDeviceType): Char;
+    function ResolveMainColor(Style: TCustomStyleServices): TColor;
+    function ResolveSecondaryColor(Style: TCustomStyleServices): TColor;
   public
     constructor Create(ASystemIconCache: TSystemIconCache);
 
@@ -334,26 +336,13 @@ begin
   // Determine text color based on state
   if AContext.IsDiscovered then
   begin
-    // Use Secondary color for unpaired/discovered devices
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     NameColor := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: NameColor := Style.GetSystemColor(clGrayText);
-      scsCustom:        NameColor := TColor(FCachedLayout.SecondaryCustomColor);
-    else
-      NameColor := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
+    NameColor := ResolveSecondaryColor(Style);
   end
   else if AContext.IsSelected then
     NameColor := Style.GetSystemColor(clHighlightText)
   else
   begin
-    // Use Main color for paired devices
-    case FCachedLayout.MainColorSource of
-      mcsThemeText: NameColor := Style.GetSystemColor(clWindowText);
-      mcsCustom:    NameColor := TColor(FCachedLayout.MainCustomColor);
-    else
-      NameColor := Style.GetSystemColor(clWindowText);  // Fallback
-    end;
+    NameColor := ResolveMainColor(Style);
   end;
 
   // Set up font for device name
@@ -389,14 +378,7 @@ begin
       // Win10+: Use Segoe MDL2 Assets font icon
       ACanvas.Font.Name := FONT_ICONS;
       ACanvas.Font.Size := PIN_ICON_FONT_SIZE;
-      // Use Secondary color for pin icon
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
+      ACanvas.Font.Color := ResolveSecondaryColor(Style);
       PinIconWidth := ACanvas.TextWidth(ICON_PIN);
       RightEdge := RightEdge - PinIconWidth;
       ACanvas.TextOut(RightEdge, AContext.NameLineTop, ICON_PIN);
@@ -422,14 +404,7 @@ begin
     begin
       NameHeight := ACanvas.TextHeight('Ay');
       ACanvas.Font.Size := AContext.AddressFontSize;
-      // Use Secondary color for device address
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
+      ACanvas.Font.Color := ResolveSecondaryColor(Style);
       AddrOffset := (NameHeight - ACanvas.TextHeight('Ay')) div 2;
 
       // Clip address text to TextRect.Right boundary to respect padding
@@ -483,14 +458,7 @@ begin
   if AItem.StatusText <> '' then
   begin
     StatusText := AItem.StatusText;
-    // Use Secondary color for custom status text
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-      scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
+    ACanvas.Font.Color := ResolveSecondaryColor(Style);
     ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
   end
   // Priority 2: Default status based on device type and state
@@ -500,14 +468,7 @@ begin
     if AContext.ShowLastSeen and (AItem.LastSeenText <> '') then
     begin
       StatusText := AItem.LastSeenText;
-      // Use Secondary color for last seen text
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
+      ACanvas.Font.Color := ResolveSecondaryColor(Style);
       ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
     end;
   end
@@ -522,14 +483,7 @@ begin
       ACanvas.Font.Color := AContext.ConnectedColor
     else
     begin
-      // Use Secondary color for disconnected status
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
+      ACanvas.Font.Color := ResolveSecondaryColor(Style);
     end;
 
     ACanvas.TextOut(AContext.TextRect.Left, AContext.StatusLineTop, StatusText);
@@ -545,14 +499,7 @@ begin
       BatteryIconChar := GetBatteryIconChar(AItem.BatteryStatus.Level);
       ACanvas.Font.Name := FONT_ICONS;
       ACanvas.Font.Size := BATTERY_ICON_FONT_SIZE;
-      // Use Secondary color for battery icon
-      case FCachedLayout.SecondaryColorSource of
-        scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-        scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-        scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-      else
-        ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-      end;
+      ACanvas.Font.Color := ResolveSecondaryColor(Style);
       BatteryIconWidth := ACanvas.TextWidth(BatteryIconChar);
       BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(BatteryIconChar)) div 2;
       ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth,
@@ -564,14 +511,7 @@ begin
     // Draw battery percentage text (Win10+: left of icon, Win7: right-aligned)
     ACanvas.Font.Name := FONT_UI;
     ACanvas.Font.Size := BATTERY_FONT_SIZE;
-    // Use Secondary color for battery text
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-      scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
+    ACanvas.Font.Color := ResolveSecondaryColor(Style);
     BatteryTextWidth := ACanvas.TextWidth(AItem.BatteryText);
     BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(AItem.BatteryText)) div 2;
     if BatteryIconWidth > 0 then
@@ -623,14 +563,7 @@ begin
   // Now set up font for profiles
   ACanvas.Font.Size := ProfileFontSize;
   ACanvas.Font.Style := [];
-  // Use Secondary color for profile names
-  case FCachedLayout.SecondaryColorSource of
-    scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-    scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-    scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-  else
-    ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-  end;
+  ACanvas.Font.Color := ResolveSecondaryColor(Style);
   ACanvas.Brush.Style := bsClear;
 
   // Draw each profile with tree connectors
@@ -797,13 +730,7 @@ begin
     // Draw button text
     ButtonText := AItem.DisplayName;
 
-    // Use Main color for action button text
-    case FCachedLayout.MainColorSource of
-      mcsThemeText: TextColor := Style.GetSystemColor(clWindowText);
-      mcsCustom:    TextColor := TColor(FCachedLayout.MainCustomColor);
-    else
-      TextColor := Style.GetSystemColor(clWindowText);  // Fallback
-    end;
+    TextColor := ResolveMainColor(Style);
 
     // Set up font - clean, left-aligned text
     ACanvas.Font.Name := FONT_UI;
@@ -867,26 +794,9 @@ begin
 
   // Apply Main/Secondary color based on paired/unpaired state
   if AIsDiscovered then
-  begin
-    // Use Secondary color for unpaired/discovered devices
-    case FCachedLayout.SecondaryColorSource of
-      scsThemeText:     ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      scsThemeGrayText: ACanvas.Font.Color := Style.GetSystemColor(clGrayText);
-      scsCustom:        ACanvas.Font.Color := TColor(FCachedLayout.SecondaryCustomColor);
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clGrayText);  // Fallback
-    end;
-  end
+    ACanvas.Font.Color := ResolveSecondaryColor(Style)
   else
-  begin
-    // Use Main color for paired devices
-    case FCachedLayout.MainColorSource of
-      mcsThemeText: ACanvas.Font.Color := Style.GetSystemColor(clWindowText);
-      mcsCustom:    ACanvas.Font.Color := TColor(FCachedLayout.MainCustomColor);
-    else
-      ACanvas.Font.Color := Style.GetSystemColor(clWindowText);  // Fallback
-    end;
-  end;
+    ACanvas.Font.Color := ResolveMainColor(Style);
 
   ACanvas.Brush.Style := bsClear;
 
@@ -915,6 +825,27 @@ begin
     btHID:          Result := ICON_INPUT_DEVICE;
   else
     Result := ICON_BLUETOOTH;
+  end;
+end;
+
+function TDeviceItemRenderer.ResolveMainColor(Style: TCustomStyleServices): TColor;
+begin
+  case FCachedLayout.MainColorSource of
+    mcsThemeText: Result := Style.GetSystemColor(clWindowText);
+    mcsCustom:    Result := TColor(FCachedLayout.MainCustomColor);
+  else
+    Result := Style.GetSystemColor(clWindowText);
+  end;
+end;
+
+function TDeviceItemRenderer.ResolveSecondaryColor(Style: TCustomStyleServices): TColor;
+begin
+  case FCachedLayout.SecondaryColorSource of
+    scsThemeText:     Result := Style.GetSystemColor(clWindowText);
+    scsThemeGrayText: Result := Style.GetSystemColor(clGrayText);
+    scsCustom:        Result := TColor(FCachedLayout.SecondaryCustomColor);
+  else
+    Result := Style.GetSystemColor(clGrayText);
   end;
 end;
 
