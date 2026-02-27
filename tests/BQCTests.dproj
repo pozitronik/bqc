@@ -160,6 +160,7 @@
         <DCCReference Include="Tests.DeviceDiscoveryCoordinator.pas"/>
         <DCCReference Include="Tests.DeviceBatteryCoordinator.pas"/>
         <DCCReference Include="Tests.PairingService.pas"/>
+        <DCCReference Include="Tests.DpiScaling.pas"/>
         <DCCReference Include="..\src\Domain\Bluetooth.Types.pas"/>
         <DCCReference Include="..\src\Domain\Bluetooth.Interfaces.pas"/>
         <DCCReference Include="..\src\Application\Bluetooth.ConnectionStrategies.pas"/>

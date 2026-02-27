@@ -132,6 +132,7 @@ type
     procedure CMStyleChanged(var Message: TMessage); message CM_STYLECHANGED;
 
   protected
+    procedure ChangeScale(M, D: Integer; isDpiChange: Boolean); override;
     procedure CreateParams(var Params: TCreateParams); override;
     procedure Resize; override;
     procedure Paint; override;
@@ -193,8 +194,11 @@ uses
   App.Logger;
 
 const
+  // DPI baseline
+  DEFAULT_DPI = 96;
+
   // Layout spacing constants
-  FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds
+  FOCUS_RECT_INSET = 2;        // Pixels to inset focus rectangle from item bounds (at 96 DPI)
 
   // Default control dimensions
   DEFAULT_CONTROL_WIDTH = 300;
@@ -261,24 +265,30 @@ begin
 end;
 
 procedure TDeviceListBox.RefreshLayoutCache;
+var
+  PPI: Integer;
 begin
-  // Cache layout config values (avoids repeated interface queries per item)
+  PPI := CurrentPPI;
+  FCachedLayout.CurrentPPI := PPI;
+
+  // Cache layout config values, scaling pixel dimensions for current DPI.
+  // Font sizes (in points) are NOT scaled -- GDI handles DPI for those.
   if Assigned(FLayoutConfig) then
   begin
-    FCachedLayout.ItemHeight := FLayoutConfig.ItemHeight;
-    FCachedLayout.ItemMargin := FLayoutConfig.ItemMargin;
-    FCachedLayout.ItemPadding := FLayoutConfig.ItemPadding;
-    FCachedLayout.IconSize := FLayoutConfig.IconSize;
+    FCachedLayout.ItemHeight := MulDiv(FLayoutConfig.ItemHeight, PPI, DEFAULT_DPI);
+    FCachedLayout.ItemMargin := MulDiv(FLayoutConfig.ItemMargin, PPI, DEFAULT_DPI);
+    FCachedLayout.ItemPadding := MulDiv(FLayoutConfig.ItemPadding, PPI, DEFAULT_DPI);
+    FCachedLayout.IconSize := MulDiv(FLayoutConfig.IconSize, PPI, DEFAULT_DPI);
     FCachedLayout.IconFontSize := FLayoutConfig.IconFontSize;
-    FCachedLayout.CornerRadius := FLayoutConfig.CornerRadius;
+    FCachedLayout.CornerRadius := MulDiv(FLayoutConfig.CornerRadius, PPI, DEFAULT_DPI);
     FCachedLayout.DeviceNameFontSize := FLayoutConfig.DeviceNameFontSize;
     FCachedLayout.StatusFontSize := FLayoutConfig.StatusFontSize;
     FCachedLayout.AddressFontSize := FLayoutConfig.AddressFontSize;
-    FCachedLayout.ItemBorderWidth := FLayoutConfig.ItemBorderWidth;
+    FCachedLayout.ItemBorderWidth := MulDiv(FLayoutConfig.ItemBorderWidth, PPI, DEFAULT_DPI);
     FCachedLayout.ItemBorderColor := TColor(FLayoutConfig.ItemBorderColor);
   end;
 
-  // Cache appearance config values
+  // Cache appearance config values (no pixel values, no scaling needed)
   if Assigned(FAppearanceConfig) then
   begin
     FCachedLayout.ShowDeviceIcons := FAppearanceConfig.ShowDeviceIcons;
@@ -308,8 +318,8 @@ procedure TDeviceListBox.SetLayoutConfig(AValue: ILayoutConfig);
 begin
   FLayoutConfig := AValue;
   RefreshLayoutCache;
-  // Notify data source to recalculate heights
-  FDataSource.UpdateConfigs(FLayoutConfig, FProfileConfig);
+  FDataSource.UpdateConfigs(FLayoutConfig, FProfileConfig, CurrentPPI);
+  FScrollbar.UpdateDPI(CurrentPPI);
 end;
 
 procedure TDeviceListBox.SetAppearanceConfig(AValue: IAppearanceConfig);
@@ -321,9 +331,8 @@ end;
 procedure TDeviceListBox.SetProfileConfig(AValue: IProfileConfig);
 begin
   FProfileConfig := AValue;
-  // Notify data source to recalculate heights with new profile config
   if Assigned(FDataSource) then
-    FDataSource.UpdateConfigs(FLayoutConfig, FProfileConfig);
+    FDataSource.UpdateConfigs(FLayoutConfig, FProfileConfig, CurrentPPI);
   Invalidate;
 end;
 
@@ -335,6 +344,19 @@ begin
   FRenderer.Free;
   FSystemIconCache.Free;  // Safe to free nil
   inherited Destroy;
+end;
+
+procedure TDeviceListBox.ChangeScale(M, D: Integer; isDpiChange: Boolean);
+begin
+  inherited;
+  if isDpiChange then
+  begin
+    RefreshLayoutCache;
+    FDataSource.UpdateConfigs(FLayoutConfig, FProfileConfig, CurrentPPI);
+    FScrollbar.UpdateDPI(CurrentPPI);
+    UpdateScrollRange;
+    Invalidate;
+  end;
 end;
 
 procedure TDeviceListBox.CreateParams(var Params: TCreateParams);
@@ -627,6 +649,10 @@ var
   IsHover, IsSelected: Boolean;
   Style: TCustomStyleServices;
 begin
+  // Sync canvas font DPI with current monitor -- Canvas.Font is a separate
+  // TFont whose PixelsPerInch defaults to 96 and is never updated by VCL.
+  Canvas.Font.PixelsPerInch := CurrentPPI;
+
   // Layout cache refreshed on resize/style change, not on every paint
   Style := TStyleManager.ActiveStyle;
 
@@ -676,7 +702,8 @@ begin
   if Focused and (FDataSource.SelectedIndex >= 0) then
   begin
     R := GetItemRect(FDataSource.SelectedIndex);
-    InflateRect(R, -FOCUS_RECT_INSET, -FOCUS_RECT_INSET);
+    InflateRect(R, -MulDiv(FOCUS_RECT_INSET, CurrentPPI, DEFAULT_DPI),
+                   -MulDiv(FOCUS_RECT_INSET, CurrentPPI, DEFAULT_DPI));
     Canvas.Pen.Color := Style.GetSystemColor(clHighlight);
     Canvas.Pen.Style := psDot;
     Canvas.Brush.Style := bsClear;

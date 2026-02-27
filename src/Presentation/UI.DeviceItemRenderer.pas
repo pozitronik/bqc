@@ -148,6 +148,9 @@ const
   ICON_BATTERY_UNKNOWN = #$E996;
   ICON_AWAITING_BATTERY = #$EBE8;  // Empty circle outline
 
+  // DPI baseline
+  DEFAULT_DPI = 96;
+
   // Fonts
   FONT_UI = 'Segoe UI';
 
@@ -372,8 +375,8 @@ begin
       PinIconHandle := FSystemIconCache.GetPinIcon;
       if PinIconHandle <> 0 then
       begin
-        // Use PIN_ICON_FONT_SIZE as icon size to match font icon size
-        PinIconWidth := PIN_ICON_FONT_SIZE;
+        // Use PIN_ICON_FONT_SIZE as icon size, scaled for DPI
+        PinIconWidth := MulDiv(PIN_ICON_FONT_SIZE, FCachedLayout.CurrentPPI, DEFAULT_DPI);
         RightEdge := RightEdge - PinIconWidth;
         // Draw system icon (system-colored, no custom color support)
         DrawIconEx(ACanvas.Handle, RightEdge, AContext.NameLineTop, PinIconHandle,
@@ -412,7 +415,7 @@ begin
   // Draw address if enabled (with clipping to respect right padding)
   if AContext.ShowAddresses then
   begin
-    AddrLeft := AContext.TextRect.Left + ACanvas.TextWidth(AItem.DisplayName) + ADDRESS_SPACING;
+    AddrLeft := AContext.TextRect.Left + ACanvas.TextWidth(AItem.DisplayName) + MulDiv(ADDRESS_SPACING, FCachedLayout.CurrentPPI, DEFAULT_DPI);
 
     // Only draw if there's space for at least the opening bracket
     if AddrLeft < AContext.TextRect.Right then
@@ -573,7 +576,7 @@ begin
     BatteryOffset := (StatusLineHeight - ACanvas.TextHeight(AItem.BatteryText)) div 2;
     if BatteryIconWidth > 0 then
       // Win10+: Position text left of icon
-      ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth - BATTERY_SPACING - BatteryTextWidth,
+      ACanvas.TextOut(AContext.TextRect.Right - BatteryIconWidth - MulDiv(BATTERY_SPACING, FCachedLayout.CurrentPPI, DEFAULT_DPI) - BatteryTextWidth,
         AContext.StatusLineTop + BatteryOffset, AItem.BatteryText)
     else
       // Win7: Position text at right edge (no icon)
@@ -606,8 +609,8 @@ begin
   else
     ProfileFontSize := DEFAULT_PROFILE_FONT_SIZE;
 
-  // Calculate line height (same logic as in TListDataSource)
-  LineHeight := ProfileFontSize * PROFILE_LINE_HEIGHT_FACTOR;
+  // Calculate line height (same logic as in TListDataSource), scaled for DPI
+  LineHeight := MulDiv(ProfileFontSize * PROFILE_LINE_HEIGHT_FACTOR, FCachedLayout.CurrentPPI, DEFAULT_DPI);
 
   // Calculate profile position - start just below status line
   // Use status font to measure status line height correctly
@@ -647,7 +650,7 @@ begin
 
     // Draw profile name (offset by connector width)
     ACanvas.TextOut(
-      TreeX + ACanvas.TextWidth(TreeChar) + 4,
+      TreeX + ACanvas.TextWidth(TreeChar) + MulDiv(4, FCachedLayout.CurrentPPI, DEFAULT_DPI),
       ProfileTop,
       ProfileText
     );
@@ -727,10 +730,10 @@ end;
 procedure TDeviceItemRenderer.DrawActionButton(ACanvas: TCanvas; const ARect: TRect;
   const AItem: TDeviceDisplayItem; AIsHover, AIsSelected: Boolean);
 const
-  BUTTON_HEIGHT = 28;  // Thin Windows 11 style button
-  TEXT_LEFT_PADDING = 12;  // Left padding for text
-  PROGRESS_HEIGHT = 2;  // Thin progress bar
-  PROGRESS_SEGMENT_WIDTH = 100;  // Width of moving segment
+  BASE_BUTTON_HEIGHT = 28;       // Thin Windows 11 style button (at 96 DPI)
+  BASE_TEXT_LEFT_PADDING = 12;   // Left padding for text (at 96 DPI)
+  BASE_PROGRESS_HEIGHT = 2;      // Thin progress bar (at 96 DPI)
+  BASE_PROGRESS_SEGMENT_WIDTH = 100;  // Width of moving segment (at 96 DPI)
 var
   Style: TCustomStyleServices;
   TextColor, ProgressColor, ProgressBgColor: TColor;
@@ -738,11 +741,18 @@ var
   ButtonText: string;
   ButtonTop: Integer;
   BarWidth, SegmentPos: Integer;
+  ButtonHeight, TextLeftPadding, ProgressHeight, ProgressSegmentWidth: Integer;
 begin
   Style := TStyleManager.ActiveStyle;
 
+  // Scale pixel constants for current DPI
+  ButtonHeight := MulDiv(BASE_BUTTON_HEIGHT, FCachedLayout.CurrentPPI, DEFAULT_DPI);
+  TextLeftPadding := MulDiv(BASE_TEXT_LEFT_PADDING, FCachedLayout.CurrentPPI, DEFAULT_DPI);
+  ProgressHeight := MulDiv(BASE_PROGRESS_HEIGHT, FCachedLayout.CurrentPPI, DEFAULT_DPI);
+  ProgressSegmentWidth := MulDiv(BASE_PROGRESS_SEGMENT_WIDTH, FCachedLayout.CurrentPPI, DEFAULT_DPI);
+
   // Create thin button rect, centered vertically in ARect
-  ButtonTop := ARect.Top + (ARect.Bottom - ARect.Top - BUTTON_HEIGHT) div 2;
+  ButtonTop := ARect.Top + (ARect.Bottom - ARect.Top - ButtonHeight) div 2;
 
   if AItem.IsActionInProgress then
   begin
@@ -752,9 +762,9 @@ begin
     // Progress bar background
     ProgressRect := Rect(
       ARect.Left + FCachedLayout.ItemPadding,
-      ButtonTop + (BUTTON_HEIGHT - PROGRESS_HEIGHT) div 2,
+      ButtonTop + (ButtonHeight - ProgressHeight) div 2,
       ARect.Right - FCachedLayout.ItemPadding,
-      ButtonTop + (BUTTON_HEIGHT - PROGRESS_HEIGHT) div 2 + PROGRESS_HEIGHT
+      ButtonTop + (ButtonHeight - ProgressHeight) div 2 + ProgressHeight
     );
 
     ProgressBgColor := Style.GetSystemColor(clBtnFace);
@@ -762,13 +772,13 @@ begin
     ACanvas.FillRect(ProgressRect);
 
     // Animated progress segment (sliding left to right, faster movement)
-    SegmentPos := (FAnimationFrame * 8) mod (BarWidth + PROGRESS_SEGMENT_WIDTH);
-    SegmentPos := SegmentPos - PROGRESS_SEGMENT_WIDTH;  // Start off-screen left
+    SegmentPos := (FAnimationFrame * 8) mod (BarWidth + ProgressSegmentWidth);
+    SegmentPos := SegmentPos - ProgressSegmentWidth;  // Start off-screen left
 
     SegmentRect := Rect(
       ProgressRect.Left + SegmentPos,
       ProgressRect.Top,
-      ProgressRect.Left + SegmentPos + PROGRESS_SEGMENT_WIDTH,
+      ProgressRect.Left + SegmentPos + ProgressSegmentWidth,
       ProgressRect.Bottom
     );
 
@@ -804,10 +814,10 @@ begin
 
     // Draw left-aligned text with padding
     TextRect := Rect(
-      ARect.Left + FCachedLayout.ItemPadding + TEXT_LEFT_PADDING,
+      ARect.Left + FCachedLayout.ItemPadding + TextLeftPadding,
       ButtonTop,
       ARect.Right - FCachedLayout.ItemPadding,
-      ButtonTop + BUTTON_HEIGHT
+      ButtonTop + ButtonHeight
     );
     DrawText(ACanvas.Handle, PChar(ButtonText), Length(ButtonText),
       TextRect, DT_LEFT or DT_VCENTER or DT_SINGLELINE);

@@ -83,6 +83,8 @@ type
     SecondaryCustomColor: Integer;
     HoverColorSource: THoverColorSource;
     HoverCustomColor: Integer;
+    // DPI scaling
+    CurrentPPI: Integer;
   end;
 
   /// <summary>

@@ -14,6 +14,7 @@ unit UI.ListDataSource;
 interface
 
 uses
+  Winapi.Windows,
   System.SysUtils,
   System.Classes,
   System.Generics.Collections,
@@ -38,7 +39,8 @@ type
     // Dependencies (for height calculation)
     FLayoutConfig: ILayoutConfig;
     FProfileConfig: IProfileConfig;
-    FBaseItemHeight: Integer;  // Cached base height
+    FBaseItemHeight: Integer;  // Cached base height (scaled for current DPI)
+    FCurrentPPI: Integer;
 
     // Events
     FOnItemsChanged: TNotifyEvent;
@@ -60,7 +62,7 @@ type
     /// Updates configuration dependencies and recalculates item heights.
     /// Call when layout or profile config changes.
     /// </summary>
-    procedure UpdateConfigs(ALayoutConfig: ILayoutConfig; AProfileConfig: IProfileConfig);
+    procedure UpdateConfigs(ALayoutConfig: ILayoutConfig; AProfileConfig: IProfileConfig; ACurrentPPI: Integer);
 
     /// <summary>
     /// Clears all items and resets selection/hover state.
@@ -121,6 +123,7 @@ type
 implementation
 
 const
+  DEFAULT_DPI = 96;
   DEFAULT_ITEM_HEIGHT = 60;
   DEFAULT_PROFILE_FONT_SIZE = 7;
   PROFILE_LINE_HEIGHT_FACTOR = 2;  // LineHeight = FontSize * Factor
@@ -140,6 +143,7 @@ begin
   FLayoutConfig := nil;
   FProfileConfig := nil;
   FBaseItemHeight := DEFAULT_ITEM_HEIGHT;
+  FCurrentPPI := DEFAULT_DPI;
 end;
 
 destructor TListDataSource.Destroy;
@@ -148,16 +152,17 @@ begin
   inherited Destroy;
 end;
 
-procedure TListDataSource.UpdateConfigs(ALayoutConfig: ILayoutConfig; AProfileConfig: IProfileConfig);
+procedure TListDataSource.UpdateConfigs(ALayoutConfig: ILayoutConfig; AProfileConfig: IProfileConfig; ACurrentPPI: Integer);
 begin
   FLayoutConfig := ALayoutConfig;
   FProfileConfig := AProfileConfig;
+  FCurrentPPI := ACurrentPPI;
 
-  // Cache base height
+  // Cache base height, scaled for current DPI
   if Assigned(FLayoutConfig) then
-    FBaseItemHeight := FLayoutConfig.ItemHeight
+    FBaseItemHeight := MulDiv(FLayoutConfig.ItemHeight, FCurrentPPI, DEFAULT_DPI)
   else
-    FBaseItemHeight := DEFAULT_ITEM_HEIGHT;
+    FBaseItemHeight := MulDiv(DEFAULT_ITEM_HEIGHT, FCurrentPPI, DEFAULT_DPI);
 
   // Recalculate heights with new config
   RecalculateItemHeights;
@@ -195,7 +200,7 @@ begin
     FontSize := FProfileConfig.ProfileFontSize
   else
     FontSize := DEFAULT_PROFILE_FONT_SIZE;
-  Result := FontSize * PROFILE_LINE_HEIGHT_FACTOR;
+  Result := MulDiv(FontSize * PROFILE_LINE_HEIGHT_FACTOR, FCurrentPPI, DEFAULT_DPI);
 end;
 
 function TListDataSource.GetProfileSectionHeight(AProfileCount: Integer): Integer;
@@ -220,7 +225,8 @@ begin
   if (AIndex >= 0) and (AIndex < Length(FDisplayItems)) and
      (FDisplayItems[AIndex].Source = dsAction) then
   begin
-    Result := ACTION_BUTTON_HEIGHT + (ACTION_BUTTON_PADDING * 2);
+    Result := MulDiv(ACTION_BUTTON_HEIGHT, FCurrentPPI, DEFAULT_DPI) +
+              MulDiv(ACTION_BUTTON_PADDING, FCurrentPPI, DEFAULT_DPI) * 2;
     Exit;
   end;
 

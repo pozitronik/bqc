@@ -79,6 +79,7 @@ uses
   Tests.DeviceBatteryCoordinator in 'Tests.DeviceBatteryCoordinator.pas',
   Tests.PairingService in 'Tests.PairingService.pas',
   Tests.RestApiSnapshot in 'Tests.RestApiSnapshot.pas',
+  Tests.DpiScaling in 'Tests.DpiScaling.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
   Bluetooth.ConnectionStrategies in '..\src\Application\Bluetooth.ConnectionStrategies.pas',

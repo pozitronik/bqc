@@ -38,6 +38,7 @@ type
     FListHovered: Boolean;  // True when mouse is over parent control
     FClientWidth: Integer;
     FClientHeight: Integer;
+    FCurrentPPI: Integer;
     FOnScrollChanged: TNotifyEvent;
 
     function GetScrollbarRect: TRect;
@@ -47,6 +48,8 @@ type
     function IsPointInScrollbarThumb(X, Y: Integer): Boolean;
     procedure SetScrollPos(AValue: Integer);
     procedure SetMaxScroll(AValue: Integer);
+    function ScaledWidth: Integer;
+    function ScaledMinThumbHeight: Integer;
   public
     constructor Create;
 
@@ -97,6 +100,11 @@ type
     function HandleMouseLeave: Boolean;  // Returns true if state changed
 
     /// <summary>
+    /// Updates current DPI for geometry scaling.
+    /// </summary>
+    procedure UpdateDPI(ACurrentPPI: Integer);
+
+    /// <summary>
     /// Renders the scrollbar to specified canvas.
     /// </summary>
     procedure Render(ACanvas: TCanvas);
@@ -109,8 +117,9 @@ type
 implementation
 
 const
-  SCROLLBAR_WIDTH = 12;  // Modern thin scrollbar width (px)
-  MIN_THUMB_HEIGHT = 20; // Minimum thumb height for usability
+  DEFAULT_DPI = 96;       // Standard 100% scaling baseline
+  SCROLLBAR_WIDTH = 12;   // Modern thin scrollbar width (px, at 96 DPI)
+  MIN_THUMB_HEIGHT = 20;  // Minimum thumb height for usability (px, at 96 DPI)
 
 { TCustomScrollbar }
 
@@ -126,6 +135,7 @@ begin
   FListHovered := False;
   FClientWidth := 0;
   FClientHeight := 0;
+  FCurrentPPI := DEFAULT_DPI;
 end;
 
 procedure TCustomScrollbar.UpdateClientSize(AWidth, AHeight: Integer);
@@ -161,10 +171,25 @@ begin
   UpdateScrollRange(AValue);
 end;
 
+function TCustomScrollbar.ScaledWidth: Integer;
+begin
+  Result := MulDiv(SCROLLBAR_WIDTH, FCurrentPPI, DEFAULT_DPI);
+end;
+
+function TCustomScrollbar.ScaledMinThumbHeight: Integer;
+begin
+  Result := MulDiv(MIN_THUMB_HEIGHT, FCurrentPPI, DEFAULT_DPI);
+end;
+
+procedure TCustomScrollbar.UpdateDPI(ACurrentPPI: Integer);
+begin
+  FCurrentPPI := ACurrentPPI;
+end;
+
 function TCustomScrollbar.GetScrollbarRect: TRect;
 begin
   Result := Rect(
-    FClientWidth - SCROLLBAR_WIDTH,
+    FClientWidth - ScaledWidth,
     0,
     FClientWidth,
     FClientHeight
@@ -197,8 +222,8 @@ begin
   ThumbHeight := Round(TrackHeight * (FClientHeight / (FClientHeight + FMaxScroll)));
 
   // Minimum thumb height for usability
-  if ThumbHeight < MIN_THUMB_HEIGHT then
-    ThumbHeight := MIN_THUMB_HEIGHT;
+  if ThumbHeight < ScaledMinThumbHeight then
+    ThumbHeight := ScaledMinThumbHeight;
 
   // Thumb position based on scroll position
   ScrollRatio := FScrollPos / FMaxScroll;
@@ -379,13 +404,14 @@ begin
   ACanvas.Pen.Style := psClear;
 
   // Draw rounded thumb centered in track with equal insets on both sides
-  ThumbInset := 3;  // Equal margin on left and right for symmetry
+  ThumbInset := MulDiv(3, FCurrentPPI, DEFAULT_DPI);
   ACanvas.RoundRect(
     ThumbRect.Left + ThumbInset,
     ThumbRect.Top,
     ThumbRect.Right - ThumbInset,
     ThumbRect.Bottom,
-    4, 4
+    MulDiv(4, FCurrentPPI, DEFAULT_DPI),
+    MulDiv(4, FCurrentPPI, DEFAULT_DPI)
   );
 end;
 
