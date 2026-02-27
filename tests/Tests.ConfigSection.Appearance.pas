@@ -1,6 +1,6 @@
 {*******************************************************}
 {                                                       }
-{       Bluetooth Quick Connect                         }
+{       Bluetooth Quick Connect - Tests                 }
 {       Appearance Config Section Tests                 }
 {                                                       }
 {*******************************************************}

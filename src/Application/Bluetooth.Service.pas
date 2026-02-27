@@ -193,7 +193,7 @@ begin
   if ADeviceRepository <> nil then
     LDeviceRepository := ADeviceRepository
   else
-    LDeviceRepository := CreateDeviceRepository(AConnectionConfig);
+    LDeviceRepository := CreateDeviceRepository;
 
   if AConnectionExecutor <> nil then
     LConnectionExecutor := AConnectionExecutor

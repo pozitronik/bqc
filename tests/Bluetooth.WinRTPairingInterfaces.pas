@@ -1,6 +1,6 @@
 {*******************************************************}
 {                                                       }
-{       Bluetooth Quick Connect                         }
+{       Bluetooth Quick Connect - Tests                 }
 {       WinRT Bluetooth Pairing Interfaces              }
 {                                                       }
 {       Interface definitions for WinRT pairing APIs:   }

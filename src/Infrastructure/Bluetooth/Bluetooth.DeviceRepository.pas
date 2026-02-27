@@ -24,7 +24,6 @@ uses
   Bluetooth.DeviceConverter,
   Bluetooth.WinRTDeviceQuery,
   App.ConfigEnums,
-  App.ConnectionConfigIntf,
   App.SystemClock;
 
 type
@@ -94,7 +93,6 @@ type
   /// Composite query that uses both Win32 and WinRT APIs.
   /// Merges results, preferring devices with non-empty names.
   /// Logs comparison for investigation.
-  /// Supports enumeration mode selection via IConnectionConfig.
   /// Uses registry name cache to avoid repeated I/O on every enumeration.
   /// </summary>
   TCompositeBluetoothDeviceQuery = class(TInterfacedObject, IBluetoothDeviceQuery)
@@ -153,12 +151,7 @@ type
 /// <summary>
 /// Creates a device repository with Windows API query implementation.
 /// </summary>
-function CreateDeviceRepository: IDeviceRepository; overload;
-
-/// <summary>
-/// Creates a device repository with config-aware query implementation.
-/// </summary>
-function CreateDeviceRepository(AConnectionConfig: IConnectionConfig): IDeviceRepository; overload;
+function CreateDeviceRepository: IDeviceRepository;
 
 /// <summary>
 /// Creates a device query with automatic platform detection.
@@ -381,12 +374,6 @@ end;
 
 function CreateDeviceRepository: IDeviceRepository;
 begin
-  Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery);
-end;
-
-function CreateDeviceRepository(AConnectionConfig: IConnectionConfig): IDeviceRepository;
-begin
-  // Config parameter is no longer used - always use auto-detect
   Result := TBluetoothDeviceRepository.Create(CreateBluetoothDeviceQuery);
 end;
 

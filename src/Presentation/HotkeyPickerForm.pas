@@ -1,3 +1,10 @@
+{*******************************************************}
+{                                                       }
+{       Bluetooth Quick Connect                         }
+{       Hotkey Picker Form                              }
+{                                                       }
+{*******************************************************}
+
 unit HotkeyPickerForm;
 
 interface

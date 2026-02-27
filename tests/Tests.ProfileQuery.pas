@@ -1,6 +1,6 @@
 {*******************************************************}
 {                                                       }
-{       Bluetooth Quick Connect                         }
+{       Bluetooth Quick Connect - Tests                 }
 {       TProfileQuery Tests                             }
 {                                                       }
 {       Tests caching behavior and ISystemClock         }
