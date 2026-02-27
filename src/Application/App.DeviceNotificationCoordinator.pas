@@ -3,7 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Device Notification Coordinator                 }
 {                                                       }
-{       EXTRACTED FROM: App.MainPresenter (god class)   }
 {       Handles device state change notifications.      }
 {                                                       }
 {*******************************************************}

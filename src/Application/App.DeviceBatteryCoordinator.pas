@@ -3,7 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Device Battery Coordinator                      }
 {                                                       }
-{       EXTRACTED FROM: App.MainPresenter (god class)   }
 {       Handles battery monitoring and updates.         }
 {                                                       }
 {*******************************************************}
@@ -19,19 +18,19 @@ uses
   App.MainViewInterfaces,
   App.DeviceDisplayTypes,
   App.DeviceDisplayItemBuilder,
-  App.AppearanceConfigIntf,
   App.AsyncExecutor;
 
 type
   /// <summary>
-  /// Function type for finding device by address.
+  /// Decouples battery coordinator from presenter's device list,
+  /// allowing independent testing and avoiding circular dependency.
   /// Returns empty record (AddressInt=0) if not found.
   /// </summary>
   TFindDeviceFunc = reference to function(AAddress: UInt64): TBluetoothDeviceInfo;
 
   /// <summary>
-  /// Function type for getting connected device addresses.
-  /// Returns array of addresses for all currently connected devices.
+  /// Decouples battery coordinator from presenter's device list,
+  /// so battery refresh logic doesn't depend on presenter internals.
   /// </summary>
   TGetConnectedAddressesFunc = reference to function: TArray<UInt64>;
 
@@ -58,8 +57,8 @@ type
     FIsShuttingDown: Boolean;
 
     /// <summary>
-    /// Handles battery query completion event from battery cache.
-    /// Updates single display item with new battery status using O(1) lookup.
+    /// Wired to IBatteryCache.OnQueryCompleted to update a single display item
+    /// with O(1) cost, avoiding full list rebuild on each battery level change.
     /// </summary>
     procedure HandleBatteryQueryCompleted(Sender: TObject; ADeviceAddress: UInt64;
       const AStatus: TBatteryStatus);
@@ -102,7 +101,7 @@ type
     procedure Shutdown;
 
     /// <summary>
-    /// Gets the battery cache instance.
+    /// Exposed for presenter to pass to display item builder and other consumers.
     /// </summary>
     property BatteryCache: IBatteryCache read FBatteryCache;
   end;
@@ -151,13 +150,13 @@ var
   Device: TBluetoothDeviceInfo;
   DisplayItem: TDeviceDisplayItem;
 begin
-  // Skip if coordinator is shutting down
+  // Prevent use-after-free: async events may fire after coordinator is freed
   if FIsShuttingDown then
     Exit;
 
   LogDebug('HandleBatteryQueryCompleted: Address=$%.12X, Level=%d', [ADeviceAddress, AStatus.Level], ClassName);
 
-  // Find the device using injected function - O(1) lookup
+  // O(1) lookup via index map, avoids linear scan on every battery update
   Device := FFindDeviceFunc(ADeviceAddress);
   if Device.AddressInt = 0 then
   begin
@@ -176,7 +175,6 @@ procedure TDeviceBatteryCoordinator.RefreshBatteryForConnectedDevices;
 var
   ConnectedAddresses: TArray<UInt64>;
 begin
-  // Get connected addresses using injected function
   ConnectedAddresses := FGetConnectedAddressesFunc();
 
   if Length(ConnectedAddresses) > 0 then

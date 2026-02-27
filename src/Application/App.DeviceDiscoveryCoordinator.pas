@@ -3,7 +3,6 @@
 {       Bluetooth Quick Connect                         }
 {       Device Discovery Coordinator                    }
 {                                                       }
-{       EXTRACTED FROM: App.MainPresenter (god class)   }
 {       Handles device discovery and scanning.          }
 {                                                       }
 {*******************************************************}

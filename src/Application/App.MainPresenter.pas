@@ -54,7 +54,7 @@ type
     FBluetoothService: IBluetoothService;
     FPairingService: IBluetoothPairingService;
 
-    { Coordinators (extracted from god class) }
+    { Coordinators }
     FNotificationCoordinator: TDeviceNotificationCoordinator;
     FBatteryCoordinator: TDeviceBatteryCoordinator;
     FDiscoveryCoordinator: TDeviceDiscoveryCoordinator;
@@ -429,7 +429,7 @@ begin
   FDisplayItemBuilder := ADisplayItemBuilder;
   FBatteryCache := nil;
 
-  // Create coordinators (extracted from god class)
+  // Create coordinators
   FNotificationCoordinator := TDeviceNotificationCoordinator.Create(FStatusView, FDeviceConfigProvider);
 
   FDeviceList := TList<TBluetoothDeviceInfo>.Create;
@@ -480,7 +480,7 @@ begin
   end;
   FDisplayItemBuilder.SetBatteryCache(FBatteryCache);
 
-  // Create battery coordinator (extracted from god class)
+  // Create battery coordinator
   FBatteryCoordinator := TDeviceBatteryCoordinator.Create(
     FBatteryCache,
     FDisplayItemBuilder,
@@ -492,7 +492,7 @@ begin
   );
   FBatteryCoordinator.Initialize;
 
-  // Create discovery coordinator (extracted from god class)
+  // Create discovery coordinator
   FDiscoveryCoordinator := TDeviceDiscoveryCoordinator.Create(
     FBluetoothService,
     FStatusView,
@@ -1031,7 +1031,7 @@ var
   PairedAddr: UInt64;
   I: Integer;
   RemovedCount: Integer;
-  DeviceToRemove: TBluetoothDeviceInfo;
+  LDeviceToRemove: TBluetoothDeviceInfo;
   LService: IBluetoothService;
 begin
   if FIsShutdown then
@@ -1039,10 +1039,9 @@ begin
 
   LogDebug('SyncPairedDeviceList: Starting periodic sync', ClassName);
 
-  // Get current paired device addresses from Windows
   PairedAddresses := FPairingService.GetPairedDeviceAddresses;
 
-  // Convert array to dictionary for O(1) lookups instead of O(n) linear search
+  // O(1) lookups instead of O(n) linear search per device
   PairedAddressSet := TDictionary<UInt64, Boolean>.Create(Length(PairedAddresses));
   try
     for PairedAddr in PairedAddresses do
@@ -1051,28 +1050,27 @@ begin
     RemovedCount := 0;
     LService := FBluetoothService;
 
-    // Check each device in our list against Windows paired devices
+    // Reverse iteration: removing by index without invalidating remaining indices
     I := FDeviceList.Count - 1;
     while I >= 0 do
     begin
       DeviceAddress := FDeviceList[I].AddressInt;
 
-      // Check if device is still paired in Windows (O(1) lookup)
+      // Detect devices unpaired externally (e.g. via Windows Settings)
       if not PairedAddressSet.ContainsKey(DeviceAddress) then
       begin
-        // Device was unpaired from Windows - remove it
-        DeviceToRemove := FDeviceList[I];
+        LDeviceToRemove := FDeviceList[I];
         LogInfo('SyncPairedDeviceList: Device $%.12X ("%s") was unpaired externally, removing from list',
-          [DeviceAddress, DeviceToRemove.Name], ClassName);
+          [DeviceAddress, LDeviceToRemove.Name], ClassName);
 
         // Disconnect asynchronously (blocking Windows API, must not freeze main thread)
-        if DeviceToRemove.IsConnected then
+        if LDeviceToRemove.IsConnected then
         begin
           LogInfo('SyncPairedDeviceList: Scheduling async disconnect before removal', ClassName);
           FAsyncExecutor.RunAsync(
             procedure
             begin
-              LService.Disconnect(DeviceToRemove);
+              LService.Disconnect(LDeviceToRemove);
             end
           );
         end;
@@ -1697,32 +1695,30 @@ begin
 
   FStatusView.ShowStatus(Format('Unpairing %s...', [LDevice.Name]));
 
-  // Capture interface references for async thread
+  // Closures must not capture Self (freed before async completes)
   LPairingService := FPairingService;
   LService := FBluetoothService;
 
   FAsyncExecutor.RunAsync(
     procedure
     var
-      PairingResult: TPairingResult;
+      LPairingResult: TPairingResult;
     begin
-      PairingResult := LPairingService.UnpairDevice(ADeviceAddress);
+      LPairingResult := LPairingService.UnpairDevice(ADeviceAddress);
 
-      if PairingResult.IsSuccess then
+      if LPairingResult.IsSuccess then
       begin
         LogInfo('OnUnpairDevice: Successfully unpaired', ClassName);
 
-        // Disconnect if connected (blocking Windows API call)
+        // BluetoothSetServiceState is blocking; safe here since we're already off main thread
         if LDevice.IsConnected then
         begin
           LogInfo('OnUnpairDevice: Disconnecting device before removal', ClassName);
           LService.Disconnect(LDevice);
         end;
 
-        // Remove device from repository
         LService.RemoveDevice(ADeviceAddress);
 
-        // UI updates on main thread
         QueueIfNotShutdown(
           procedure
           begin
@@ -1734,12 +1730,12 @@ begin
       end
       else
       begin
-        LogError('OnUnpairDevice: Failed - %s', [PairingResult.ErrorMessage], ClassName);
+        LogError('OnUnpairDevice: Failed - %s', [LPairingResult.ErrorMessage], ClassName);
         QueueIfNotShutdown(
           procedure
           begin
             FStatusView.ShowStatus(Format('Failed to unpair %s: %s',
-              [LDevice.Name, PairingResult.ErrorMessage]));
+              [LDevice.Name, LPairingResult.ErrorMessage]));
           end
         );
       end;
