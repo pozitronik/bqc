@@ -1367,6 +1367,9 @@ var
   LAddress: UInt64;
   LQuery: IBatteryQuery;
   LCallback: TBatteryQueryCallback;
+  // Interface ref keeps the executor alive via ref-counting until
+  // the background thread completes, preventing use-after-free.
+  LKeepAlive: IBatteryQueryExecutor;
   LSelf: TAsyncBatteryQueryExecutor;
 begin
   if IsShutdown then
@@ -1375,6 +1378,7 @@ begin
   LAddress := ADeviceAddress;
   LQuery := FBatteryQuery;
   LCallback := ACallback;
+  LKeepAlive := Self;
   LSelf := Self;
 
   TInterlocked.Increment(FPendingQueries);
