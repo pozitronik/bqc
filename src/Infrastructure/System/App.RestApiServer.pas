@@ -188,6 +188,7 @@ procedure TRestApiServer.HandleRequest(AContext: TIdContext;
 var
   Path, LocalSnapshot: string;
   DeviceIndex: Integer;
+  LocalItem: TDeviceDisplayItem;
   DeviceJson: TJSONObject;
 begin
   Path := ARequestInfo.Document;
@@ -234,26 +235,26 @@ begin
   if Path.StartsWith('/api/devices/') and (Length(Path) > Length('/api/devices/')) then
   begin
     var AddressStr := Copy(Path, Length('/api/devices/') + 1, MaxInt);
+
+    // Copy record under lock (consistent with other endpoints' copy-under-lock pattern)
     FLock.Acquire;
     try
       DeviceIndex := TRestApiSnapshotBuilder.FindDeviceByAddress(FItems, AddressStr);
       if DeviceIndex >= 0 then
-      begin
-        DeviceJson := TRestApiSnapshotBuilder.BuildDeviceJson(FItems[DeviceIndex]);
-        try
-          LocalSnapshot := DeviceJson.ToJSON;
-        finally
-          DeviceJson.Free;
-        end;
-      end
-      else
-        LocalSnapshot := '';
+        LocalItem := FItems[DeviceIndex];
     finally
       FLock.Release;
     end;
 
-    if LocalSnapshot <> '' then
-      ServeJson(AResponseInfo, LocalSnapshot)
+    if DeviceIndex >= 0 then
+    begin
+      DeviceJson := TRestApiSnapshotBuilder.BuildDeviceJson(LocalItem);
+      try
+        ServeJson(AResponseInfo, DeviceJson.ToJSON);
+      finally
+        DeviceJson.Free;
+      end;
+    end
     else
       ServeError(AResponseInfo, 404, 'Device not found');
     Exit;
