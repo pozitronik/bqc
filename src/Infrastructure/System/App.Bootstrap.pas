@@ -177,26 +177,31 @@ begin
   if FConfig = nil then
   begin
     Cfg := TAppConfig.Create;
+    try
+      // Create device repository (implements both IDeviceConfigStorage and IDeviceConfigPersistence)
+      FDeviceRepository := CreateDeviceConfigRepository;
 
-    // Create device repository (implements both IDeviceConfigStorage and IDeviceConfigPersistence)
-    FDeviceRepository := CreateDeviceConfigRepository;
+      // Query persistence interface for settings repository (ISP-compliant)
+      DevicePersistence := FDeviceRepository as IDeviceConfigPersistence;
 
-    // Query persistence interface for settings repository (ISP-compliant)
-    DevicePersistence := FDeviceRepository as IDeviceConfigPersistence;
+      // Create settings repository with persistence interface (only needs Load/Save)
+      SettingsRepo := TIniSettingsRepository.Create(Cfg.ConfigPath, DevicePersistence);
 
-    // Create settings repository with persistence interface (only needs Load/Save)
-    SettingsRepo := TIniSettingsRepository.Create(Cfg.ConfigPath, DevicePersistence);
+      // Wire up repositories
+      Cfg.SetRepositories(SettingsRepo, FDeviceRepository);
 
-    // Wire up repositories
-    Cfg.SetRepositories(SettingsRepo, FDeviceRepository);
+      // Store as interface (must be done after setup to avoid premature release)
+      FConfig := Cfg;
+    except
+      // Cfg is a raw pointer until FConfig := Cfg assigns it to an interface.
+      // Without this, any exception above leaks the TAppConfig instance.
+      Cfg.Free;
+      FDeviceRepository := nil;
+      raise;
+    end;
 
-    // Store as interface (must be done after setup to avoid premature release)
-    FConfig := Cfg;
-
-    // Load configuration
+    // Safe outside try/except: FConfig is set, so future calls won't retry
     FConfig.Load;
-
-    // Apply side effects after loading
     ApplySideEffects;
   end;
   Result := FConfig;
