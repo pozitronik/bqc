@@ -36,6 +36,12 @@ type
   TGetConnectedAddressesFunc = reference to function: TArray<UInt64>;
 
   /// <summary>
+  /// Procedure type for queueing work with shutdown safety check.
+  /// Prevents use-after-free when async callbacks fire after coordinator is freed.
+  /// </summary>
+  TBatteryQueueProc = reference to procedure(AProc: TProc);
+
+  /// <summary>
   /// Coordinator for battery monitoring logic.
   /// Extracted from TMainPresenter to separate battery concerns.
   /// Manages battery cache, handles battery query events, refreshes battery for connected devices.
@@ -48,6 +54,7 @@ type
     FAsyncExecutor: IAsyncExecutor;
     FFindDeviceFunc: TFindDeviceFunc;
     FGetConnectedAddressesFunc: TGetConnectedAddressesFunc;
+    FQueueIfNotShutdown: TBatteryQueueProc;
     FIsShuttingDown: Boolean;
 
     /// <summary>
@@ -67,7 +74,8 @@ type
       ADeviceListView: IDeviceListView;
       AAsyncExecutor: IAsyncExecutor;
       AFindDeviceFunc: TFindDeviceFunc;
-      AGetConnectedAddressesFunc: TGetConnectedAddressesFunc
+      AGetConnectedAddressesFunc: TGetConnectedAddressesFunc;
+      AQueueIfNotShutdown: TBatteryQueueProc
     );
 
     /// <summary>
@@ -112,7 +120,8 @@ constructor TDeviceBatteryCoordinator.Create(
   ADeviceListView: IDeviceListView;
   AAsyncExecutor: IAsyncExecutor;
   AFindDeviceFunc: TFindDeviceFunc;
-  AGetConnectedAddressesFunc: TGetConnectedAddressesFunc
+  AGetConnectedAddressesFunc: TGetConnectedAddressesFunc;
+  AQueueIfNotShutdown: TBatteryQueueProc
 );
 begin
   inherited Create;
@@ -122,6 +131,7 @@ begin
   FAsyncExecutor := AAsyncExecutor;
   FFindDeviceFunc := AFindDeviceFunc;
   FGetConnectedAddressesFunc := AGetConnectedAddressesFunc;
+  FQueueIfNotShutdown := AQueueIfNotShutdown;
   FIsShuttingDown := False;
 end;
 
@@ -180,21 +190,23 @@ procedure TDeviceBatteryCoordinator.ScheduleDelayedBatteryRefresh(AAddress: UInt
 var
   LAddress: UInt64;
   LBatteryCache: IBatteryCache;
-  LSelf: TDeviceBatteryCoordinator;
+  LQueueIfNotShutdown: TBatteryQueueProc;
 begin
   LAddress := AAddress;
   LBatteryCache := FBatteryCache;
-  LSelf := Self;
+  LQueueIfNotShutdown := FQueueIfNotShutdown;
 
   FAsyncExecutor.RunDelayed(
     procedure
     begin
-      // Check shutdown flag before executing async callback
-      if not LSelf.FIsShuttingDown then
-      begin
-        // LBatteryCache is always valid (real or null object)
-        LBatteryCache.RequestRefresh(LAddress);
-      end;
+      // Queue to main thread with shutdown guard instead of capturing raw Self pointer.
+      // The closure only holds interface references (ref-counted, always valid).
+      LQueueIfNotShutdown(
+        procedure
+        begin
+          LBatteryCache.RequestRefresh(LAddress);
+        end
+      );
     end,
     ADelayMs
   );

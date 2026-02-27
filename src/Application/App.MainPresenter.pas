@@ -487,7 +487,8 @@ begin
     FDeviceListView,
     FAsyncExecutor,
     FindDeviceByAddress,
-    GetConnectedDeviceAddresses
+    GetConnectedDeviceAddresses,
+    QueueIfNotShutdown
   );
   FBatteryCoordinator.Initialize;
 

@@ -53,6 +53,15 @@ type
     FGetConnectedAddressesCallCount: Integer;
     FConnectedAddresses: TArray<UInt64>;
 
+    // QueueIfNotShutdown tracking
+    FQueueCallCount: Integer;
+    FSimulateShutdown: Boolean;
+
+    /// <summary>
+    /// Mock QueueIfNotShutdown that tracks calls and optionally skips execution.
+    /// </summary>
+    procedure MockQueueIfNotShutdown(AProc: TProc);
+
     /// <summary>
     /// Injected find device function for testing.
     /// </summary>
@@ -126,6 +135,13 @@ implementation
 
 { TDeviceBatteryCoordinatorTests }
 
+procedure TDeviceBatteryCoordinatorTests.MockQueueIfNotShutdown(AProc: TProc);
+begin
+  Inc(FQueueCallCount);
+  if not FSimulateShutdown then
+    AProc();
+end;
+
 procedure TDeviceBatteryCoordinatorTests.Setup;
 begin
   FBatteryCache := TMockBatteryCache.Create;
@@ -142,13 +158,17 @@ begin
   FGetConnectedAddressesCallCount := 0;
   FConnectedAddresses := [];
 
+  FQueueCallCount := 0;
+  FSimulateShutdown := False;
+
   FCoordinator := TDeviceBatteryCoordinator.Create(
     FBatteryCache as IBatteryCache,
     FDisplayItemBuilder as IDeviceDisplayItemBuilder,
     FDeviceListView as IDeviceListView,
     FAsyncExecutor as IAsyncExecutor,
     FindDeviceFunc,
-    GetConnectedAddressesFunc
+    GetConnectedAddressesFunc,
+    MockQueueIfNotShutdown
   );
 end;
 
@@ -412,6 +432,8 @@ begin
   // Execute the pending callback
   FAsyncExecutor.ExecutePending;
 
+  Assert.AreEqual(1, FQueueCallCount,
+    'Callback should route through QueueIfNotShutdown');
   Assert.AreEqual(1, FBatteryCache.RequestRefreshCallCount,
     'Callback should call RequestRefresh');
   Assert.AreEqual(ExpectedAddress, FBatteryCache.LastRefreshAddress,
@@ -422,12 +444,15 @@ procedure TDeviceBatteryCoordinatorTests.ScheduleDelayedBatteryRefresh_CallbackS
 begin
   FCoordinator.ScheduleDelayedBatteryRefresh($001, 5000);
 
-  // Shutdown before callback executes
-  FCoordinator.Shutdown;
+  // Simulate shutdown: QueueIfNotShutdown will accept the proc but not execute it
+  FSimulateShutdown := True;
 
-  // Now execute the pending callback
+  // Now execute the pending callback (thread wakes up, calls QueueIfNotShutdown)
   FAsyncExecutor.ExecutePending;
 
+  // QueueIfNotShutdown was called but skipped execution
+  Assert.AreEqual(1, FQueueCallCount,
+    'Callback should route through QueueIfNotShutdown');
   Assert.AreEqual(0, FBatteryCache.RequestRefreshCallCount,
     'Callback should NOT call RequestRefresh after shutdown');
 end;
