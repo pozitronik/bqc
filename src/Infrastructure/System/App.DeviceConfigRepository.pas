@@ -211,11 +211,11 @@ begin
       end
       else
       begin
+        LogDebug('RegisterDevice: Updated name for device $%.12X: "%s" -> "%s"',
+          [AAddress, DeviceConfig.Name, AName], ClassName);
         DeviceConfig.Name := AName;
         FDevices[AAddress] := DeviceConfig;
         FModified := True;
-        LogDebug('RegisterDevice: Updated name for device $%.12X: "%s" -> "%s"',
-          [AAddress, DeviceConfig.Name, AName], ClassName);
       end;
     end;
 
