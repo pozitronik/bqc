@@ -432,10 +432,12 @@ end;
 procedure TDeviceRepositoryTests.Remove_NonExisting_DoesNothing;
 begin
   FRepository.AddOrUpdate(CreateTestDevice($AABBCCDDEEFF, 'TestDevice'));
+  FListChangedCount := 0;
 
   FRepository.Remove($999999999999);
 
   Assert.AreEqual(1, FRepository.Count);
+  Assert.AreEqual(0, FListChangedCount, 'Removing non-existing device should not fire ListChanged');
 end;
 
 procedure TDeviceRepositoryTests.Remove_ExistingDevice_FiresListChanged;

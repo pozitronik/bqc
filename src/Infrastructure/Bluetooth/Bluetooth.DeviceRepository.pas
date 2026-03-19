@@ -522,7 +522,6 @@ procedure TCompositeBluetoothDeviceQuery.LogComparison(
 var
   Win32Map, WinRTMap: TDictionary<UInt64, TBluetoothDeviceInfo>;
   Device, ResolvedDevice: TBluetoothDeviceInfo;
-  Address: UInt64;
   Win32EmptyNames, WinRTResolvedNames: Integer;
 begin
   LogInfo('=== Win32 vs WinRT Comparison ===', ClassName);
@@ -572,15 +571,11 @@ begin
 
     // Log devices only in WinRT (BLE devices Win32 missed)
     LogInfo('--- Devices ONLY in WinRT ---', ClassName);
-    for Address in WinRTMap.Keys do
+    for Device in AWinRT do
     begin
-      // Use TryGetValue for single lookup instead of ContainsKey + []
-      if not Win32Map.ContainsKey(Address) then
-      begin
-        if WinRTMap.TryGetValue(Address, ResolvedDevice) then
-          LogInfo('  $%.12X | Name="%s" (BLE device missed by Win32)',
-            [ResolvedDevice.AddressInt, ResolvedDevice.Name], ClassName);
-      end;
+      if not Win32Map.ContainsKey(Device.AddressInt) then
+        LogInfo('  $%.12X | Name="%s" (BLE device missed by Win32)',
+          [Device.AddressInt, Device.Name], ClassName);
     end;
 
     LogInfo('Summary: Win32 empty names=%d, WinRT resolved=%d',
@@ -710,13 +705,13 @@ end;
 
 procedure TBluetoothDeviceRepository.AddOrUpdate(const ADevice: TBluetoothDeviceInfo);
 var
-  IsNew: Boolean;
+  OldCount: Integer;
 begin
-  IsNew := not FDevices.ContainsKey(ADevice.AddressInt);
+  OldCount := FDevices.Count;
   FDevices.AddOrSetValue(ADevice.AddressInt, ADevice);
   InvalidateCache;
 
-  if IsNew then
+  if FDevices.Count > OldCount then
     DoListChanged;
 end;
 
@@ -737,12 +732,12 @@ end;
 
 procedure TBluetoothDeviceRepository.Remove(AAddress: UInt64);
 var
-  Existed: Boolean;
+  OldCount: Integer;
 begin
-  Existed := FDevices.ContainsKey(AAddress);
+  OldCount := FDevices.Count;
   FDevices.Remove(AAddress);
 
-  if Existed then
+  if FDevices.Count < OldCount then
   begin
     InvalidateCache;
     DoListChanged;

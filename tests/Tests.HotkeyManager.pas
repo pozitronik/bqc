@@ -22,7 +22,7 @@ type
   /// Tests ParseHotkeyString, BuildHotkeyString, and round-trip conversions.
   /// </summary>
   [TestFixture]
-  TTestHotkeyManager = class
+  THotkeyManagerTests = class
   private
     FHotkeyManager: THotkeyManager;
   public
@@ -177,14 +177,14 @@ type
 
 implementation
 
-{ TTestHotkeyManager }
+{ THotkeyManagerTests }
 
-procedure TTestHotkeyManager.Setup;
+procedure THotkeyManagerTests.Setup;
 begin
   FHotkeyManager := THotkeyManager.Create;
 end;
 
-procedure TTestHotkeyManager.TearDown;
+procedure THotkeyManagerTests.TearDown;
 begin
   FHotkeyManager.Free;
   FHotkeyManager := nil;
@@ -192,7 +192,7 @@ end;
 
 { ParseHotkeyString Tests - Valid Combinations }
 
-procedure TTestHotkeyManager.ParseHotkeyString_CtrlAltA_ValidCombination;
+procedure THotkeyManagerTests.ParseHotkeyString_CtrlAltA_ValidCombination;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -204,7 +204,7 @@ begin
   Assert.AreEqual(Cardinal(Ord('A')), VirtualKey, 'VirtualKey should be A');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_CtrlShiftF1_FunctionKey;
+procedure THotkeyManagerTests.ParseHotkeyString_CtrlShiftF1_FunctionKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -216,7 +216,7 @@ begin
   Assert.AreEqual(Cardinal(VK_F1), VirtualKey, 'VirtualKey should be VK_F1');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_AltSpace_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_AltSpace_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -228,7 +228,7 @@ begin
   Assert.AreEqual(Cardinal(VK_SPACE), VirtualKey, 'VirtualKey should be VK_SPACE');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_CtrlEnter_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_CtrlEnter_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -240,7 +240,7 @@ begin
   Assert.AreEqual(Cardinal(VK_RETURN), VirtualKey, 'VirtualKey should be VK_RETURN');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_CtrlEscape_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_CtrlEscape_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -254,7 +254,7 @@ end;
 
 { ParseHotkeyString Tests - Edge Cases }
 
-procedure TTestHotkeyManager.ParseHotkeyString_EmptyString_ReturnsDefaults;
+procedure THotkeyManagerTests.ParseHotkeyString_EmptyString_ReturnsDefaults;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -266,7 +266,7 @@ begin
   Assert.AreEqual(Cardinal(0), VirtualKey, 'VirtualKey should be 0 for empty string');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_InvalidModifier_Handles;
+procedure THotkeyManagerTests.ParseHotkeyString_InvalidModifier_Handles;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -276,7 +276,7 @@ begin
   Assert.IsFalse(Result, 'ParseHotkeyString should return False for invalid modifier');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_CaseInsensitive_LowerCase;
+procedure THotkeyManagerTests.ParseHotkeyString_CaseInsensitive_LowerCase;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -288,7 +288,7 @@ begin
   Assert.AreEqual(Cardinal(Ord('B')), VirtualKey, 'VirtualKey should be B (uppercase)');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_CaseInsensitive_UpperCase;
+procedure THotkeyManagerTests.ParseHotkeyString_CaseInsensitive_UpperCase;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -300,7 +300,7 @@ begin
   Assert.AreEqual(Cardinal(Ord('B')), VirtualKey, 'VirtualKey should be B');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_DuplicateModifiers_CtrlCtrlA;
+procedure THotkeyManagerTests.ParseHotkeyString_DuplicateModifiers_CtrlCtrlA;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -313,7 +313,7 @@ begin
   Assert.AreEqual(Cardinal(Ord('A')), VirtualKey, 'VirtualKey should be A');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_NoModifier_SingleKey;
+procedure THotkeyManagerTests.ParseHotkeyString_NoModifier_SingleKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -326,7 +326,7 @@ end;
 
 { ParseHotkeyString Tests - Function Keys }
 
-procedure TTestHotkeyManager.ParseHotkeyString_AllFunctionKeys_F1ToF12;
+procedure THotkeyManagerTests.ParseHotkeyString_AllFunctionKeys_F1ToF12;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -344,7 +344,7 @@ end;
 
 { ParseHotkeyString Tests - Formatting Edge Cases }
 
-procedure TTestHotkeyManager.ParseHotkeyString_MultiplePlusSigns_Handles;
+procedure THotkeyManagerTests.ParseHotkeyString_MultiplePlusSigns_Handles;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -356,7 +356,7 @@ begin
   Assert.IsFalse(Result, 'ParseHotkeyString should return False for malformed input');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_WhitespaceAround_Trims;
+procedure THotkeyManagerTests.ParseHotkeyString_WhitespaceAround_Trims;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -370,7 +370,7 @@ end;
 
 { BuildHotkeyString Tests }
 
-procedure TTestHotkeyManager.BuildHotkeyString_ValidCombination_ReturnsFormatted;
+procedure THotkeyManagerTests.BuildHotkeyString_ValidCombination_ReturnsFormatted;
 var
   Result: string;
 begin
@@ -379,7 +379,7 @@ begin
   Assert.AreEqual('Ctrl+Alt+B', Result, 'BuildHotkeyString should return formatted string');
 end;
 
-procedure TTestHotkeyManager.BuildHotkeyString_AllModifiers_CorrectOrder;
+procedure THotkeyManagerTests.BuildHotkeyString_AllModifiers_CorrectOrder;
 var
   Result: string;
 begin
@@ -389,7 +389,7 @@ begin
   Assert.AreEqual('Ctrl+Alt+Shift+X', Result, 'BuildHotkeyString should have correct modifier order');
 end;
 
-procedure TTestHotkeyManager.BuildHotkeyString_NoModifiers_JustKey;
+procedure THotkeyManagerTests.BuildHotkeyString_NoModifiers_JustKey;
 var
   Result: string;
 begin
@@ -399,7 +399,7 @@ begin
   Assert.AreEqual('', Result, 'BuildHotkeyString should return empty for no modifiers');
 end;
 
-procedure TTestHotkeyManager.BuildHotkeyString_FunctionKey_F5;
+procedure THotkeyManagerTests.BuildHotkeyString_FunctionKey_F5;
 var
   Result: string;
 begin
@@ -410,7 +410,7 @@ end;
 
 { Round-trip Tests }
 
-procedure TTestHotkeyManager.RoundTrip_ParseThenBuild_MatchesOriginal;
+procedure THotkeyManagerTests.RoundTrip_ParseThenBuild_MatchesOriginal;
 var
   Modifiers, VirtualKey: Cardinal;
   Shift: TShiftState;
@@ -436,7 +436,7 @@ begin
   Assert.AreEqual('Ctrl+Alt+B', BuiltString, 'Round-trip should produce original string');
 end;
 
-procedure TTestHotkeyManager.RoundTrip_CommonHotkeys_AllValid;
+procedure THotkeyManagerTests.RoundTrip_CommonHotkeys_AllValid;
 var
   TestCases: array[0..4] of string;
   TestCase: string;
@@ -471,7 +471,7 @@ end;
 
 { Edge Cases }
 
-procedure TTestHotkeyManager.ParseHotkeyString_OnlyModifiers_NoKey;
+procedure THotkeyManagerTests.ParseHotkeyString_OnlyModifiers_NoKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -482,7 +482,7 @@ begin
   Assert.IsFalse(Result, 'ParseHotkeyString should return False for only modifiers');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_UnknownKey_Handles;
+procedure THotkeyManagerTests.ParseHotkeyString_UnknownKey_Handles;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -492,7 +492,7 @@ begin
   Assert.IsFalse(Result, 'ParseHotkeyString should return False for unknown key');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_NumericKey_Handles;
+procedure THotkeyManagerTests.ParseHotkeyString_NumericKey_Handles;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -506,7 +506,7 @@ end;
 
 { Additional Special Keys Tests }
 
-procedure TTestHotkeyManager.ParseHotkeyString_Tab_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_Tab_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -517,7 +517,7 @@ begin
   Assert.AreEqual(Cardinal(VK_TAB), VirtualKey, 'VirtualKey should be VK_TAB');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_Backspace_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_Backspace_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -528,7 +528,7 @@ begin
   Assert.AreEqual(Cardinal(VK_BACK), VirtualKey, 'VirtualKey should be VK_BACK');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_Delete_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_Delete_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -539,7 +539,7 @@ begin
   Assert.AreEqual(Cardinal(VK_DELETE), VirtualKey, 'VirtualKey should be VK_DELETE');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_Insert_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_Insert_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -550,7 +550,7 @@ begin
   Assert.AreEqual(Cardinal(VK_INSERT), VirtualKey, 'VirtualKey should be VK_INSERT');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_Home_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_Home_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -561,7 +561,7 @@ begin
   Assert.AreEqual(Cardinal(VK_HOME), VirtualKey, 'VirtualKey should be VK_HOME');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_End_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_End_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -572,7 +572,7 @@ begin
   Assert.AreEqual(Cardinal(VK_END), VirtualKey, 'VirtualKey should be VK_END');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_PageUp_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_PageUp_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -583,7 +583,7 @@ begin
   Assert.AreEqual(Cardinal(VK_PRIOR), VirtualKey, 'VirtualKey should be VK_PRIOR');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_PageDown_SpecialKey;
+procedure THotkeyManagerTests.ParseHotkeyString_PageDown_SpecialKey;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -594,7 +594,7 @@ begin
   Assert.AreEqual(Cardinal(VK_NEXT), VirtualKey, 'VirtualKey should be VK_NEXT');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_ArrowKeys_SpecialKeys;
+procedure THotkeyManagerTests.ParseHotkeyString_ArrowKeys_SpecialKeys;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -622,7 +622,7 @@ end;
 
 { Windows Key Tests }
 
-procedure TTestHotkeyManager.ParseHotkeyString_WinModifier_Supported;
+procedure THotkeyManagerTests.ParseHotkeyString_WinModifier_Supported;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -634,7 +634,7 @@ begin
   Assert.AreEqual(Cardinal(Ord('A')), VirtualKey, 'VirtualKey should be A');
 end;
 
-procedure TTestHotkeyManager.ParseHotkeyString_WindowsModifier_Alias;
+procedure THotkeyManagerTests.ParseHotkeyString_WindowsModifier_Alias;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -648,7 +648,7 @@ end;
 
 { Control Modifier Alias Tests }
 
-procedure TTestHotkeyManager.ParseHotkeyString_ControlModifier_Alias;
+procedure THotkeyManagerTests.ParseHotkeyString_ControlModifier_Alias;
 var
   Modifiers, VirtualKey: Cardinal;
   Result: Boolean;
@@ -662,7 +662,7 @@ end;
 
 { BuildHotkeyString Special Keys Tests }
 
-procedure TTestHotkeyManager.BuildHotkeyString_Space_ReturnsSpace;
+procedure THotkeyManagerTests.BuildHotkeyString_Space_ReturnsSpace;
 var
   Result: string;
 begin
@@ -671,7 +671,7 @@ begin
   Assert.AreEqual('Ctrl+Space', Result, 'BuildHotkeyString should return Space for VK_SPACE');
 end;
 
-procedure TTestHotkeyManager.BuildHotkeyString_Enter_ReturnsEnter;
+procedure THotkeyManagerTests.BuildHotkeyString_Enter_ReturnsEnter;
 var
   Result: string;
 begin
@@ -680,7 +680,7 @@ begin
   Assert.AreEqual('Ctrl+Enter', Result, 'BuildHotkeyString should return Enter for VK_RETURN');
 end;
 
-procedure TTestHotkeyManager.BuildHotkeyString_Escape_ReturnsEscape;
+procedure THotkeyManagerTests.BuildHotkeyString_Escape_ReturnsEscape;
 var
   Result: string;
 begin
@@ -689,7 +689,7 @@ begin
   Assert.AreEqual('Alt+Escape', Result, 'BuildHotkeyString should return Escape for VK_ESCAPE');
 end;
 
-procedure TTestHotkeyManager.BuildHotkeyString_ArrowKeys_ReturnsCorrectNames;
+procedure THotkeyManagerTests.BuildHotkeyString_ArrowKeys_ReturnsCorrectNames;
 var
   Result: string;
 begin
@@ -706,7 +706,7 @@ begin
   Assert.AreEqual('Ctrl+Right', Result, 'BuildHotkeyString should return Right for VK_RIGHT');
 end;
 
-procedure TTestHotkeyManager.BuildHotkeyString_NavigationKeys_ReturnsCorrectNames;
+procedure THotkeyManagerTests.BuildHotkeyString_NavigationKeys_ReturnsCorrectNames;
 var
   Result: string;
 begin
@@ -731,7 +731,7 @@ end;
 
 { BuildHotkeyString Modifier-Only Tests }
 
-procedure TTestHotkeyManager.BuildHotkeyString_ModifierKeyOnly_ReturnsEmpty;
+procedure THotkeyManagerTests.BuildHotkeyString_ModifierKeyOnly_ReturnsEmpty;
 var
   Result: string;
 begin
@@ -750,7 +750,7 @@ end;
 
 { Multiple Instance Tests }
 
-procedure TTestHotkeyManager.MultipleInstances_HaveDifferentIds;
+procedure THotkeyManagerTests.MultipleInstances_HaveDifferentIds;
 var
   Manager1, Manager2, Manager3: THotkeyManager;
 begin
@@ -774,7 +774,7 @@ begin
   end;
 end;
 
-procedure TTestHotkeyManager.MultipleInstances_CanRegisterDifferentHotkeys;
+procedure THotkeyManagerTests.MultipleInstances_CanRegisterDifferentHotkeys;
 var
   Manager1, Manager2: THotkeyManager;
 begin
@@ -797,6 +797,6 @@ begin
 end;
 
 initialization
-  TDUnitX.RegisterTestFixture(TTestHotkeyManager);
+  TDUnitX.RegisterTestFixture(THotkeyManagerTests);
 
 end.

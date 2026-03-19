@@ -245,9 +245,9 @@ end;
 
 procedure TDeviceConfigRepositoryTests.Remove_NonExisting_NoError;
 begin
-  // Should not raise exception
+  // Should not raise exception or set modified flag
   FRepository.Remove($AABBCCDDEEFF);
-  Assert.Pass;
+  Assert.IsFalse(FRepository.IsModified, 'Removing non-existing device should not set modified flag');
 end;
 
 procedure TDeviceConfigRepositoryTests.RegisterDevice_NewDevice_CreatesConfig;

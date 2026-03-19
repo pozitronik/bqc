@@ -1139,44 +1139,40 @@ end;
 
 function TSettingsPresenter.ValidateHotkeys(const AHotkey: THotkeyViewSettings): Boolean;
 var
-  Hotkeys: TArray<string>;
-  Names: TArray<string>;
-  I, J: Integer;
+  Hotkeys: array[0..2] of string;
+  Names: array[0..2] of string;
+  Count, I, J: Integer;
 begin
   Result := True;
 
   // Collect all non-empty hotkeys with their names
-  SetLength(Hotkeys, 0);
-  SetLength(Names, 0);
+  Count := 0;
 
   if AHotkey.Hotkey <> '' then
   begin
-    SetLength(Hotkeys, Length(Hotkeys) + 1);
-    SetLength(Names, Length(Names) + 1);
-    Hotkeys[High(Hotkeys)] := UpperCase(AHotkey.Hotkey);
-    Names[High(Names)] := 'Main hotkey';
+    Hotkeys[Count] := UpperCase(AHotkey.Hotkey);
+    Names[Count] := 'Main hotkey';
+    Inc(Count);
   end;
 
   if AHotkey.CastPanelHotkey <> '' then
   begin
-    SetLength(Hotkeys, Length(Hotkeys) + 1);
-    SetLength(Names, Length(Names) + 1);
-    Hotkeys[High(Hotkeys)] := UpperCase(AHotkey.CastPanelHotkey);
-    Names[High(Names)] := 'Cast panel hotkey';
+    Hotkeys[Count] := UpperCase(AHotkey.CastPanelHotkey);
+    Names[Count] := 'Cast panel hotkey';
+    Inc(Count);
   end;
 
   if AHotkey.BluetoothPanelHotkey <> '' then
   begin
-    SetLength(Hotkeys, Length(Hotkeys) + 1);
-    SetLength(Names, Length(Names) + 1);
-    Hotkeys[High(Hotkeys)] := UpperCase(AHotkey.BluetoothPanelHotkey);
-    Names[High(Names)] := 'Bluetooth panel hotkey';
+    Hotkeys[Count] := UpperCase(AHotkey.BluetoothPanelHotkey);
+    Names[Count] := 'Bluetooth panel hotkey';
+    Inc(Count);
   end;
 
   // Check for duplicates
-  for I := 0 to High(Hotkeys) do
+  for I := 0 to Count - 1 do
   begin
-    for J := I + 1 to High(Hotkeys) do
+    for J := I + 1 to Count - 1 do
     begin
       if Hotkeys[I] = Hotkeys[J] then
       begin

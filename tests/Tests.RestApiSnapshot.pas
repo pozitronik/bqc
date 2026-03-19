@@ -20,7 +20,7 @@ uses
 
 type
   [TestFixture]
-  TTestRestApiSnapshot = class
+  TRestApiSnapshotTests = class
   private
     function MakeDevice(AAddressInt: UInt64; const AName: string;
       AType: TBluetoothDeviceType; AState: TBluetoothConnectionState;
@@ -89,7 +89,7 @@ uses
 
 { Helper methods }
 
-function TTestRestApiSnapshot.MakeDevice(AAddressInt: UInt64;
+function TRestApiSnapshotTests.MakeDevice(AAddressInt: UInt64;
   const AName: string; AType: TBluetoothDeviceType;
   AState: TBluetoothConnectionState;
   AIsPaired: Boolean): TBluetoothDeviceInfo;
@@ -102,7 +102,7 @@ begin
     AIsPaired, False, 0, Now, 0);
 end;
 
-function TTestRestApiSnapshot.MakeDisplayItem(
+function TRestApiSnapshotTests.MakeDisplayItem(
   const ADevice: TBluetoothDeviceInfo;
   const ADisplayName: string; AIsPinned: Boolean;
   ABattery: TBatteryStatus; const ABatteryText: string;
@@ -116,7 +116,7 @@ end;
 
 { Tests }
 
-procedure TTestRestApiSnapshot.EmptyDeviceList_ProducesValidJson;
+procedure TRestApiSnapshotTests.EmptyDeviceList_ProducesValidJson;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -143,7 +143,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.SingleConnectedDevice_IncludesBattery;
+procedure TRestApiSnapshotTests.SingleConnectedDevice_IncludesBattery;
 var
   Items: TDeviceDisplayItemArray;
   Device: TBluetoothDeviceInfo;
@@ -178,7 +178,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.MultipleDevices_CorrectCounts;
+procedure TRestApiSnapshotTests.MultipleDevices_CorrectCounts;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -206,7 +206,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.AdapterState_Serialized;
+procedure TRestApiSnapshotTests.AdapterState_Serialized;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -237,7 +237,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.FindDeviceByAddress_MACFormat;
+procedure TRestApiSnapshotTests.FindDeviceByAddress_MACFormat;
 var
   Items: TDeviceDisplayItemArray;
   Idx: Integer;
@@ -257,7 +257,7 @@ begin
   Assert.AreEqual(1, Idx);
 end;
 
-procedure TTestRestApiSnapshot.FindDeviceByAddress_HexFormat;
+procedure TRestApiSnapshotTests.FindDeviceByAddress_HexFormat;
 var
   Items: TDeviceDisplayItemArray;
   Idx: Integer;
@@ -271,7 +271,7 @@ begin
   Assert.AreEqual(0, Idx);
 end;
 
-procedure TTestRestApiSnapshot.FindDeviceByAddress_DashFormat;
+procedure TRestApiSnapshotTests.FindDeviceByAddress_DashFormat;
 var
   Items: TDeviceDisplayItemArray;
   Idx: Integer;
@@ -285,7 +285,7 @@ begin
   Assert.AreEqual(0, Idx);
 end;
 
-procedure TTestRestApiSnapshot.FindDeviceByAddress_NotFound;
+procedure TRestApiSnapshotTests.FindDeviceByAddress_NotFound;
 var
   Items: TDeviceDisplayItemArray;
   Idx: Integer;
@@ -299,7 +299,7 @@ begin
   Assert.AreEqual(-1, Idx);
 end;
 
-procedure TTestRestApiSnapshot.FindDeviceByAddress_InvalidFormat;
+procedure TRestApiSnapshotTests.FindDeviceByAddress_InvalidFormat;
 var
   Items: TDeviceDisplayItemArray;
   Idx: Integer;
@@ -322,7 +322,7 @@ begin
   Assert.AreEqual(-1, Idx);
 end;
 
-procedure TTestRestApiSnapshot.DeviceTypes_SerializedAsStrings;
+procedure TRestApiSnapshotTests.DeviceTypes_SerializedAsStrings;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -346,7 +346,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.ConnectionStates_SerializedAsStrings;
+procedure TRestApiSnapshotTests.ConnectionStates_SerializedAsStrings;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -368,7 +368,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.BatteryNotSupported_LevelIsNull;
+procedure TRestApiSnapshotTests.BatteryNotSupported_LevelIsNull;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -391,7 +391,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.BatteryPending_LevelIsNull;
+procedure TRestApiSnapshotTests.BatteryPending_LevelIsNull;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -415,7 +415,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.StatusSnapshot_HasNoDevicesArray;
+procedure TRestApiSnapshotTests.StatusSnapshot_HasNoDevicesArray;
 var
   Json: string;
   Root: TJSONValue;
@@ -436,7 +436,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.ActionItems_ExcludedFromSnapshot;
+procedure TRestApiSnapshotTests.ActionItems_ExcludedFromSnapshot;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -466,7 +466,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.Profiles_SerializedAsShortNames;
+procedure TRestApiSnapshotTests.Profiles_SerializedAsShortNames;
 var
   Items: TDeviceDisplayItemArray;
   Profiles: TBluetoothProfileArray;
@@ -496,7 +496,7 @@ begin
   end;
 end;
 
-procedure TTestRestApiSnapshot.LastSeen_ZeroIsNull;
+procedure TRestApiSnapshotTests.LastSeen_ZeroIsNull;
 var
   Items: TDeviceDisplayItemArray;
   Json: string;
@@ -520,6 +520,6 @@ begin
 end;
 
 initialization
-  TDUnitX.RegisterTestFixture(TTestRestApiSnapshot);
+  TDUnitX.RegisterTestFixture(TRestApiSnapshotTests);
 
 end.

@@ -130,12 +130,13 @@ begin
 end;
 
 procedure TDeviceConfigRepository.Remove(AAddress: UInt64);
+var
+  OldCount: Integer;
 begin
-  if FDevices.ContainsKey(AAddress) then
-  begin
-    FDevices.Remove(AAddress);
+  OldCount := FDevices.Count;
+  FDevices.Remove(AAddress);
+  if FDevices.Count < OldCount then
     FModified := True;
-  end;
 end;
 
 function TDeviceConfigRepository.IsGenericWindowsName(const AName: string): Boolean;
