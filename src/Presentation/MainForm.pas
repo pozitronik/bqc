@@ -112,8 +112,9 @@ type
     FForceClose: Boolean;
     FForegroundHook: HWINEVENTHOOK;
     FLastShowViewTick: Cardinal;
-    FShowInProgress: Boolean;  // Guard: suppresses HideOnFocusLoss during ShowView
-    FDpiChanging: Boolean;     // Guard: prevents recursive WM_DPICHANGED handling
+    FShowInProgress: Boolean;     // Guard: suppresses HideOnFocusLoss during ShowView
+    FDpiChanging: Boolean;        // Guard: prevents recursive WM_DPICHANGED handling
+    FSettingsDialogOpen: Boolean; // Guard: prevents opening multiple settings dialogs
 
     { Injected dependencies (set via Setup method) }
     FAppConfig: IAppConfig;
@@ -1038,6 +1039,11 @@ procedure TFormMain.ShowSettingsDialog(ADeviceAddress: UInt64);
 var
   SettingsDialog: TFormSettings;
 begin
+  // ShowModal runs its own message pump, so tray menu, hotkeys, and context menu
+  // can all re-trigger this method while a dialog is already open
+  if FSettingsDialogOpen then
+    Exit;
+
   LogInfo('ShowSettingsDialog: Opening settings (DeviceAddress=$%.12X)', [ADeviceAddress], ClassName);
 
   // Hide menu before opening Settings to avoid focus tracking issues
@@ -1048,30 +1054,35 @@ begin
     HideView;
   end;
 
-  SettingsDialog := TFormSettings.Create(Self);
+  FSettingsDialogOpen := True;
   try
-    SettingsDialog.Setup(
-      FAppConfig,
-      FAppConfig.AsLogConfig,
-      FDeviceConfigProvider,
-      FBatteryTrayConfig,
-      Bootstrap.ProfileConfig,
-      Bootstrap.RestApiConfig,
-      FThemeManager
-    );
-    // HandleSettingsApplied calls ApplyAllSettings which includes ApplyHotkeySettings
-    SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
+    SettingsDialog := TFormSettings.Create(Self);
+    try
+      SettingsDialog.Setup(
+        FAppConfig,
+        FAppConfig.AsLogConfig,
+        FDeviceConfigProvider,
+        FBatteryTrayConfig,
+        Bootstrap.ProfileConfig,
+        Bootstrap.RestApiConfig,
+        FThemeManager
+      );
+      // HandleSettingsApplied calls ApplyAllSettings which includes ApplyHotkeySettings
+      SettingsDialog.OnSettingsApplied := HandleSettingsApplied;
 
-    // Navigate to specific device if requested
-    if ADeviceAddress <> 0 then
-    begin
-      SettingsDialog.PageControl.ActivePageIndex := 6;  // Devices tab
-      SettingsDialog.SelectDeviceByAddress(ADeviceAddress);
+      // Navigate to specific device if requested
+      if ADeviceAddress <> 0 then
+      begin
+        SettingsDialog.PageControl.ActivePageIndex := 6;  // Devices tab
+        SettingsDialog.SelectDeviceByAddress(ADeviceAddress);
+      end;
+
+      SettingsDialog.ShowModal;
+    finally
+      SettingsDialog.Free;
     end;
-
-    SettingsDialog.ShowModal;
   finally
-    SettingsDialog.Free;
+    FSettingsDialogOpen := False;
   end;
 end;
 
