@@ -551,11 +551,25 @@ begin
 
     if not FVerificationStrategy.VerifyConnection(ADeviceAddress) then
     begin
-      LogWarning('HandleMonitorDeviceStateChanged: Connection VERIFICATION FAILED for $%.12X - ' +
-        'Windows reported connected but device is unreachable. Rejecting state change.',
-        [ADeviceAddress], ClassName);
-      // Override state to Disconnected - device is not actually connected
-      ANewState := csDisconnected;
+      // A transient verification failure must not downgrade a connection that is already
+      // established. The default ping (BluetoothGetDeviceInfo) triggers service discovery
+      // that intermittently fails on busy multi-profile devices (e.g. Sony WH-1000XM6),
+      // which would otherwise flip a working device to Disconnected until restart
+      // (see docs/KNOWN_ISSUE_stale_connection_state.md). Trust a failed verification only
+      // for a genuine Disconnected->Connected transition (the Windows false-positive case);
+      // keep the existing Connected state otherwise.
+      if FDeviceRepository.TryGetByAddress(ADeviceAddress, Device) and Device.IsConnected then
+        LogWarning('HandleMonitorDeviceStateChanged: Verification FAILED for $%.12X but device is ' +
+          'already connected - keeping Connected state over transient failure',
+          [ADeviceAddress], ClassName)
+      else
+      begin
+        LogWarning('HandleMonitorDeviceStateChanged: Connection VERIFICATION FAILED for $%.12X - ' +
+          'Windows reported connected but device is unreachable. Rejecting state change.',
+          [ADeviceAddress], ClassName);
+        // Override state to Disconnected - device is not actually connected
+        ANewState := csDisconnected;
+      end;
     end
     else
       LogDebug('HandleMonitorDeviceStateChanged: Connection VERIFIED for $%.12X', [ADeviceAddress], ClassName);

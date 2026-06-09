@@ -158,6 +158,8 @@ type
     [Test]
     procedure Monitor_DeviceStateChanged_RejectsUnverifiedConnection;
     [Test]
+    procedure Monitor_DeviceStateChanged_VerificationFailsButAlreadyConnected_KeepsConnected;
+    [Test]
     procedure Monitor_DeviceDiscovered_ForwardsToHandler;
     [Test]
     procedure Monitor_DeviceOutOfRange_ForwardsToHandler;
@@ -923,6 +925,32 @@ begin
   Assert.AreEqual(csDisconnected,
     FMockDeviceRepository.GetByAddress($112233445566).ConnectionState,
     'Device should remain Disconnected when verification fails');
+end;
+
+procedure TBluetoothServiceTests.Monitor_DeviceStateChanged_VerificationFailsButAlreadyConnected_KeepsConnected;
+var
+  Device: TBluetoothDeviceInfo;
+  MockVerify: TMockConnectionVerificationStrategy;
+  Svc: IBluetoothService;
+begin
+  // Regression for docs/KNOWN_ISSUE_stale_connection_state.md: a transient verification
+  // failure on a busy multi-profile device must NOT downgrade an already-established
+  // connection. Arrange - device is ALREADY connected in the repository, verification fails.
+  MockVerify := TMockConnectionVerificationStrategy.Create;
+  MockVerify.VerifyResult := False;
+  Svc := CreateServiceWithVerification(MockVerify);
+  Device := CreateTestDevice($112233445566, 'Device1', btAudioOutput, csConnected);
+  FMockDeviceRepository.AddOrUpdate(Device);
+
+  // Act - monitor re-reports connected while verification momentarily fails
+  FMockDeviceMonitor.SimulateDeviceStateChanged($112233445566, csConnected);
+
+  // Assert - the existing Connected state is trusted over the failed verification
+  Assert.AreEqual(1, MockVerify.VerifyCallCount,
+    'Verification should still be attempted for connected state changes');
+  Assert.AreEqual(csConnected,
+    FMockDeviceRepository.GetByAddress($112233445566).ConnectionState,
+    'Device already connected must stay Connected despite a transient verification failure');
 end;
 
 procedure TBluetoothServiceTests.Monitor_DeviceDiscovered_ForwardsToHandler;
