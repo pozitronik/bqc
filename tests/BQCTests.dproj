@@ -152,6 +152,7 @@
         <DCCReference Include="Tests.AsyncExecutor.pas"/>
         <DCCReference Include="Tests.WinRTDeviceQuery.pas"/>
         <DCCReference Include="Tests.WinRTAsyncHelpers.pas"/>
+        <DCCReference Include="Tests.WinRTSupport.pas"/>
         <DCCReference Include="Tests.ProfileQuery.pas"/>
         <DCCReference Include="Tests.DeviceList.pas"/>
         <DCCReference Include="Tests.DeviceListTypes.pas"/>

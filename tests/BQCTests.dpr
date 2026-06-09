@@ -70,6 +70,7 @@ uses
   Tests.AsyncExecutor in 'Tests.AsyncExecutor.pas',
   Tests.WinRTDeviceQuery in 'Tests.WinRTDeviceQuery.pas',
   Tests.WinRTAsyncHelpers in 'Tests.WinRTAsyncHelpers.pas',
+  Tests.WinRTSupport in 'Tests.WinRTSupport.pas',
   Tests.ProfileQuery in 'Tests.ProfileQuery.pas',
   Tests.DeviceList in 'Tests.DeviceList.pas',
   Tests.DeviceListTypes in 'Tests.DeviceListTypes.pas',

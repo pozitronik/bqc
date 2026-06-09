@@ -1,7 +1,7 @@
 {*******************************************************}
 {                                                       }
 {       Bluetooth Quick Connect - Tests                 }
-{       WinRT Support Tests                             }
+{       WinRT Support Detection Tests                   }
 {                                                       }
 {*******************************************************}
 
@@ -11,38 +11,32 @@ interface
 
 uses
   DUnitX.TestFramework,
-  System.SysUtils,
-  App.ConfigEnums,
   App.WinRTSupport;
 
 type
   /// <summary>
-  /// Test fixture for TWinRTSupport platform selection logic.
-  /// Tests SelectPlatform method for Auto/Classic/WinRT scenarios.
+  /// Test fixture for TWinRTSupport availability detection.
+  /// Detection itself depends on the OS, so tests assert the contract
+  /// (caching, stability, shorthand consistency) rather than absolute
+  /// values - except IsAvailable, which must be True because the
+  /// application and its test suite target Windows 10+ only.
   /// </summary>
   [TestFixture]
   TWinRTSupportTests = class
   public
     [Setup]
     procedure Setup;
-    [TearDown]
-    procedure TearDown;
 
-    { Platform Selection Tests }
     [Test]
-    procedure SelectPlatform_Auto_WhenAvailable_ReturnsWinRT;
+    procedure IsAvailable_OnWindows10Plus_ReturnsTrue;
     [Test]
-    procedure SelectPlatform_Auto_WhenUnavailable_ReturnsClassic;
+    procedure IsAvailable_RepeatedCalls_ReturnsSameValue;
     [Test]
-    procedure SelectPlatform_Classic_Always_ReturnsClassic;
+    procedure IsAvailable_AfterResetCache_ReturnsSameValue;
     [Test]
-    procedure SelectPlatform_WinRT_WhenAvailable_ReturnsWinRT;
+    procedure IsDarkModeSupported_RepeatedCalls_ReturnsSameValue;
     [Test]
-    procedure SelectPlatform_WinRT_WhenUnavailable_RaisesException;
-
-    { Cache Tests }
-    [Test]
-    procedure ResetCache_Clears_AvailabilityCheck;
+    procedure ShorthandFunctions_MatchClassMethods;
   end;
 
 implementation
@@ -51,96 +45,52 @@ implementation
 
 procedure TWinRTSupportTests.Setup;
 begin
-  // Reset cache before each test to ensure clean state
+  // Other fixtures may have triggered detection already; start clean
   TWinRTSupport.ResetCache;
 end;
 
-procedure TWinRTSupportTests.TearDown;
+procedure TWinRTSupportTests.IsAvailable_OnWindows10Plus_ReturnsTrue;
 begin
-  // No cleanup needed
+  Assert.IsTrue(TWinRTSupport.IsAvailable,
+    'WinRT must be detected on Windows 10+ (combase.dll/RoInitialize present); ' +
+    'False means the detection logic is broken');
 end;
 
-procedure TWinRTSupportTests.SelectPlatform_Auto_WhenAvailable_ReturnsWinRT;
+procedure TWinRTSupportTests.IsAvailable_RepeatedCalls_ReturnsSameValue;
 var
-  Result: TBluetoothPlatform;
+  First: Boolean;
 begin
-  // This test assumes WinRT is available on the test machine (Windows 8+)
-  if not TWinRTSupport.IsAvailable then
-    Assert.Ignore('Test requires WinRT support (Windows 8+)');
-
-  Result := TWinRTSupport.SelectPlatform(bpAuto);
-  Assert.AreEqual(Integer(bpWinRT), Integer(Result),
-    'Auto-detect should select WinRT when available');
+  First := TWinRTSupport.IsAvailable;
+  Assert.AreEqual(First, TWinRTSupport.IsAvailable,
+    'Cached result must not change between calls');
 end;
 
-procedure TWinRTSupportTests.SelectPlatform_Auto_WhenUnavailable_ReturnsClassic;
+procedure TWinRTSupportTests.IsAvailable_AfterResetCache_ReturnsSameValue;
 var
-  Result: TBluetoothPlatform;
+  First: Boolean;
 begin
-  // This test can only verify on Windows 7 or when WinRT is not available
-  if TWinRTSupport.IsAvailable then
-    Assert.Ignore('Test requires WinRT to be unavailable (Windows 7)');
-
-  Result := TWinRTSupport.SelectPlatform(bpAuto);
-  Assert.AreEqual(Integer(bpClassic), Integer(Result),
-    'Auto-detect should select Classic when WinRT unavailable');
-end;
-
-procedure TWinRTSupportTests.SelectPlatform_Classic_Always_ReturnsClassic;
-var
-  Result: TBluetoothPlatform;
-begin
-  // Classic platform should always be allowed regardless of OS
-  Result := TWinRTSupport.SelectPlatform(bpClassic);
-  Assert.AreEqual(Integer(bpClassic), Integer(Result),
-    'Classic platform should always be selectable');
-end;
-
-procedure TWinRTSupportTests.SelectPlatform_WinRT_WhenAvailable_ReturnsWinRT;
-var
-  Result: TBluetoothPlatform;
-begin
-  // This test assumes WinRT is available on the test machine (Windows 8+)
-  if not TWinRTSupport.IsAvailable then
-    Assert.Ignore('Test requires WinRT support (Windows 8+)');
-
-  Result := TWinRTSupport.SelectPlatform(bpWinRT);
-  Assert.AreEqual(Integer(bpWinRT), Integer(Result),
-    'WinRT platform should be selectable when available');
-end;
-
-procedure TWinRTSupportTests.SelectPlatform_WinRT_WhenUnavailable_RaisesException;
-begin
-  // This test can only verify on Windows 7 or when WinRT is not available
-  if TWinRTSupport.IsAvailable then
-    Assert.Ignore('Test requires WinRT to be unavailable (Windows 7)');
-
-  Assert.WillRaise(
-    procedure
-    begin
-      TWinRTSupport.SelectPlatform(bpWinRT);
-    end,
-    EBluetoothPlatformError,
-    'Should raise EBluetoothPlatformError when WinRT requested but unavailable');
-end;
-
-procedure TWinRTSupportTests.ResetCache_Clears_AvailabilityCheck;
-begin
-  // First call - checks availability
-  TWinRTSupport.IsAvailable;
-
-  // Reset cache
+  First := TWinRTSupport.IsAvailable;
   TWinRTSupport.ResetCache;
+  Assert.AreEqual(First, TWinRTSupport.IsAvailable,
+    'Re-running detection on the same OS must yield the same result');
+end;
 
-  // Second call - should re-check (not return cached result)
-  // We can't easily verify this without instrumenting the class,
-  // but we can at least verify no exception is raised
-  Assert.WillNotRaise(
-    procedure
-    begin
-      TWinRTSupport.IsAvailable;
-    end,
-    'ResetCache should allow re-checking availability');
+procedure TWinRTSupportTests.IsDarkModeSupported_RepeatedCalls_ReturnsSameValue;
+var
+  First: Boolean;
+begin
+  First := TWinRTSupport.IsDarkModeSupported;
+  Assert.AreEqual(First, TWinRTSupport.IsDarkModeSupported,
+    'OS version query must be deterministic within a process');
+end;
+
+procedure TWinRTSupportTests.ShorthandFunctions_MatchClassMethods;
+begin
+  Assert.AreEqual(TWinRTSupport.IsAvailable, IsWinRTAvailable,
+    'IsWinRTAvailable shorthand must delegate to TWinRTSupport.IsAvailable');
+  Assert.AreEqual(TWinRTSupport.IsDarkModeSupported,
+    App.WinRTSupport.IsDarkModeSupported,
+    'IsDarkModeSupported shorthand must delegate to the class method');
 end;
 
 initialization
