@@ -80,6 +80,7 @@ uses
   Tests.DeviceBatteryCoordinator in 'Tests.DeviceBatteryCoordinator.pas',
   Tests.PairingService in 'Tests.PairingService.pas',
   Tests.RestApiSnapshot in 'Tests.RestApiSnapshot.pas',
+  Tests.RestApiRequestHandler in 'Tests.RestApiRequestHandler.pas',
   Tests.DpiScaling in 'Tests.DpiScaling.pas',
   Bluetooth.Types in '..\src\Domain\Bluetooth.Types.pas',
   Bluetooth.Interfaces in '..\src\Domain\Bluetooth.Interfaces.pas',
@@ -154,7 +155,8 @@ uses
   App.DeviceNotificationCoordinator in '..\src\Application\App.DeviceNotificationCoordinator.pas',
   App.RestApiConfigIntf in '..\src\Infrastructure\Configuration\App.RestApiConfigIntf.pas',
   App.ConfigSection.RestApi in '..\src\Infrastructure\Configuration\App.ConfigSection.RestApi.pas',
-  App.RestApiSnapshot in '..\src\Infrastructure\System\App.RestApiSnapshot.pas';
+  App.RestApiSnapshot in '..\src\Infrastructure\System\App.RestApiSnapshot.pas',
+  App.RestApiRequestHandler in '..\src\Infrastructure\System\App.RestApiRequestHandler.pas';
 
 
 {$IFNDEF TESTINSIGHT}

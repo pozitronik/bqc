@@ -153,6 +153,7 @@
         <DCCReference Include="Tests.WinRTDeviceQuery.pas"/>
         <DCCReference Include="Tests.WinRTAsyncHelpers.pas"/>
         <DCCReference Include="Tests.WinRTSupport.pas"/>
+        <DCCReference Include="Tests.RestApiRequestHandler.pas"/>
         <DCCReference Include="Tests.ProfileQuery.pas"/>
         <DCCReference Include="Tests.DeviceList.pas"/>
         <DCCReference Include="Tests.DeviceListTypes.pas"/>
@@ -231,6 +232,7 @@
         <DCCReference Include="..\src\Infrastructure\App.ConfigSection.BatteryTray.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.SystemThemeDetector.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.WinRTSupport.pas"/>
+        <DCCReference Include="..\src\Infrastructure\System\App.RestApiRequestHandler.pas"/>
         <DCCReference Include="..\src\Infrastructure\WinRT.AsyncHelpers.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.ProfileConfigIntf.pas"/>
         <DCCReference Include="..\src\Infrastructure\App.ConfigSection.Profile.pas"/>

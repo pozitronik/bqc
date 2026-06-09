@@ -6,8 +6,9 @@
 {*******************************************************}
 
 /// <summary>
-/// Lightweight Indy HTTP server serving pre-built JSON snapshots.
-/// Main thread updates snapshots; Indy worker threads read under lock.
+/// Thin Indy transport shell around TRestApiRequestHandler.
+/// All routing, state and response building live in the handler
+/// (App.RestApiRequestHandler) so they stay unit-testable.
 /// </summary>
 unit App.RestApiServer;
 
@@ -15,35 +16,23 @@ interface
 
 uses
   System.SysUtils,
-  System.SyncObjs,
-  System.JSON,
   IdHTTPServer,
   IdContext,
   IdCustomHTTPServer,
   IdSocketHandle,
   App.DeviceDisplayTypes,
-  App.RestApiSnapshot;
+  App.RestApiRequestHandler;
 
 type
   TRestApiServer = class
   private
     FServer: TIdHTTPServer;
-    FLock: TCriticalSection;
-    FSnapshot: string;
-    FStatusSnapshot: string;
-    FItems: TDeviceDisplayItemArray;
-    FAdapterAvailable: Boolean;
-    FAdapterEnabled: Boolean;
+    FHandler: TRestApiRequestHandler;
     FRunning: Boolean;
 
-    procedure HandleRequest(AContext: TIdContext;
+    procedure HandleCommand(AContext: TIdContext;
       ARequestInfo: TIdHTTPRequestInfo;
       AResponseInfo: TIdHTTPResponseInfo);
-    procedure ServeJson(AResponseInfo: TIdHTTPResponseInfo;
-      const AJson: string; ACode: Integer = 200);
-    procedure ServeError(AResponseInfo: TIdHTTPResponseInfo;
-      ACode: Integer; const AMessage: string);
-    procedure RebuildSnapshots;
   public
     constructor Create;
     destructor Destroy; override;
@@ -84,21 +73,20 @@ uses
 constructor TRestApiServer.Create;
 begin
   inherited Create;
-  FLock := TCriticalSection.Create;
+  FHandler := TRestApiRequestHandler.Create;
   FServer := TIdHTTPServer.Create(nil);
-  FServer.OnCommandGet := HandleRequest;
+  FServer.OnCommandGet := HandleCommand;
+  // Indy routes only GET/POST/HEAD to OnCommandGet; OPTIONS (CORS preflight)
+  // arrives via OnCommandOther and must be wired explicitly
+  FServer.OnCommandOther := HandleCommand;
   FRunning := False;
-  FAdapterAvailable := False;
-  FAdapterEnabled := False;
-  FSnapshot := '{"adapter":{"available":false,"enabled":false},"devices":[],"summary":{"totalDevices":0,"connectedDevices":0}}';
-  FStatusSnapshot := '{"adapter":{"available":false,"enabled":false},"summary":{"totalDevices":0,"connectedDevices":0}}';
 end;
 
 destructor TRestApiServer.Destroy;
 begin
   Stop;
   FServer.Free;
-  FLock.Free;
+  FHandler.Free;
   inherited Destroy;
 end;
 
@@ -139,152 +127,36 @@ end;
 
 procedure TRestApiServer.UpdateDeviceSnapshot(const AItems: TDeviceDisplayItemArray);
 begin
-  FLock.Acquire;
-  try
-    FItems := Copy(AItems);
-    RebuildSnapshots;
-  finally
-    FLock.Release;
-  end;
+  FHandler.UpdateDeviceSnapshot(AItems);
 end;
 
 procedure TRestApiServer.UpdateAdapterState(AAvailable, AEnabled: Boolean);
 begin
-  FLock.Acquire;
-  try
-    FAdapterAvailable := AAvailable;
-    FAdapterEnabled := AEnabled;
-    RebuildSnapshots;
-  finally
-    FLock.Release;
-  end;
+  FHandler.UpdateAdapterState(AAvailable, AEnabled);
 end;
 
-procedure TRestApiServer.RebuildSnapshots;
-var
-  ConnectedCount, TotalCount, I: Integer;
-begin
-  // Count non-action devices
-  TotalCount := 0;
-  ConnectedCount := 0;
-  for I := 0 to High(FItems) do
-  begin
-    if FItems[I].Source = dsAction then
-      Continue;
-    Inc(TotalCount);
-    if FItems[I].Device.IsConnected then
-      Inc(ConnectedCount);
-  end;
-
-  FSnapshot := TRestApiSnapshotBuilder.BuildFullSnapshot(
-    FItems, FAdapterAvailable, FAdapterEnabled);
-  FStatusSnapshot := TRestApiSnapshotBuilder.BuildStatusSnapshot(
-    FAdapterAvailable, FAdapterEnabled, TotalCount, ConnectedCount);
-end;
-
-procedure TRestApiServer.HandleRequest(AContext: TIdContext;
+procedure TRestApiServer.HandleCommand(AContext: TIdContext;
   ARequestInfo: TIdHTTPRequestInfo;
   AResponseInfo: TIdHTTPResponseInfo);
 var
-  Path, LocalSnapshot: string;
-  DeviceIndex: Integer;
-  LocalItem: TDeviceDisplayItem;
-  DeviceJson: TJSONObject;
+  Response: TRestApiResponse;
 begin
-  Path := ARequestInfo.Document;
+  Response := FHandler.HandleRequest(ARequestInfo.Command, ARequestInfo.Document);
 
   // CORS headers for web-based dashboards
   AResponseInfo.CustomHeaders.AddValue('Access-Control-Allow-Origin', '*');
-
-  // CORS preflight
-  if SameText(ARequestInfo.Command, 'OPTIONS') then
+  if Response.IsPreflight then
   begin
     AResponseInfo.CustomHeaders.AddValue('Access-Control-Allow-Methods', 'GET, OPTIONS');
     AResponseInfo.CustomHeaders.AddValue('Access-Control-Allow-Headers', 'Content-Type');
-    AResponseInfo.ResponseNo := 204;
-    Exit;
   end;
 
-  // GET /api/status
-  if Path = '/api/status' then
+  AResponseInfo.ResponseNo := Response.StatusCode;
+  if Response.ContentType <> '' then
   begin
-    FLock.Acquire;
-    try
-      LocalSnapshot := FStatusSnapshot;
-    finally
-      FLock.Release;
-    end;
-    ServeJson(AResponseInfo, LocalSnapshot);
-    Exit;
-  end;
-
-  // GET /api/devices
-  if Path = '/api/devices' then
-  begin
-    FLock.Acquire;
-    try
-      LocalSnapshot := FSnapshot;
-    finally
-      FLock.Release;
-    end;
-    ServeJson(AResponseInfo, LocalSnapshot);
-    Exit;
-  end;
-
-  // GET /api/devices/{address}
-  if Path.StartsWith('/api/devices/') and (Length(Path) > Length('/api/devices/')) then
-  begin
-    var AddressStr := Copy(Path, Length('/api/devices/') + 1, MaxInt);
-
-    // Copy record under lock (consistent with other endpoints' copy-under-lock pattern)
-    FLock.Acquire;
-    try
-      DeviceIndex := TRestApiSnapshotBuilder.FindDeviceByAddress(FItems, AddressStr);
-      if DeviceIndex >= 0 then
-        LocalItem := FItems[DeviceIndex];
-    finally
-      FLock.Release;
-    end;
-
-    if DeviceIndex >= 0 then
-    begin
-      DeviceJson := TRestApiSnapshotBuilder.BuildDeviceJson(LocalItem);
-      try
-        ServeJson(AResponseInfo, DeviceJson.ToJSON);
-      finally
-        DeviceJson.Free;
-      end;
-    end
-    else
-      ServeError(AResponseInfo, 404, 'Device not found');
-    Exit;
-  end;
-
-  // Everything else: 404
-  ServeError(AResponseInfo, 404, 'Not found');
-end;
-
-procedure TRestApiServer.ServeJson(AResponseInfo: TIdHTTPResponseInfo;
-  const AJson: string; ACode: Integer);
-begin
-  AResponseInfo.ResponseNo := ACode;
-  AResponseInfo.ContentType := 'application/json';
-  AResponseInfo.CharSet := 'utf-8';
-  AResponseInfo.ContentText := AJson;
-end;
-
-procedure TRestApiServer.ServeError(AResponseInfo: TIdHTTPResponseInfo;
-  ACode: Integer; const AMessage: string);
-var
-  ErrorJson: TJSONObject;
-begin
-  ErrorJson := TJSONObject.Create;
-  try
-    ErrorJson.AddPair('error', AMessage);
-    ErrorJson.AddPair('code', TJSONNumber.Create(ACode));
-    ServeJson(AResponseInfo, ErrorJson.ToJSON, ACode);
-  finally
-    ErrorJson.Free;
+    AResponseInfo.ContentType := Response.ContentType;
+    AResponseInfo.CharSet := 'utf-8';
+    AResponseInfo.ContentText := Response.Body;
   end;
 end;
 
