@@ -14,6 +14,7 @@ interface
 
 uses
   DUnitX.TestFramework,
+  App.DpiScaling,
   UI.ListDataSource,
   UI.CustomScrollbar,
   Tests.Mocks.Config;
@@ -88,10 +89,31 @@ type
     procedure MouseWheel_WithScrollableContent_ReturnsTrue;
   end;
 
+  /// <summary>
+  /// Tests the pure DPI conversion helpers (App.DpiScaling) used to persist window
+  /// geometry in a DPI-neutral form. The round-trip must never grow a value across
+  /// cross-DPI moves -- regression guard for the window-size runaway-growth bug.
+  /// </summary>
+  [TestFixture]
+  TDpiScalingHelperTests = class
+  public
+    [Test]
+    procedure RoundTrip_PreservesLogicalValue_AcrossDpiValues;
+    [Test]
+    procedure CrossDpiMove_DoesNotCompound_OverManyIterations;
+    [Test]
+    procedure LogicalToPhysical_At96_IsIdentity;
+    [Test]
+    procedure LogicalToPhysical_At192_Doubles;
+    [Test]
+    procedure NonPositivePPI_TreatedAs96;
+  end;
+
 implementation
 
 uses
   Winapi.Windows,
+  System.SysUtils,
   App.DeviceDisplayTypes,
   Bluetooth.Types;
 
@@ -322,5 +344,69 @@ begin
   Assert.IsTrue(FScrollbar.HandleMouseWheel(120),
     'Wheel event should be consumed when scrollable content exists');
 end;
+
+{ TDpiScalingHelperTests }
+
+procedure TDpiScalingHelperTests.RoundTrip_PreservesLogicalValue_AcrossDpiValues;
+const
+  PPIs: array[0..4] of Integer = (96, 120, 144, 168, 192);
+  Logicals: array[0..5] of Integer = (280, 300, 320, 400, 800, 1200);
+var
+  P, L, RoundTripped: Integer;
+begin
+  for P in PPIs do
+    for L in Logicals do
+    begin
+      RoundTripped := PhysicalToLogical(LogicalToPhysical(L, P), P);
+      // Allow +/-1px rounding drift, but never growth.
+      Assert.IsTrue(Abs(RoundTripped - L) <= 1,
+        Format('Round-trip of logical %d at %d DPI returned %d (drift > 1px)', [L, P, RoundTripped]));
+    end;
+end;
+
+procedure TDpiScalingHelperTests.CrossDpiMove_DoesNotCompound_OverManyIterations;
+var
+  Logical, Physical, I: Integer;
+begin
+  // Reproduce the exact bug loop: restore logical->physical on a 96-DPI startup monitor,
+  // VCL scales to 150% on move, FormDestroy normalizes back to logical. The persisted
+  // LOGICAL value must stay constant (no per-run multiplication).
+  Logical := 320;
+  for I := 1 to 8 do
+  begin
+    Physical := LogicalToPhysical(Logical, 96);        // restored at 96 DPI
+    Physical := (Physical * 144 + 48) div 96;          // VCL ScaleForPPI -> 150%
+    Logical := PhysicalToLogical(Physical, 144);       // FormDestroy normalizes back
+    Assert.IsTrue(Abs(Logical - 320) <= 1,
+      Format('Iteration %d: logical drifted to %d (runaway not prevented)', [I, Logical]));
+  end;
+end;
+
+procedure TDpiScalingHelperTests.LogicalToPhysical_At96_IsIdentity;
+begin
+  Assert.AreEqual(320, LogicalToPhysical(320, 96));
+  Assert.AreEqual(320, PhysicalToLogical(320, 96));
+end;
+
+procedure TDpiScalingHelperTests.LogicalToPhysical_At192_Doubles;
+begin
+  Assert.AreEqual(640, LogicalToPhysical(320, 192));
+  Assert.AreEqual(320, PhysicalToLogical(640, 192));
+end;
+
+procedure TDpiScalingHelperTests.NonPositivePPI_TreatedAs96;
+begin
+  // Guard against div-by-zero / garbage CurrentPPI at startup.
+  Assert.AreEqual(320, LogicalToPhysical(320, 0));
+  Assert.AreEqual(320, PhysicalToLogical(320, 0));
+  Assert.AreEqual(320, LogicalToPhysical(320, -100));
+end;
+
+initialization
+  // This unit previously had NO registration, so its fixtures never ran. Register all of
+  // them (existing + new) so the DPI tests are actually executed by the DUnitX runner.
+  TDUnitX.RegisterTestFixture(TDataSourceDpiTests);
+  TDUnitX.RegisterTestFixture(TScrollbarDpiTests);
+  TDUnitX.RegisterTestFixture(TDpiScalingHelperTests);
 
 end.

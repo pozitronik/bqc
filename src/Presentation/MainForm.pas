@@ -255,6 +255,7 @@ uses
   App.LogConfigIntf,
   App.Bootstrap,
   App.SettingsPresenter,
+  App.DpiScaling,
   UI.WindowPositioner,
   App.DeviceDisplayItemBuilder,
   SettingsForm;
@@ -482,6 +483,14 @@ begin
   FForceClose := False;
   FForegroundHook := 0;
 
+  // Fixed-DPI opt-out: disable VCL per-monitor auto-scaling BEFORE the window is sized or
+  // shown, so it keeps one physical size across monitors (user fallback to the DPI runaway).
+  if FGeneralConfig.FixedDpiScaling then
+  begin
+    Scaled := False;
+    LogDebug('FormCreate: FixedDpiScaling ON - VCL per-monitor scaling disabled', ClassName);
+  end;
+
   // Initialize form using focused helper methods (SRP)
   InitializeWindowSettings;
   InitializeUIComponents;
@@ -505,10 +514,14 @@ begin
   begin
     FPositionConfig.PositionX := Left;
     FPositionConfig.PositionY := Top;
-    FPositionConfig.PositionW := Width;
-    FPositionConfig.PositionH := Height;
-    LogDebug('FormDestroy: Saved position X=%d, Y=%d, W=%d, H=%d',
-      [Left, Top, Width, Height], ClassName);
+    // Persist size in LOGICAL 96-DPI units (normalized by CurrentPPI), not raw physical
+    // pixels. Otherwise a size saved on a high-DPI monitor is restored as if it were
+    // logical and re-scaled again by VCL on the next cross-DPI move, compounding the
+    // window size every run. See docs and App.DpiScaling.
+    FPositionConfig.PositionW := PhysicalToLogical(Width, CurrentPPI);
+    FPositionConfig.PositionH := PhysicalToLogical(Height, CurrentPPI);
+    LogDebug('FormDestroy: Saved position X=%d, Y=%d, W(logical)=%d, H(logical)=%d, CurrentPPI=%d',
+      [Left, Top, FPositionConfig.PositionW, FPositionConfig.PositionH, CurrentPPI], ClassName);
   end;
 
   // Stop and free REST API server
@@ -634,26 +647,43 @@ end;
 procedure TFormMain.ApplyWindowSize;
 var
   NewWidth, NewHeight: Integer;
+  LogicalW, LogicalH: Integer;
 begin
-  // Check if auto-sizing is requested (-1 means auto)
+  // Stored PositionW/H are LOGICAL 96-DPI units (or -1 = auto). They are clamped to the
+  // logical max before de-normalizing, so a pre-fix bqc.ini that stored inflated PHYSICAL
+  // pixels self-heals on first launch instead of being scaled up again. LogicalToPhysical
+  // (via CurrentPPI) converts back to physical pixels for the current monitor.
   if (FPositionConfig.PositionW < 0) or (FPositionConfig.PositionH < 0) then
   begin
     CalculateAutoSize(NewWidth, NewHeight);
     if FPositionConfig.PositionW < 0 then
       Width := NewWidth
     else
-      Width := FPositionConfig.PositionW;
+    begin
+      LogicalW := FPositionConfig.PositionW;
+      if LogicalW > WINDOW_MAX_WIDTH then LogicalW := WINDOW_MAX_WIDTH;
+      Width := LogicalToPhysical(LogicalW, CurrentPPI);
+    end;
     if FPositionConfig.PositionH < 0 then
       Height := NewHeight
     else
-      Height := FPositionConfig.PositionH;
+    begin
+      LogicalH := FPositionConfig.PositionH;
+      if LogicalH > WINDOW_MAX_HEIGHT then LogicalH := WINDOW_MAX_HEIGHT;
+      Height := LogicalToPhysical(LogicalH, CurrentPPI);
+    end;
     LogDebug('ApplyWindowSize: Auto-calculated W=%d, H=%d', [Width, Height], ClassName);
   end
   else if (FPositionConfig.PositionW > 0) and (FPositionConfig.PositionH > 0) then
   begin
-    Width := FPositionConfig.PositionW;
-    Height := FPositionConfig.PositionH;
-    LogDebug('ApplyWindowSize: Restored W=%d, H=%d', [Width, Height], ClassName);
+    LogicalW := FPositionConfig.PositionW;
+    LogicalH := FPositionConfig.PositionH;
+    if LogicalW > WINDOW_MAX_WIDTH then LogicalW := WINDOW_MAX_WIDTH;
+    if LogicalH > WINDOW_MAX_HEIGHT then LogicalH := WINDOW_MAX_HEIGHT;
+    Width := LogicalToPhysical(LogicalW, CurrentPPI);
+    Height := LogicalToPhysical(LogicalH, CurrentPPI);
+    LogDebug('ApplyWindowSize: Restored W=%d, H=%d (logical %d x %d, CurrentPPI=%d)',
+      [Width, Height, LogicalW, LogicalH, CurrentPPI], ClassName);
   end;
   // else: use default form dimensions from DFM
 end;
@@ -1648,7 +1678,10 @@ begin
     // delivering WM_DPICHANGED, so ScaleForPPI sees OldPPI = NewPPI).
     // Detect this by comparing dimensions before/after inherited: if they
     // didn't change but the suggested rect has different dimensions, apply it.
-    if (Width = PreWidth) and (Height = PreHeight) and
+    // In fixed-DPI mode the window must NOT resize on a DPI change, so skip the suggested-size
+    // re-apply (VCL's own ScaleForPPI is already inert because Scaled is False).
+    if (not FGeneralConfig.FixedDpiScaling) and
+       (Width = PreWidth) and (Height = PreHeight) and
        ((SuggestedWidth <> PreWidth) or (SuggestedHeight <> PreHeight)) then
     begin
       LogDebug('WMDpiChanged: VCL did not scale, applying suggested size %dx%d', [

@@ -77,6 +77,7 @@ type
     ButtonResetPosition: TButton;
     CheckOnTop: TCheckBox;
     CheckAutostart: TCheckBox;
+    CheckFixedDpi: TCheckBox;
 
     { Tab: Appearance }
     TabAppearance: TTabSheet;
@@ -612,6 +613,7 @@ begin
   Result.StartMinimized := CheckStartMinimized.Checked;
   Result.HideOnFocusLoss := CheckHideOnFocusLoss.Checked;
   Result.Autostart := CheckAutostart.Checked;
+  Result.FixedDpiScaling := CheckFixedDpi.Checked;
   Result.PositionMode := TPositionMode(ComboPositionMode.ItemIndex);
 end;
 
@@ -624,6 +626,7 @@ begin
   CheckStartMinimized.Checked := ASettings.StartMinimized;
   CheckHideOnFocusLoss.Checked := ASettings.HideOnFocusLoss;
   CheckAutostart.Checked := ASettings.Autostart;
+  CheckFixedDpi.Checked := ASettings.FixedDpiScaling;
   ComboPositionMode.ItemIndex := Ord(ASettings.PositionMode);
   UpdateWindowModeControls;
 end;
@@ -1199,6 +1202,7 @@ begin
   CheckStartMinimized.OnClick := HandleSettingChanged;
   CheckHideOnFocusLoss.OnClick := HandleSettingChanged;
   CheckAutostart.OnClick := HandleSettingChanged;
+  CheckFixedDpi.OnClick := HandleSettingChanged;
   ComboPositionMode.OnChange := HandleSettingChanged;
 
   // Tab: Hotkey & Visuals

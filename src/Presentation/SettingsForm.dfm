@@ -218,6 +218,14 @@ object FormSettings: TFormSettings
         Caption = 'Start with Windows'
         TabOrder = 2
       end
+      object CheckFixedDpi: TCheckBox
+        Left = 10
+        Top = 292
+        Width = 360
+        Height = 17
+        Caption = 'Fixed window scaling (disable per-monitor resize)'
+        TabOrder = 3
+      end
     end
     object TabAppearance: TTabSheet
       Caption = 'Device List'

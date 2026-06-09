@@ -75,6 +75,7 @@ const
   KEY_WINDOW = 'Window';
   KEY_ON_TOP = 'OnTop';
   KEY_AUTOSTART = 'Autostart';
+  KEY_FIXED_DPI = 'FixedDpiScaling';
 
   // INI key names - [Window]
   KEY_MINIMIZE_TO_TRAY = 'MinimizeToTray';
@@ -177,6 +178,7 @@ const
   DEF_WINDOW_MODE = wmWindow;
   DEF_ON_TOP = False;
   DEF_AUTOSTART = False;
+  DEF_FIXED_DPI_SCALING = False;
   DEF_MINIMIZE_TO_TRAY = True;
   DEF_CLOSE_TO_TRAY = True;
   DEF_START_MINIMIZED = True;
@@ -330,6 +332,7 @@ begin
   GeneralCfg.WindowMode := TWindowMode(SafeReadEnum(AIni, SEC_GENERAL, KEY_WINDOW, Ord(DEF_WINDOW_MODE), TypeInfo(TWindowMode)));
   GeneralCfg.OnTop := AIni.ReadBool(SEC_GENERAL, KEY_ON_TOP, DEF_ON_TOP);
   GeneralCfg.Autostart := AIni.ReadBool(SEC_GENERAL, KEY_AUTOSTART, DEF_AUTOSTART);
+  GeneralCfg.FixedDpiScaling := AIni.ReadBool(SEC_GENERAL, KEY_FIXED_DPI, DEF_FIXED_DPI_SCALING);
 
   // [Window]
   WindowCfg.MinimizeToTray := AIni.ReadBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, DEF_MINIMIZE_TO_TRAY);
@@ -513,6 +516,7 @@ begin
   AIni.WriteInteger(SEC_GENERAL, KEY_WINDOW, Ord(GeneralCfg.WindowMode));
   AIni.WriteBool(SEC_GENERAL, KEY_ON_TOP, GeneralCfg.OnTop);
   AIni.WriteBool(SEC_GENERAL, KEY_AUTOSTART, GeneralCfg.Autostart);
+  AIni.WriteBool(SEC_GENERAL, KEY_FIXED_DPI, GeneralCfg.FixedDpiScaling);
 
   // [Window]
   AIni.WriteBool(SEC_WINDOW, KEY_MINIMIZE_TO_TRAY, WindowCfg.MinimizeToTray);

@@ -47,14 +47,22 @@ type
     function GetWindowMode: TWindowMode;
     function GetOnTop: Boolean;
     function GetAutostart: Boolean;
+    function GetFixedDpiScaling: Boolean;
 
     procedure SetWindowMode(AValue: TWindowMode);
     procedure SetOnTop(AValue: Boolean);
     procedure SetAutostart(AValue: Boolean);
+    procedure SetFixedDpiScaling(AValue: Boolean);
 
     property WindowMode: TWindowMode read GetWindowMode write SetWindowMode;
     property OnTop: Boolean read GetOnTop write SetOnTop;
     property Autostart: Boolean read GetAutostart write SetAutostart;
+    /// <summary>
+    /// When True, disables VCL per-monitor (PerMonitorV2) auto-scaling so the window keeps
+    /// a single physical size across monitors instead of rescaling on each DPI change.
+    /// A user opt-out fallback to the runaway-growth behaviour (trades per-monitor crispness).
+    /// </summary>
+    property FixedDpiScaling: Boolean read GetFixedDpiScaling write SetFixedDpiScaling;
   end;
 
   /// <summary>

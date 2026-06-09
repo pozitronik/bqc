@@ -77,6 +77,16 @@ type
     [Test]
     procedure SetAutostart_DifferentValue_NotifiesModified;
 
+    { FixedDpiScaling Tests }
+    [Test]
+    procedure Default_FixedDpiScaling_IsFalse;
+    [Test]
+    procedure SetFixedDpiScaling_True_UpdatesValue;
+    [Test]
+    procedure SetFixedDpiScaling_SameValue_NoModification;
+    [Test]
+    procedure SetFixedDpiScaling_DifferentValue_NotifiesModified;
+
     { Interface Tests }
     [Test]
     procedure ImplementsIGeneralConfig;
@@ -110,6 +120,7 @@ begin
   Assert.AreEqual(Integer(DEF_WINDOW_MODE), Integer(FSection.WindowMode));
   Assert.AreEqual(DEF_ON_TOP, FSection.OnTop);
   Assert.AreEqual(DEF_AUTOSTART, FSection.Autostart);
+  Assert.AreEqual(DEF_FIXED_DPI_SCALING, FSection.FixedDpiScaling);
 end;
 
 procedure TGeneralConfigSectionTests.Create_WithNilNotifier_CreatesInstance;
@@ -145,6 +156,7 @@ begin
   FSection.WindowMode := wmMenu;
   FSection.OnTop := True;
   FSection.Autostart := True;
+  FSection.FixedDpiScaling := True;
 
   // Reset to defaults
   FSection.SetDefaults;
@@ -153,6 +165,7 @@ begin
   Assert.AreEqual(Integer(DEF_WINDOW_MODE), Integer(FSection.WindowMode));
   Assert.AreEqual(DEF_ON_TOP, FSection.OnTop);
   Assert.AreEqual(DEF_AUTOSTART, FSection.Autostart);
+  Assert.AreEqual(DEF_FIXED_DPI_SCALING, FSection.FixedDpiScaling);
 end;
 
 procedure TGeneralConfigSectionTests.SetWindowMode_UpdatesValue;
@@ -206,6 +219,29 @@ end;
 procedure TGeneralConfigSectionTests.SetAutostart_DifferentValue_NotifiesModified;
 begin
   FSection.Autostart := not DEF_AUTOSTART;
+  Assert.IsTrue(FModifiedCalled, 'Should notify when value changed');
+end;
+
+procedure TGeneralConfigSectionTests.Default_FixedDpiScaling_IsFalse;
+begin
+  Assert.IsFalse(FSection.FixedDpiScaling);
+end;
+
+procedure TGeneralConfigSectionTests.SetFixedDpiScaling_True_UpdatesValue;
+begin
+  FSection.FixedDpiScaling := True;
+  Assert.IsTrue(FSection.FixedDpiScaling);
+end;
+
+procedure TGeneralConfigSectionTests.SetFixedDpiScaling_SameValue_NoModification;
+begin
+  FSection.FixedDpiScaling := DEF_FIXED_DPI_SCALING;
+  Assert.IsFalse(FModifiedCalled, 'Should not notify when value unchanged');
+end;
+
+procedure TGeneralConfigSectionTests.SetFixedDpiScaling_DifferentValue_NotifiesModified;
+begin
+  FSection.FixedDpiScaling := not DEF_FIXED_DPI_SCALING;
   Assert.IsTrue(FModifiedCalled, 'Should notify when value changed');
 end;
 

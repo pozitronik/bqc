@@ -41,6 +41,7 @@ type
     StartMinimized: Boolean;
     HideOnFocusLoss: Boolean;
     Autostart: Boolean;
+    FixedDpiScaling: Boolean;
     PositionMode: TPositionMode;
   end;
 
@@ -745,6 +746,7 @@ begin
   General.StartMinimized := FWindowConfig.StartMinimized;
   General.HideOnFocusLoss := FWindowConfig.MenuHideOnFocusLoss;
   General.Autostart := FGeneralConfig.Autostart;
+  General.FixedDpiScaling := FGeneralConfig.FixedDpiScaling;
   General.PositionMode := FPositionConfig.PositionMode;
   FGeneralSettingsView.SetGeneralSettings(General);
 
@@ -888,6 +890,7 @@ begin
     FWindowConfig.StartMinimized := General.StartMinimized;
     FWindowConfig.MenuHideOnFocusLoss := General.HideOnFocusLoss;
     FGeneralConfig.Autostart := General.Autostart;
+    FGeneralConfig.FixedDpiScaling := General.FixedDpiScaling;
     FPositionConfig.PositionMode := General.PositionMode;
 
     // Hotkey settings (Hotkey already read above for validation)

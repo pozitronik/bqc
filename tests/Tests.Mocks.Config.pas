@@ -348,6 +348,7 @@ type
     FWindowMode: TWindowMode;
     FOnTop: Boolean;
     FAutostart: Boolean;
+    FFixedDpiScaling: Boolean;
   public
     constructor Create;
 
@@ -355,13 +356,16 @@ type
     function GetWindowMode: TWindowMode;
     function GetOnTop: Boolean;
     function GetAutostart: Boolean;
+    function GetFixedDpiScaling: Boolean;
     procedure SetWindowMode(AValue: TWindowMode);
     procedure SetOnTop(AValue: Boolean);
     procedure SetAutostart(AValue: Boolean);
+    procedure SetFixedDpiScaling(AValue: Boolean);
 
     property WindowMode: TWindowMode read FWindowMode write FWindowMode;
     property OnTop: Boolean read FOnTop write FOnTop;
     property Autostart: Boolean read FAutostart write FAutostart;
+    property FixedDpiScaling: Boolean read FFixedDpiScaling write FFixedDpiScaling;
   end;
 
   /// <summary>
@@ -1211,6 +1215,7 @@ begin
   FWindowMode := wmWindow;
   FOnTop := False;
   FAutostart := False;
+  FFixedDpiScaling := False;
 end;
 
 function TMockGeneralConfig.GetWindowMode: TWindowMode;
@@ -1241,6 +1246,16 @@ end;
 procedure TMockGeneralConfig.SetAutostart(AValue: Boolean);
 begin
   FAutostart := AValue;
+end;
+
+function TMockGeneralConfig.GetFixedDpiScaling: Boolean;
+begin
+  Result := FFixedDpiScaling;
+end;
+
+procedure TMockGeneralConfig.SetFixedDpiScaling(AValue: Boolean);
+begin
+  FFixedDpiScaling := AValue;
 end;
 
 { TMockWindowConfig }
