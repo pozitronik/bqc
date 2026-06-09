@@ -11,6 +11,7 @@ interface
 
 uses
   DUnitX.TestFramework,
+  System.TypInfo,
   App.ConfigEnums,
   App.ConfigInterfaces,
   App.DeviceConfigTypes;
@@ -147,10 +148,34 @@ type
     procedure PollingMode_ValuesCorrect;
   end;
 
+  /// <summary>
+  /// Guards against duplicate interface GUIDs (IIDs). Two config-interface pairs once
+  /// shared IIDs (IProfileConfig==IRestApiConfig, IDeviceConfigQuery==ILogger), which made
+  /// Supports()/QueryInterface() silently resolve to the wrong instance.
+  /// </summary>
+  [TestFixture]
+  TInterfaceGuidUniquenessTests = class
+  private
+    function IidOf(ATypeInfo: PTypeInfo): TGUID;
+  public
+    [Test]
+    procedure PreviouslyCollidingInterfaces_HaveDistinctGuids;
+    [Test]
+    procedure AllConfigInterfaceGuids_AreUnique;
+  end;
+
 implementation
 
 uses
   System.SysUtils,
+  System.Generics.Collections,
+  App.LogConfigIntf,
+  App.RestApiConfigIntf,
+  App.ProfileConfigIntf,
+  App.AppearanceConfigIntf,
+  App.LayoutConfigIntf,
+  App.ConnectionConfigIntf,
+  App.NotificationConfigIntf,
   Tests.Mocks;
 
 { TDeviceConfigTests }
@@ -590,8 +615,62 @@ begin
   Assert.AreEqual(2, Ord(pmPrimary));
 end;
 
+{ TInterfaceGuidUniquenessTests }
+
+function TInterfaceGuidUniquenessTests.IidOf(ATypeInfo: PTypeInfo): TGUID;
+begin
+  Result := GetTypeData(ATypeInfo)^.Guid;
+end;
+
+procedure TInterfaceGuidUniquenessTests.PreviouslyCollidingInterfaces_HaveDistinctGuids;
+begin
+  // These two pairs previously shared IIDs; a Supports()/QueryInterface() would then
+  // silently resolve to the wrong instance.
+  Assert.AreNotEqual(GUIDToString(IidOf(TypeInfo(IProfileConfig))),
+    GUIDToString(IidOf(TypeInfo(IRestApiConfig))),
+    'IProfileConfig and IRestApiConfig must have distinct IIDs');
+  Assert.AreNotEqual(GUIDToString(IidOf(TypeInfo(IDeviceConfigQuery))),
+    GUIDToString(IidOf(TypeInfo(ILogger))),
+    'IDeviceConfigQuery and ILogger must have distinct IIDs');
+end;
+
+procedure TInterfaceGuidUniquenessTests.AllConfigInterfaceGuids_AreUnique;
+var
+  Infos: TArray<PTypeInfo>;
+  Seen: TDictionary<string, string>;
+  Info: PTypeInfo;
+  Key, IfaceName: string;
+begin
+  Infos := [
+    TypeInfo(IGeneralConfig), TypeInfo(IWindowConfig), TypeInfo(IPositionConfig),
+    TypeInfo(IHotkeyConfig), TypeInfo(IPollingConfig), TypeInfo(ILogConfig),
+    TypeInfo(IAppearanceConfig), TypeInfo(ILayoutConfig), TypeInfo(IConnectionConfig),
+    TypeInfo(INotificationConfig), TypeInfo(IDeviceConfigProvider), TypeInfo(IAppConfig),
+    TypeInfo(IDeviceConfigQuery), TypeInfo(IDeviceConfigMutation),
+    TypeInfo(IProfileConfig), TypeInfo(IRestApiConfig), TypeInfo(ILogger)
+  ];
+  Seen := TDictionary<string, string>.Create;
+  try
+    for Info in Infos do
+    begin
+      Key := GUIDToString(IidOf(Info));
+      IfaceName := string(Info^.Name);
+      if Seen.ContainsKey(Key) then
+        Assert.Fail(Format('Duplicate interface IID %s shared by %s and %s',
+          [Key, Seen[Key], IfaceName]));
+      Seen.Add(Key, IfaceName);
+    end;
+    // Real positive assertion: every interface contributed a distinct IID.
+    Assert.AreEqual(Length(Infos), Seen.Count,
+      'All config interface IIDs must be unique');
+  finally
+    Seen.Free;
+  end;
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TDeviceConfigTests);
+  TDUnitX.RegisterTestFixture(TInterfaceGuidUniquenessTests);
   TDUnitX.RegisterTestFixture(TDeviceNotificationsTests);
   TDUnitX.RegisterTestFixture(TMockConfigTests);
   TDUnitX.RegisterTestFixture(TNotificationEnumTests);

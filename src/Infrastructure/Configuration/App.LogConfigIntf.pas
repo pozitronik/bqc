@@ -46,7 +46,7 @@ type
   /// Provides structured logging with severity levels and source identification.
   /// </summary>
   ILogger = interface
-    ['{A1B2C3D4-1111-1111-1111-00000000000D}']
+    ['{E9865C1A-BFF5-419E-A47D-5F31FCC7B7F1}']
 
     /// <summary>
     /// Logs a debug message (verbose diagnostics).

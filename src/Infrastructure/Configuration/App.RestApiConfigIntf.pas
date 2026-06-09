@@ -19,7 +19,7 @@ type
   /// Controls the built-in HTTP server for external monitoring.
   /// </summary>
   IRestApiConfig = interface
-    ['{A1B2C3D4-1111-1111-1111-000000000020}']
+    ['{EFF5E6EC-272E-423C-8DF6-F343C5707344}']
     function GetEnabled: Boolean;
     function GetPort: Integer;
     function GetBindAddress: string;
