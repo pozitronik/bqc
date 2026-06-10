@@ -50,15 +50,15 @@ For autostart, enable it in Settings > General > Start with Windows.
 
 Settings are stored in `bqc.ini` next to the executable. Most options are available through the Settings dialog:
 
-| Tab        | Options                                   |
-|------------|-------------------------------------------|
-| General    | Window mode, always on top, autostart     |
-| Hotkey     | Global hotkey, low-level hook mode        |
-| Appearance | Theme, device icons, time format          |
-| Layout     | Font sizes, item dimensions, colors       |
-| Connection | Timeout, retry behavior, Bluetooth platform (Auto/Classic/WinRT) |
-| Logging    | Enable logging, log level                 |
-| Devices    | Per-device auto-connect and notifications |
+| Tab        | Options                                                            |
+|------------|--------------------------------------------------------------------|
+| General    | Window mode, positioning, window scaling, always on top, autostart |
+| Hotkey     | Global hotkey, low-level hook mode                                 |
+| Appearance | Theme, device icons, time format                                   |
+| Layout     | Font sizes, item dimensions, colors                                |
+| Connection | Timeout, retry behavior, Bluetooth platform (Auto/Classic/WinRT)   |
+| Logging    | Enable logging, log level                                          |
+| Devices    | Per-device auto-connect and notifications                          |
 
 ## Building from Source
 
