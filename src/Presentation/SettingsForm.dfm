@@ -158,7 +158,7 @@ object FormSettings: TFormSettings
         Left = 0
         Top = 165
         Width = 613
-        Height = 95
+        Height = 120
         Align = alTop
         Caption = 'Positioning:'
         TabOrder = 1
@@ -209,22 +209,22 @@ object FormSettings: TFormSettings
           Caption = 'Always on top'
           TabOrder = 3
         end
+        object CheckFixedDpi: TCheckBox
+          Left = 12
+          Top = 88
+          Width = 360
+          Height = 17
+          Caption = 'Fixed window scaling (disable per-monitor resize)'
+          TabOrder = 4
+        end
       end
       object CheckAutostart: TCheckBox
         Left = 10
-        Top = 266
+        Top = 292
         Width = 136
         Height = 21
         Caption = 'Start with Windows'
         TabOrder = 2
-      end
-      object CheckFixedDpi: TCheckBox
-        Left = 10
-        Top = 292
-        Width = 360
-        Height = 17
-        Caption = 'Fixed window scaling (disable per-monitor resize)'
-        TabOrder = 3
       end
     end
     object TabAppearance: TTabSheet
