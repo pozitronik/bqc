@@ -12,6 +12,7 @@ interface
 uses
   DUnitX.TestFramework,
   System.SysUtils,
+  System.Generics.Collections,
   System.JSON,
   Bluetooth.Types,
   App.DeviceDisplayTypes,
