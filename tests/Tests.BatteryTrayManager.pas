@@ -12,6 +12,7 @@ interface
 uses
   DUnitX.TestFramework,
   Winapi.Windows,
+  Winapi.Messages,
   Vcl.Graphics,
   System.SysUtils,
   App.ConfigInterfaces,
@@ -35,9 +36,14 @@ type
     FLastNotificationAddress: UInt64;
     FLastNotificationLevel: Integer;
     FLastNotificationIsLow: Boolean;
+    FClickCount: Integer;
+    FLastClickAddress: UInt64;
 
     procedure HandleBatteryNotification(Sender: TObject; AAddress: UInt64;
       const ADeviceName: string; ALevel: Integer; AIsLowBattery: Boolean);
+    procedure HandleDeviceClick(Sender: TObject; AAddress: UInt64);
+    /// <summary>Packs an icon uID and event code into a version-4 callback lParam.</summary>
+    function MakeCallbackLParam(AIconId: Word; AEvent: Word): LPARAM;
   public
     [Setup]
     procedure Setup;
@@ -91,6 +97,32 @@ type
     { Notification Event Tests }
     [Test]
     procedure OnBatteryNotification_CanBeAssigned;
+
+    { Tray Click Tests }
+    [Test]
+    procedure OnDeviceClick_CanBeAssigned;
+    [Test]
+    procedure DecodeTrayCallback_ExtractsEventAndIconId;
+    [Test]
+    procedure DecodeTrayCallback_MaxIconId_ExtractsHighWord;
+    [Test]
+    procedure IsTrayActivationEvent_LeftClickSelect_ReturnsTrue;
+    [Test]
+    procedure IsTrayActivationEvent_KeyboardSelect_ReturnsTrue;
+    [Test]
+    procedure IsTrayActivationEvent_LegacyButtonUp_ReturnsTrue;
+    [Test]
+    procedure IsTrayActivationEvent_HoverMove_ReturnsFalse;
+    [Test]
+    procedure IsTrayActivationEvent_RightClick_ReturnsFalse;
+    [Test]
+    procedure IsTrayActivationEvent_ContextMenu_ReturnsFalse;
+    [Test]
+    procedure HandleTrayCallback_NonActivationEvent_DoesNotFire;
+    [Test]
+    procedure HandleTrayCallback_UnknownIcon_DoesNotFire;
+    [Test]
+    procedure HandleTrayCallback_NoHandlerAssigned_NoError;
 
     { ShouldShowTrayIcon Logic Tests }
     [Test]
@@ -148,6 +180,8 @@ begin
   FLastNotificationAddress := 0;
   FLastNotificationLevel := 0;
   FLastNotificationIsLow := False;
+  FClickCount := 0;
+  FLastClickAddress := 0;
 end;
 
 procedure TBatteryTrayManagerTests.TearDown;
@@ -164,6 +198,20 @@ begin
   FLastNotificationAddress := AAddress;
   FLastNotificationLevel := ALevel;
   FLastNotificationIsLow := AIsLowBattery;
+end;
+
+procedure TBatteryTrayManagerTests.HandleDeviceClick(Sender: TObject;
+  AAddress: UInt64);
+begin
+  Inc(FClickCount);
+  FLastClickAddress := AAddress;
+end;
+
+function TBatteryTrayManagerTests.MakeCallbackLParam(AIconId: Word;
+  AEvent: Word): LPARAM;
+begin
+  // Version-4 layout: event in the low word, icon uID in the high word.
+  Result := LPARAM((DWORD(AIconId) shl 16) or DWORD(AEvent));
 end;
 
 procedure TBatteryTrayManagerTests.Create_WithValidParams_CreatesInstance;
@@ -290,6 +338,87 @@ procedure TBatteryTrayManagerTests.OnBatteryNotification_CanBeAssigned;
 begin
   FManager.OnBatteryNotification := HandleBatteryNotification;
   Assert.IsTrue(Assigned(FManager.OnBatteryNotification));
+end;
+
+procedure TBatteryTrayManagerTests.OnDeviceClick_CanBeAssigned;
+begin
+  FManager.OnDeviceClick := HandleDeviceClick;
+  Assert.IsTrue(Assigned(FManager.OnDeviceClick));
+end;
+
+procedure TBatteryTrayManagerTests.DecodeTrayCallback_ExtractsEventAndIconId;
+var
+  Event, IconId: Word;
+begin
+  // uID 1234 with a left-click selection event must round-trip out of lParam.
+  DecodeTrayCallback(MakeCallbackLParam(1234, NIN_SELECT), Event, IconId);
+  Assert.AreEqual(Word(NIN_SELECT), Event, 'Event must come from the low word');
+  Assert.AreEqual(Word(1234), IconId, 'Icon uID must come from the high word');
+end;
+
+procedure TBatteryTrayManagerTests.DecodeTrayCallback_MaxIconId_ExtractsHighWord;
+var
+  Event, IconId: Word;
+begin
+  // Guards against truncation/sign issues at the top of the 16-bit uID range.
+  DecodeTrayCallback(MakeCallbackLParam($FFFF, WM_LBUTTONUP), Event, IconId);
+  Assert.AreEqual(Word($FFFF), IconId);
+  Assert.AreEqual(Word(WM_LBUTTONUP), Event);
+end;
+
+procedure TBatteryTrayManagerTests.IsTrayActivationEvent_LeftClickSelect_ReturnsTrue;
+begin
+  Assert.IsTrue(IsTrayActivationEvent(NIN_SELECT));
+end;
+
+procedure TBatteryTrayManagerTests.IsTrayActivationEvent_KeyboardSelect_ReturnsTrue;
+begin
+  Assert.IsTrue(IsTrayActivationEvent(NIN_KEYSELECT));
+end;
+
+procedure TBatteryTrayManagerTests.IsTrayActivationEvent_LegacyButtonUp_ReturnsTrue;
+begin
+  Assert.IsTrue(IsTrayActivationEvent(WM_LBUTTONUP));
+end;
+
+procedure TBatteryTrayManagerTests.IsTrayActivationEvent_HoverMove_ReturnsFalse;
+begin
+  Assert.IsFalse(IsTrayActivationEvent(WM_MOUSEMOVE));
+end;
+
+procedure TBatteryTrayManagerTests.IsTrayActivationEvent_RightClick_ReturnsFalse;
+begin
+  Assert.IsFalse(IsTrayActivationEvent(WM_RBUTTONUP));
+end;
+
+procedure TBatteryTrayManagerTests.IsTrayActivationEvent_ContextMenu_ReturnsFalse;
+begin
+  // Version-4 right-click delivers WM_CONTEXTMENU; it must not open settings.
+  Assert.IsFalse(IsTrayActivationEvent(WM_CONTEXTMENU));
+end;
+
+procedure TBatteryTrayManagerTests.HandleTrayCallback_NonActivationEvent_DoesNotFire;
+begin
+  FManager.OnDeviceClick := HandleDeviceClick;
+  // A hover over the icon must never be treated as a click.
+  FManager.HandleTrayCallback(0, MakeCallbackLParam(1000, WM_MOUSEMOVE));
+  Assert.AreEqual(0, FClickCount, 'Hover must not raise OnDeviceClick');
+end;
+
+procedure TBatteryTrayManagerTests.HandleTrayCallback_UnknownIcon_DoesNotFire;
+begin
+  FManager.OnDeviceClick := HandleDeviceClick;
+  // No icons are registered (Shell calls are skipped without a real window), so
+  // every uID is unknown and the callback must resolve to nothing.
+  FManager.HandleTrayCallback(0, MakeCallbackLParam(1000, NIN_SELECT));
+  Assert.AreEqual(0, FClickCount, 'Unknown icon must not raise OnDeviceClick');
+end;
+
+procedure TBatteryTrayManagerTests.HandleTrayCallback_NoHandlerAssigned_NoError;
+begin
+  // No OnDeviceClick handler - a selection callback must be a safe no-op.
+  FManager.HandleTrayCallback(0, MakeCallbackLParam(1000, NIN_SELECT));
+  Assert.Pass('HandleTrayCallback without a handler completed without error');
 end;
 
 procedure TBatteryTrayManagerTests.ShouldShowTrayIcon_GlobalDisabled_ReturnsFalse;

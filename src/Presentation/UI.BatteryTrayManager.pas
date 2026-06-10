@@ -49,6 +49,14 @@ const
   NOTIFYICON_VERSION_4 = 4;
   NIF_SHOWTIP = $00000080;
 
+  /// <summary>
+  /// Version-4 callback events signalling the user activated an icon with a
+  /// single left-click (NIN_SELECT) or keyboard (NIN_KEYSELECT). Declared
+  /// locally because older Winapi.ShellAPI headers omit them.
+  /// </summary>
+  NIN_SELECT = WM_USER;
+  NIN_KEYSELECT = NIN_SELECT or $0001;
+
 type
   /// <summary>
   /// Notification state for a device to prevent repeated notifications.
@@ -121,6 +129,12 @@ type
       const ADeviceName: string);
     procedure CheckBatteryNotifications(AAddress: UInt64; ALevel: Integer;
       const ADeviceName: string);
+    /// <summary>
+    /// Resolves the device address that owns the tray icon carrying the given
+    /// uID (matched on the low 16 bits, the width the shell echoes back in
+    /// version-4 callbacks).
+    /// </summary>
+    function FindAddressByIconId(AIconId: Word; out AAddress: UInt64): Boolean;
   public
     constructor Create(AOwnerHandle: HWND; AConfig: IBatteryTrayConfig;
       ADeviceConfigProvider: IDeviceConfigProvider);
@@ -154,6 +168,15 @@ type
     procedure RefreshAll;
 
     /// <summary>
+    /// Routes a WM_BATTERYTRAY_CALLBACK window message. On a left-click
+    /// selection it fires OnDeviceClick for the device that owns the icon;
+    /// other events (hover, right-click, balloon) are ignored.
+    /// </summary>
+    /// <param name="AWParam">wParam: cursor anchor coordinates (unused).</param>
+    /// <param name="ALParam">lParam: low word event code, high word icon uID.</param>
+    procedure HandleTrayCallback(AWParam: WPARAM; ALParam: LPARAM);
+
+    /// <summary>
     /// Enables or disables the battery tray icons.
     /// </summary>
     property Enabled: Boolean read FEnabled write FEnabled;
@@ -175,10 +198,35 @@ const
   LOW_BATTERY_RESET_MARGIN = 5;  // Reset low battery flag when level rises above threshold + 5%
   FULLY_CHARGED_RESET_LEVEL = 95; // Reset fully charged flag when level drops below 95%
 
+/// <summary>
+/// Decodes a NOTIFYICON_VERSION_4 callback's lParam into the event code (low
+/// word) and the originating icon's uID (high word).
+/// </summary>
+procedure DecodeTrayCallback(ALParam: LPARAM; out AEvent: Word; out AIconId: Word);
+
+/// <summary>
+/// True when a decoded tray event means the user activated the icon - a single
+/// left-click (NIN_SELECT), keyboard selection (NIN_KEYSELECT) or a legacy
+/// WM_LBUTTONUP fallback - and settings should open.
+/// </summary>
+function IsTrayActivationEvent(AEvent: Word): Boolean;
+
 implementation
 
 uses
   App.Logger;
+
+procedure DecodeTrayCallback(ALParam: LPARAM; out AEvent: Word; out AIconId: Word);
+begin
+  AEvent := LOWORD(DWORD(ALParam));
+  AIconId := HIWORD(DWORD(ALParam));
+end;
+
+function IsTrayActivationEvent(AEvent: Word): Boolean;
+begin
+  Result := (AEvent = NIN_SELECT) or (AEvent = NIN_KEYSELECT) or
+            (AEvent = WM_LBUTTONUP);
+end;
 
 { TBatteryTrayManager }
 
@@ -210,6 +258,44 @@ function TBatteryTrayManager.GetNextIconId: Cardinal;
 begin
   Result := FNextIconId;
   Inc(FNextIconId);
+end;
+
+function TBatteryTrayManager.FindAddressByIconId(AIconId: Word;
+  out AAddress: UInt64): Boolean;
+var
+  Pair: TPair<UInt64, TNotifyIconData>;
+begin
+  for Pair in FDeviceIcons do
+    if (Pair.Value.uID and $FFFF) = AIconId then
+    begin
+      AAddress := Pair.Key;
+      Exit(True);
+    end;
+  AAddress := 0;
+  Result := False;
+end;
+
+procedure TBatteryTrayManager.HandleTrayCallback(AWParam: WPARAM;
+  ALParam: LPARAM);
+var
+  Event: Word;
+  IconId: Word;
+  Address: UInt64;
+begin
+  // wParam carries the cursor anchor (unused); lParam encodes the event and the
+  // originating icon uID per NOTIFYICON_VERSION_4.
+  DecodeTrayCallback(ALParam, Event, IconId);
+
+  // Only a left-click/keyboard selection opens settings; hovers, right-clicks
+  // and balloon events are intentionally ignored (no context menu is offered).
+  if not IsTrayActivationEvent(Event) then
+    Exit;
+
+  if not Assigned(FOnDeviceClick) then
+    Exit;
+
+  if FindAddressByIconId(IconId, Address) then
+    FOnDeviceClick(Self, Address);
 end;
 
 function TBatteryTrayManager.IconCacheMatches(const ACached, ANew: TIconCacheEntry): Boolean;

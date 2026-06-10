@@ -167,6 +167,7 @@ type
     procedure HandleSettingsApplied(Sender: TObject);
     procedure HandleBatteryNotification(Sender: TObject; AAddress: UInt64;
       const ADeviceName: string; ALevel: Integer; AIsLowBattery: Boolean);
+    procedure HandleBatteryTrayDeviceClick(Sender: TObject; AAddress: UInt64);
 
     { Battery tray helpers }
     procedure UpdateBatteryTrayForItem(const AItem: TDeviceDisplayItem);
@@ -216,6 +217,7 @@ type
     procedure WMHotkeyDetected(var Msg: TMessage); message WM_HOTKEY_DETECTED;
     procedure WMDpiChanged(var Msg: TMessage); message WM_DPICHANGED;
     procedure WMDisplayChange(var Msg: TMessage); message WM_DISPLAYCHANGE;
+    procedure WMBatteryTrayCallback(var Msg: TMessage); message WM_BATTERYTRAY_CALLBACK;
 
   public
     { Dependency injection - must be called before FormCreate completes }
@@ -763,6 +765,7 @@ begin
     FDeviceConfigProvider
   );
   FBatteryTrayManager.OnBatteryNotification := HandleBatteryNotification;
+  FBatteryTrayManager.OnDeviceClick := HandleBatteryTrayDeviceClick;
 
   // Apply configuration to device list
   FDeviceList.ShowAddresses := FAppearanceConfig.ShowAddresses;
@@ -1035,6 +1038,22 @@ procedure TFormMain.HandleConfigureDevice(Sender: TObject; AAddress: UInt64);
 begin
   // Open settings dialog directly (view-to-view communication)
   ShowSettingsDialogForDevice(AAddress);
+end;
+
+procedure TFormMain.HandleBatteryTrayDeviceClick(Sender: TObject;
+  AAddress: UInt64);
+begin
+  // Clicking a device's battery tray icon jumps straight to its settings
+  LogInfo('Battery tray icon clicked for device $%.12X', [AAddress], ClassName);
+  ShowSettingsDialogForDevice(AAddress);
+end;
+
+procedure TFormMain.WMBatteryTrayCallback(var Msg: TMessage);
+begin
+  // Battery tray icons share one callback message; the manager decodes which
+  // icon was clicked and raises OnDeviceClick.
+  if FBatteryTrayManager <> nil then
+    FBatteryTrayManager.HandleTrayCallback(Msg.WParam, Msg.LParam);
 end;
 
 procedure TFormMain.HandleUnpairDevice(Sender: TObject; AAddress: UInt64);
